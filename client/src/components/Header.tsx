@@ -27,9 +27,9 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+      <div className="flex h-16 items-center justify-end px-4 lg:px-6">
         {/* Search */}
-        <div className="flex-1 max-w-md">
+        {/* <div className="flex-1 max-w-md">
           <div className="relative">
             <Input
               placeholder="Search projects or tasks..."
@@ -39,7 +39,7 @@ export function Header() {
             />
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           </div>
-        </div>
+        </div> */}
 
         {/* Right side actions */}
         <div className="flex items-center gap-2">

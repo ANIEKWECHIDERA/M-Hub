@@ -15,19 +15,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Define the interface for navigation items
 interface NavItem {
   name: string;
   to: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
-// Define the interface for SidebarContent props
 interface SidebarContentProps {
   mobile?: boolean;
 }
 
-// Define the navigation array with type annotation
 const navigation: NavItem[] = [
   { name: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", to: "/projects", icon: FolderOpen },
@@ -37,24 +34,53 @@ const navigation: NavItem[] = [
   { name: "Settings", to: "/settings", icon: Settings },
 ];
 
-export function Sidebar() {
-  const pathname = useLocation().pathname;
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarProps {
+  onCollapseChange?: (collapsed: boolean) => void;
+}
 
-  // Define SidebarContent with typed props
+export function Sidebar({ onCollapseChange }: SidebarProps) {
+  const pathname = useLocation().pathname;
+  const [collapsed, setCollapsed] = useState(true);
+  const [hovered, setHovered] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isExpanded = !collapsed || hovered;
+
+  const toggleCollapse = () => {
+    const newState = !collapsed;
+    setCollapsed(newState);
+    onCollapseChange?.(newState);
+  };
+
+  const handleNavClick = () => {
+    // Expand permanently when clicking a nav item
+    if (collapsed) {
+      setCollapsed(false);
+      onCollapseChange?.(false);
+    }
+    if (mobileOpen) {
+      setMobileOpen(false);
+    }
+  };
+
   const SidebarContent = ({ mobile = false }: SidebarContentProps) => (
-    <div className={cn("flex flex-col h-full", mobile ? "w-full" : "w-64")}>
+    <div
+      className={cn(
+        "flex flex-col h-full transition-all duration-300",
+        mobile ? "w-full" : isExpanded ? "w-64" : "w-16"
+      )}
+    >
       <div className="flex items-center justify-between p-4 border-b">
         <div
           className={cn(
             "flex items-center gap-2",
-            collapsed && !mobile && "justify-center"
+            isExpanded ? "justify-start" : "justify-center"
           )}
         >
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-lg">M</span>
           </div>
-          {(!collapsed || mobile) && (
+          {(isExpanded || mobile) && (
             <span className="font-bold text-xl">M-Hub</span>
           )}
         </div>
@@ -62,11 +88,11 @@ export function Sidebar() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={toggleCollapse}
             className="p-1"
           >
             {collapsed ? (
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 hidden" />
             ) : (
               <ChevronLeft className="h-4 w-4" />
             )}
@@ -74,22 +100,25 @@ export function Sidebar() {
         )}
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4">
         {navigation.map((item) => {
           const isActive =
             pathname === item.to ||
             (item.to !== "/dashboard" && pathname.startsWith(item.to + "/"));
+
           return (
-            <Link key={item.name} to={item.to}>
+            <Link key={item.name} to={item.to} onClick={handleNavClick}>
               <Button
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
-                  "w-full justify-start gap-3",
-                  collapsed && !mobile && "justify-center px-2"
+                  "w-full flex items-center transition-all duration-200",
+                  isExpanded
+                    ? "justify-start gap-3 h-10 py-2 mb-3"
+                    : "justify-center w-10 h-10 mb-3"
                 )}
               >
                 <item.icon className="h-5 w-5" />
-                {(!collapsed || mobile) && <span>{item.name}</span>}
+                {(isExpanded || mobile) && <span>{item.name}</span>}
               </Button>
             </Link>
           );
@@ -103,15 +132,17 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <div
         className={cn(
-          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-50 lg:bg-background lg:border-r transition-all duration-300",
-          collapsed ? "lg:w-16" : "lg:w-64"
+          "fixed inset-y-0 z-50 bg-background border-r hidden lg:flex flex-col transition-all duration-300",
+          isExpanded ? "lg:w-64" : "lg:w-16"
         )}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
         <SidebarContent />
       </div>
 
       {/* Mobile Sidebar */}
-      <Sheet>
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger asChild>
           <Button
             variant="ghost"
