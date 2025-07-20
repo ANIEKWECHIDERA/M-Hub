@@ -1,13 +1,25 @@
-import { Header } from "./components/Header";
-import { Sidebar } from "./components/SideBar";
+import { Routes, Route } from "react-router-dom";
+import Layout from "./Layout";
+import Dashboard from "./pages/DashBoard";
+import Projects from "./pages/Projects";
+import Chat from "./pages/Chat";
+import Notepad from "./pages/Notepad";
+import Tools from "./pages/Tools";
+import Settings from "./pages/Settings";
 
-const App = () => {
+function App() {
   return (
-    <div>
-      <Header />
-      <Sidebar />
-    </div>
+    <Routes>
+      <Route path="/" element={<Layout />}>
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="projects" element={<Projects />} />
+        <Route path="chat" element={<Chat />} />
+        <Route path="notepad" element={<Notepad />} />
+        <Route path="tools" element={<Tools />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+    </Routes>
   );
-};
+}
 
 export default App;
