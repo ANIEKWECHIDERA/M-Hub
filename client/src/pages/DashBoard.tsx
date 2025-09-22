@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, Users, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const { projects, loading, error } = useProjects();
@@ -179,9 +180,11 @@ export default function Dashboard() {
                     {project.team.length} members
                   </span>
                 </div>
-                <Button variant="outline" size="sm">
-                  View Details
-                </Button>
+                <Link to={`/projectdetails/${project.id}`}>
+                  <Button variant="outline" size="sm" onClick={() => {}}>
+                    View Details
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
