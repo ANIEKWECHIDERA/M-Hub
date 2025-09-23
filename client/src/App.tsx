@@ -6,7 +6,7 @@ import Chat from "./pages/Chat";
 import Notepad from "./pages/Notepad";
 import Tools from "./pages/Tools";
 import Settings from "./pages/Settings";
-import ProjectDetail from "./pages/ProjetDetail";
+import ProjectDetail from "./pages/ProjectDetail";
 
 function App() {
   return (

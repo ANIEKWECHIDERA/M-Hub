@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useProjects } from "../hooks/useProjects";
+import { useProjectContext } from "@/context/ProjectContext";
 import { useFilteredProjects } from "../hooks/useFilteredProjects";
 import { useProjectStats } from "../hooks/useProjectStats";
 import { useClients } from "../hooks/useClients";
@@ -18,7 +18,7 @@ import { Calendar, Users, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Dashboard() {
-  const { projects, loading, error } = useProjects();
+  const { projects, loading, error } = useProjectContext();
   const clients = useClients(projects);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [clientFilter, setClientFilter] = useState<string>("all");

@@ -4,8 +4,8 @@ import type { Project } from "../Types/types";
 const mockProjects: Project[] = [
   {
     id: 1,
-    title: "Brand Redesign for TechCorp",
-    client: "TechCorp Inc.",
+    title: "Brand Redesign for LexCorp",
+    client: "LexCorp Inc.",
     status: "In Progress",
     progress: 65,
     deadline: "2024-02-15",
@@ -133,7 +133,7 @@ export function useProjects() {
   // 🛠 Update project
   const updateProject = async (id: number, data: Partial<Project>) => {
     setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...data } : p))
+      prev.map((proj) => (proj.id === id ? { ...proj, ...data } : proj))
     );
     // TODO: PATCH/PUT to API (e.g., Firebase Firestore)
     // Example:
@@ -148,7 +148,7 @@ export function useProjects() {
 
   // ❌ Delete project
   const deleteProject = async (id: number) => {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setProjects((prev) => prev.filter((proj) => proj.id !== id));
     // TODO: DELETE from API (e.g., Firebase Firestore)
     // Example:
     // import { doc, deleteDoc } from 'firebase/firestore';

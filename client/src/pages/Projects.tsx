@@ -1,5 +1,4 @@
-import type React from "react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,153 +28,171 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
+import { useProjectContext } from "@/context/ProjectContext";
+import { Link } from "react-router-dom";
+import type { Project } from "../Types/types";
 
-const mockProjects = [
-  {
-    id: 1,
-    title: "Brand Redesign for TechCorp",
-    client: "TechCorp Inc.",
-    status: "In Progress",
-    deadline: "2024-02-15",
-    description:
-      "Complete brand overhaul including logo, colors, and guidelines",
-  },
-  {
-    id: 2,
-    title: "Website Development",
-    client: "StartupXYZ",
-    status: "Active",
-    deadline: "2024-03-01",
-    description: "Modern responsive website with e-commerce functionality",
-  },
-  {
-    id: 3,
-    title: "Marketing Campaign",
-    client: "RetailCo",
-    status: "Completed",
-    deadline: "2024-01-20",
-    description: "Multi-channel marketing campaign for product launch",
-  },
-];
+interface ProjectFormProps {
+  project?: Partial<Project>;
+  onSave: (data: Partial<Project>) => void;
+  onCancel: () => void;
+}
 
-export default function Projects() {
-  const [projects, setProjects] = useState(mockProjects);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<any>(null);
+const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
+  const [formData, setFormData] = useState({
+    title: project.title || "",
+    client: project.client || "",
+    status: project.status || "Active",
+    deadline: project.deadline || "",
+    description: project.description || "",
+  });
+  const [newClient, setNewClient] = useState("");
+  const [showNewClientInput, setShowNewClientInput] = useState(false);
 
-  const filteredProjects = projects.filter(
-    (project) =>
-      project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.client.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const ProjectForm = ({ project, onSave, onCancel }: any) => {
-    const [formData, setFormData] = useState({
-      title: project?.title || "",
-      client: project?.client || "",
-      status: project?.status || "Active",
-      deadline: project?.deadline || "",
-      description: project?.description || "",
-    });
-
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      onSave(formData);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalData = {
+      ...formData,
+      client: showNewClientInput && newClient ? newClient : formData.client,
     };
+    // TODO: Validate form data before saving (e.g., title and deadline required)
+    onSave(finalData);
+  };
 
-    return (
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="title">Project Title</Label>
+  const clients = ["TechCorp Inc.", "StartupXYZ", "RetailCo"];
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="title">Project Title</Label>
+        <Input
+          id="title"
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          placeholder="Enter project title"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="client">Client</Label>
+        {showNewClientInput ? (
           <Input
-            id="title"
-            value={formData.title}
-            onChange={(e) =>
-              setFormData({ ...formData, title: e.target.value })
-            }
-            placeholder="Enter project title"
+            id="new-client"
+            value={newClient}
+            onChange={(e) => setNewClient(e.target.value)}
+            placeholder="Enter new client name"
             required
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="client">Client</Label>
+        ) : (
           <Select
             value={formData.client}
-            onValueChange={(value) =>
-              setFormData({ ...formData, client: value })
-            }
+            onValueChange={(value) => {
+              if (value === "NewClient") {
+                setShowNewClientInput(true);
+              } else {
+                setFormData({ ...formData, client: value });
+                setShowNewClientInput(false);
+              }
+            }}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="TechCorp Inc.">TechCorp Inc.</SelectItem>
-              <SelectItem value="StartupXYZ">StartupXYZ</SelectItem>
-              <SelectItem value="RetailCo">RetailCo</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client} value={client}>
+                  {client}
+                </SelectItem>
+              ))}
               <SelectItem value="NewClient">+ Add New Client</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        )}
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="status">Status</Label>
-          <Select
-            value={formData.status}
-            onValueChange={(value) =>
-              setFormData({ ...formData, status: value })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="In Progress">In Progress</SelectItem>
-              <SelectItem value="On Hold">On Hold</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="status">Status</Label>
+        <Select
+          value={formData.status}
+          onValueChange={(value) => setFormData({ ...formData, status: value })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="In Progress">In Progress</SelectItem>
+            <SelectItem value="On Hold">On Hold</SelectItem>
+            <SelectItem value="Completed">Completed</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="deadline">Deadline</Label>
-          <Input
-            id="deadline"
-            type="date"
-            value={formData.deadline}
-            onChange={(e) =>
-              setFormData({ ...formData, deadline: e.target.value })
-            }
-            required
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="deadline">Deadline</Label>
+        <Input
+          id="deadline"
+          type="date"
+          value={formData.deadline}
+          onChange={(e) =>
+            setFormData({ ...formData, deadline: e.target.value })
+          }
+          required
+        />
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
-          <Textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) =>
-              setFormData({ ...formData, description: e.target.value })
-            }
-            placeholder="Project description..."
-            rows={3}
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
+          placeholder="Project description..."
+          rows={3}
+        />
+      </div>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit">
-            {project ? "Update Project" : "Create Project"}
-          </Button>
-        </div>
-      </form>
-    );
-  };
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit">
+          {project.id ? "Update Project" : "Create Project"}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+export default function Projects() {
+  const {
+    projects,
+    loading,
+    error,
+    addProject,
+    updateProject,
+    deleteProject,
+    setCurrentProject,
+  } = useProjectContext();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+
+  const filteredProjects = useMemo(
+    () =>
+      projects.filter(
+        (project) =>
+          project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          project.client.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [projects, searchTerm]
+  );
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="space-y-6">
@@ -197,12 +214,19 @@ export default function Projects() {
               <DialogTitle>Create New Project</DialogTitle>
             </DialogHeader>
             <ProjectForm
-              onSave={(data: any) => {
-                const newProject = {
+              onSave={async (data) => {
+                const newProject: Project = {
                   id: projects.length + 1,
-                  ...data,
+                  title: data.title || "",
+                  client: data.client || "",
+                  status: data.status || "Active",
+                  deadline: data.deadline || "",
+                  description: data.description || "",
+                  progress: 0,
+                  tasks: { total: 0, completed: 0 },
+                  team: [],
                 };
-                setProjects([...projects, newProject]);
+                await addProject(newProject);
                 setIsCreateOpen(false);
               }}
               onCancel={() => setIsCreateOpen(false)}
@@ -241,7 +265,7 @@ export default function Projects() {
               </TableHeader>
               <TableBody>
                 {filteredProjects.map((project) => (
-                  <TableRow key={project.id}>
+                  <TableRow key={project.id} className="hover:bg-muted/50">
                     <TableCell>
                       <div>
                         <div className="font-medium">{project.title}</div>
@@ -269,36 +293,30 @@ export default function Projects() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
+                        <Link to={`/projects/${project.id}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`View details for ${project.title}`}
+                            onClick={() => setCurrentProject(project)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Edit ${project.title}`}
+                          onClick={() => setEditingProjectId(project.id)}
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-[500px]">
-                            <DialogHeader>
-                              <DialogTitle>Edit Project</DialogTitle>
-                            </DialogHeader>
-                            <ProjectForm
-                              project={project}
-                              onSave={(data: any) => {
-                                setProjects(
-                                  projects.map((p) =>
-                                    p.id === project.id ? { ...p, ...data } : p
-                                  )
-                                );
-                              }}
-                              onCancel={() => {}}
-                            />
-                          </DialogContent>
-                        </Dialog>
                         <Button
                           variant="ghost"
                           size="sm"
                           className="text-red-500 hover:text-red-700"
+                          aria-label={`Delete ${project.title}`}
+                          onClick={() => deleteProject(project.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -311,6 +329,28 @@ export default function Projects() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Single Edit Dialog */}
+      <Dialog
+        open={!!editingProjectId}
+        onOpenChange={() => setEditingProjectId(null)}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          <ProjectForm
+            project={projects.find((p) => p.id === editingProjectId)}
+            onSave={async (data) => {
+              if (editingProjectId) {
+                await updateProject(editingProjectId, data);
+                setEditingProjectId(null);
+              }
+            }}
+            onCancel={() => setEditingProjectId(null)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
