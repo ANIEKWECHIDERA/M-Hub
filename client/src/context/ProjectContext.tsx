@@ -28,6 +28,11 @@ export const ProjectContextProvider = ({
     addProject,
     updateProject,
     deleteProject,
+    confirmDelete,
+    projectToDelete,
+    setProjectToDelete,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
   } = useProjects();
 
   const value = {
@@ -41,6 +46,11 @@ export const ProjectContextProvider = ({
     addProject,
     updateProject,
     deleteProject,
+    confirmDelete,
+    projectToDelete,
+    setProjectToDelete,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
   };
 
   return (

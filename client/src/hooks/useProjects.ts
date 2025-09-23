@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Project } from "../Types/types";
+import { toast } from "sonner";
 
 const mockProjects: Project[] = [
   {
@@ -88,6 +89,8 @@ export function useProjects() {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // 🔄 Fetch projects from API or mock on mount
   const fetchProjects = async () => {
@@ -119,6 +122,7 @@ export function useProjects() {
   // ➕ Add project
   const addProject = async (project: Project) => {
     setProjects((prev) => [...prev, project]);
+    toast.success("Project added successfully!");
     // TODO: POST to API (e.g., Firebase Firestore)
     // Example:
     // import { collection, addDoc } from 'firebase/firestore';
@@ -135,6 +139,7 @@ export function useProjects() {
     setProjects((prev) =>
       prev.map((proj) => (proj.id === id ? { ...proj, ...data } : proj))
     );
+    toast.success("Project updated successfully!");
     // TODO: PATCH/PUT to API (e.g., Firebase Firestore)
     // Example:
     // import { doc, updateDoc } from 'firebase/firestore';
@@ -149,6 +154,7 @@ export function useProjects() {
   // ❌ Delete project
   const deleteProject = async (id: number) => {
     setProjects((prev) => prev.filter((proj) => proj.id !== id));
+    toast.success("Project deleted successfully!");
     // TODO: DELETE from API (e.g., Firebase Firestore)
     // Example:
     // import { doc, deleteDoc } from 'firebase/firestore';
@@ -158,6 +164,14 @@ export function useProjects() {
     // } catch (err) {
     //   console.error('Failed to delete project:', err);
     // }
+  };
+
+  const confirmDelete = () => {
+    if (projectToDelete) {
+      deleteProject(projectToDelete.id);
+      setProjectToDelete(null);
+      setIsDeleteDialogOpen(false);
+    }
   };
 
   return {
@@ -171,5 +185,10 @@ export function useProjects() {
     addProject,
     updateProject,
     deleteProject,
+    confirmDelete,
+    projectToDelete,
+    setProjectToDelete,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
   };
 }

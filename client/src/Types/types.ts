@@ -13,7 +13,32 @@ export interface Project {
   team: TeamMember[];
 }
 
-// TeamContextTypes
+export interface ProjectContextType {
+  projects: Project[];
+  setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
+  currentProject: Project | null;
+  setCurrentProject: React.Dispatch<React.SetStateAction<Project | null>>;
+  loading: boolean;
+  error: string | null;
+  fetchProjects: () => Promise<void>;
+  addProject: (project: Project) => Promise<void>;
+  updateProject: (id: number, data: Partial<Project>) => Promise<void>;
+  deleteProject: (id: number) => Promise<void>;
+  confirmDelete: () => void;
+  projectToDelete: Project | null;
+  setProjectToDelete: React.Dispatch<React.SetStateAction<Project | null>>;
+  isDeleteDialogOpen: boolean;
+  setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  // Toaster: React.FC;
+}
+
+export interface ProjectFormProps {
+  project?: Partial<Project>;
+  onSave: (data: Partial<Project>) => void;
+  onCancel: () => void;
+}
+
+//////////////// TeamContextTypes ////////////////
 
 export interface TeamMember {
   id: number;
@@ -37,6 +62,7 @@ export interface TeamContextType {
   error: string | null;
 }
 
+//////////////// TaskContextTypes ////////////////
 export interface Task {
   id: number;
   title: string;
@@ -48,7 +74,22 @@ export interface Task {
   completed?: number;
 }
 
-// AssetContextTypes
+export interface TaskContextType {
+  tasks: Task[];
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  currentTask: Task | null;
+  setCurrentTask: React.Dispatch<React.SetStateAction<Task | null>>;
+
+  fetchTasks: () => Promise<void>;
+  addTask: (task: Task) => Promise<void>;
+  updateTask: (id: number, data: Partial<Task>) => Promise<void>;
+  deleteTask: (id: number) => Promise<void>;
+
+  loading: boolean;
+  error: string | null;
+}
+
+/////////////////// AssetContextTypes ///////////////
 export interface File {
   id: number;
   name: string;
@@ -72,7 +113,7 @@ export interface AssetContextType {
   error: string | null;
 }
 
-// CommentContextTypes
+//////////////// CommentContextTypes //////////////
 export interface Comment {
   id: number;
   author: string;
@@ -100,18 +141,7 @@ export interface CommentContextType {
   error: string | null;
 }
 
-export interface ProjectContextType {
-  projects: Project[];
-  setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
-  currentProject: Project | null;
-  setCurrentProject: React.Dispatch<React.SetStateAction<Project | null>>;
-  loading: boolean;
-  error: string | null;
-  fetchProjects: () => Promise<void>;
-  addProject: (project: Project) => Promise<void>;
-  updateProject: (id: number, data: Partial<Project>) => Promise<void>;
-  deleteProject: (id: number) => Promise<void>;
-}
+//////////////// SettingsContextTypes //////////////
 
 export interface Preferences {
   notifications: boolean;
@@ -130,22 +160,7 @@ export interface SettingsContextType {
   setPreferences: React.Dispatch<React.SetStateAction<Preferences>>;
 }
 
-export interface TaskContextType {
-  tasks: Task[];
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-  currentTask: Task | null;
-  setCurrentTask: React.Dispatch<React.SetStateAction<Task | null>>;
-
-  fetchTasks: () => Promise<void>;
-  addTask: (task: Task) => Promise<void>;
-  updateTask: (id: number, data: Partial<Task>) => Promise<void>;
-  deleteTask: (id: number) => Promise<void>;
-
-  loading: boolean;
-  error: string | null;
-}
-
-// NoteTypes
+//////////// NoteTypes //////////////////////
 export interface Note {
   id: number;
   title: string;

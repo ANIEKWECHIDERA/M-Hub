@@ -26,17 +26,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { Toaster } from "@/components/ui/sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
 import { useProjectContext } from "@/context/ProjectContext";
 import { Link } from "react-router-dom";
-import type { Project } from "../Types/types";
-
-interface ProjectFormProps {
-  project?: Partial<Project>;
-  onSave: (data: Partial<Project>) => void;
-  onCancel: () => void;
-}
+import type { Project, ProjectFormProps } from "../Types/types";
 
 const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
   const [formData, setFormData] = useState({
@@ -176,6 +181,11 @@ export default function Projects() {
     updateProject,
     deleteProject,
     setCurrentProject,
+    confirmDelete,
+    projectToDelete,
+    setProjectToDelete,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
   } = useProjectContext();
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -351,6 +361,37 @@ export default function Projects() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <strong>{projectToDelete?.title}</strong>? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <AlertDialogCancel onClick={() => setProjectToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Sonner toaster */}
+      <Toaster position="top-right" />
     </div>
   );
 }
