@@ -33,7 +33,9 @@ export const TaskContextProvider = ({
     deleteTask,
     loading,
     error,
-  } = useTasks(id ?? "");
+    selectedTask,
+    setSelectedTask,
+  } = useTasks(id ? Number(id) : 0);
 
   const value = {
     tasks,
@@ -46,6 +48,8 @@ export const TaskContextProvider = ({
     deleteTask,
     loading,
     error,
+    selectedTask,
+    setSelectedTask,
   };
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;

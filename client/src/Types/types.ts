@@ -65,6 +65,7 @@ export interface TeamContextType {
 //////////////// TaskContextTypes ////////////////
 export interface Task {
   id: number;
+  projectId: number;
   title: string;
   assignee: string;
   status: string;
@@ -81,12 +82,26 @@ export interface TaskContextType {
   setCurrentTask: React.Dispatch<React.SetStateAction<Task | null>>;
 
   fetchTasks: () => Promise<void>;
-  addTask: (task: Task) => Promise<void>;
+  addTask: (projectId: number, task: Partial<Task>) => Promise<void>;
   updateTask: (id: number, data: Partial<Task>) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
 
   loading: boolean;
   error: string | null;
+
+  selectedTask: Task | null;
+  setSelectedTask: React.Dispatch<React.SetStateAction<Task | null>>;
+}
+
+export interface TaskDetailDialogProps {
+  task: Task | null;
+  onClose: () => void;
+}
+
+export interface TaskFormProps {
+  onSave: (data: Partial<Task>) => void;
+  onCancel: () => void;
+  team: Project["team"];
 }
 
 /////////////////// AssetContextTypes ///////////////

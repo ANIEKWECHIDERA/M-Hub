@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -14,14 +13,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Calendar,
@@ -32,165 +23,21 @@ import {
   Download,
   Trash2,
 } from "lucide-react";
-import { useProjects } from "../hooks/useProjects";
-import { useTasks } from "../hooks/useTasks";
-import { useFiles } from "../hooks/useFiles";
 import { useComments } from "../hooks/useComments";
-import type { Project, Task } from "../Types/types";
 import { useParams } from "react-router-dom";
-
-interface TaskFormProps {
-  onSave: (data: Partial<Task>) => void;
-  onCancel: () => void;
-  team: Project["team"];
-}
-
-const TaskForm = ({ onSave, onCancel, team }: TaskFormProps) => {
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    assignee: "",
-    status: "To-Do",
-    dueDate: "",
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="task-title">Task Title</Label>
-        <Input
-          id="task-title"
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          placeholder="Enter task title"
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="task-description">Description</Label>
-        <Textarea
-          id="task-description"
-          value={formData.description}
-          onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value })
-          }
-          placeholder="Task description..."
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="assignee">Assignee</Label>
-        <Select
-          value={formData.assignee}
-          onValueChange={(value) =>
-            setFormData({ ...formData, assignee: value })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select assignee" />
-          </SelectTrigger>
-          <SelectContent>
-            {team.map((member) => (
-              <SelectItem key={member.id} value={member.name}>
-                {member.name} - {member.role}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="due-date">Due Date</Label>
-        <Input
-          id="due-date"
-          type="date"
-          value={formData.dueDate}
-          onChange={(e) =>
-            setFormData({ ...formData, dueDate: e.target.value })
-          }
-          required
-        />
-      </div>
-
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit">Create Task</Button>
-      </div>
-    </form>
-  );
-};
-
-interface TaskDetailDialogProps {
-  task: Task | null;
-  onClose: () => void;
-}
-
-const TaskDetailDialog = ({ task, onClose }: TaskDetailDialogProps) => {
-  if (!task) return null;
-
-  return (
-    <Dialog open={!!task} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{task.title}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium">Description</Label>
-            <p className="text-sm text-muted-foreground">
-              {task.description || "No description provided"}
-            </p>
-          </div>
-          <div>
-            <Label className="text-sm font-medium">Assignee</Label>
-            <p className="text-sm text-muted-foreground">{task.assignee}</p>
-          </div>
-          <div>
-            <Label className="text-sm font-medium">Status</Label>
-            <Badge
-              variant={
-                task.status === "Done"
-                  ? "default"
-                  : task.status === "In Progress"
-                  ? "secondary"
-                  : "outline"
-              }
-            >
-              {task.status}
-            </Badge>
-          </div>
-          <div>
-            <Label className="text-sm font-medium">Due Date</Label>
-            <p className="text-sm text-muted-foreground">
-              {new Date(task.dueDate).toLocaleDateString()}
-            </p>
-          </div>
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
+import { useProjectContext } from "@/context/ProjectContext";
+import { useAssetContext } from "@/context/AssetContext";
+import TaskDetailDialog from "@/components/TaskDetailDialog";
+import TaskForm from "@/components/TaskForm";
+import { useTaskContext } from "@/context/TaskContext";
+import { toast } from "sonner";
 
 export default function ProjectDetail() {
   const { id } = useParams();
-  const { projects, loading, error } = useProjects();
+  const { projects, loading, error } = useProjectContext();
   const project = projects.find((project) => project.id === Number(id));
-  const { tasks, addTask, selectedTask, setSelectedTask } = useTasks(id ?? "");
-  const { files } = useFiles();
+  const { tasks, addTask, selectedTask, setSelectedTask } = useTaskContext();
+  const { files } = useAssetContext();
   const { comments, newComment, setNewComment, addComment } = useComments();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
 
@@ -278,10 +125,12 @@ export default function ProjectDetail() {
             <h2 className="text-xl font-semibold">Project Tasks</h2>
             <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Task
-                </Button>
+                {tasks.length > 0 && (
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Task
+                  </Button>
+                )}
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
@@ -289,8 +138,10 @@ export default function ProjectDetail() {
                 </DialogHeader>
                 <TaskForm
                   onSave={(data) => {
-                    addTask(data);
+                    addTask(project.id, data);
+                    toast.success("Task added successfully");
                     setIsTaskDialogOpen(false);
+                    console.log("ProjectId:", project.id, "Task data:", data);
                   }}
                   onCancel={() => setIsTaskDialogOpen(false)}
                   team={project.team}
@@ -299,49 +150,66 @@ export default function ProjectDetail() {
             </Dialog>
           </div>
 
-          <div className="space-y-3">
-            {tasks.map((task) => (
-              <Card
-                key={task.id}
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => setSelectedTask(task)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        checked={task.status === "Done"}
-                        className="mt-1"
-                      />
-                      <div className="space-y-1">
-                        <h3 className="font-medium">{task.title}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {task.description}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Assigned to: {task.assignee}</span>
-                          <span>
-                            Due: {new Date(task.dueDate).toLocaleDateString()}
-                          </span>
+          {tasks.length === 0 ? (
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">
+                No tasks yet for this project.
+              </p>
+              <Button onClick={() => setIsTaskDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Task
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {tasks.map((task) => {
+                console.log("Rendering task:", task);
+
+                return (
+                  <Card
+                    key={task.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setSelectedTask(task)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={task.status === "Done"}
+                            className="mt-1"
+                          />
+                          <div className="space-y-1">
+                            <h3 className="font-medium">{task.title}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {task.description}
+                            </p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>Assigned to: {task.assignee}</span>
+                              <span>
+                                Due:{" "}
+                                {new Date(task.dueDate).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
                         </div>
+                        <Badge
+                          variant={
+                            task.status === "Done"
+                              ? "default"
+                              : task.status === "In Progress"
+                              ? "secondary"
+                              : "outline"
+                          }
+                        >
+                          {task.status}
+                        </Badge>
                       </div>
-                    </div>
-                    <Badge
-                      variant={
-                        task.status === "Done"
-                          ? "default"
-                          : task.status === "In Progress"
-                          ? "secondary"
-                          : "outline"
-                      }
-                    >
-                      {task.status}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
           <TaskDetailDialog
             task={selectedTask}
             onClose={() => setSelectedTask(null)}

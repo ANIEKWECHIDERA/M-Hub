@@ -4,6 +4,7 @@ import type { Task } from "../Types/types";
 const mockTasks: Task[] = [
   {
     id: 1,
+    projectId: 1,
     title: "Logo Design",
     assignee: "John Doe",
     status: "Done",
@@ -12,6 +13,7 @@ const mockTasks: Task[] = [
   },
   {
     id: 2,
+    projectId: 1,
     title: "Color Palette",
     assignee: "John Doe",
     status: "In Progress",
@@ -20,6 +22,7 @@ const mockTasks: Task[] = [
   },
   {
     id: 3,
+    projectId: 1,
     title: "Brand Guidelines",
     assignee: "Sarah Smith",
     status: "To-Do",
@@ -28,6 +31,7 @@ const mockTasks: Task[] = [
   },
   {
     id: 4,
+    projectId: 2,
     title: "Website Mockups",
     assignee: "Mike Johnson",
     status: "To-Do",
@@ -36,7 +40,7 @@ const mockTasks: Task[] = [
   },
 ];
 
-export function useTasks(projectId: string) {
+export function useTasks(projectId: Number) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -55,8 +59,12 @@ export function useTasks(projectId: string) {
       // const querySnapshot = await getDocs(collection(db, `projects/${projectId}/tasks`));
       // const tasksData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
       // setTasks(tasksData);
-
-      setTasks(mockTasks);
+      console.log("Received projectId in useTasks:", projectId);
+      const filteredTasks = mockTasks.filter(
+        (task) => task.projectId === projectId
+      );
+      console.log("Fetched tasks:", filteredTasks);
+      setTasks(filteredTasks);
       setLoading(false);
     } catch (err) {
       setError("Failed to fetch tasks");
@@ -67,15 +75,14 @@ export function useTasks(projectId: string) {
 
   // ⏱ Fetch tasks on mount or when projectId changes
   useEffect(() => {
-    if (projectId) {
-      fetchTasks();
-    }
+    fetchTasks();
   }, [projectId]);
 
   // ➕ Add task
-  const addTask = async (data: Partial<Task>) => {
+  const addTask = async (projectId: number, data: Partial<Task>) => {
     const newTask: Task = {
       id: tasks.length + 1,
+      projectId,
       title: data.title || "",
       description: data.description || "",
       assignee: data.assignee || "",
