@@ -8,11 +8,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { TaskFormProps } from "@/Types/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
-const TaskForm = ({ onSave, onCancel, team }: TaskFormProps) => {
+const TaskForm = ({ onSave, onCancel, team, defaultValues }: TaskFormProps) => {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -20,6 +20,19 @@ const TaskForm = ({ onSave, onCancel, team }: TaskFormProps) => {
     status: "To-Do",
     dueDate: "",
   });
+
+  useEffect(() => {
+    if (defaultValues) {
+      setFormData({
+        title: defaultValues.title || "",
+        description: defaultValues.description || "",
+        assignee: defaultValues.assignee || "",
+        status: defaultValues.status || "To-Do",
+        dueDate: defaultValues.dueDate || "",
+      });
+      console.log("Default values set in form:", defaultValues.status);
+    }
+  }, [defaultValues]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +66,7 @@ const TaskForm = ({ onSave, onCancel, team }: TaskFormProps) => {
       </div>
 
       <div className="space-y-2">
+        key
         <Label htmlFor="assignee">Assignee</Label>
         <Select
           value={formData.assignee}
@@ -73,6 +87,27 @@ const TaskForm = ({ onSave, onCancel, team }: TaskFormProps) => {
         </Select>
       </div>
 
+      {defaultValues && (
+        <div className="space-y-2">
+          <Label htmlFor="status">Status</Label>
+          <Select
+            value={formData.status}
+            onValueChange={(value) =>
+              setFormData({ ...formData, status: value })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="To-Do">To-Do</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Done">Done</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="due-date">Due Date</Label>
         <Input
@@ -90,7 +125,9 @@ const TaskForm = ({ onSave, onCancel, team }: TaskFormProps) => {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">Create Task</Button>
+        <Button type="submit">
+          {defaultValues ? "Update Task" : "Create Task"}
+        </Button>
       </div>
     </form>
   );

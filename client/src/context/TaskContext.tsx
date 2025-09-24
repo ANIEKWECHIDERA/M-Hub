@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import type { TaskContextType } from "../Types/types";
 import { useState, useEffect } from "react";
 import type { Task } from "../Types/types";
+import { toast } from "sonner";
 
 // 1. Create the context
 const TaskContext = createContext<TaskContextType | null>(null);
@@ -67,6 +68,8 @@ export const TaskContextProvider = ({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [TaskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // 🔄 Fetch tasks from API or mock
   const fetchTasks = async () => {
@@ -99,6 +102,7 @@ export const TaskContextProvider = ({
       fetchTasks();
     }
   }, [projectId]);
+
   // ➕ Add task
   const addTask = async (projectId: number, data: Partial<Task>) => {
     const newTask: Task = {
@@ -111,6 +115,7 @@ export const TaskContextProvider = ({
       dueDate: data.dueDate || "",
     };
     setTasks([...tasks, newTask]);
+    toast.success("Task added successfully!");
 
     // TODO: Save task to backend (e.g., Firebase Firestore)
     // Example:
@@ -128,7 +133,7 @@ export const TaskContextProvider = ({
     setTasks(
       tasks.map((task) => (task.id === id ? { ...task, ...data } : task))
     );
-
+    toast.success("Task updated successfully!");
     // TODO: Update task in backend (e.g., Firebase Firestore)
     // Example:
     // import { doc, updateDoc } from 'firebase/firestore';
@@ -143,7 +148,7 @@ export const TaskContextProvider = ({
   // ❌ Delete task
   const deleteTask = async (id: number) => {
     setTasks(tasks.filter((task) => task.id !== id));
-
+    toast.success("Task deleted successfully!");
     // TODO: Delete task from backend (e.g., Firebase Firestore)
     // Example:
     // import { doc, deleteDoc } from 'firebase/firestore';
@@ -153,6 +158,14 @@ export const TaskContextProvider = ({
     // } catch (err) {
     //   console.error('Failed to delete task:', err);
     // }
+  };
+
+  const confirmDelete = () => {
+    if (TaskToDelete) {
+      deleteTask(TaskToDelete.id);
+      setTaskToDelete(null);
+      setIsDeleteDialogOpen(false);
+    }
   };
 
   const value = {
@@ -168,6 +181,11 @@ export const TaskContextProvider = ({
     error,
     selectedTask,
     setSelectedTask,
+    confirmDelete,
+    TaskToDelete,
+    setTaskToDelete,
+    setIsDeleteDialogOpen,
+    isDeleteDialogOpen,
   };
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;

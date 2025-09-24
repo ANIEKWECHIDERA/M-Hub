@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Download,
   Trash2,
+  Edit,
 } from "lucide-react";
 import { useComments } from "../../hooks/useComments";
 import { useParams } from "react-router-dom";
@@ -30,16 +31,38 @@ import { useAssetContext } from "@/context/AssetContext";
 import TaskDetailDialog from "@/components/TaskDetailDialog";
 import TaskForm from "@/components/TaskForm";
 import { TaskContextProvider, useTaskContext } from "@/context/TaskContext";
-import { toast } from "sonner";
+import { Toaster } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import type { Task } from "@/Types/types";
 
 export default function ProjectDetail() {
   const { id } = useParams();
   const { projects, loading, error } = useProjectContext();
   const project = projects.find((project) => project.id === Number(id));
-  const { tasks, addTask, selectedTask, setSelectedTask } = useTaskContext();
+  const {
+    tasks,
+    addTask,
+    selectedTask,
+    setSelectedTask,
+    setIsDeleteDialogOpen,
+    setTaskToDelete,
+    TaskToDelete,
+    isDeleteDialogOpen,
+    confirmDelete,
+    updateTask,
+  } = useTaskContext();
   const { files } = useAssetContext();
   const { comments, newComment, setNewComment, addComment } = useComments();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -113,12 +136,56 @@ export default function ProjectDetail() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="tasks" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="team">Team</TabsTrigger>
             <TabsTrigger value="assets">Assets</TabsTrigger>
             <TabsTrigger value="comments">Comments</TabsTrigger>
           </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Description</h3>
+                  <p className="text-muted-foreground">
+                    {project.description || "No description provided."}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Key Information</h3>
+                  <ul className="text-sm text-muted-foreground space-y-2">
+                    <li>
+                      <strong>Client:</strong> {project.client}
+                    </li>
+                    <li>
+                      <strong>Status:</strong> {project.status}
+                    </li>
+                    <li>
+                      <strong>Deadline:</strong>{" "}
+                      {new Date(project.deadline).toLocaleDateString()}
+                    </li>
+                    <li>
+                      <strong>Total Tasks:</strong> {project.tasks.total}
+                    </li>
+                    <li>
+                      <strong>Completed Tasks:</strong>{" "}
+                      {project.tasks.completed}
+                    </li>
+                    <li>
+                      <strong>Progress:</strong> {project.progress}%
+                    </li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Tasks Tab */}
           <TabsContent value="tasks" className="space-y-4">
@@ -126,7 +193,10 @@ export default function ProjectDetail() {
               <h2 className="text-xl font-semibold">Project Tasks</h2>
               <Dialog
                 open={isTaskDialogOpen}
-                onOpenChange={setIsTaskDialogOpen}
+                onOpenChange={(open) => {
+                  setIsTaskDialogOpen(open);
+                  if (!open) setEditingTask(null);
+                }}
               >
                 <DialogTrigger asChild>
                   {tasks.length > 0 && (
@@ -141,13 +211,21 @@ export default function ProjectDetail() {
                     <DialogTitle>Create New Task</DialogTitle>
                   </DialogHeader>
                   <TaskForm
+                    key={selectedTask?.id ?? "new"}
+                    defaultValues={editingTask || undefined}
                     onSave={(data) => {
-                      addTask(project.id, data);
-                      toast.success("Task added successfully");
+                      if (editingTask) {
+                        updateTask(editingTask.id, data);
+                      } else {
+                        addTask(project.id, data);
+                      }
                       setIsTaskDialogOpen(false);
-                      console.log("ProjectId:", project.id, "Task data:", data);
+                      setEditingTask(null);
                     }}
-                    onCancel={() => setIsTaskDialogOpen(false)}
+                    onCancel={() => {
+                      setIsTaskDialogOpen(false);
+                      setEditingTask(null);
+                    }}
                     team={project.team}
                   />
                 </DialogContent>
@@ -194,17 +272,45 @@ export default function ProjectDetail() {
                               </div>
                             </div>
                           </div>
-                          <Badge
-                            variant={
-                              task.status === "Done"
-                                ? "default"
-                                : task.status === "In Progress"
-                                ? "secondary"
-                                : "outline"
-                            }
-                          >
-                            {task.status}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={
+                                task.status === "Done"
+                                  ? "default"
+                                  : task.status === "In Progress"
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                            >
+                              {task.status}
+                            </Badge>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingTask(task);
+                                setIsTaskDialogOpen(true);
+                              }}
+                              aria-label={`Edit task ${task.title}`}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTaskToDelete(task);
+                              }}
+                              aria-label={`Delete task ${task.title}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -216,6 +322,34 @@ export default function ProjectDetail() {
               task={selectedTask}
               onClose={() => setSelectedTask(null)}
             />
+          </TabsContent>
+
+          {/* Team Tab */}
+          <TabsContent value="team" className="space-y-4">
+            <h2 className="text-xl font-semibold">Team Members</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {project.team.map((member) => (
+                <Card key={member.id}>
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={member.avatar || "/placeholder.svg"} />
+                      <AvatarFallback>
+                        {member.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{member.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {member.role}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
 
           {/* Assets Tab */}
@@ -331,6 +465,37 @@ export default function ProjectDetail() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Task</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete{" "}
+                <strong>{TaskToDelete?.title}</strong>? This action cannot be
+                undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex justify-end gap-2 pt-4">
+              <AlertDialogCancel onClick={() => setTaskToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </AlertDialogAction>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Sonner toaster */}
+        <Toaster position="top-right" />
       </div>
     </TaskContextProvider>
   );

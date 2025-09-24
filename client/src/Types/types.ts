@@ -80,17 +80,19 @@ export interface TaskContextType {
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   currentTask: Task | null;
   setCurrentTask: React.Dispatch<React.SetStateAction<Task | null>>;
-
   fetchTasks: () => Promise<void>;
   addTask: (projectId: number, task: Partial<Task>) => Promise<void>;
   updateTask: (id: number, data: Partial<Task>) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
-
   loading: boolean;
   error: string | null;
-
   selectedTask: Task | null;
   setSelectedTask: React.Dispatch<React.SetStateAction<Task | null>>;
+  confirmDelete: () => void;
+  TaskToDelete: Task | null;
+  setTaskToDelete: React.Dispatch<React.SetStateAction<Task | null>>;
+  isDeleteDialogOpen: boolean;
+  setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export interface TaskDetailDialogProps {
@@ -102,6 +104,7 @@ export interface TaskFormProps {
   onSave: (data: Partial<Task>) => void;
   onCancel: () => void;
   team: Project["team"];
+  defaultValues?: Task;
 }
 
 /////////////////// AssetContextTypes ///////////////
