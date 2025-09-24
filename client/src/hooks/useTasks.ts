@@ -40,7 +40,7 @@ const mockTasks: Task[] = [
   },
 ];
 
-export function useTasks(projectId: Number) {
+export function useTasks(projectId: number) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -75,9 +75,10 @@ export function useTasks(projectId: Number) {
 
   // ⏱ Fetch tasks on mount or when projectId changes
   useEffect(() => {
-    fetchTasks();
+    if (projectId) {
+      fetchTasks();
+    }
   }, [projectId]);
-
   // ➕ Add task
   const addTask = async (projectId: number, data: Partial<Task>) => {
     const newTask: Task = {

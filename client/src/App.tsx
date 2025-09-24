@@ -6,7 +6,7 @@ import Chat from "./pages/Chat";
 import Notepad from "./pages/Notepad";
 import Tools from "./pages/Tools";
 import Settings from "./pages/Settings";
-import ProjectDetail from "./pages/ProjectDetail";
+import ProjectDetailWrapper from "./pages/projectDetail/ProjectDetailWrapper";
 
 function App() {
   return (
@@ -18,7 +18,7 @@ function App() {
         <Route path="notepad" element={<Notepad />} />
         <Route path="tools" element={<Tools />} />
         <Route path="settings" element={<Settings />} />
-        <Route path="projectdetails/:id" element={<ProjectDetail />} />
+        <Route path="projectdetails/:id" element={<ProjectDetailWrapper />} />
       </Route>
     </Routes>
   );
