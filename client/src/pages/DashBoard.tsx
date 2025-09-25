@@ -30,16 +30,18 @@ export default function Dashboard() {
     clientFilter
   );
   const stats = useProjectStats(projects, tasks);
-  const projectTasks = (projectId: number) =>
-    tasks.filter((task) => task.projectId === projectId);
+  // const projectTasks = (projectId: number) =>
+  //   tasks.filter((task) => task.projectId === projectId);
 
-  const getTaskStats = (projectId: number) => {
-    const projTasks = projectTasks(projectId);
-    const total = projTasks.length;
-    const completed = projTasks.filter((t) => t.status === "Done").length;
-    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, progress };
-  };
+  // const getTaskStats = (projectId: number) => {
+  //   const projTasks = projectTasks(projectId);
+  //   const total = projTasks.length;
+  //   const completed = projTasks.filter((t) => t.status === "Done").length;
+  //   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+  //   return { total, completed, progress };
+  // };
+
+  const { getTaskStats } = useProjectStats(projects, tasks);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;

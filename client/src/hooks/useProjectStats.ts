@@ -25,6 +25,15 @@ export function useProjectStats(projects: Project[], tasks: Task[]) {
       (proj) => new Date(proj.deadline) < now && proj.status !== "Completed"
     ).length;
 
+    const getTaskStats = (projectId: number) => {
+      const projTasks = tasks.filter((task) => task.projectId === projectId);
+      const total = projTasks.length;
+      const completed = projTasks.filter((t) => t.status === "Done").length;
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      return { total, completed, progress };
+    };
+
     return {
       totalProjects: projects.length,
       completedTasks,
@@ -33,6 +42,7 @@ export function useProjectStats(projects: Project[], tasks: Task[]) {
       overdueTasks,
       completedProjects,
       overdueProjects,
+      getTaskStats,
     };
   }, [projects, tasks]);
 }

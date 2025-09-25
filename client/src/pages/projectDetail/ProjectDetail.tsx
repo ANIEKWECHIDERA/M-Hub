@@ -42,6 +42,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import type { Task } from "@/Types/types";
+import { useProjectTaskStats } from "@/hooks/useProjectTaskStats";
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -64,6 +65,7 @@ export default function ProjectDetail() {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const filteredTasks = tasks.filter((task) => task.projectId === Number(id));
+  const { total, completed, progress } = useProjectTaskStats(Number(id));
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -127,9 +129,9 @@ export default function ProjectDetail() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Progress</span>
-                    <span>{project.progress}%</span>
+                    <span>{progress}%</span>
                   </div>
-                  <Progress value={project.progress} className="h-2" />
+                  <Progress value={progress} className="h-2" />
                 </div>
               </CardContent>
             </Card>
@@ -173,14 +175,13 @@ export default function ProjectDetail() {
                       {new Date(project.deadline).toLocaleDateString()}
                     </li>
                     <li>
-                      <strong>Total Tasks:</strong> {project.tasks.total}
+                      <strong>Total Tasks:</strong> {total}
                     </li>
                     <li>
-                      <strong>Completed Tasks:</strong>{" "}
-                      {project.tasks.completed}
+                      <strong>Completed Tasks:</strong> {completed}
                     </li>
                     <li>
-                      <strong>Progress:</strong> {project.progress}%
+                      <strong>Progress:</strong> {progress}%
                     </li>
                   </ul>
                 </div>
