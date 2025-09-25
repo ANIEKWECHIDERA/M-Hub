@@ -7,12 +7,20 @@ import Notepad from "./pages/Notepad";
 import Tools from "./pages/Tools";
 import Settings from "./pages/Settings";
 import ProjectDetailWrapper from "./pages/projectDetail/ProjectDetailWrapper";
+import { TaskContextProvider } from "./context/TaskContext";
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        <Route path="dashboard" element={<Dashboard />} />
+        <Route
+          path="dashboard"
+          element={
+            <TaskContextProvider>
+              <Dashboard />
+            </TaskContextProvider>
+          }
+        />
         <Route path="projects" element={<Projects />} />
         <Route path="chat" element={<Chat />} />
         <Route path="notepad" element={<Notepad />} />

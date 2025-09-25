@@ -22,7 +22,7 @@ export const TaskContextProvider = ({
   projectId,
 }: {
   children: React.ReactNode;
-  projectId: number;
+  projectId?: number;
 }) => {
   const mockTasks: Task[] = [
     {
@@ -30,7 +30,7 @@ export const TaskContextProvider = ({
       projectId: 1,
       title: "Logo Design",
       assignee: "John Doe",
-      status: "Done",
+      status: "To-Do",
       dueDate: "2024-01-15",
       description: "Create new logo concepts",
     },
@@ -39,17 +39,17 @@ export const TaskContextProvider = ({
       projectId: 1,
       title: "Color Palette",
       assignee: "John Doe",
-      status: "In Progress",
+      status: "Done",
       dueDate: "2024-01-20",
       description: "Define brand colors",
     },
     {
       id: 3,
-      projectId: 1,
+      projectId: 2,
       title: "Brand Guidelines",
       assignee: "Sarah Smith",
-      status: "To-Do",
-      dueDate: "2024-01-25",
+      status: "Done",
+      dueDate: "2026-10-25",
       description: "Document brand standards",
     },
     {
@@ -58,7 +58,43 @@ export const TaskContextProvider = ({
       title: "Website Mockups",
       assignee: "Mike Johnson",
       status: "To-Do",
-      dueDate: "2024-02-01",
+      dueDate: "2026-08-01",
+      description: "Create website designs",
+    },
+    {
+      id: 5,
+      projectId: 1,
+      title: "Logo Design",
+      assignee: "John Doe",
+      status: "To-Do",
+      dueDate: "2026-01-15",
+      description: "Create new logo concepts",
+    },
+    {
+      id: 6,
+      projectId: 3,
+      title: "Color Palette",
+      assignee: "John Doe",
+      status: "Done",
+      dueDate: "2024-01-20",
+      description: "Define brand colors",
+    },
+    {
+      id: 7,
+      projectId: 3,
+      title: "Brand Guidelines",
+      assignee: "Sarah Smith",
+      status: "Done",
+      dueDate: "2026-01-25",
+      description: "Document brand standards",
+    },
+    {
+      id: 8,
+      projectId: 3,
+      title: "Website Mockups",
+      assignee: "Mike Johnson",
+      status: "To-Do",
+      dueDate: "2026-08-01",
       description: "Create website designs",
     },
   ];
@@ -84,10 +120,7 @@ export const TaskContextProvider = ({
       // const tasksData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
       // setTasks(tasksData);
 
-      const filteredTasks = mockTasks.filter(
-        (task) => task.projectId === projectId
-      );
-      setTasks(filteredTasks);
+      setTasks(mockTasks);
       setLoading(false);
     } catch (err) {
       setError("Failed to fetch tasks");
@@ -98,9 +131,7 @@ export const TaskContextProvider = ({
 
   // ⏱ Fetch tasks on mount or when projectId changes
   useEffect(() => {
-    if (projectId) {
-      fetchTasks();
-    }
+    fetchTasks();
   }, [projectId]);
 
   // ➕ Add task

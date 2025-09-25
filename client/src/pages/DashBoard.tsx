@@ -16,9 +16,11 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Calendar, Users, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTaskContext } from "@/context/TaskContext";
 
 export default function Dashboard() {
   const { projects, loading, error } = useProjectContext();
+  const { tasks } = useTaskContext();
   const clients = useClients(projects);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
@@ -27,7 +29,17 @@ export default function Dashboard() {
     statusFilter,
     clientFilter
   );
-  const stats = useProjectStats(projects);
+  const stats = useProjectStats(projects, tasks);
+  const projectTasks = (projectId: number) =>
+    tasks.filter((task) => task.projectId === projectId);
+
+  const getTaskStats = (projectId: number) => {
+    const projTasks = projectTasks(projectId);
+    const total = projTasks.length;
+    const completed = projTasks.filter((t) => t.status === "Done").length;
+    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { total, completed, progress };
+  };
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -128,67 +140,82 @@ export default function Dashboard() {
 
       {/* Project Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProjects.map((project) => (
-          <Card key={project.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg">{project.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {project.client}
-                  </p>
+        {filteredProjects.map((project) => {
+          const { total, completed, progress } = getTaskStats(project.id);
+          return (
+            <Card
+              key={project.id}
+              className="hover:shadow-lg transition-shadow"
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">{project.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {project.client}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={
+                      project.status === "Completed"
+                        ? "default"
+                        : project.status === "In Progress"
+                        ? "secondary"
+                        : "outline"
+                    }
+                  >
+                    {project.status}
+                  </Badge>
                 </div>
-                <Badge
-                  variant={
-                    project.status === "Completed"
-                      ? "default"
-                      : project.status === "In Progress"
-                      ? "secondary"
-                      : "outline"
-                  }
-                >
-                  {project.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Progress</span>
-                  <span>{project.progress}%</span>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Progress</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
                 </div>
-                <Progress value={project.progress} className="h-2" />
-              </div>
 
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>{new Date(project.deadline).toLocaleDateString()}</span>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>
+                      {new Date(project.deadline).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {total > 0 ? (
+                    <div className="flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>
+                        {completed}/{total} {total === 1 ? "task" : "tasks"}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>No tasks</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4" />
-                  <span>
-                    {project.tasks.completed}/{project.tasks.total} tasks
-                  </span>
-                </div>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    {project.team.length} members
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {project.team.length} members
+                    </span>
+                  </div>
+                  <Link to={`/projectdetails/${project.id}`}>
+                    <Button variant="outline" size="sm" onClick={() => {}}>
+                      View Details
+                    </Button>
+                  </Link>
                 </div>
-                <Link to={`/projectdetails/${project.id}`}>
-                  <Button variant="outline" size="sm" onClick={() => {}}>
-                    View Details
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

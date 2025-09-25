@@ -63,6 +63,7 @@ export default function ProjectDetail() {
   const { comments, newComment, setNewComment, addComment } = useComments();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const filteredTasks = tasks.filter((task) => task.projectId === Number(id));
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -199,7 +200,7 @@ export default function ProjectDetail() {
                 }}
               >
                 <DialogTrigger asChild>
-                  {tasks.length > 0 && (
+                  {filteredTasks.length > 0 && (
                     <Button>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Task
@@ -232,7 +233,7 @@ export default function ProjectDetail() {
               </Dialog>
             </div>
 
-            {tasks.length === 0 ? (
+            {filteredTasks.length === 0 ? (
               <div className="text-center space-y-4">
                 <p className="text-muted-foreground">
                   No tasks yet for this project.
@@ -244,7 +245,7 @@ export default function ProjectDetail() {
               </div>
             ) : (
               <div className="space-y-3">
-                {tasks.map((task) => {
+                {filteredTasks.map((task) => {
                   return (
                     <Card
                       key={task.id}
@@ -302,11 +303,12 @@ export default function ProjectDetail() {
                               variant="ghost"
                               size="sm"
                               className="text-red-500 hover:text-red-700"
+                              aria-label={`Delete task ${task.title}`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setTaskToDelete(task);
+                                setIsDeleteDialogOpen(true);
                               }}
-                              aria-label={`Delete task ${task.title}`}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -388,7 +390,8 @@ export default function ProjectDetail() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-red-500"
+                            className="text-red-500 hover:text-red-700"
+                            aria-label={`Delete file ${file.name}`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -485,7 +488,7 @@ export default function ProjectDetail() {
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={confirmDelete}
+                onClick={() => confirmDelete()}
                 className="bg-red-600 hover:bg-red-700"
               >
                 Delete

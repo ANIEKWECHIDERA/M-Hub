@@ -1,19 +1,38 @@
 import { useMemo } from "react";
-import type { Project } from "../Types/types";
+import type { Project, Task } from "@/Types/types";
 
-export function useProjectStats(projects: Project[]) {
+export function useProjectStats(projects: Project[], tasks: Task[]) {
   return useMemo(() => {
+    const now = new Date();
+
+    const completedTasks = tasks.filter(
+      (task) => task.status === "Done"
+    ).length;
+
+    const totalTasks = tasks.length;
+
+    const activeTasks = tasks.filter((task) => task.status !== "Done").length;
+
+    const overdueTasks = tasks.filter(
+      (task) => new Date(task.dueDate) < now && task.status !== "Done"
+    ).length;
+
+    const completedProjects = projects.filter(
+      (proj) => proj.status === "Completed"
+    ).length;
+
+    const overdueProjects = projects.filter(
+      (proj) => new Date(proj.deadline) < now && proj.status !== "Completed"
+    ).length;
+
     return {
       totalProjects: projects.length,
-      activeTasks: projects.reduce(
-        (acc, p) => acc + (p.tasks.total - p.tasks.completed),
-        0
-      ),
-      overdueTasks: projects.filter(
-        (p) => new Date(p.deadline) < new Date() && p.status !== "Completed"
-      ).length,
-      completedProjects: projects.filter((p) => p.status === "Completed")
-        .length,
+      completedTasks,
+      totalTasks,
+      activeTasks,
+      overdueTasks,
+      completedProjects,
+      overdueProjects,
     };
-  }, [projects]);
+  }, [projects, tasks]);
 }

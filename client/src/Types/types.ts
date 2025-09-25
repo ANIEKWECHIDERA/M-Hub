@@ -3,13 +3,10 @@ export interface Project {
   title: string;
   client: string;
   status: string;
-  progress: number;
+
   deadline: string;
   description: string;
-  tasks: {
-    total: number;
-    completed: number;
-  };
+
   team: TeamMember[];
 }
 
@@ -39,7 +36,6 @@ export interface ProjectFormProps {
 }
 
 //////////////// TeamContextTypes ////////////////
-
 export interface TeamMember {
   id: number;
   name: string;
