@@ -1,69 +1,26 @@
-# React + TypeScript + Vite
+# 📌 M-HUB – Project Management Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> An all-in-one internal platform for digital marketing teams to manage **projects, tasks, and collaboration** in one place.  
+> Built to replace scattered tools (Notion, Trello, Google Drive) with a **centralized, scalable, and secure** solution.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
 
-## Expanding the ESLint configuration
+- 📂 **Project Tracking** – Organize projects with timelines, milestones, and progress updates.
+- ✅ **Task Management** – Assign, track, and complete tasks with deadlines and statuses.
+- 💬 **Team Collaboration** – Comment, mention teammates, and keep communication in context.
+- 📎 **File Uploads** – Share deliverables, creatives, and docs inside projects.
+- 📊 **Analytics & Reporting** – Monitor workload, deadlines, and overall productivity.
+- 🔔 **Notifications** – Stay on top of assigned tasks and client updates.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🛠 Tech Stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **Frontend**: React + TailwindCSS (clean, responsive UI)
+- **Backend**: Node.js (Express)
+- **Database**: PostgreSQL (relational, scalable)
+- **Caching/Realtime**: Redis (notifications, live updates)
+- **Authentication**: Firebase Auth
+- **File Storage**: Cloudinary
