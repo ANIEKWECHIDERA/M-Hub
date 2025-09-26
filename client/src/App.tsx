@@ -8,27 +8,31 @@ import Tools from "./pages/Tools";
 import Settings from "./pages/Settings";
 import ProjectDetailWrapper from "./pages/projectDetail/ProjectDetailWrapper";
 import { TaskContextProvider } from "./context/TaskContext";
+import { TeamContextProvider } from "./context/TeamMemberContext";
+import { ProjectContextProvider } from "./context/ProjectContext";
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route
-          path="dashboard"
-          element={
-            <TaskContextProvider>
-              <Dashboard />
-            </TaskContextProvider>
-          }
-        />
-        <Route path="projects" element={<Projects />} />
-        <Route path="chat" element={<Chat />} />
-        <Route path="notepad" element={<Notepad />} />
-        <Route path="tools" element={<Tools />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="projectdetails/:id" element={<ProjectDetailWrapper />} />
-      </Route>
-    </Routes>
+    <TeamContextProvider>
+      <ProjectContextProvider>
+        <TaskContextProvider>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="projects" element={<Projects />} />
+              <Route path="chat" element={<Chat />} />
+              <Route path="notepad" element={<Notepad />} />
+              <Route path="tools" element={<Tools />} />
+              <Route path="settings" element={<Settings />} />
+              <Route
+                path="projectdetails/:id"
+                element={<ProjectDetailWrapper />}
+              />
+            </Route>
+          </Routes>
+        </TaskContextProvider>
+      </ProjectContextProvider>
+    </TeamContextProvider>
   );
 }
 

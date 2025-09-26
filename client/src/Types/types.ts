@@ -7,7 +7,7 @@ export interface Project {
   deadline: string;
   description: string;
 
-  team: TeamMember[];
+  team: number[];
 }
 
 export interface ProjectContextType {
@@ -26,6 +26,7 @@ export interface ProjectContextType {
   setProjectToDelete: React.Dispatch<React.SetStateAction<Project | null>>;
   isDeleteDialogOpen: boolean;
   setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  getTeamMembersDetails: (memberIds: number[]) => TeamMember[];
   // Toaster: React.FC;
 }
 
@@ -38,9 +39,15 @@ export interface ProjectFormProps {
 //////////////// TeamContextTypes ////////////////
 export interface TeamMember {
   id: number;
-  name: string;
+  companyId?: number[];
+  firstname: string;
+  lastname: string;
+  email: string;
   role: string;
+  access: "Admin" | "Team";
+  lastlogin: Date | string;
   avatar: string;
+  status?: "active" | "inactive";
 }
 
 export interface TeamContextType {
@@ -53,9 +60,19 @@ export interface TeamContextType {
   addTeamMember: (member: TeamMember) => Promise<void>;
   updateTeamMember: (id: number, data: Partial<TeamMember>) => Promise<void>;
   deleteTeamMember: (id: number) => Promise<void>;
-
+  confirmDelete: () => void;
+  isDeleteDialogOpen: boolean;
+  setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  memberToDelete: TeamMember | null;
+  setMemberToDelete: React.Dispatch<React.SetStateAction<TeamMember | null>>;
   loading: boolean;
   error: string | null;
+}
+
+export interface TeamMemberFormProps {
+  member?: Partial<TeamMember>;
+  onSave: (data: Partial<TeamMember>) => void;
+  onCancel: () => void;
 }
 
 //////////////// TaskContextTypes ////////////////
@@ -63,7 +80,7 @@ export interface Task {
   id: number;
   projectId: number;
   title: string;
-  assignee: string;
+  assignee: number[];
   status: string;
   dueDate: string;
   description: string;
@@ -97,10 +114,15 @@ export interface TaskDetailDialogProps {
 }
 
 export interface TaskFormProps {
-  onSave: (data: Partial<Task>) => void;
+  onSave: (formData: any) => void;
   onCancel: () => void;
-  team: Project["team"];
-  defaultValues?: Task;
+  defaultValues?: {
+    title?: string;
+    description?: string;
+    assignee?: string;
+    status?: string;
+    dueDate?: string;
+  };
 }
 
 /////////////////// AssetContextTypes ///////////////

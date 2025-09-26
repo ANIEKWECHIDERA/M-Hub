@@ -93,8 +93,7 @@ export default function Projects() {
                   status: data.status || "Active",
                   deadline: data.deadline || "",
                   description: data.description || "",
-                  progress: 0,
-                  tasks: { total: 0, completed: 0 },
+
                   team: [],
                 };
                 await addProject(newProject);

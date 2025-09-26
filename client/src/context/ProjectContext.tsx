@@ -3,6 +3,7 @@ import type { ProjectContextType } from "../Types/types";
 import { useState, useEffect } from "react";
 import type { Project } from "../Types/types";
 import { toast } from "sonner";
+import { useTeamContext } from "./TeamMemberContext";
 
 const ProjectContext = createContext<ProjectContextType | null>(null);
 
@@ -19,6 +20,8 @@ export const ProjectContextProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
+  const { teamMembers } = useTeamContext();
+
   const mockProjects: Project[] = [
     {
       id: 1,
@@ -28,76 +31,89 @@ export const ProjectContextProvider = ({
       deadline: "2024-02-15",
       description:
         "Complete brand overhaul including logo, colors, and guidelines",
-
-      team: [
-        {
-          id: 1,
-          name: "John Doe",
-          role: "Designer",
-          avatar: "/placeholder.svg?height=32&width=32",
-        },
-        {
-          id: 2,
-          name: "Sarah Smith",
-          role: "Project Manager",
-          avatar: "/placeholder.svg?height=32&width=32",
-        },
-        {
-          id: 3,
-          name: "Mike Johnson",
-          role: "Developer",
-          avatar: "/placeholder.svg?height=32&width=32",
-        },
-      ],
+      team: [1, 2, 3],
     },
     {
       id: 2,
       title: "Website Development",
       client: "StartupXYZ",
       status: "Active",
-
       deadline: "2024-03-01",
       description: "Develop a responsive website for StartupXYZ",
-
-      team: [
-        {
-          id: 4,
-          name: "Alice Brown",
-          role: "Designer",
-          avatar: "/placeholder.svg?height=32&width=32",
-        },
-        {
-          id: 5,
-          name: "Bob Wilson",
-          role: "Developer",
-          avatar: "/placeholder.svg?height=32&width=32",
-        },
-      ],
+      team: [4, 3],
     },
     {
       id: 3,
       title: "Marketing Campaign",
       client: "RetailCo",
       status: "Completed",
-
       deadline: "2024-01-20",
       description:
         "Launch a marketing campaign for RetailCo’s new product line",
-
-      team: [
-        {
-          id: 6,
-          name: "Emma Davis",
-          role: "Marketer",
-          avatar: "/placeholder.svg?height=32&width=32",
-        },
-        {
-          id: 7,
-          name: "David Lee",
-          role: "Copywriter",
-          avatar: "/placeholder.svg?height=32&width=32",
-        },
-      ],
+      team: [6, 7],
+    },
+    {
+      id: 4,
+      title: "Internal Tool Migration",
+      client: "InHouse Ops",
+      status: "Planning",
+      deadline: "2024-12-01",
+      description: "Migrate legacy internal tools to a modern tech stack.",
+      team: [4, 5, 12],
+    },
+    {
+      id: 5,
+      title: "Customer Feedback System",
+      client: "EchoWare",
+      status: "In Progress",
+      deadline: "2024-11-10",
+      description: "Build a customer feedback collection and analysis system.",
+      team: [8, 10, 13],
+    },
+    {
+      id: 6,
+      title: "Mobile App Launch",
+      client: "Appify",
+      status: "Active",
+      deadline: "2024-09-30",
+      description: "Launch MVP of new social media mobile app.",
+      team: [1, 9, 11],
+    },
+    {
+      id: 7,
+      title: "SEO Optimization",
+      client: "GreenSprout",
+      status: "In Progress",
+      deadline: "2024-10-20",
+      description: "Improve search engine visibility for all web assets.",
+      team: [6, 9],
+    },
+    {
+      id: 8,
+      title: "Cloud Infrastructure Overhaul",
+      client: "TechNova",
+      status: "Planning",
+      deadline: "2024-12-15",
+      description: "Redesign and optimize cloud architecture for scale.",
+      team: [3, 12, 14],
+    },
+    {
+      id: 9,
+      title: "Brand Awareness Campaign",
+      client: "NovaFoods",
+      status: "Completed",
+      deadline: "2024-08-01",
+      description: "Design and execute a brand awareness campaign for Q3.",
+      team: [2, 5, 6],
+    },
+    {
+      id: 10,
+      title: "Data Dashboard",
+      client: "MetricHub",
+      status: "In Progress",
+      deadline: "2024-10-05",
+      description: "Develop a real-time data visualization dashboard.",
+      team: [10, 11, 13],
     },
   ];
 
@@ -190,6 +206,10 @@ export const ProjectContextProvider = ({
     }
   };
 
+  const getTeamMembersDetails = (memberIds: number[]) => {
+    return teamMembers.filter((member) => memberIds.includes(member.id));
+  };
+
   const value = {
     projects,
     setProjects,
@@ -206,6 +226,7 @@ export const ProjectContextProvider = ({
     setProjectToDelete,
     isDeleteDialogOpen,
     setIsDeleteDialogOpen,
+    getTeamMembersDetails,
   };
 
   return (

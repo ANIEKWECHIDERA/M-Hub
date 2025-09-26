@@ -11,8 +11,10 @@ import type { TaskFormProps } from "@/Types/types";
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
+import { useProjectContext } from "@/context/ProjectContext";
 
-const TaskForm = ({ onSave, onCancel, team, defaultValues }: TaskFormProps) => {
+const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
+  const { currentProject, getTeamMembersDetails } = useProjectContext();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -20,6 +22,8 @@ const TaskForm = ({ onSave, onCancel, team, defaultValues }: TaskFormProps) => {
     status: "To-Do",
     dueDate: "",
   });
+
+  const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
 
   useEffect(() => {
     if (defaultValues) {
@@ -79,8 +83,11 @@ const TaskForm = ({ onSave, onCancel, team, defaultValues }: TaskFormProps) => {
           </SelectTrigger>
           <SelectContent>
             {team.map((member) => (
-              <SelectItem key={member.id} value={member.name}>
-                {member.name} - {member.role}
+              <SelectItem
+                key={member.id}
+                value={`${member.firstname} ${member.lastname}`}
+              >
+                {member.firstname} {member.lastname} - {member.role}
               </SelectItem>
             ))}
           </SelectContent>

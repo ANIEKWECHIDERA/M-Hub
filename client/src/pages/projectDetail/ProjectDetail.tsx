@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,10 +43,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Task } from "@/Types/types";
 import { useProjectTaskStats } from "@/hooks/useProjectTaskStats";
+import { useTeamContext } from "@/context/TeamMemberContext";
 
 export default function ProjectDetail() {
   const { id } = useParams();
-  const { projects, loading, error } = useProjectContext();
+  const {
+    projects,
+    loading,
+    error,
+    getTeamMembersDetails,
+    currentProject,
+    setCurrentProject,
+  } = useProjectContext();
   const project = projects.find((project) => project.id === Number(id));
   const {
     tasks,
@@ -66,6 +74,15 @@ export default function ProjectDetail() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const filteredTasks = tasks.filter((task) => task.projectId === Number(id));
   const { total, completed, progress } = useProjectTaskStats(Number(id));
+
+  const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
+  const { teamMembers } = useTeamContext();
+
+  useEffect(() => {
+    if (project && !currentProject) {
+      setCurrentProject(project);
+    }
+  }, [project, currentProject, setCurrentProject]);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -214,7 +231,14 @@ export default function ProjectDetail() {
                   </DialogHeader>
                   <TaskForm
                     key={selectedTask?.id ?? "new"}
-                    defaultValues={editingTask || undefined}
+                    defaultValues={
+                      editingTask
+                        ? {
+                            ...editingTask,
+                            assignee: editingTask.assignee[0]?.toString() || "",
+                          }
+                        : undefined
+                    }
                     onSave={(data) => {
                       if (editingTask) {
                         updateTask(editingTask.id, data);
@@ -228,7 +252,6 @@ export default function ProjectDetail() {
                       setIsTaskDialogOpen(false);
                       setEditingTask(null);
                     }}
-                    team={project.team}
                   />
                 </DialogContent>
               </Dialog>
@@ -266,7 +289,19 @@ export default function ProjectDetail() {
                                 {task.description}
                               </p>
                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>Assigned to: {task.assignee}</span>
+                                <span>
+                                  Assigned to:{" "}
+                                  {task.assignee
+                                    .map((id) => {
+                                      const member = teamMembers.find(
+                                        (member) => member.id === id
+                                      );
+                                      return member
+                                        ? `${member.firstname} ${member.lastname}`
+                                        : "Unknown";
+                                    })
+                                    .join(", ")}
+                                </span>
                                 <span>
                                   Due:{" "}
                                   {new Date(task.dueDate).toLocaleDateString()}
@@ -331,20 +366,21 @@ export default function ProjectDetail() {
           <TabsContent value="team" className="space-y-4">
             <h2 className="text-xl font-semibold">Team Members</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {project.team.map((member) => (
+              {team.map((member) => (
                 <Card key={member.id}>
                   <CardContent className="p-4 flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={member.avatar || "/placeholder.svg"} />
                       <AvatarFallback>
-                        {member.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                        {`${member.firstname?.[0] ?? ""}${
+                          member.lastname?.[0] ?? ""
+                        }`}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{member.name}</p>
+                      <p className="font-medium">
+                        {member.firstname} {member.lastname}
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         {member.role}
                       </p>

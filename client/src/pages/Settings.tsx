@@ -1,16 +1,8 @@
-import type React from "react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +14,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -31,112 +32,29 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { User, Bell, Shield, Users, Plus, Edit, Trash2 } from "lucide-react";
-
-const mockUsers = [
-  {
-    id: 1,
-    name: "John Doe",
-    email: "john.doe@company.com",
-    role: "Admin",
-    status: "Active",
-    lastLogin: "2024-01-16",
-  },
-  {
-    id: 2,
-    name: "Sarah Smith",
-    email: "sarah.smith@company.com",
-    role: "Team",
-    status: "Active",
-    lastLogin: "2024-01-16",
-  },
-  {
-    id: 3,
-    name: "Mike Johnson",
-    email: "mike.johnson@company.com",
-    role: "Team",
-    status: "Active",
-    lastLogin: "2024-01-15",
-  },
-  {
-    id: 4,
-    name: "TechCorp Client",
-    email: "contact@techcorp.com",
-    role: "Client",
-    status: "Active",
-    lastLogin: "2024-01-14",
-  },
-];
+import { useTeamContext } from "@/context/TeamMemberContext";
+import { Toaster } from "sonner";
+import TeamMemberForm from "@/components/TeamMemberForm";
+import InviteForm from "@/components/InviteForm";
 
 export default function Settings() {
-  const [users, setUsers] = useState(mockUsers);
+  const {
+    teamMembers,
+    setMemberToDelete,
+    memberToDelete,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
+    updateTeamMember,
+    confirmDelete,
+    loading,
+    error,
+  } = useTeamContext();
+  const [users, setUsers] = useState(teamMembers);
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editingUserId, setEditingUserId] = useState<any>(null);
 
-  const UserForm = ({ user, onSave, onCancel }: any) => {
-    const [formData, setFormData] = useState({
-      name: user?.name || "",
-      email: user?.email || "",
-      role: user?.role || "Team",
-    });
-
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      onSave(formData);
-    };
-
-    return (
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="user-name">Name</Label>
-          <Input
-            id="user-name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Enter user name"
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="user-email">Email</Label>
-          <Input
-            id="user-email"
-            type="email"
-            value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
-            placeholder="Enter email address"
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="user-role">Role</Label>
-          <Select
-            value={formData.role}
-            onValueChange={(value) => setFormData({ ...formData, role: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Admin">Admin</SelectItem>
-              <SelectItem value="Team">Team</SelectItem>
-              <SelectItem value="Client">Client</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit">{user ? "Update User" : "Add User"}</Button>
-        </div>
-      </form>
-    );
-  };
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="space-y-6">
@@ -152,7 +70,7 @@ export default function Settings() {
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="users">User Management</TabsTrigger>
+          <TabsTrigger value="users">Team Management</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -312,14 +230,14 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* User Management Tab */}
+        {/* Team Management Tab */}
         <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  User Management
+                  Team Management
                 </CardTitle>
                 <Dialog
                   open={isUserDialogOpen}
@@ -328,14 +246,14 @@ export default function Settings() {
                   <DialogTrigger asChild>
                     <Button>
                       <Plus className="h-4 w-4 mr-2" />
-                      Add User
+                      Invite Team Member
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
-                      <DialogTitle>Add New User</DialogTitle>
+                      <DialogTitle>Invite Team Member</DialogTitle>
                     </DialogHeader>
-                    <UserForm
+                    <InviteForm
                       onSave={(data: any) => {
                         const newUser = {
                           id: users.length + 1,
@@ -356,65 +274,82 @@ export default function Settings() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
+                    <TableHead>Member</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Login</TableHead>
+                    <TableHead>Access</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
+                  {teamMembers.map((teammember) => (
+                    <TableRow key={teammember.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
                             <AvatarImage src="/placeholder.svg?height=32&width=32" />
                             <AvatarFallback>
-                              {user.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")}
+                              {`${teammember.firstname?.[0] ?? ""}${
+                                teammember.lastname?.[0] ?? ""
+                              }`}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium">{user.name}</div>
+                            <div className="font-medium">
+                              {teammember.firstname} {teammember.lastname}
+                            </div>
                             <div className="text-sm text-muted-foreground">
-                              {user.email}
+                              {teammember.email}
                             </div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
+                        <Badge variant={"outline"}>{teammember.role}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-green-600">
+                          {teammember.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(teammember.lastlogin).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
                         <Badge
                           variant={
-                            user.role === "Admin"
+                            teammember.access === "Admin"
                               ? "default"
-                              : user.role === "Team"
+                              : teammember.role === "Team"
                               ? "secondary"
                               : "outline"
                           }
                         >
-                          {user.role}
+                          {teammember.access}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-green-600">
-                          {user.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(user.lastLogin).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Edit ${teammember.firstname} ${teammember.lastname}`}
+                            onClick={() => {
+                              setEditingUserId(teammember.id);
+                            }}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="text-red-500 hover:text-red-700"
+                            aria-label={`Delete ${teammember.firstname} ${teammember.lastname}`}
+                            onClick={() => {
+                              setMemberToDelete(teammember);
+                              setIsDeleteDialogOpen(true);
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -428,6 +363,61 @@ export default function Settings() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Single Edit Dialog */}
+      <Dialog
+        open={!!editingUserId}
+        onOpenChange={() => setEditingUserId(null)}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Team Member</DialogTitle>
+          </DialogHeader>
+          <TeamMemberForm
+            member={teamMembers.find((m) => m.id === editingUserId)}
+            onSave={async (data) => {
+              if (editingUserId) {
+                await updateTeamMember(editingUserId, data);
+                setEditingUserId(null);
+              }
+            }}
+            onCancel={() => setEditingUserId(null)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <strong>
+                {memberToDelete?.firstname} {memberToDelete?.lastname}
+              </strong>
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <AlertDialogCancel onClick={() => setMemberToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmDelete()}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Sonner toaster */}
+      <Toaster position="top-right" />
     </div>
   );
 }
