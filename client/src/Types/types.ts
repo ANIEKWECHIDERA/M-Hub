@@ -78,6 +78,7 @@ export interface TeamMemberFormProps {
 //////////////// TaskContextTypes ////////////////
 export interface Task {
   id: number;
+  companyId: number;
   projectId: number;
   title: string;
   assignee: number[];
@@ -126,8 +127,11 @@ export interface TaskFormProps {
 }
 
 /////////////////// AssetContextTypes ///////////////
-export interface File {
+export interface Assets {
   id: number;
+  companyId: number;
+  projectId: number;
+  assigneeId: number;
   name: string;
   size: string;
   uploadDate: string;
@@ -135,15 +139,20 @@ export interface File {
 }
 
 export interface AssetContextType {
-  files: File[];
-  setFiles: React.Dispatch<React.SetStateAction<File[]>>;
-  currentFile: File | null;
-  setCurrentFile: React.Dispatch<React.SetStateAction<File | null>>;
+  files: Assets[];
+  setFiles: React.Dispatch<React.SetStateAction<Assets[]>>;
+  currentFile: Assets | null;
+  setCurrentFile: React.Dispatch<React.SetStateAction<Assets | null>>;
 
   fetchFiles: () => Promise<void>;
-  addFile: (file: File) => Promise<void>;
-  updateFile: (id: number, data: Partial<File>) => Promise<void>;
+  addFile: (file: Assets) => Promise<void>;
+  updateFile: (id: number, data: Partial<Assets>) => Promise<void>;
   deleteFile: (id: number) => Promise<void>;
+  confirmFileDelete: () => void;
+  fileToDelete: Assets | null;
+  setFileToDelete: React.Dispatch<React.SetStateAction<Assets | null>>;
+  isDeleteDialogOpen: boolean;
+  setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
   loading: boolean;
   error: string | null;

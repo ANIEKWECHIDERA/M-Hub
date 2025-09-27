@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import { useState, useEffect } from "react";
 import type { TeamMember } from "../Types/types";
 import type { TeamContextType } from "../Types/types";
+import { toast } from "sonner";
 
 const TeamContext = createContext<TeamContextType | null>(null);
 
@@ -210,6 +211,7 @@ export const TeamContextProvider = ({
 
   const addTeamMember = async (member: TeamMember) => {
     setTeamMembers((prev) => [...prev, member]);
+    toast.success("Team member added successfully!");
     // TODO: Save to backend
   };
 
@@ -217,11 +219,13 @@ export const TeamContextProvider = ({
     setTeamMembers((prev) =>
       prev.map((member) => (member.id === id ? { ...member, ...data } : member))
     );
+    toast.success("Team member details updated successfully!");
     // TODO: Update in backend
   };
 
   const deleteTeamMember = async (id: number) => {
     setTeamMembers((prev) => prev.filter((member) => member.id !== id));
+    toast.success("Team member deleted successfully!");
     // TODO: Delete from backend
   };
 

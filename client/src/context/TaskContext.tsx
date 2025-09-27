@@ -27,90 +27,100 @@ export const TaskContextProvider = ({
   const mockTasks: Task[] = [
     {
       id: 1,
+      companyId: 1,
       projectId: 1,
       title: "Create Logo Concepts",
-      assignee: [1], // John Doe
+      assignee: [1],
       status: "To-Do",
       dueDate: "2024-10-01",
       description: "Sketch and iterate on 3 logo options.",
     },
     {
       id: 2,
+      companyId: 1,
       projectId: 1,
       title: "Review Brand Guidelines",
-      assignee: [2, 3], // Sarah Smith, Mike Johnson
+      assignee: [2, 3],
       status: "In Progress",
       dueDate: "2024-10-10",
       description: "Ensure all brand assets align with new identity.",
     },
     {
       id: 3,
+      companyId: 1,
       projectId: 2,
       title: "Setup Project Repo",
-      assignee: [4], // Wale Johnson
+      assignee: [4],
       status: "Done",
       dueDate: "2024-09-01",
       description: "Initialize GitHub repo and CI/CD config.",
     },
     {
       id: 4,
+      companyId: 1,
       projectId: 2,
       title: "Design Homepage UI",
-      assignee: [10], // Random team member
+      assignee: [10],
       status: "To-Do",
       dueDate: "2024-10-05",
       description: "Create Figma wireframes and hi-fi design.",
     },
     {
       id: 5,
+      companyId: 1,
       projectId: 3,
       title: "Write Campaign Copy",
-      assignee: [6], // Emma Davis
+      assignee: [6],
       status: "In Progress",
       dueDate: "2024-09-28",
       description: "Craft marketing copy for product launch.",
     },
     {
       id: 6,
+      companyId: 1,
       projectId: 3,
       title: "Setup Email Automation",
-      assignee: [7, 5], // David Lee + Bob Wilson
+      assignee: [7, 5],
       status: "To-Do",
       dueDate: "2024-10-10",
       description: "Configure welcome and launch email workflows.",
     },
     {
       id: 7,
+      companyId: 1,
       projectId: 4,
       title: "Test Mobile Responsiveness",
-      assignee: [8], // Some other team member
+      assignee: [8],
       status: "To-Do",
       dueDate: "2024-10-12",
       description: "Ensure the site works seamlessly on mobile devices.",
     },
     {
       id: 8,
+      companyId: 1,
       projectId: 4,
       title: "Client Feedback Review",
-      assignee: [2], // Sarah Smith
+      assignee: [2],
       status: "Done",
       dueDate: "2024-09-25",
       description: "Incorporate client's feedback into new designs.",
     },
     {
       id: 9,
+      companyId: 1,
       projectId: 5,
       title: "Final Testing",
-      assignee: [9, 4], // QA team
+      assignee: [9, 4],
       status: "To-Do",
       dueDate: "2024-10-20",
       description: "Conduct end-to-end testing before launch.",
     },
     {
       id: 10,
+      companyId: 1,
       projectId: 5,
       title: "Deploy to Production",
-      assignee: [4], // Wale Johnson
+      assignee: [4],
       status: "To-Do",
       dueDate: "2024-10-25",
       description: "Go live with final version.",
@@ -157,6 +167,7 @@ export const TaskContextProvider = ({
     const newTask: Task = {
       id: tasks.length + 1,
       projectId,
+      companyId: 1,
       title: data.title || "",
       description: data.description || "",
       assignee: data.assignee || [],

@@ -68,7 +68,14 @@ export default function ProjectDetail() {
     confirmDelete,
     updateTask,
   } = useTaskContext();
-  const { files } = useAssetContext();
+  const {
+    files,
+    currentFile,
+    addFile,
+    confirmFileDelete,
+    setFileToDelete,
+    fileToDelete,
+  } = useAssetContext();
   const { comments, newComment, setNewComment, addComment } = useComments();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -77,6 +84,7 @@ export default function ProjectDetail() {
 
   const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
   const { teamMembers } = useTeamContext();
+  const filteredfiles = files.filter((file) => file.projectId === Number(id));
 
   useEffect(() => {
     if (project && !currentProject) {
@@ -395,53 +403,72 @@ export default function ProjectDetail() {
           <TabsContent value="assets" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Project Assets</h2>
-              <Button>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload File
-              </Button>
+              {filteredTasks.length > 0 && (
+                <Button>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload File
+                </Button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {files.map((file) => (
-                <Card key={file.id}>
-                  <CardContent className="p-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
-                            <span className="text-xs font-medium text-blue-600">
-                              {file.type.toUpperCase()}
-                            </span>
+              {filteredfiles.length === 0 ? (
+                <div className="text-center space-y-4 col-span-3">
+                  <p className="text-muted-foreground">
+                    No files uploaded yet for this project.
+                  </p>
+                  <Button onClick={() => setIsTaskDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Upload File
+                  </Button>
+                </div>
+              ) : (
+                filteredfiles.map((file) => (
+                  <Card key={file.id}>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                              <span className="text-xs font-medium text-blue-600">
+                                {file.type.toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {file.size}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-sm">{file.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {file.size}
-                            </p>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700"
+                              aria-label={`Delete file ${file.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFileToDelete(file);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-700"
-                            aria-label={`Delete file ${file.name}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Uploaded on{" "}
+                          {new Date(file.uploadDate).toLocaleDateString()}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Uploaded on{" "}
-                        {new Date(file.uploadDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </TabsContent>
 
@@ -513,19 +540,39 @@ export default function ProjectDetail() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Task</AlertDialogTitle>
+              <AlertDialogTitle>
+                {TaskToDelete ? "Delete Task" : "Delete File"}
+              </AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to delete{" "}
-                <strong>{TaskToDelete?.title}</strong>? This action cannot be
-                undone.
+                <strong>
+                  {TaskToDelete
+                    ? `${TaskToDelete.title}`
+                    : fileToDelete
+                    ? `${fileToDelete.name}`
+                    : "No item selected for deletion"}
+                </strong>
+                ? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="flex justify-end gap-2 pt-4">
-              <AlertDialogCancel onClick={() => setTaskToDelete(null)}>
+              <AlertDialogCancel
+                onClick={() => {
+                  if (TaskToDelete) {
+                    setTaskToDelete(null);
+                  } else setFileToDelete(null);
+                }}
+              >
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => confirmDelete()}
+                onClick={() => {
+                  if (TaskToDelete) {
+                    confirmDelete();
+                  } else {
+                    confirmFileDelete();
+                  }
+                }}
                 className="bg-red-600 hover:bg-red-700"
               >
                 Delete
