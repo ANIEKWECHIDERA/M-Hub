@@ -2,23 +2,7 @@
 import { useState, useEffect } from "react";
 import type { Comment } from "../Types/types";
 
-const mockComments: Comment[] = [
-  {
-    id: 1,
-    author: "Sarah Smith",
-    content:
-      "Great progress on the logo designs! I think option 2 works best with the brand direction.",
-    timestamp: "2024-01-15 10:30 AM",
-    avatar: "/placeholder.svg?height=32&width=32",
-  },
-  {
-    id: 2,
-    author: "John Doe",
-    content: "Thanks! I’ll refine option 2 and prepare the color variations.",
-    timestamp: "2024-01-15 11:15 AM",
-    avatar: "/placeholder.svg?height=32&width=32",
-  },
-];
+const mockComments: Comment[] = [];
 
 export function useComments() {
   const [comments, setComments] = useState<Comment[]>([]);

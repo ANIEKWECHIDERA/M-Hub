@@ -24,7 +24,7 @@ import {
   Trash2,
   Edit,
 } from "lucide-react";
-import { useComments } from "../../hooks/useComments";
+
 import { useParams } from "react-router-dom";
 import { useProjectContext } from "@/context/ProjectContext";
 import { useAssetContext } from "@/context/AssetContext";
@@ -44,6 +44,7 @@ import {
 import type { Task } from "@/Types/types";
 import { useProjectTaskStats } from "@/hooks/useProjectTaskStats";
 import { useTeamContext } from "@/context/TeamMemberContext";
+import { useCommentContext } from "@/context/CommentContext";
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -76,7 +77,8 @@ export default function ProjectDetail() {
     setFileToDelete,
     fileToDelete,
   } = useAssetContext();
-  const { comments, newComment, setNewComment, addComment } = useComments();
+  const { comments, newComment, setNewComment, addComment } =
+    useCommentContext();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const filteredTasks = tasks.filter((task) => task.projectId === Number(id));
@@ -85,6 +87,20 @@ export default function ProjectDetail() {
   const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
   const { teamMembers } = useTeamContext();
   const filteredfiles = files.filter((file) => file.projectId === Number(id));
+  const filteredComments = comments.filter(
+    (comment) => comment.projectId === Number(id)
+  );
+
+  const mergedComments = filteredComments.map((comment) => {
+    const author = teamMembers.find((member) => member.id === comment.authorId);
+    return {
+      ...comment,
+      author: author
+        ? `${author.firstname} ${author.lastname}`
+        : "Unknown Author",
+      avatar: author?.avatar ?? "/placeholder.svg",
+    };
+  });
 
   useEffect(() => {
     if (project && !currentProject) {
@@ -417,8 +433,8 @@ export default function ProjectDetail() {
                   <p className="text-muted-foreground">
                     No files uploaded yet for this project.
                   </p>
-                  <Button onClick={() => setIsTaskDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
+                  <Button>
+                    <Upload className="h-4 w-4 mr-2" />
                     Upload File
                   </Button>
                 </div>
@@ -477,7 +493,7 @@ export default function ProjectDetail() {
             <h2 className="text-xl font-semibold">Project Comments</h2>
 
             <div className="space-y-4">
-              {comments.map((comment) => (
+              {mergedComments.map((comment) => (
                 <Card key={comment.id}>
                   <CardContent className="p-4">
                     <div className="flex gap-3">

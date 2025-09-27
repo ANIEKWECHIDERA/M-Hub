@@ -85,8 +85,6 @@ export interface Task {
   status: string;
   dueDate: string;
   description: string;
-  total?: number;
-  completed?: number;
 }
 
 export interface TaskContextType {
@@ -95,7 +93,11 @@ export interface TaskContextType {
   currentTask: Task | null;
   setCurrentTask: React.Dispatch<React.SetStateAction<Task | null>>;
   fetchTasks: () => Promise<void>;
-  addTask: (projectId: number, task: Partial<Task>) => Promise<void>;
+  addTask: (
+    projectId: number,
+    companyId: number,
+    task: Partial<Task>
+  ) => Promise<void>;
   updateTask: (id: number, data: Partial<Task>) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
   loading: boolean;
@@ -161,10 +163,11 @@ export interface AssetContextType {
 //////////////// CommentContextTypes //////////////
 export interface Comment {
   id: number;
-  author: string;
+  companyId: number;
+  projectId: number;
+  authorId: number;
   content: string;
   timestamp: string;
-  avatar: string;
 }
 
 export interface CommentContextType {
@@ -172,12 +175,15 @@ export interface CommentContextType {
   setComments: React.Dispatch<React.SetStateAction<Comment[]>>;
   currentComment: Comment | null;
   setCurrentComment: React.Dispatch<React.SetStateAction<Comment | null>>;
+  newComment: string;
+  setNewComment: React.Dispatch<React.SetStateAction<string>>;
 
   fetchComments: () => Promise<void>;
   addComment: (
     content: string,
-    author?: string,
-    avatar?: string
+    authorId: number,
+    companyId: number,
+    projectId: number
   ) => Promise<void>;
   updateComment: (id: number, data: Partial<Comment>) => Promise<void>;
   deleteComment: (id: number) => Promise<void>;

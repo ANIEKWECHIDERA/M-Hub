@@ -163,11 +163,15 @@ export const TaskContextProvider = ({
   }, [projectId]);
 
   // ➕ Add task
-  const addTask = async (projectId: number, data: Partial<Task>) => {
+  const addTask = async (
+    projectId: number,
+    companyId: number,
+    data: Partial<Task>
+  ) => {
     const newTask: Task = {
       id: tasks.length + 1,
       projectId,
-      companyId: 1,
+      companyId,
       title: data.title || "",
       description: data.description || "",
       assignee: data.assignee || [],
