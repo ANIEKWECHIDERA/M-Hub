@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 import type { Comment, CommentContextType } from "../Types/types";
+import { format, parse } from "date-fns";
 
 const CommentContext = createContext<CommentContextType | null>(null);
 
@@ -68,7 +69,10 @@ export const CommentContextProvider = ({
       projectId,
       authorId,
       content,
-      timestamp: new Date().toLocaleString(),
+      timestamp: format(
+        parse(new Date().toLocaleString(), "dd/MM/yyyy, HH:mm:ss", new Date()),
+        "PPP p"
+      ),
     };
     setComments((prev) => [...prev, newComment]);
     setNewComment("");

@@ -75,6 +75,13 @@ export interface TeamMemberFormProps {
   onCancel: () => void;
 }
 
+export interface Assignee {
+  id: number;
+  firstname: string;
+  lastname: string;
+  avatar?: string;
+}
+
 //////////////// TaskContextTypes ////////////////
 export interface Task {
   id: number;
@@ -114,6 +121,7 @@ export interface TaskContextType {
 export interface TaskDetailDialogProps {
   task: Task | null;
   onClose: () => void;
+  assignee: Assignee[];
 }
 
 export interface TaskFormProps {

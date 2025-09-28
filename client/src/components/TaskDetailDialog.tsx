@@ -9,47 +9,82 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
-const TaskDetailDialog = ({ task, onClose }: TaskDetailDialogProps) => {
+const TaskDetailDialog = ({
+  task,
+  onClose,
+  assignee,
+}: TaskDetailDialogProps) => {
   if (!task) return null;
 
   return (
     <Dialog open={!!task} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] rounded-lg shadow-lg">
         <DialogHeader>
-          <DialogTitle>{task.title}</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold text-gray-900">
+            {task.title}
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium">Description</Label>
-            <p className="text-sm text-muted-foreground">
+
+        <div className="grid gap-6 py-4">
+          {/* Description */}
+          <div className="border-b pb-4">
+            <Label className="text-sm text-gray-500 uppercase tracking-wide">
+              Description
+            </Label>
+            <p className="mt-1 text-base text-gray-800">
               {task.description || "No description provided"}
             </p>
           </div>
-          <div>
-            <Label className="text-sm font-medium">Assignee</Label>
-            <p className="text-sm text-muted-foreground">{task.assignee}</p>
-          </div>
-          <div>
-            <Label className="text-sm font-medium">Status</Label>
-            <Badge
-              variant={
-                task.status === "Done"
-                  ? "default"
-                  : task.status === "In Progress"
-                  ? "secondary"
-                  : "outline"
-              }
-            >
-              {task.status}
-            </Badge>
-          </div>
-          <div>
-            <Label className="text-sm font-medium">Due Date</Label>
-            <p className="text-sm text-muted-foreground">
-              {new Date(task.dueDate).toLocaleDateString()}
+
+          {/* Assignee */}
+          <div className="border-b pb-4">
+            <Label className="text-sm text-gray-500 uppercase tracking-wide">
+              Assignee
+            </Label>
+            <p className="mt-1 text-base text-gray-800">
+              {assignee.length > 0
+                ? assignee.map((a) => `${a.firstname} ${a.lastname}`).join(", ")
+                : "Unassigned"}
             </p>
           </div>
-          <div className="flex justify-end">
+
+          {/* Status */}
+          <div className="border-b pb-4">
+            <Label className="text-sm text-gray-500 uppercase tracking-wide">
+              Status
+            </Label>
+            <div className="mt-1">
+              <Badge
+                variant={
+                  task.status === "Done"
+                    ? "default"
+                    : task.status === "In Progress"
+                    ? "secondary"
+                    : "outline"
+                }
+                className="text-sm px-3 py-1 rounded-full"
+              >
+                {task.status}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Due Date */}
+          <div className="border-b pb-4">
+            <Label className="text-sm text-gray-500 uppercase tracking-wide">
+              Due Date
+            </Label>
+            <p className="mt-1 text-base text-gray-800">
+              {new Date(task.dueDate).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
+          </div>
+
+          {/* Close Button */}
+          <div className="flex justify-end pt-2">
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>

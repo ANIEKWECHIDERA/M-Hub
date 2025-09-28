@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,26 +81,41 @@ export default function ProjectDetail() {
     useCommentContext();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const filteredTasks = tasks.filter((task) => task.projectId === Number(id));
+  const filteredTasks = useMemo(
+    () => tasks.filter((task) => task.projectId === Number(id)),
+    [tasks, id]
+  );
   const { total, completed, progress } = useProjectTaskStats(Number(id));
 
   const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
   const { teamMembers } = useTeamContext();
-  const filteredfiles = files.filter((file) => file.projectId === Number(id));
-  const filteredComments = comments.filter(
-    (comment) => comment.projectId === Number(id)
+  const filteredfiles = useMemo(
+    () => files.filter((file) => file.projectId === Number(id)),
+    [files, id]
+  );
+  const filteredComments = useMemo(
+    () => comments.filter((comment) => comment.projectId === Number(id)),
+    [comments, id]
   );
 
-  const mergedComments = filteredComments.map((comment) => {
-    const author = teamMembers.find((member) => member.id === comment.authorId);
-    return {
-      ...comment,
-      author: author
-        ? `${author.firstname} ${author.lastname}`
-        : "Unknown Author",
-      avatar: author?.avatar ?? "/placeholder.svg",
-    };
-  });
+  const mergedComments = useMemo(() => {
+    return filteredComments.map((comment) => {
+      const author = teamMembers.find(
+        (member) => member.id === comment.authorId
+      );
+      return {
+        ...comment,
+        author: author
+          ? `${author.firstname} ${author.lastname}`
+          : "Unknown Author",
+        avatar: author?.avatar ?? "/placeholder.svg",
+      };
+    });
+  }, [filteredComments, teamMembers]);
+
+  const selectedAssignees = teamMembers.filter((member) =>
+    selectedTask?.assignee.includes(member.id)
+  );
 
   useEffect(() => {
     if (project && !currentProject) {
@@ -267,7 +282,7 @@ export default function ProjectDetail() {
                       if (editingTask) {
                         updateTask(editingTask.id, data);
                       } else {
-                        addTask(project.id, data);
+                        addTask(project.id, 1, data);
                       }
                       setIsTaskDialogOpen(false);
                       setEditingTask(null);
@@ -383,6 +398,7 @@ export default function ProjectDetail() {
             <TaskDetailDialog
               task={selectedTask}
               onClose={() => setSelectedTask(null)}
+              assignee={selectedAssignees}
             />
           </TabsContent>
 
@@ -419,7 +435,7 @@ export default function ProjectDetail() {
           <TabsContent value="assets" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Project Assets</h2>
-              {filteredTasks.length > 0 && (
+              {filteredfiles.length > 0 && (
                 <Button>
                   <Upload className="h-4 w-4 mr-2" />
                   Upload File
@@ -489,41 +505,50 @@ export default function ProjectDetail() {
           </TabsContent>
 
           {/* Comments Tab */}
+
           <TabsContent value="comments" className="space-y-4">
             <h2 className="text-xl font-semibold">Project Comments</h2>
 
-            <div className="space-y-4">
-              {mergedComments.map((comment) => (
-                <Card key={comment.id}>
-                  <CardContent className="p-4">
-                    <div className="flex gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage
-                          src={comment.avatar || "/placeholder.svg"}
-                        />
-                        <AvatarFallback>
-                          {comment.author
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">
-                            {comment.author}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {comment.timestamp}
-                          </span>
+            {mergedComments.length === 0 ? (
+              <div className="text-center space-y-4">
+                <p className="text-muted-foreground">
+                  No comments yet for this project.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {mergedComments.map((comment) => (
+                  <Card key={comment.id}>
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage
+                            src={comment.avatar || "/placeholder.svg"}
+                          />
+                          <AvatarFallback>
+                            {comment.author
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">
+                              {comment.author}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {comment.timestamp}
+                            </span>
+                          </div>
+                          <p className="text-sm">{comment.content}</p>
                         </div>
-                        <p className="text-sm">{comment.content}</p>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
             <Card>
               <CardContent className="p-4">
@@ -536,7 +561,9 @@ export default function ProjectDetail() {
                   />
                   <div className="flex justify-end">
                     <Button
-                      onClick={() => addComment(newComment)}
+                      onClick={() => {
+                        addComment(newComment, project.id, 1, 1); // make dynamic, Replace with actual user ID and companyId from auth context
+                      }}
                       disabled={!newComment.trim()}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
