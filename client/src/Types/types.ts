@@ -145,6 +145,7 @@ export interface Assets {
   name: string;
   size: string;
   uploadDate: string;
+  url: string;
   type: "pdf" | "image" | "document" | string;
 }
 

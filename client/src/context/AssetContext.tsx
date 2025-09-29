@@ -28,6 +28,7 @@ export const AssetContextProvider = ({
       size: "2.4 MB",
       uploadDate: "2024-01-10",
       type: "pdf",
+      url: "",
     },
     {
       id: 2,
@@ -38,6 +39,7 @@ export const AssetContextProvider = ({
       size: "856 KB",
       uploadDate: "2024-01-12",
       type: "image",
+      url: "",
     },
     {
       id: 3,
@@ -48,6 +50,7 @@ export const AssetContextProvider = ({
       size: "1.2 MB",
       uploadDate: "2024-01-14",
       type: "document",
+      url: "",
     },
   ];
 

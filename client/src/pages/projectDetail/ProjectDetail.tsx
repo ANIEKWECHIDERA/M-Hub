@@ -45,6 +45,7 @@ import type { Task } from "@/Types/types";
 import { useProjectTaskStats } from "@/hooks/useProjectTaskStats";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useCommentContext } from "@/context/CommentContext";
+import { Input } from "@/components/ui/input";
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -113,14 +114,14 @@ export default function ProjectDetail() {
     });
   }, [filteredComments, teamMembers]);
 
-  const selectedAssignees = teamMembers.filter((member) =>
-    selectedTask?.assignee.includes(member.id)
-  );
+  // const selectedAssignees = teamMembers.filter((member) =>
+  //   selectedTask?.assignee.includes(member.id)
+  // );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (project && !currentProject) {
+    if (project && (!currentProject || currentProject.id !== project.id)) {
       setCurrentProject(project);
     }
   }, [project, currentProject, setCurrentProject]);
@@ -259,14 +260,18 @@ export default function ProjectDetail() {
                 }}
               >
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Task
-                  </Button>
+                  {filteredTasks.length > 0 && (
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Task
+                    </Button>
+                  )}
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
-                    <DialogTitle>Create New Task</DialogTitle>
+                    <DialogTitle>
+                      {editingTask ? "Update Task" : "Create New Task"}
+                    </DialogTitle>
                   </DialogHeader>
                   <TaskForm
                     key={selectedTask?.id ?? "new"}
@@ -274,24 +279,15 @@ export default function ProjectDetail() {
                       editingTask
                         ? {
                             ...editingTask,
-                            assignee: editingTask.assignee[0]?.toString() || "",
+                            assignee: editingTask.assignee, // Pass array directly
                           }
-                        : { assignee: [] } // Ensure default assignee is an array
+                        : { assignee: [] }
                     }
                     onSave={(data) => {
-                      // Normalize assignee to always be an array
-                      const normalizedData = {
-                        ...data,
-                        assignee: Array.isArray(data.assignee)
-                          ? data.assignee.map(Number)
-                          : data.assignee
-                          ? [Number(data.assignee)]
-                          : [],
-                      };
                       if (editingTask) {
-                        updateTask(editingTask.id, normalizedData);
+                        updateTask(editingTask.id, data);
                       } else {
-                        addTask(project.id, 1, normalizedData); // replace with actual companyId
+                        addTask(project.id, 1, data);
                       }
                       setIsTaskDialogOpen(false);
                       setEditingTask(null);
@@ -337,7 +333,7 @@ export default function ProjectDetail() {
                               onCheckedChange={(checked) =>
                                 updateTask(task.id, {
                                   ...task,
-                                  status: checked ? "Done" : "To Do",
+                                  status: checked ? "Done" : "To-Do",
                                 })
                               }
                               onClick={(e) => {
@@ -472,7 +468,7 @@ export default function ProjectDetail() {
               <label htmlFor="file-upload" className="sr-only">
                 Upload File
               </label>
-              <input
+              <Input
                 id="file-upload"
                 className="hidden"
                 type="file"
@@ -489,9 +485,8 @@ export default function ProjectDetail() {
                       name: file.name,
                       type: file.type.split("/")[1] || "unknown",
                       size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-
                       uploadDate: new Date().toISOString(),
-                      // url: URL.createObjectURL(file), // For download
+                      url: URL.createObjectURL(file), // For download
                     };
                     addFile(fileData); // Assuming addFile(fileData) in AssetContext
                   }
@@ -534,7 +529,19 @@ export default function ProjectDetail() {
                             </div>
                           </div>
                           <div className="flex gap-1">
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                // Assuming file has 'url' property
+                                if (file.url) {
+                                  const a = document.createElement("a");
+                                  a.href = file.url;
+                                  a.download = file.name;
+                                  a.click();
+                                }
+                              }}
+                            >
                               <Download className="h-4 w-4" />
                             </Button>
                             <Button
