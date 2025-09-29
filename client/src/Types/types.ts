@@ -130,7 +130,7 @@ export interface TaskFormProps {
   defaultValues?: {
     title?: string;
     description?: string;
-    assignee?: string;
+    assignee?: number[] | string;
     status?: string;
     dueDate?: string;
   };

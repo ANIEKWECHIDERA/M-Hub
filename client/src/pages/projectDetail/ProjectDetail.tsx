@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +116,8 @@ export default function ProjectDetail() {
   const selectedAssignees = teamMembers.filter((member) =>
     selectedTask?.assignee.includes(member.id)
   );
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (project && !currentProject) {
@@ -257,12 +259,10 @@ export default function ProjectDetail() {
                 }}
               >
                 <DialogTrigger asChild>
-                  {filteredTasks.length > 0 && (
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Task
-                    </Button>
-                  )}
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Task
+                  </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
@@ -276,13 +276,22 @@ export default function ProjectDetail() {
                             ...editingTask,
                             assignee: editingTask.assignee[0]?.toString() || "",
                           }
-                        : undefined
+                        : { assignee: [] } // Ensure default assignee is an array
                     }
                     onSave={(data) => {
+                      // Normalize assignee to always be an array
+                      const normalizedData = {
+                        ...data,
+                        assignee: Array.isArray(data.assignee)
+                          ? data.assignee.map(Number)
+                          : data.assignee
+                          ? [Number(data.assignee)]
+                          : [],
+                      };
                       if (editingTask) {
-                        updateTask(editingTask.id, data);
+                        updateTask(editingTask.id, normalizedData);
                       } else {
-                        addTask(project.id, 1, data);
+                        addTask(project.id, 1, normalizedData); // replace with actual companyId
                       }
                       setIsTaskDialogOpen(false);
                       setEditingTask(null);
@@ -309,6 +318,10 @@ export default function ProjectDetail() {
             ) : (
               <div className="space-y-3">
                 {filteredTasks.map((task) => {
+                  // Ensure assignee is an array
+                  const assignees = Array.isArray(task.assignee)
+                    ? task.assignee
+                    : [];
                   return (
                     <Card
                       key={task.id}
@@ -321,6 +334,15 @@ export default function ProjectDetail() {
                             <Checkbox
                               checked={task.status === "Done"}
                               className="mt-1"
+                              onCheckedChange={(checked) =>
+                                updateTask(task.id, {
+                                  ...task,
+                                  status: checked ? "Done" : "To Do",
+                                })
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
                             />
                             <div className="space-y-1">
                               <h3 className="font-medium">{task.title}</h3>
@@ -330,16 +352,18 @@ export default function ProjectDetail() {
                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                 <span>
                                   Assigned to:{" "}
-                                  {task.assignee
-                                    .map((id) => {
-                                      const member = teamMembers.find(
-                                        (member) => member.id === id
-                                      );
-                                      return member
-                                        ? `${member.firstname} ${member.lastname}`
-                                        : "Unknown";
-                                    })
-                                    .join(", ")}
+                                  {assignees.length > 0
+                                    ? assignees
+                                        .map((id) => {
+                                          const member = teamMembers.find(
+                                            (member) => member.id === id
+                                          );
+                                          return member
+                                            ? `${member.firstname} ${member.lastname}`
+                                            : "Unknown";
+                                        })
+                                        .join(", ")
+                                    : "Unassigned"}
                                 </span>
                                 <span>
                                   Due:{" "}
@@ -398,7 +422,11 @@ export default function ProjectDetail() {
             <TaskDetailDialog
               task={selectedTask}
               onClose={() => setSelectedTask(null)}
-              assignee={selectedAssignees}
+              assignee={teamMembers.filter((member) =>
+                Array.isArray(selectedTask?.assignee)
+                  ? selectedTask.assignee.includes(member.id)
+                  : false
+              )}
             />
           </TabsContent>
 
@@ -436,11 +464,39 @@ export default function ProjectDetail() {
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Project Assets</h2>
               {filteredfiles.length > 0 && (
-                <Button>
+                <Button onClick={() => fileInputRef.current?.click()}>
                   <Upload className="h-4 w-4 mr-2" />
                   Upload File
                 </Button>
               )}
+              <label htmlFor="file-upload" className="sr-only">
+                Upload File
+              </label>
+              <input
+                id="file-upload"
+                className="hidden"
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    // Normalize file data
+                    const fileData = {
+                      id: files.length + 1,
+                      companyId: 1,
+                      projectId: Number(id),
+                      assigneeId: 1,
+                      name: file.name,
+                      type: file.type.split("/")[1] || "unknown",
+                      size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+
+                      uploadDate: new Date().toISOString(),
+                      // url: URL.createObjectURL(file), // For download
+                    };
+                    addFile(fileData); // Assuming addFile(fileData) in AssetContext
+                  }
+                }}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -449,7 +505,7 @@ export default function ProjectDetail() {
                   <p className="text-muted-foreground">
                     No files uploaded yet for this project.
                   </p>
-                  <Button>
+                  <Button onClick={() => fileInputRef.current?.click()}>
                     <Upload className="h-4 w-4 mr-2" />
                     Upload File
                   </Button>
@@ -463,11 +519,15 @@ export default function ProjectDetail() {
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
                               <span className="text-xs font-medium text-blue-600">
-                                {file.type.toUpperCase()}
+                                {file.type.toUpperCase().slice(0, 1)}
                               </span>
                             </div>
                             <div>
-                              <p className="font-medium text-sm">{file.name}</p>
+                              <p className="font-medium text-sm">
+                                {`${file.name.slice(0, 20)}...${file.name.slice(
+                                  -4
+                                )}`}
+                              </p>
                               <p className="text-xs text-muted-foreground">
                                 {file.size}
                               </p>
@@ -506,18 +566,22 @@ export default function ProjectDetail() {
 
           {/* Comments Tab */}
 
-          <TabsContent value="comments" className="space-y-4">
+          <TabsContent
+            value="comments"
+            className="flex flex-col h-full space-y-4"
+          >
             <h2 className="text-xl font-semibold">Project Comments</h2>
 
-            {mergedComments.length === 0 ? (
-              <div className="text-center space-y-4">
-                <p className="text-muted-foreground">
-                  No comments yet for this project.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {mergedComments.map((comment) => (
+            {/* Comment List */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              {mergedComments.length === 0 ? (
+                <div className="text-center space-y-4">
+                  <p className="text-muted-foreground">
+                    No comments yet for this project.
+                  </p>
+                </div>
+              ) : (
+                mergedComments.map((comment) => (
                   <Card key={comment.id}>
                     <CardContent className="p-4">
                       <div className="flex gap-3">
@@ -546,33 +610,43 @@ export default function ProjectDetail() {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
 
-            <Card>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <Textarea
-                    placeholder="Add a comment..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    rows={3}
-                  />
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={() => {
-                        addComment(newComment, project.id, 1, 1); // make dynamic, Replace with actual user ID and companyId from auth context
-                      }}
-                      disabled={!newComment.trim()}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Add Comment
-                    </Button>
+            {/* Sticky Comment Input */}
+            <div className="sticky bottom-0 bg-background border-t pt-2">
+              <Card className="shadow-none border-none">
+                <CardContent className="p-4 pt-2">
+                  <div className="space-y-3">
+                    <Textarea
+                      placeholder="Add a comment..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      rows={2}
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={() => {
+                          if (newComment.trim()) {
+                            addComment(
+                              newComment,
+                              1, // Assuming project has companyId
+                              1, // Replace with actual user ID
+                              project.id
+                            );
+                          }
+                        }}
+                        disabled={!newComment.trim()}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Add Comment
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
 

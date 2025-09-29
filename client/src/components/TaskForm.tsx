@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -7,36 +10,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { TaskFormProps } from "@/Types/types";
-import { useEffect, useState } from "react";
-import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea";
+
 import { useProjectContext } from "@/context/ProjectContext";
+import type { TaskFormProps } from "@/Types/types";
 
 const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
   const { currentProject, getTeamMembersDetails } = useProjectContext();
+  const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    assignee: "",
+    assignee: [] as number[], // Initialize as array of IDs
     status: "To-Do",
     dueDate: "",
   });
-
-  const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
 
   useEffect(() => {
     if (defaultValues) {
       setFormData({
         title: defaultValues.title || "",
         description: defaultValues.description || "",
-        assignee: defaultValues.assignee || "",
+        assignee: Array.isArray(defaultValues.assignee)
+          ? defaultValues.assignee.map(Number)
+          : defaultValues.assignee
+          ? [Number(defaultValues.assignee)]
+          : [],
         status: defaultValues.status || "To-Do",
         dueDate: defaultValues.dueDate || "",
       });
-      console.log("Default values set in form:", defaultValues.status);
     }
   }, [defaultValues]);
+
+  // const handleAssigneeChange = (memberId: number, checked: boolean) => {
+  //   setFormData((prev) => ({
+  //     ...prev,
+  //     assignee: checked
+  //       ? [...prev.assignee, memberId]
+  //       : prev.assignee.filter((id) => id !== memberId),
+  //   }));
+  // };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,12 +83,14 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
       </div>
 
       <div className="space-y-2">
-        key
         <Label htmlFor="assignee">Assignee</Label>
         <Select
-          value={formData.assignee}
+          value={formData.assignee[0]?.toString() || ""}
           onValueChange={(value) =>
-            setFormData({ ...formData, assignee: value })
+            setFormData({
+              ...formData,
+              assignee: value ? [Number(value)] : [],
+            })
           }
         >
           <SelectTrigger>
@@ -83,11 +98,8 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
           </SelectTrigger>
           <SelectContent>
             {team.map((member) => (
-              <SelectItem
-                key={member.id}
-                value={`${member.firstname} ${member.lastname}`}
-              >
-                {member.firstname} {member.lastname} - {member.role}
+              <SelectItem key={member.id} value={member.id.toString()}>
+                {`${member.firstname} ${member.lastname} - ${member.role}`}
               </SelectItem>
             ))}
           </SelectContent>
