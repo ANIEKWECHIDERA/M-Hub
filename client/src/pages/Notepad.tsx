@@ -29,82 +29,60 @@ import {
   Calendar,
   Tag,
 } from "lucide-react";
+import { useNoteContext } from "@/context/NoteContext";
+import { useProjectContext } from "@/context/ProjectContext";
+import { useParams } from "react-router-dom";
+import type { Note, NoteFormProps } from "@/Types/types";
 
-const mockNotes = [
-  {
-    id: 1,
-    title: "Project Meeting Notes",
-    content:
-      "Discussed timeline and deliverables for TechCorp project. Key points:\n- Logo concepts due by Friday\n- Client feedback session next Tuesday\n- Final delivery by month end",
-    project: "TechCorp Project",
-    tags: ["meeting", "important"],
-    createdAt: "2024-01-15",
-    updatedAt: "2024-01-15",
-  },
-  {
-    id: 2,
-    title: "Design Ideas",
-    content:
-      "Color palette inspiration:\n- Deep blue (#1e40af)\n- Warm gray (#6b7280)\n- Accent green (#10b981)\n\nTypography: Consider Inter or Poppins for clean, modern look.",
-    project: null,
-    tags: ["design", "inspiration"],
-    createdAt: "2024-01-14",
-    updatedAt: "2024-01-16",
-  },
-  {
-    id: 3,
-    title: "Client Feedback",
-    content:
-      "Client loves the direction we're taking with the brand. Requested minor adjustments to logo spacing and wants to see alternative color options.",
-    project: "TechCorp Project",
-    tags: ["feedback", "client"],
-    createdAt: "2024-01-16",
-    updatedAt: "2024-01-16",
-  },
-];
+import { AlertDialog } from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Notepad() {
-  const [notes, setNotes] = useState(mockNotes);
-  const [selectedNote, setSelectedNote] = useState<any>(null);
+  const { notes, addNote, updateNote, deleteNote, loading, error } =
+    useNoteContext();
+  const { projects } = useProjectContext();
+
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
-  const filteredNotes = notes.filter(
-    (note) =>
+  const filteredNotes: Note[] = notes.filter(
+    (note: Note) =>
       note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      note.content?.toLowerCase().includes(searchTerm.toLowerCase() ?? false) ||
       note.tags.some((tag) =>
         tag.toLowerCase().includes(searchTerm.toLowerCase())
       )
   );
 
-  const NoteForm = ({ note, onSave, onCancel }: any) => {
+  const NoteForm = ({ note, onSave, onCancel }: NoteFormProps) => {
     const [formData, setFormData] = useState({
       title: note?.title || "",
       content: note?.content || "",
-      project: note?.project || "No Project",
-      tags: note?.tags?.join(", ") || "",
+      projectId: note?.projectId?.toString() || "",
+      tags: note?.tags.join(", ") || "",
     });
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-
-      interface NoteData {
-        title: string;
-        content: string;
-        project: string;
-        tags: string[];
-        updatedAt: string;
-      }
-
-      const noteData: NoteData = {
-        ...formData,
+      const noteData: Partial<Note> = {
+        title: formData.title,
+        content: formData.content,
+        projectId: formData.projectId ? Number(formData.projectId) : undefined,
         tags: formData.tags
           .split(",")
-          .map((tag: string) => tag.trim())
-          .filter((tag: string) => tag),
-        updatedAt: new Date().toISOString().split("T")[0],
+          .map((tag) => tag.trim())
+          .filter((tag) => tag),
       };
       onSave(noteData);
     };
@@ -141,9 +119,9 @@ export default function Notepad() {
         <div className="space-y-2">
           <Label htmlFor="note-project">Link to Project (Optional)</Label>
           <Select
-            value={formData.project}
+            value={formData.projectId}
             onValueChange={(value) =>
-              setFormData({ ...formData, project: value })
+              setFormData({ ...formData, projectId: value })
             }
           >
             <SelectTrigger>
@@ -151,13 +129,11 @@ export default function Notepad() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="No Project">No Project</SelectItem>
-              <SelectItem value="TechCorp Project">TechCorp Project</SelectItem>
-              <SelectItem value="StartupXYZ Website">
-                StartupXYZ Website
-              </SelectItem>
-              <SelectItem value="RetailCo Campaign">
-                RetailCo Campaign
-              </SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id.toString()}>
+                  {project.title}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -181,6 +157,8 @@ export default function Notepad() {
       </form>
     );
   };
+  if (loading) return <div>Loading notes...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-4">
@@ -200,13 +178,19 @@ export default function Notepad() {
                   <DialogTitle>Create New Note</DialogTitle>
                 </DialogHeader>
                 <NoteForm
-                  onSave={(data: any) => {
-                    const newNote = {
-                      id: notes.length + 1,
-                      ...data,
-                      createdAt: new Date().toISOString().split("T")[0],
+                  onSave={async (data: any) => {
+                    const newNote: Note = {
+                      id: notes.length + 1, // TODO: Replace with server-generated ID
+                      companyId: 1, // TODO: Replace with useAuthContext().user.companyId
+                      projectId: data.projectId || 0, // Use 0 for no project
+                      authorId: 1, // TODO: Replace with useAuthContext().user.id
+                      title: data.title!,
+                      content: data.content,
+                      tags: data.tags || [],
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
                     };
-                    setNotes([newNote, ...notes]);
+                    await addNote(newNote);
                     setSelectedNote(newNote);
                     setIsCreateOpen(false);
                   }}
@@ -227,7 +211,7 @@ export default function Notepad() {
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto p-0">
           <div className="space-y-2 px-4">
-            {filteredNotes.map((note) => (
+            {filteredNotes.map((note: Note) => (
               <div
                 key={note.id}
                 onClick={() => setSelectedNote(note)}
@@ -251,9 +235,10 @@ export default function Notepad() {
                         {new Date(note.updatedAt).toLocaleDateString()}
                       </span>
                     </div>
-                    {note.project && (
+                    {note.projectId && (
                       <Badge variant="outline" className="text-xs">
-                        {note.project}
+                        {projects.find((p) => p.id === note.projectId)?.title ||
+                          "Unknown Project"}
                       </Badge>
                     )}
                   </div>
@@ -295,10 +280,14 @@ export default function Notepad() {
                         {new Date(selectedNote.updatedAt).toLocaleDateString()}
                       </span>
                     </div>
-                    {selectedNote.project && (
+                    {selectedNote.projectId > 0 && (
                       <div className="flex items-center gap-1">
                         <FileText className="h-4 w-4" />
-                        <span>{selectedNote.project}</span>
+                        <span>
+                          {projects.find(
+                            (proj) => proj.id === selectedNote.projectId
+                          )?.title || "Unknown Project"}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -317,14 +306,13 @@ export default function Notepad() {
                       </DialogHeader>
                       <NoteForm
                         note={selectedNote}
-                        onSave={(data: any) => {
-                          const updatedNotes = notes.map((note) =>
-                            note.id === selectedNote.id
-                              ? { ...note, ...data }
-                              : note
-                          );
-                          setNotes(updatedNotes);
-                          setSelectedNote({ ...selectedNote, ...data });
+                        onSave={async (data) => {
+                          await updateNote(selectedNote.id, data);
+                          setSelectedNote({
+                            ...selectedNote,
+                            ...data,
+                            updatedAt: new Date().toISOString(),
+                          });
                           setIsEditOpen(false);
                         }}
                         onCancel={() => setIsEditOpen(false)}
@@ -335,6 +323,7 @@ export default function Notepad() {
                     variant="outline"
                     size="sm"
                     className="text-red-500 hover:text-red-700 bg-transparent"
+                    onClick={() => setIsDeleteOpen(true)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -375,6 +364,33 @@ export default function Notepad() {
           </CardContent>
         )}
       </Card>
+      {/* Delete Confirmation */}
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Note</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this note? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (selectedNote) {
+                  await deleteNote(selectedNote.id);
+                  setSelectedNote(null);
+                  setIsDeleteOpen(false);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

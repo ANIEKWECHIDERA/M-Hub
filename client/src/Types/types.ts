@@ -223,9 +223,11 @@ export interface SettingsContextType {
 //////////// NoteTypes //////////////////////
 export interface Note {
   id: number;
+  companyId: number;
+  projectId: number;
+  authorId: number;
   title: string;
-  content?: string;
-  project: string | null;
+  content: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;
@@ -236,7 +238,7 @@ export interface NoteContextType {
   setNotes: React.Dispatch<React.SetStateAction<Note[]>>;
   currentNote: Note | null;
   setCurrentNote: React.Dispatch<React.SetStateAction<Note | null>>;
-
+  tags: string[];
   fetchNotes: () => Promise<void>;
   addNote: (note: Note) => Promise<void>;
   updateNote: (id: number, data: Partial<Note>) => Promise<void>;
@@ -244,4 +246,21 @@ export interface NoteContextType {
 
   loading: boolean;
   error: string | null;
+}
+
+export interface NoteData {
+  id: number;
+  companyId: number;
+  projectId: number;
+  authorId: number;
+  title: string;
+  content: string;
+  tags: string[];
+  updatedAt: string;
+}
+
+export interface NoteFormProps {
+  note?: Note;
+  onSave: (data: Partial<Note>) => void;
+  onCancel: () => void;
 }
