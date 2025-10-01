@@ -48,7 +48,7 @@ import {
   ListTodo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-// import { EnhancedCommentsSystem } from "@/components/ui/enhanced-comments-system";
+import { CommentsSystem } from "@/components/CommentsSystem";
 
 interface Subtask {
   id: string;
@@ -1189,7 +1189,7 @@ export default function MyTasksPage() {
 
                 {/* Comments */}
                 <div>
-                  <EnhancedCommentsSystem
+                  <CommentsSystem
                     comments={mockComments}
                     onCommentAdd={(content, parentId) => {
                       console.log("Add comment:", content, parentId);
