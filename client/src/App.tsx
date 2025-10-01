@@ -10,6 +10,7 @@ import ProjectDetailWrapper from "./pages/projectDetail/ProjectDetailWrapper";
 import { TaskContextProvider } from "./context/TaskContext";
 import { TeamContextProvider } from "./context/TeamMemberContext";
 import { ProjectContextProvider } from "./context/ProjectContext";
+import MyTasksPage from "./pages/MyTasks";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
                 path="projectdetails/:id"
                 element={<ProjectDetailWrapper />}
               />
+              <Route path="mytasks" element={<MyTasksPage />} />
             </Route>
           </Routes>
         </TaskContextProvider>

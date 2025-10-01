@@ -76,7 +76,7 @@ export const AssetContextProvider = ({
 
   const addFile = async (file: Assets) => {
     setFiles((prev) => [...prev, file]);
-    toast.success("File Uploaded successfully!");
+    toast.success("File uploaded successfully!");
     // TODO: Upload to backend
   };
 

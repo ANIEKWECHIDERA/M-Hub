@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { Note, NoteContextType } from "../Types/types";
+import { toast } from "sonner";
 
 const NoteContext = createContext<NoteContextType | null>(null);
 
@@ -82,6 +83,7 @@ export const NoteContextProvider = ({
 
   const addNote = async (note: Note) => {
     setNotes((prev) => [...prev, note]);
+    toast.success("Note added successfully");
     // TODO: POST to API
   };
 
@@ -93,11 +95,13 @@ export const NoteContextProvider = ({
           : note
       )
     );
+    toast.success("Note updated successfully");
     // TODO: PATCH/PUT to API
   };
 
   const deleteNote = async (id: number) => {
     setNotes((prev) => prev.filter((note) => note.id !== id));
+    toast.success("Note deleted successfully");
     // TODO: DELETE from API
   };
 
