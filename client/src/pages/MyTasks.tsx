@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,166 +44,12 @@ import {
   Target,
   TrendingUp,
   ListTodo,
+  type LucideProps,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommentsSystem } from "@/components/CommentsSystem";
-
-interface Subtask {
-  id: string;
-  title: string;
-  completed: boolean;
-  createdAt: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: "todo" | "in-progress" | "completed";
-  priority: "low" | "medium" | "high";
-  projectName: string;
-  projectId: string;
-  clientName: string;
-  dueDate: string;
-  createdAt: string;
-  updatedAt: string;
-  tags?: string[];
-  attachments?: number;
-  comments?: number;
-  subtasks?: Subtask[];
-  progress?: number;
-}
-
-const mockTasks: Task[] = [
-  {
-    id: "1",
-    title: "Design new logo concepts",
-    description: "Create 3-5 logo variations for TechCorp rebranding project",
-    status: "in-progress",
-    priority: "high",
-    projectName: "TechCorp Brand Redesign",
-    projectId: "proj-1",
-    clientName: "TechCorp Inc.",
-    dueDate: new Date().toISOString(),
-    createdAt: "2024-01-10T10:00:00Z",
-    updatedAt: "2024-01-16T14:30:00Z",
-    tags: ["design", "branding"],
-    attachments: 3,
-    comments: 5,
-    subtasks: [
-      {
-        id: "s1",
-        title: "Research competitor logos",
-        completed: true,
-        createdAt: "2024-01-10T10:00:00Z",
-      },
-      {
-        id: "s2",
-        title: "Sketch initial concepts",
-        completed: true,
-        createdAt: "2024-01-10T11:00:00Z",
-      },
-      {
-        id: "s3",
-        title: "Create digital mockups",
-        completed: false,
-        createdAt: "2024-01-15T09:00:00Z",
-      },
-    ],
-    progress: 60,
-  },
-  {
-    id: "2",
-    title: "Review and approve website mockups",
-    description:
-      "Review the homepage and landing page designs from the design team",
-    status: "todo",
-    priority: "high",
-    projectName: "StartupXYZ Website",
-    projectId: "proj-2",
-    clientName: "StartupXYZ",
-    dueDate: new Date(Date.now() + 86400000).toISOString(),
-    createdAt: "2024-01-14T10:00:00Z",
-    updatedAt: "2024-01-14T10:00:00Z",
-    tags: ["review", "design"],
-    attachments: 8,
-    comments: 2,
-    progress: 0,
-  },
-  {
-    id: "3",
-    title: "Update brand guidelines document",
-    description:
-      "Incorporate feedback from client meeting and finalize color palette section",
-    status: "in-progress",
-    priority: "medium",
-    projectName: "TechCorp Brand Redesign",
-    projectId: "proj-1",
-    clientName: "TechCorp Inc.",
-    dueDate: new Date(Date.now() + 172800000).toISOString(),
-    createdAt: "2024-01-12T10:00:00Z",
-    updatedAt: "2024-01-15T16:20:00Z",
-    tags: ["documentation"],
-    attachments: 2,
-    comments: 8,
-    subtasks: [
-      {
-        id: "s4",
-        title: "Review client feedback",
-        completed: true,
-        createdAt: "2024-01-12T10:00:00Z",
-      },
-      {
-        id: "s5",
-        title: "Update color palette section",
-        completed: false,
-        createdAt: "2024-01-15T14:00:00Z",
-      },
-      {
-        id: "s6",
-        title: "Add usage examples",
-        completed: false,
-        createdAt: "2024-01-15T14:30:00Z",
-      },
-    ],
-    progress: 33,
-  },
-  {
-    id: "4",
-    title: "Prepare marketing materials",
-    description:
-      "Create social media templates and email graphics for RetailCo campaign",
-    status: "todo",
-    priority: "medium",
-    projectName: "RetailCo Marketing Campaign",
-    projectId: "proj-3",
-    clientName: "RetailCo",
-    dueDate: new Date(Date.now() + 259200000).toISOString(),
-    createdAt: "2024-01-13T10:00:00Z",
-    updatedAt: "2024-01-13T10:00:00Z",
-    tags: ["marketing", "design"],
-    attachments: 0,
-    comments: 1,
-    progress: 0,
-  },
-  {
-    id: "5",
-    title: "Client presentation deck",
-    description: "Create presentation showcasing final brand identity system",
-    status: "completed",
-    priority: "high",
-    projectName: "TechCorp Brand Redesign",
-    projectId: "proj-1",
-    clientName: "TechCorp Inc.",
-    dueDate: new Date(Date.now() - 86400000).toISOString(),
-    createdAt: "2024-01-08T10:00:00Z",
-    updatedAt: "2024-01-15T18:00:00Z",
-    tags: ["presentation"],
-    attachments: 15,
-    comments: 12,
-    progress: 100,
-  },
-];
+import type { EnrichedTask, Subtask, Task, TaskStatus } from "@/Types/types";
+import { useTaskContext } from "@/context/TaskContext";
 
 const mockComments = [
   {
@@ -238,20 +82,30 @@ const mockComments = [
   },
 ];
 
-const statusConfig = {
-  todo: {
-    label: "To Do",
+const statusConfig: Record<
+  TaskStatus,
+  {
+    label: string;
+    icon: React.ForwardRefExoticComponent<
+      Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>
+    >;
+    color: string;
+    bg: string;
+  }
+> = {
+  "To-Do": {
+    label: "To-Do",
     icon: Circle,
     color: "text-gray-500",
     bg: "bg-gray-100 dark:bg-gray-800",
   },
-  "in-progress": {
+  "In Progress": {
     label: "In Progress",
     icon: Clock,
     color: "text-blue-500",
     bg: "bg-blue-100 dark:bg-blue-900/20",
   },
-  completed: {
+  Done: {
     label: "Completed",
     icon: CheckCircle2,
     color: "text-green-500",
@@ -266,8 +120,6 @@ const priorityConfig = {
 };
 
 export default function MyTasksPage() {
-  const [tasks, setTasks] = useState(mockTasks);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
@@ -278,7 +130,23 @@ export default function MyTasksPage() {
   >("all");
   const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
-
+  const {
+    setTasks,
+    addTask,
+    selectedTask,
+    setSelectedTask,
+    setIsDeleteDialogOpen,
+    setTaskToDelete,
+    TaskToDelete,
+    isDeleteDialogOpen,
+    confirmDelete,
+    updateTask,
+    getEnrichedTasks,
+  } = useTaskContext();
+  const tasks = getEnrichedTasks() as (Task & {
+    projectTitle: string;
+    clientName: string;
+  })[];
   // Calculate task statistics
   const stats = useMemo(() => {
     const now = new Date();
@@ -287,17 +155,15 @@ export default function MyTasksPage() {
 
     return {
       total: tasks.length,
-      completed: tasks.filter((t) => t.status === "completed").length,
-      inProgress: tasks.filter((t) => t.status === "in-progress").length,
-      todo: tasks.filter((t) => t.status === "todo").length,
+      completed: tasks.filter((t) => t.status === "Done").length,
+      inProgress: tasks.filter((t) => t.status === "In Progress").length,
+      todo: tasks.filter((t) => t.status === "To-Do").length,
       overdue: tasks.filter(
-        (t) => new Date(t.dueDate) < today && t.status !== "completed"
+        (t) => new Date(t.dueDate) < today && t.status !== "Done"
       ).length,
       dueToday: tasks.filter((t) => {
         const dueDate = new Date(t.dueDate);
-        return (
-          dueDate >= today && dueDate < tomorrow && t.status !== "completed"
-        );
+        return dueDate >= today && dueDate < tomorrow && t.status !== "Done";
       }).length,
     };
   }, [tasks]);
@@ -308,14 +174,14 @@ export default function MyTasksPage() {
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.projectName.toLowerCase().includes(searchQuery.toLowerCase());
+        task.projectTitle.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus =
         filterStatus === "all" || task.status === filterStatus;
       const matchesPriority =
         filterPriority === "all" || task.priority === filterPriority;
       const matchesProject =
-        filterProject === "all" || task.projectName === filterProject;
+        filterProject === "all" || task.projectTitle === filterProject;
 
       // View mode filters
       const now = new Date();
@@ -328,18 +194,14 @@ export default function MyTasksPage() {
       switch (viewMode) {
         case "today":
           matchesViewMode =
-            dueDate >= today &&
-            dueDate < tomorrow &&
-            task.status !== "completed";
+            dueDate >= today && dueDate < tomorrow && task.status !== "Done";
           break;
         case "overdue":
-          matchesViewMode = dueDate < today && task.status !== "completed";
+          matchesViewMode = dueDate < today && task.status !== "Done";
           break;
         case "upcoming":
           matchesViewMode =
-            dueDate >= tomorrow &&
-            dueDate < nextWeek &&
-            task.status !== "completed";
+            dueDate >= tomorrow && dueDate < nextWeek && task.status !== "Done";
           break;
       }
 
@@ -361,7 +223,7 @@ export default function MyTasksPage() {
           const priorityOrder = { high: 3, medium: 2, low: 1 };
           return priorityOrder[b.priority] - priorityOrder[a.priority];
         case "project":
-          return a.projectName.localeCompare(b.projectName);
+          return a.projectTitle.localeCompare(b.projectTitle);
         case "status":
           return a.status.localeCompare(b.status);
         default:
@@ -381,7 +243,7 @@ export default function MyTasksPage() {
   ]);
 
   const projects = useMemo(() => {
-    return Array.from(new Set(tasks.map((t) => t.projectName)));
+    return Array.from(new Set(tasks.map((t) => t.projectTitle)));
   }, [tasks]);
 
   const isOverdue = (dueDate: string, status: string) => {
@@ -398,12 +260,12 @@ export default function MyTasksPage() {
     return taskDue >= today && taskDue < tomorrow;
   };
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = (task: EnrichedTask) => {
     setSelectedTask(task);
     setIsDetailsPanelOpen(true);
   };
 
-  const handleStatusChange = (taskId: string, newStatus: Task["status"]) => {
+  const handleStatusChange = (taskId: number, newStatus: Task["status"]) => {
     setTasks(
       tasks.map((t) =>
         t.id === taskId
@@ -416,7 +278,7 @@ export default function MyTasksPage() {
     }
   };
 
-  const handleSubtaskToggle = (taskId: string, subtaskId: string) => {
+  const handleSubtaskToggle = (taskId: number, subtaskId: number) => {
     setTasks(
       tasks.map((t) => {
         if (t.id === taskId && t.subtasks) {
@@ -453,7 +315,8 @@ export default function MyTasksPage() {
     if (!newSubtask.trim() || !selectedTask) return;
 
     const subtask: Subtask = {
-      id: `s${Date.now()}`,
+      id: Date.now(),
+      companyId: 1,
       title: newSubtask,
       completed: false,
       createdAt: new Date().toISOString(),
@@ -489,7 +352,7 @@ export default function MyTasksPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Target className="h-8 w-8 text-primary" />
+            {/* <Target className="h-8 w-8 text-primary" /> */}
             My Tasks
           </h1>
           <p className="text-muted-foreground">
@@ -677,7 +540,9 @@ export default function MyTasksPage() {
       <div className="space-y-3">
         {filteredTasks.length > 0 ? (
           filteredTasks.map((task) => {
-            const StatusIcon = statusConfig[task.status].icon;
+            const statusKey = task.status as TaskStatus;
+            const StatusIcon = statusConfig[statusKey].icon;
+
             const isTaskOverdue = isOverdue(task.dueDate, task.status);
             const isTaskDueToday = isDueToday(task.dueDate);
 
@@ -690,12 +555,9 @@ export default function MyTasksPage() {
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <Checkbox
-                      checked={task.status === "completed"}
+                      checked={task.status === "Done"}
                       onCheckedChange={(checked) => {
-                        handleStatusChange(
-                          task.id,
-                          checked ? "completed" : "todo"
-                        );
+                        handleStatusChange(task.id, checked ? "Done" : "To-Do");
                       }}
                       onClick={(e) => e.stopPropagation()}
                       className="mt-1"
@@ -707,7 +569,7 @@ export default function MyTasksPage() {
                           <h3
                             className={cn(
                               "font-medium text-base mb-1",
-                              task.status === "completed" &&
+                              task.status === "Done" &&
                                 "line-through text-muted-foreground"
                             )}
                           >
@@ -746,7 +608,7 @@ export default function MyTasksPage() {
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleStatusChange(task.id, "todo");
+                                  handleStatusChange(task.id, "To-Do");
                                 }}
                               >
                                 Mark as To Do
@@ -754,7 +616,7 @@ export default function MyTasksPage() {
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleStatusChange(task.id, "in-progress");
+                                  handleStatusChange(task.id, "In Progress");
                                 }}
                               >
                                 Mark as In Progress
@@ -762,7 +624,7 @@ export default function MyTasksPage() {
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleStatusChange(task.id, "completed");
+                                  handleStatusChange(task.id, "Done");
                                 }}
                               >
                                 Mark as Completed
@@ -776,7 +638,7 @@ export default function MyTasksPage() {
                         <div className="flex items-center gap-1">
                           <FolderOpen className="h-3.5 w-3.5" />
                           <span className="truncate max-w-[150px]">
-                            {task.projectName}
+                            {task.projectTitle}
                           </span>
                         </div>
 
@@ -786,10 +648,10 @@ export default function MyTasksPage() {
                           <StatusIcon
                             className={cn(
                               "h-3.5 w-3.5",
-                              statusConfig[task.status].color
+                              statusConfig[statusKey].color
                             )}
                           />
-                          <span>{statusConfig[task.status].label}</span>
+                          <span>{statusConfig[statusKey].label}</span>
                         </div>
 
                         <Separator orientation="vertical" className="h-4" />
@@ -914,11 +776,11 @@ export default function MyTasksPage() {
               <SheetHeader>
                 <div className="flex items-start gap-3">
                   <Checkbox
-                    checked={selectedTask.status === "completed"}
+                    checked={selectedTask.status === "Done"}
                     onCheckedChange={(checked) => {
                       handleStatusChange(
                         selectedTask.id,
-                        checked ? "completed" : "todo"
+                        checked ? "Done" : "To-Do"
                       );
                     }}
                     className="mt-1"
@@ -927,7 +789,7 @@ export default function MyTasksPage() {
                     <SheetTitle
                       className={cn(
                         "text-xl",
-                        selectedTask.status === "completed" &&
+                        selectedTask.status === "Done" &&
                           "line-through text-muted-foreground"
                       )}
                     >
@@ -950,11 +812,13 @@ export default function MyTasksPage() {
                     <div className="flex gap-2">
                       <Button
                         variant={
-                          selectedTask.status === "todo" ? "default" : "outline"
+                          selectedTask.status === "To-Do"
+                            ? "default"
+                            : "outline"
                         }
                         size="sm"
                         onClick={() =>
-                          handleStatusChange(selectedTask.id, "todo")
+                          handleStatusChange(selectedTask.id, "To-Do")
                         }
                         className="flex-1"
                       >
@@ -962,13 +826,13 @@ export default function MyTasksPage() {
                       </Button>
                       <Button
                         variant={
-                          selectedTask.status === "in-progress"
+                          selectedTask.status === "In Progress"
                             ? "default"
                             : "outline"
                         }
                         size="sm"
                         onClick={() =>
-                          handleStatusChange(selectedTask.id, "in-progress")
+                          handleStatusChange(selectedTask.id, "In Progress")
                         }
                         className="flex-1"
                       >
@@ -976,13 +840,11 @@ export default function MyTasksPage() {
                       </Button>
                       <Button
                         variant={
-                          selectedTask.status === "completed"
-                            ? "default"
-                            : "outline"
+                          selectedTask.status === "Done" ? "default" : "outline"
                         }
                         size="sm"
                         onClick={() =>
-                          handleStatusChange(selectedTask.id, "completed")
+                          handleStatusChange(selectedTask.id, "Done")
                         }
                         className="flex-1"
                       >
@@ -1006,7 +868,7 @@ export default function MyTasksPage() {
                         <div className="flex items-center gap-2">
                           <FolderOpen className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">
-                            {selectedTask.projectName}
+                            {selectedTask.projectTitle}
                           </span>
                         </div>
                       </div>
@@ -1068,9 +930,11 @@ export default function MyTasksPage() {
                           Last Updated
                         </p>
                         <span className="text-sm">
-                          {new Date(
-                            selectedTask.updatedAt
-                          ).toLocaleDateString()}
+                          {selectedTask.updatedAt
+                            ? new Date(
+                                selectedTask.updatedAt
+                              ).toLocaleDateString()
+                            : "N/A"}
                         </span>
                       </div>
                     </div>

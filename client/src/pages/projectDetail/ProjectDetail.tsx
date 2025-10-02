@@ -69,6 +69,7 @@ export default function ProjectDetail() {
     isDeleteDialogOpen,
     confirmDelete,
     updateTask,
+    getEnrichedTaskById,
   } = useTaskContext();
   const {
     files,
@@ -322,7 +323,12 @@ export default function ProjectDetail() {
                     <Card
                       key={task.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => setSelectedTask(task)}
+                      onClick={() => {
+                        const enriched = getEnrichedTaskById(task.id);
+                        if (enriched) {
+                          setSelectedTask(enriched);
+                        }
+                      }}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between">

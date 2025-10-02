@@ -55,7 +55,6 @@ export interface TeamContextType {
   setTeamMembers: React.Dispatch<React.SetStateAction<TeamMember[]>>;
   currentMember: TeamMember | null;
   setCurrentMember: React.Dispatch<React.SetStateAction<TeamMember | null>>;
-
   fetchTeamMembers: () => Promise<void>;
   addTeamMember: (member: TeamMember) => Promise<void>;
   updateTeamMember: (id: number, data: Partial<TeamMember>) => Promise<void>;
@@ -88,10 +87,25 @@ export interface Task {
   companyId: number;
   projectId: number;
   title: string;
-  assignee: number[];
-  status: string;
+  assignee?: number[];
+  status: TaskStatus;
   dueDate: string;
   description: string;
+  priority: "low" | "medium" | "high";
+  createdAt: string;
+  updatedAt?: string;
+  tags?: string[];
+  attachments?: number;
+  comments?: number;
+  subtasks?: Subtask[];
+  progress?: number;
+}
+
+export type TaskStatus = "To-Do" | "In Progress" | "Done";
+
+export interface EnrichedTask extends Task {
+  projectTitle: string;
+  clientName: string;
 }
 
 export interface TaskContextType {
@@ -109,13 +123,23 @@ export interface TaskContextType {
   deleteTask: (id: number) => Promise<void>;
   loading: boolean;
   error: string | null;
-  selectedTask: Task | null;
-  setSelectedTask: React.Dispatch<React.SetStateAction<Task | null>>;
+  selectedTask: EnrichedTask | null;
+  setSelectedTask: React.Dispatch<React.SetStateAction<EnrichedTask | null>>;
   confirmDelete: () => void;
   TaskToDelete: Task | null;
   setTaskToDelete: React.Dispatch<React.SetStateAction<Task | null>>;
   isDeleteDialogOpen: boolean;
   setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  getEnrichedTasks: () => Task[];
+  getEnrichedTaskById: (id: number) => EnrichedTask | undefined;
+}
+
+export interface Subtask {
+  id: number;
+  companyId: number;
+  title: string;
+  completed: boolean;
+  createdAt: string;
 }
 
 export interface TaskDetailDialogProps {

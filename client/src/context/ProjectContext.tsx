@@ -1,7 +1,6 @@
 import { createContext, useContext } from "react";
-import type { ProjectContextType } from "../Types/types";
+import type { Project, ProjectContextType } from "../Types/types";
 import { useState, useEffect } from "react";
-import type { Project } from "../Types/types";
 import { toast } from "sonner";
 import { useTeamContext } from "./TeamMemberContext";
 

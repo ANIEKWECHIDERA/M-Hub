@@ -7,11 +7,12 @@ import {
   FolderOpen,
   MessageSquare,
   FileText,
-  Calculator,
+  // Calculator,
   Settings,
   Menu,
   ChevronLeft,
   ChevronRight,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,9 +29,10 @@ interface SidebarContentProps {
 const navigation: NavItem[] = [
   { name: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", to: "/projects", icon: FolderOpen },
+  { name: "My Tasks", to: "/mytasks", icon: Target },
   { name: "Chat", to: "/chat", icon: MessageSquare },
   { name: "Notepad", to: "/notepad", icon: FileText },
-  { name: "Tools", to: "/tools", icon: Calculator },
+  // { name: "Tools", to: "/tools", icon: Calculator },
   { name: "Settings", to: "/settings", icon: Settings },
 ];
 
