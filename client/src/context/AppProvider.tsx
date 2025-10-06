@@ -4,6 +4,7 @@ import { NoteContextProvider } from "./NoteContext.tsx";
 import { AssetContextProvider } from "./AssetContext.tsx";
 import { CommentContextProvider } from "./CommentContext.tsx";
 import { TeamContextProvider } from "./TeamMemberContext.tsx";
+import { TaskContextProvider } from "./TaskContext.tsx";
 
 export const AppContextProvider = ({
   children,
@@ -14,11 +15,13 @@ export const AppContextProvider = ({
     <SettingsProvider>
       <TeamContextProvider>
         <ProjectContextProvider>
-          <NoteContextProvider>
-            <AssetContextProvider>
-              <CommentContextProvider>{children}</CommentContextProvider>
-            </AssetContextProvider>
-          </NoteContextProvider>
+          <TaskContextProvider>
+            <NoteContextProvider>
+              <AssetContextProvider>
+                <CommentContextProvider>{children}</CommentContextProvider>
+              </AssetContextProvider>
+            </NoteContextProvider>
+          </TaskContextProvider>
         </ProjectContextProvider>
       </TeamContextProvider>
     </SettingsProvider>
