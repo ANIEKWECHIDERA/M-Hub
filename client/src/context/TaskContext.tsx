@@ -324,7 +324,7 @@ export const TaskContextProvider = ({
       title: "Content Creation for Blog",
       description: "Write and edit 5 blog posts on industry trends.",
       status: "In Progress",
-      assignee: [12],
+      assignee: [12, 1],
       dueDate: "2024-10-15",
       priority: "low",
       createdAt: "2024-01-20T14:00:00Z",

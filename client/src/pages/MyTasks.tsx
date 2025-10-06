@@ -50,6 +50,7 @@ import { cn } from "@/lib/utils";
 import { CommentsSystem } from "@/components/CommentsSystem";
 import type { EnrichedTask, Subtask, Task, TaskStatus } from "@/Types/types";
 import { useTaskContext } from "@/context/TaskContext";
+import { useTeamContext } from "@/context/TeamMemberContext";
 
 const mockComments = [
   {
@@ -143,34 +144,56 @@ export default function MyTasksPage() {
     updateTask,
     getEnrichedTasks,
   } = useTaskContext();
+  const { teamMembers, currentMember } = useTeamContext();
+
+  // Get assigneeId from auth context (fallback to 1 if not available)
+  const assigneeId = currentMember?.id ?? 1; // TODO: Ensure currentUser.id comes from auth context
+  // TODO: Make companyId dynamic (e.g., from user context or auth)
+  const companyId = 1; // Hardcoded for now
+
   const tasks = getEnrichedTasks() as (Task & {
     projectTitle: string;
     clientName: string;
   })[];
-  // Calculate task statistics
+
+  // Calculate task statistics for the specific assignee
   const stats = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today.getTime() + 86400000);
 
+    // Filter tasks by assignee and company
+    const assignedTasks = tasks.filter(
+      (task) =>
+        Array.isArray(task.assignee) &&
+        task.assignee.includes(assigneeId) &&
+        task.companyId === companyId
+    );
+
     return {
-      total: tasks.length,
-      completed: tasks.filter((t) => t.status === "Done").length,
-      inProgress: tasks.filter((t) => t.status === "In Progress").length,
-      todo: tasks.filter((t) => t.status === "To-Do").length,
-      overdue: tasks.filter(
+      total: assignedTasks.length,
+      completed: assignedTasks.filter((t) => t.status === "Done").length,
+      inProgress: assignedTasks.filter((t) => t.status === "In Progress")
+        .length,
+      todo: assignedTasks.filter((t) => t.status === "To-Do").length,
+      overdue: assignedTasks.filter(
         (t) => new Date(t.dueDate) < today && t.status !== "Done"
       ).length,
-      dueToday: tasks.filter((t) => {
+      dueToday: assignedTasks.filter((t) => {
         const dueDate = new Date(t.dueDate);
         return dueDate >= today && dueDate < tomorrow && t.status !== "Done";
       }).length,
     };
-  }, [tasks]);
+  }, [tasks, assigneeId]);
 
   // Filter and sort tasks
   const filteredTasks = useMemo(() => {
     const filtered = tasks.filter((task) => {
+      // Only show tasks assigned to the specific team member and company
+      const matchesAssignee =
+        Array.isArray(task.assignee) && task.assignee.includes(assigneeId);
+      const matchesCompany = task.companyId === companyId;
+
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -206,6 +229,8 @@ export default function MyTasksPage() {
       }
 
       return (
+        matchesAssignee &&
+        matchesCompany &&
         matchesSearch &&
         matchesStatus &&
         matchesPriority &&
@@ -240,6 +265,7 @@ export default function MyTasksPage() {
     filterProject,
     sortBy,
     viewMode,
+    assigneeId,
   ]);
 
   const projects = useMemo(() => {
@@ -249,7 +275,7 @@ export default function MyTasksPage() {
   const isOverdue = (dueDate: string, status: string) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return new Date(dueDate) < today && status !== "completed";
+    return new Date(dueDate) < today && status !== "Done";
   };
 
   const isDueToday = (dueDate: string) => {
@@ -316,7 +342,7 @@ export default function MyTasksPage() {
 
     const subtask: Subtask = {
       id: Date.now(),
-      companyId: 1,
+      companyId: 1, // TODO: Make dynamic
       title: newSubtask,
       completed: false,
       createdAt: new Date().toISOString(),
@@ -352,7 +378,6 @@ export default function MyTasksPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            {/* <Target className="h-8 w-8 text-primary" /> */}
             My Tasks
           </h1>
           <p className="text-muted-foreground">
@@ -473,9 +498,9 @@ export default function MyTasksPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="todo">To Do</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="To-Do">To Do</SelectItem>
+                  <SelectItem value="In Progress">In Progress</SelectItem>
+                  <SelectItem value="Done">Completed</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -580,7 +605,7 @@ export default function MyTasksPage() {
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mr-9">
                           <Badge
                             variant="outline"
                             className={cn(
@@ -591,7 +616,7 @@ export default function MyTasksPage() {
                             {priorityConfig[task.priority].label}
                           </Badge>
 
-                          <DropdownMenu>
+                          {/* <DropdownMenu>
                             <DropdownMenuTrigger
                               asChild
                               onClick={(e) => e.stopPropagation()}
@@ -630,7 +655,7 @@ export default function MyTasksPage() {
                                 Mark as Completed
                               </DropdownMenuItem>
                             </DropdownMenuContent>
-                          </DropdownMenu>
+                          </DropdownMenu> */}
                         </div>
                       </div>
 
@@ -761,7 +786,7 @@ export default function MyTasksPage() {
                 filterPriority !== "all" ||
                 filterProject !== "all"
                   ? "Try adjusting your search or filters"
-                  : "You're all caught up! No tasks assigned to you yet."}
+                  : "No tasks assigned to you yet."}
               </p>
             </CardContent>
           </Card>
@@ -1068,10 +1093,14 @@ export default function MyTasksPage() {
                       console.log("Like comment:", commentId);
                     }}
                     currentUser={{
-                      id: "current",
-                      name: "Current User",
-                      avatar: "/placeholder.svg?height=32&width=32",
-                      role: "Designer",
+                      id: assigneeId.toString(),
+                      name: currentMember
+                        ? `${currentMember.firstname} ${currentMember.lastname}`
+                        : "Current User",
+                      avatar:
+                        currentMember?.avatar ??
+                        "/placeholder.svg?height=32&width=32",
+                      role: currentMember?.role ?? "Designer",
                     }}
                     placeholder="Add a note or update..."
                   />
