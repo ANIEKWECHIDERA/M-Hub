@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useTheme } from "../hooks/useTheme";
-import { useNotifications } from "../hooks/useNotification";
+import { useNotificationContext } from "@/context/NotificationContext";
 import { Search, Bell, Sun, Moon, User, Settings, LogOut } from "lucide-react";
 import { Input } from "./ui/input";
 
@@ -23,7 +23,7 @@ export function Header() {
   const { theme, setTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const { notifications, markAsRead, markAllAsRead, unreadCount } =
-    useNotifications();
+    useNotificationContext();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

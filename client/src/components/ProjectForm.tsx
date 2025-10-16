@@ -10,7 +10,9 @@ import {
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { ProjectFormProps } from "../Types/types";
+import { useTeamContext } from "@/context/TeamMemberContext";
 
 const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
   const [formData, setFormData] = useState({
@@ -20,6 +22,10 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
     deadline: project.deadline || "",
     description: project.description || "",
   });
+  const [selectedTeam, setSelectedTeam] = useState<number[]>(
+    Array.isArray((project as any).team) ? ((project as any).team as number[]) : []
+  );
+  const { teamMembers } = useTeamContext();
   const [newClient, setNewClient] = useState("");
   const [showNewClientInput, setShowNewClientInput] = useState(false);
 
@@ -28,6 +34,7 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
     const finalData = {
       ...formData,
       client: showNewClientInput && newClient ? newClient : formData.client,
+      team: selectedTeam,
     };
     // TODO: Validate form data before saving (e.g., title and deadline required)
     onSave(finalData);
@@ -127,6 +134,31 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
           placeholder="Project description..."
           rows={3}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Team Members</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
+          {teamMembers.map((member) => {
+            const checked = selectedTeam.includes(member.id);
+            return (
+              <label key={member.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={(isChecked) => {
+                    setSelectedTeam((prev) =>
+                      isChecked
+                        ? Array.from(new Set([...prev, member.id]))
+                        : prev.filter((id) => id !== member.id)
+                    );
+                  }}
+                />
+                <span>{member.firstname} {member.lastname}</span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">Select one or more members to assign to this project. These members will be available to assign tasks to.</p>
       </div>
 
       <div className="flex justify-end gap-2">

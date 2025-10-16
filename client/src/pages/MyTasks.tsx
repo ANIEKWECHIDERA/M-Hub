@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import {
   Sheet,
   SheetContent,
@@ -36,7 +31,6 @@ import {
   FolderOpen,
   Search,
   SortAsc,
-  MoreHorizontal,
   Plus,
   MessageSquare,
   Paperclip,
@@ -44,6 +38,8 @@ import {
   Target,
   TrendingUp,
   ListTodo,
+  Edit,
+  Trash2,
   type LucideProps,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,37 +47,10 @@ import { CommentsSystem } from "@/components/CommentsSystem";
 import type { EnrichedTask, Subtask, Task, TaskStatus } from "@/Types/types";
 import { useTaskContext } from "@/context/TaskContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
+import { useSubTasksContext } from "@/context/SubTasksContext";
+import { useCommentContext } from "@/context/CommentContext";
 
-const mockComments = [
-  {
-    id: "1",
-    content:
-      "The logo concepts are looking great! I especially like option 2. Can we explore that direction more?",
-    author: {
-      id: "2",
-      name: "Sarah Smith",
-      avatar: "/placeholder.svg?height=32&width=32",
-      role: "Project Manager",
-    },
-    createdAt: "2024-01-15T10:30:00Z",
-    likes: 2,
-    isLiked: false,
-  },
-  {
-    id: "2",
-    content:
-      "I'll create some variations of option 2 with different color treatments.",
-    author: {
-      id: "current",
-      name: "Current User",
-      avatar: "/placeholder.svg?height=32&width=32",
-      role: "Designer",
-    },
-    createdAt: "2024-01-15T11:00:00Z",
-    likes: 1,
-    isLiked: false,
-  },
-];
+// Comments are sourced from CommentContext; removed mock comments
 
 const statusConfig: Record<
   TaskStatus,
@@ -131,6 +100,8 @@ export default function MyTasksPage() {
   >("all");
   const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
+  const [editingSubtaskId, setEditingSubtaskId] = useState<number | null>(null);
+  const [editingSubtaskTitle, setEditingSubtaskTitle] = useState("");
   const {
     setTasks,
     addTask,
@@ -145,18 +116,16 @@ export default function MyTasksPage() {
     getEnrichedTasks,
   } = useTaskContext();
   const { teamMembers, currentMember } = useTeamContext();
+  const { updateSubtask, addSubtask, deleteSubtask, subtasks } = useSubTasksContext();
+  const { comments, addComment, updateComment, deleteComment } = useCommentContext();
 
   // Get assigneeId from auth context (fallback to 1 if not available)
   const assigneeId = currentMember?.id ?? 1; // TODO: Ensure currentUser.id comes from auth context
   // TODO: Make companyId dynamic (e.g., from user context or auth)
   const companyId = 1; // Hardcoded for now
 
-  const tasks = getEnrichedTasks() as (Task & {
-    projectTitle: string;
-    clientName: string;
-  })[];
-
-  // Calculate task statistics for the specific assignee
+  const tasks = useMemo(() => getEnrichedTasks(), [getEnrichedTasks, subtasks]);
+  const deferredSearch = useDeferredValue(searchQuery);
   const stats = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -195,9 +164,9 @@ export default function MyTasksPage() {
       const matchesCompany = task.companyId === companyId;
 
       const matchesSearch =
-        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.projectTitle.toLowerCase().includes(searchQuery.toLowerCase());
+        task.title.toLowerCase().includes(deferredSearch.toLowerCase()) ||
+        task.description.toLowerCase().includes(deferredSearch.toLowerCase()) ||
+        task.projectTitle.toLowerCase().includes(deferredSearch.toLowerCase());
 
       const matchesStatus =
         filterStatus === "all" || task.status === filterStatus;
@@ -291,82 +260,149 @@ export default function MyTasksPage() {
     setIsDetailsPanelOpen(true);
   };
 
-  const handleStatusChange = (taskId: number, newStatus: Task["status"]) => {
-    setTasks(
-      tasks.map((t) =>
-        t.id === taskId
-          ? { ...t, status: newStatus, updatedAt: new Date().toISOString() }
-          : t
-      )
-    );
+  const handleStatusChange = async (
+    taskId: number,
+    newStatus: Task["status"]
+  ) => {
+    const updatedAt = new Date().toISOString();
+    await updateTask(taskId, { status: newStatus, updatedAt });
     if (selectedTask?.id === taskId) {
-      setSelectedTask({ ...selectedTask, status: newStatus });
+      setSelectedTask({ ...selectedTask, status: newStatus, updatedAt });
     }
   };
 
-  const handleSubtaskToggle = (taskId: number, subtaskId: number) => {
-    setTasks(
-      tasks.map((t) => {
-        if (t.id === taskId && t.subtasks) {
-          const updatedSubtasks = t.subtasks.map((st) =>
-            st.id === subtaskId ? { ...st, completed: !st.completed } : st
-          );
-          const completedCount = updatedSubtasks.filter(
-            (st) => st.completed
-          ).length;
-          const progress = Math.round(
-            (completedCount / updatedSubtasks.length) * 100
-          );
-          return { ...t, subtasks: updatedSubtasks, progress };
-        }
-        return t;
-      })
+  const handleSubtaskToggle = async (taskId: number, subtaskId: number) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task || !task.subtasks) return;
+
+    const toggledSubtask = task.subtasks.find((st) => st.id === subtaskId);
+    if (!toggledSubtask) return;
+
+    const updatedSubtasks = task.subtasks.map((st) =>
+      st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    );
+    const completedCount = updatedSubtasks.filter((st) => st.completed).length;
+    const progress = Math.round(
+      (completedCount / (updatedSubtasks.length || 1)) * 100
     );
 
-    if (selectedTask?.id === taskId && selectedTask.subtasks) {
-      const updatedSubtasks = selectedTask.subtasks.map((st) =>
-        st.id === subtaskId ? { ...st, completed: !st.completed } : st
-      );
-      const completedCount = updatedSubtasks.filter(
-        (st) => st.completed
-      ).length;
-      const progress = Math.round(
-        (completedCount / updatedSubtasks.length) * 100
-      );
+    await updateSubtask(subtaskId, { completed: !toggledSubtask.completed });
+    await updateTask(taskId, { progress });
+
+    if (selectedTask?.id === taskId) {
       setSelectedTask({ ...selectedTask, subtasks: updatedSubtasks, progress });
     }
   };
 
-  const handleAddSubtask = () => {
+  const handleAddSubtask = async () => {
     if (!newSubtask.trim() || !selectedTask) return;
 
-    const subtask: Subtask = {
-      id: Date.now(),
+    const subtask: Omit<Subtask, "id"> = {
       companyId: 1, // TODO: Make dynamic
       title: newSubtask,
       completed: false,
       createdAt: new Date().toISOString(),
     };
 
-    setTasks(
-      tasks.map((t) => {
-        if (t.id === selectedTask.id) {
-          const updatedSubtasks = [...(t.subtasks || []), subtask];
-          const completedCount = updatedSubtasks.filter(
-            (st) => st.completed
-          ).length;
-          const progress = Math.round(
-            (completedCount / updatedSubtasks.length) * 100
-          );
-          return { ...t, subtasks: updatedSubtasks, progress };
-        }
-        return t;
-      })
-    );
+    const created = await addSubtask(subtask);
 
-    const updatedSubtasks = [...(selectedTask.subtasks || []), subtask];
-    setSelectedTask({ ...selectedTask, subtasks: updatedSubtasks });
+    const newIds = [...(selectedTask.subtaskIds || []), created.id];
+    await updateTask(selectedTask.id, { subtaskIds: newIds });
+
+    const updatedSubtasks = [...(selectedTask.subtasks || []), created];
+    const completedCount = updatedSubtasks.filter((st) => st.completed).length;
+    const progress = Math.round(
+      (completedCount / (updatedSubtasks.length || 1)) * 100
+    );
+    await updateTask(selectedTask.id, { progress });
+
+    setSelectedTask({
+      ...selectedTask,
+      subtaskIds: newIds,
+      subtasks: updatedSubtasks,
+      progress,
+    });
     setNewSubtask("");
+  };
+
+  const handleEditSubtaskStart = (subtaskId: number, currentTitle: string) => {
+    setEditingSubtaskId(subtaskId);
+    setEditingSubtaskTitle(currentTitle);
+  };
+
+  const handleEditSubtaskSave = async (taskId: number) => {
+    if (!selectedTask || editingSubtaskId == null) return;
+    const trimmed = editingSubtaskTitle.trim();
+    if (!trimmed) return;
+    await updateSubtask(editingSubtaskId, { title: trimmed });
+    const updatedSubtasks = (selectedTask.subtasks || []).map((st) =>
+      st.id === editingSubtaskId ? { ...st, title: trimmed } : st
+    );
+    const completedCount = updatedSubtasks.filter((st) => st.completed).length;
+    const progress = Math.round(
+      (completedCount / (updatedSubtasks.length || 1)) * 100
+    );
+    await updateTask(taskId, { progress });
+    setSelectedTask({ ...selectedTask, subtasks: updatedSubtasks, progress });
+    setEditingSubtaskId(null);
+    setEditingSubtaskTitle("");
+  };
+
+  const handleDeleteSubtask = async (taskId: number, subtaskId: number) => {
+    if (!selectedTask) return;
+    await deleteSubtask(subtaskId);
+    const newIds = (selectedTask.subtaskIds || []).filter((id) => id !== subtaskId);
+    const updatedSubtasks = (selectedTask.subtasks || []).filter((st) => st.id !== subtaskId);
+    const completedCount = updatedSubtasks.filter((st) => st.completed).length;
+    const progress = Math.round((completedCount / (updatedSubtasks.length || 1)) * 100);
+    await updateTask(taskId, { subtaskIds: newIds, progress });
+    setSelectedTask({ ...selectedTask, subtaskIds: newIds, subtasks: updatedSubtasks, progress });
+  };
+
+  const mappedCommentsForSelectedTask = useMemo(() => {
+    if (!selectedTask) return [] as Array<{
+      id: string;
+      content: string;
+      author: { id: string; name: string; avatar?: string; role?: string };
+      createdAt: string;
+      likes: number;
+      isLiked: boolean;
+    }>;
+    const findAuthorName = (authorId: number) => {
+      const tm = teamMembers.find((m) => m.id === authorId);
+      return tm ? `${tm.firstname} ${tm.lastname}` : `User ${authorId}`;
+    };
+    return comments
+      .filter(
+        (c) => c.projectId === selectedTask.projectId && c.companyId === selectedTask.companyId
+      )
+      .map((c) => ({
+        id: String(c.id),
+        content: c.content,
+        author: {
+          id: String(c.authorId),
+          name: findAuthorName(c.authorId),
+          avatar: "/placeholder.svg?height=32&width=32",
+        },
+        createdAt: new Date(c.timestamp).toString() === "Invalid Date"
+          ? new Date().toISOString()
+          : new Date(c.timestamp).toISOString(),
+        likes: 0,
+        isLiked: false,
+      }));
+  }, [comments, selectedTask, teamMembers]);
+
+  const handleAddComment = async (content: string) => {
+    if (!selectedTask || !currentMember) return;
+    await addComment(content, selectedTask.companyId, currentMember.id, selectedTask.projectId);
+  };
+
+  const handleUpdateComment = async (commentId: string, content: string) => {
+    await updateComment(Number(commentId), { content });
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    await deleteComment(Number(commentId));
   };
 
   const completionPercentage =
@@ -1031,15 +1067,57 @@ export default function MyTasksPage() {
                                 handleSubtaskToggle(selectedTask.id, subtask.id)
                               }
                             />
-                            <span
-                              className={cn(
-                                "text-sm flex-1",
-                                subtask.completed &&
-                                  "line-through text-muted-foreground"
-                              )}
-                            >
-                              {subtask.title}
-                            </span>
+                            {editingSubtaskId === subtask.id ? (
+                              <>
+                                <Input
+                                  value={editingSubtaskTitle}
+                                  onChange={(e) => setEditingSubtaskTitle(e.target.value)}
+                                  className="h-8 flex-1"
+                                />
+                                <Button size="sm" onClick={() => handleEditSubtaskSave(selectedTask.id)}>
+                                  Save
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingSubtaskId(null);
+                                    setEditingSubtaskTitle("");
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <span
+                                  className={cn(
+                                    "text-sm flex-1",
+                                    subtask.completed && "line-through text-muted-foreground"
+                                  )}
+                                >
+                                  {subtask.title}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditSubtaskStart(subtask.id, subtask.title)}
+                                  className="h-8 w-8 p-0"
+                                  aria-label="Edit subtask"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteSubtask(selectedTask.id, subtask.id)}
+                                  className="h-8 w-8 p-0 text-red-600"
+                                  aria-label="Delete subtask"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         ))
                       ) : (
@@ -1079,19 +1157,11 @@ export default function MyTasksPage() {
                 {/* Comments */}
                 <div>
                   <CommentsSystem
-                    comments={mockComments}
-                    onCommentAdd={(content, parentId) => {
-                      console.log("Add comment:", content, parentId);
-                    }}
-                    onCommentUpdate={(commentId, content) => {
-                      console.log("Update comment:", commentId, content);
-                    }}
-                    onCommentDelete={(commentId) => {
-                      console.log("Delete comment:", commentId);
-                    }}
-                    onCommentLike={(commentId) => {
-                      console.log("Like comment:", commentId);
-                    }}
+                    comments={mappedCommentsForSelectedTask}
+                    onCommentAdd={(content) => handleAddComment(content)}
+                    onCommentUpdate={(commentId, content) => handleUpdateComment(commentId, content)}
+                    onCommentDelete={(commentId) => handleDeleteComment(commentId)}
+                    onCommentLike={() => {}}
                     currentUser={{
                       id: assigneeId.toString(),
                       name: currentMember

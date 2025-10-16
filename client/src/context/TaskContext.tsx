@@ -3,6 +3,7 @@ import type { EnrichedTask, Task, TaskContextType } from "../Types/types";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useProjectContext } from "./ProjectContext";
+import { useSubTasksContext } from "./SubTasksContext";
 
 // 1. Create the context
 const TaskContext = createContext<TaskContextType | null>(null);
@@ -41,29 +42,7 @@ export const TaskContextProvider = ({
       updatedAt: "2024-01-16T14:30:00Z",
       attachments: 3,
       comments: 5,
-      subtasks: [
-        {
-          id: 1,
-          companyId: 1,
-          title: "Research competitor logos",
-          completed: true,
-          createdAt: "2024-01-10T10:00:00Z",
-        },
-        {
-          id: 2,
-          companyId: 1,
-          title: "Sketch initial concepts",
-          completed: true,
-          createdAt: "2024-01-10T11:00:00Z",
-        },
-        {
-          id: 3,
-          companyId: 1,
-          title: "Create digital mockups",
-          completed: false,
-          createdAt: "2024-01-15T09:00:00Z",
-        },
-      ],
+      subtaskIds: [1, 2, 3],
     },
     {
       id: 2,
@@ -79,22 +58,7 @@ export const TaskContextProvider = ({
       updatedAt: "2024-01-20T13:45:00Z",
       attachments: 2,
       comments: 3,
-      subtasks: [
-        {
-          id: 4,
-          companyId: 1,
-          title: "Choose primary and secondary colors",
-          completed: true,
-          createdAt: "2024-01-11T10:00:00Z",
-        },
-        {
-          id: 5,
-          companyId: 1,
-          title: "Define typography rules",
-          completed: false,
-          createdAt: "2024-01-15T08:45:00Z",
-        },
-      ],
+      subtaskIds: [4, 5],
     },
     {
       id: 3,
@@ -111,22 +75,7 @@ export const TaskContextProvider = ({
       updatedAt: "2024-02-02T14:00:00Z",
       attachments: 1,
       comments: 0,
-      subtasks: [
-        {
-          id: 6,
-          companyId: 1,
-          title: "Create sketches for home screen",
-          completed: false,
-          createdAt: "2024-02-01T12:30:00Z",
-        },
-        {
-          id: 7,
-          companyId: 1,
-          title: "Design settings screen layout",
-          completed: false,
-          createdAt: "2024-02-01T13:00:00Z",
-        },
-      ],
+      subtaskIds: [6, 7],
     },
     {
       id: 4,
@@ -143,29 +92,7 @@ export const TaskContextProvider = ({
       updatedAt: "2024-03-15T11:00:00Z",
       attachments: 4,
       comments: 8,
-      subtasks: [
-        {
-          id: 8,
-          companyId: 2,
-          title: "Design database schema",
-          completed: true,
-          createdAt: "2024-03-05T10:30:00Z",
-        },
-        {
-          id: 9,
-          companyId: 2,
-          title: "Implement login API",
-          completed: true,
-          createdAt: "2024-03-07T09:00:00Z",
-        },
-        {
-          id: 10,
-          companyId: 2,
-          title: "Create user CRUD endpoints",
-          completed: false,
-          createdAt: "2024-03-10T14:00:00Z",
-        },
-      ],
+      subtaskIds: [8, 9, 10],
     },
     {
       id: 5,
@@ -181,22 +108,7 @@ export const TaskContextProvider = ({
       updatedAt: "2024-03-16T08:00:00Z",
       attachments: 2,
       comments: 1,
-      subtasks: [
-        {
-          id: 11,
-          companyId: 2,
-          title: "Write unit tests for login API",
-          completed: false,
-          createdAt: "2024-03-16T08:30:00Z",
-        },
-        {
-          id: 12,
-          companyId: 2,
-          title: "Test user CRUD operations",
-          completed: false,
-          createdAt: "2024-03-16T09:00:00Z",
-        },
-      ],
+      subtaskIds: [11, 12],
     },
     {
       id: 6,
@@ -212,22 +124,7 @@ export const TaskContextProvider = ({
       updatedAt: "2024-01-29T16:00:00Z",
       attachments: 5,
       comments: 7,
-      subtasks: [
-        {
-          id: 13,
-          companyId: 3,
-          title: "Gather survey data",
-          completed: true,
-          createdAt: "2024-01-05T15:30:00Z",
-        },
-        {
-          id: 14,
-          companyId: 3,
-          title: "Perform statistical analysis",
-          completed: true,
-          createdAt: "2024-01-20T14:00:00Z",
-        },
-      ],
+      subtaskIds: [13, 14],
     },
     {
       id: 7,
@@ -244,22 +141,7 @@ export const TaskContextProvider = ({
       updatedAt: "2024-02-20T14:00:00Z",
       attachments: 3,
       comments: 4,
-      subtasks: [
-        {
-          id: 15,
-          companyId: 3,
-          title: "Draft campaign messages",
-          completed: true,
-          createdAt: "2024-02-10T11:30:00Z",
-        },
-        {
-          id: 16,
-          companyId: 3,
-          title: "Schedule posts",
-          completed: false,
-          createdAt: "2024-02-15T09:00:00Z",
-        },
-      ],
+      subtaskIds: [15, 16],
     },
     {
       id: 8,
@@ -275,22 +157,7 @@ export const TaskContextProvider = ({
       updatedAt: "2024-04-01T10:00:00Z",
       attachments: 6,
       comments: 2,
-      subtasks: [
-        {
-          id: 17,
-          companyId: 4,
-          title: "Select cloud provider",
-          completed: false,
-          createdAt: "2024-04-01T10:30:00Z",
-        },
-        {
-          id: 18,
-          companyId: 4,
-          title: "Design migration plan",
-          completed: false,
-          createdAt: "2024-04-02T09:00:00Z",
-        },
-      ],
+      subtaskIds: [17, 18],
     },
     {
       id: 9,
@@ -307,15 +174,7 @@ export const TaskContextProvider = ({
       updatedAt: "2024-04-05T08:00:00Z",
       attachments: 1,
       comments: 0,
-      subtasks: [
-        {
-          id: 19,
-          companyId: 4,
-          title: "Review firewall configurations",
-          completed: false,
-          createdAt: "2024-04-05T08:30:00Z",
-        },
-      ],
+      subtaskIds: [19],
     },
     {
       id: 10,
@@ -331,33 +190,12 @@ export const TaskContextProvider = ({
       updatedAt: "2024-02-01T16:00:00Z",
       attachments: 4,
       comments: 6,
-      subtasks: [
-        {
-          id: 20,
-          companyId: 5,
-          title: "Research topic areas",
-          completed: true,
-          createdAt: "2024-01-20T14:30:00Z",
-        },
-        {
-          id: 21,
-          companyId: 5,
-          title: "Draft first post",
-          completed: true,
-          createdAt: "2024-01-25T10:00:00Z",
-        },
-        {
-          id: 22,
-          companyId: 5,
-          title: "Edit and publish posts",
-          completed: false,
-          createdAt: "2024-02-01T15:00:00Z",
-        },
-      ],
+      subtaskIds: [20, 21, 22],
     },
   ];
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const { getSubtasksByIds } = useSubTasksContext();
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<EnrichedTask | null>(null);
   const [loading, setLoading] = useState(true);
@@ -409,6 +247,7 @@ export const TaskContextProvider = ({
       dueDate: data.dueDate || "",
       priority: data.priority || "medium",
       createdAt: data.createdAt || "",
+      subtaskIds: data.subtaskIds || [],
     };
     setTasks([...tasks, newTask]);
     toast.success("Task added successfully!");
@@ -467,11 +306,13 @@ export const TaskContextProvider = ({
   const getEnrichedTasks = (): EnrichedTask[] => {
     return tasks.map((task) => {
       const project = projects.find((proj) => proj.id === task.projectId);
-      return {
+      const enriched: EnrichedTask = {
         ...task,
         projectTitle: project?.title || "Unknown Project",
         clientName: project?.client || "Unknown Client",
+        subtasks: getSubtasksByIds(task.subtaskIds || []),
       };
+      return enriched;
     });
   };
 

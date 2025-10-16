@@ -20,7 +20,9 @@ const TaskDetailDialog = ({
     <Dialog open={!!task} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] rounded-lg shadow-lg">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold text-gray-900">
+          <DialogTitle className={`text-2xl font-semibold ${
+            task.status === "Done" ? "line-through text-muted-foreground" : "text-gray-900"
+          }`}>
             {task.title}
           </DialogTitle>
         </DialogHeader>

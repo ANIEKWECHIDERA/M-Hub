@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { useParams } from "react-router-dom";
+import { CommentsSystem } from "@/components/CommentsSystem";
 import { useProjectContext } from "@/context/ProjectContext";
 import { useAssetContext } from "@/context/AssetContext";
 import TaskDetailDialog from "@/components/TaskDetailDialog";
@@ -79,7 +80,7 @@ export default function ProjectDetail() {
     setFileToDelete,
     fileToDelete,
   } = useAssetContext();
-  const { comments, newComment, setNewComment, addComment } =
+  const { comments, newComment, setNewComment, addComment, updateComment, deleteComment } =
     useCommentContext();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -90,7 +91,7 @@ export default function ProjectDetail() {
   const { total, completed, progress } = useProjectTaskStats(Number(id));
 
   const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
-  const { teamMembers } = useTeamContext();
+  const { teamMembers, currentMember } = useTeamContext();
   const filteredfiles = useMemo(
     () => files.filter((file) => file.projectId === Number(id)),
     [files, id]
@@ -100,19 +101,25 @@ export default function ProjectDetail() {
     [comments, id]
   );
 
-  const mergedComments = useMemo(() => {
-    return filteredComments.map((comment) => {
-      const author = teamMembers.find(
-        (member) => member.id === comment.authorId
-      );
-      return {
-        ...comment,
-        author: author
-          ? `${author.firstname} ${author.lastname}`
-          : "Unknown Author",
-        avatar: author?.avatar ?? "/placeholder.svg",
-      };
-    });
+  const projectCommentsForSystem = useMemo(() => {
+    const findAuthorName = (authorId: number) => {
+      const tm = teamMembers.find((m) => m.id === authorId);
+      return tm ? `${tm.firstname} ${tm.lastname}` : `User ${authorId}`;
+    };
+    return filteredComments.map((c) => ({
+      id: String(c.id),
+      content: c.content,
+      author: {
+        id: String(c.authorId),
+        name: findAuthorName(c.authorId),
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      createdAt: new Date(c.timestamp).toString() === "Invalid Date"
+        ? new Date().toISOString()
+        : new Date(c.timestamp).toISOString(),
+      likes: 0,
+      isLiked: false,
+    }));
   }, [filteredComments, teamMembers]);
 
   // const selectedAssignees = teamMembers.filter((member) =>
@@ -579,87 +586,29 @@ export default function ProjectDetail() {
 
           {/* Comments Tab */}
 
-          <TabsContent
-            value="comments"
-            className="flex flex-col h-full space-y-4"
-          >
+          <TabsContent value="comments" className="space-y-4">
             <h2 className="text-xl font-semibold">Project Comments</h2>
-
-            {/* Comment List */}
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              {mergedComments.length === 0 ? (
-                <div className="text-center space-y-4">
-                  <p className="text-muted-foreground">
-                    No comments yet for this project.
-                  </p>
-                </div>
-              ) : (
-                mergedComments.map((comment) => (
-                  <Card key={comment.id}>
-                    <CardContent className="p-4">
-                      <div className="flex gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage
-                            src={comment.avatar || "/placeholder.svg"}
-                          />
-                          <AvatarFallback>
-                            {comment.author
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">
-                              {comment.author}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {comment.timestamp}
-                            </span>
-                          </div>
-                          <p className="text-sm">{comment.content}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-
-            {/* Sticky Comment Input */}
-            <div className="sticky bottom-0 bg-background border-t pt-2">
-              <Card className="shadow-none border-none">
-                <CardContent className="p-4 pt-2">
-                  <div className="space-y-3">
-                    <Textarea
-                      placeholder="Add a comment..."
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      rows={2}
-                    />
-                    <div className="flex justify-end">
-                      <Button
-                        onClick={() => {
-                          if (newComment.trim()) {
-                            addComment(
-                              newComment,
-                              1, // Assuming project has companyId
-                              1, // Replace with actual user ID
-                              project.id
-                            );
-                          }
-                        }}
-                        disabled={!newComment.trim()}
-                      >
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Add Comment
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <CommentsSystem
+              comments={projectCommentsForSystem}
+              onCommentAdd={(content) =>
+                addComment(content, 1, currentMember?.id ?? 1, project.id)
+              }
+              onCommentUpdate={(commentId, content) =>
+                updateComment(Number(commentId), { content })
+              }
+              onCommentDelete={(commentId) => deleteComment(Number(commentId))}
+              onCommentLike={() => {}}
+              currentUser={{
+                id: String(currentMember?.id ?? 1),
+                name: currentMember
+                  ? `${currentMember.firstname} ${currentMember.lastname}`
+                  : "Current User",
+                avatar:
+                  currentMember?.avatar ?? "/placeholder.svg?height=32&width=32",
+                role: currentMember?.role ?? "Member",
+              }}
+              placeholder="Add a comment..."
+            />
           </TabsContent>
         </Tabs>
 

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -49,18 +50,41 @@ export default function Projects() {
     setIsDeleteDialogOpen,
   } = useProjectContext();
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [clientFilter, setClientFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
 
-  const filteredProjects = useMemo(
-    () =>
-      projects.filter(
-        (project) =>
-          project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          project.client.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
-    [projects, searchTerm]
+  const clients = useMemo(
+    () => Array.from(new Set(projects.map((p) => p.client))),
+    [projects]
   );
+
+  const filteredProjects = useMemo(() => {
+    return projects
+      .filter((project) => {
+        const matchesSearch =
+          project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          project.client.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus =
+          statusFilter === "all" || project.status === statusFilter;
+        const matchesClient =
+          clientFilter === "all" || project.client === clientFilter;
+        const projectDate = new Date(project.deadline);
+        const matchesFrom = dateFrom ? projectDate >= new Date(dateFrom) : true;
+        const matchesTo = dateTo ? projectDate <= new Date(dateTo) : true;
+        return (
+          matchesSearch &&
+          matchesStatus &&
+          matchesClient &&
+          matchesFrom &&
+          matchesTo
+        );
+      })
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+  }, [projects, searchTerm, statusFilter, clientFilter, dateFrom, dateTo]);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -93,8 +117,9 @@ export default function Projects() {
                   status: data.status || "Active",
                   deadline: data.deadline || "",
                   description: data.description || "",
-
-                  team: [],
+                  team: Array.isArray((data as any).team)
+                    ? ((data as any).team as number[])
+                    : [],
                 };
                 await addProject(newProject);
                 setIsCreateOpen(false);
@@ -105,15 +130,62 @@ export default function Projects() {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search projects..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      {/* Search and Filters */}
+      <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search projects..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="Active">Active</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="On Hold">On Hold</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
+              <SelectItem value="Planning">Planning</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={clientFilter} onValueChange={setClientFilter}>
+            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Client" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2">
+            <div className="space-y-1">
+              <span className="text-xs text-muted-foreground">From</span>
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs text-muted-foreground">To</span>
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchTerm("");
+              setStatusFilter("all");
+              setClientFilter("all");
+              setDateFrom("");
+              setDateTo("");
+            }}
+          >
+            Clear
+          </Button>
+        </div>
       </div>
 
       {/* Projects Table */}
@@ -134,69 +206,79 @@ export default function Projects() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProjects.map((project) => (
-                  <TableRow key={project.id} className="hover:bg-muted/50">
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{project.title}</div>
-                        <div className="text-sm text-muted-foreground truncate max-w-[200px]">
-                          {project.description}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{project.client}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          project.status === "Completed"
-                            ? "default"
-                            : project.status === "In Progress"
-                            ? "secondary"
-                            : "outline"
-                        }
-                      >
-                        {project.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(project.deadline).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Link to={`/projectdetails/${project.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={`View details for ${project.title}`}
-                            onClick={() => setCurrentProject(project)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label={`Edit ${project.title}`}
-                          onClick={() => setEditingProjectId(project.id)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-500 hover:text-red-700"
-                          aria-label={`Delete ${project.title}`}
-                          onClick={() => {
-                            setProjectToDelete(project);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                {filteredProjects.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <div className="p-8 text-center text-muted-foreground">
+                        No projects found. Adjust filters or create a new project.
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredProjects.map((project) => (
+                    <TableRow key={project.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{project.title}</div>
+                          <div className="text-sm text-muted-foreground truncate max-w-[200px]">
+                            {project.description}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{project.client}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            project.status === "Completed"
+                              ? "default"
+                              : project.status === "In Progress"
+                              ? "secondary"
+                              : "outline"
+                          }
+                        >
+                          {project.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(project.deadline).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Link to={`/projectdetails/${project.id}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={`View details for ${project.title}`}
+                              onClick={() => setCurrentProject(project)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Edit ${project.title}`}
+                            onClick={() => setEditingProjectId(project.id)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700"
+                            aria-label={`Delete ${project.title}`}
+                            onClick={() => {
+                              setProjectToDelete(project);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

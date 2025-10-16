@@ -97,7 +97,7 @@ export interface Task {
   tags?: string[];
   attachments?: number;
   comments?: number;
-  subtasks?: Subtask[];
+  subtaskIds?: number[];
   progress?: number;
 }
 
@@ -106,6 +106,7 @@ export type TaskStatus = "To-Do" | "In Progress" | "Done";
 export interface EnrichedTask extends Task {
   projectTitle: string;
   clientName: string;
+  subtasks?: Subtask[];
 }
 
 export interface TaskContextType {
@@ -130,7 +131,7 @@ export interface TaskContextType {
   setTaskToDelete: React.Dispatch<React.SetStateAction<Task | null>>;
   isDeleteDialogOpen: boolean;
   setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  getEnrichedTasks: () => Task[];
+  getEnrichedTasks: () => EnrichedTask[];
   getEnrichedTaskById: (id: number) => EnrichedTask | undefined;
 }
 
@@ -140,6 +141,18 @@ export interface Subtask {
   title: string;
   completed: boolean;
   createdAt: string;
+}
+
+export interface SubtaskContextType {
+  subtasks: Subtask[];
+  setSubtasks: React.Dispatch<React.SetStateAction<Subtask[]>>;
+  fetchSubtasks: () => Promise<void>;
+  addSubtask: (data: Omit<Subtask, "id">) => Promise<Subtask>;
+  updateSubtask: (id: number, data: Partial<Subtask>) => Promise<void>;
+  deleteSubtask: (id: number) => Promise<void>;
+  getSubtasksByIds: (ids: number[]) => Subtask[];
+  loading: boolean;
+  error: string | null;
 }
 
 export interface TaskDetailDialogProps {
