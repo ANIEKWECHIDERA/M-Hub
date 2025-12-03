@@ -18,6 +18,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useNotificationContext } from "@/context/NotificationContext";
 import { Search, Bell, Sun, Moon, User, Settings, LogOut } from "lucide-react";
 import { Input } from "./ui/input";
+import { Link } from "react-router-dom";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
@@ -139,14 +140,16 @@ export function Header() {
                 </div>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              {/* <DropdownMenuItem>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
+              <Link to={"settings"}>
+                <DropdownMenuItem>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+              </Link>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <LogOut className="mr-2 h-4 w-4" />

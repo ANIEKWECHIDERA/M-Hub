@@ -24,6 +24,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
     assignee: [] as number[], // Initialize as array of IDs
     status: "To-Do",
     dueDate: "",
+    priority: "medium" as "low" | "medium" | "high",
   });
 
   useEffect(() => {
@@ -38,6 +39,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
           : [],
         status: defaultValues.status || "To-Do",
         dueDate: defaultValues.dueDate || "",
+        priority: (defaultValues as any).priority || "medium",
       });
     }
   }, [defaultValues]);
@@ -128,6 +130,25 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
       )}
 
       <div className="space-y-2">
+        <Label htmlFor="priority">Priority</Label>
+        <Select
+          value={formData.priority}
+          onValueChange={(value) =>
+            setFormData({ ...formData, priority: value as any })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select priority" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="due-date">Due Date</Label>
         <Input
           id="due-date"
@@ -145,7 +166,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
           Cancel
         </Button>
         <Button type="submit">
-          {defaultValues ? "Update Task" : "Create Task"}
+          {defaultValues ? "Update Task" : "Add Task"}
         </Button>
       </div>
     </form>

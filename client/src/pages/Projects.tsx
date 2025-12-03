@@ -3,7 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -83,7 +89,10 @@ export default function Projects() {
           matchesTo
         );
       })
-      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+      .sort(
+        (a, b) =>
+          new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+      );
   }, [projects, searchTerm, statusFilter, clientFilter, dateFrom, dateTo]);
 
   if (loading) return <div>Loading...</div>;
@@ -131,19 +140,22 @@ export default function Projects() {
       </div>
 
       {/* Search and Filters */}
-      <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
-        <div className="relative max-w-sm">
+      <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search projects..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 w-full"
           />
         </div>
-        <div className="flex flex-wrap gap-2">
+
+        <div className="flex flex-wrap gap-3 lg:gap-4 items-center">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="Active">Active</SelectItem>
@@ -153,25 +165,21 @@ export default function Projects() {
               <SelectItem value="Planning">Planning</SelectItem>
             </SelectContent>
           </Select>
+
           <Select value={clientFilter} onValueChange={setClientFilter}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Client" /></SelectTrigger>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Client" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Clients</SelectItem>
               {clients.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <div className="flex items-center gap-2">
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">From</span>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">To</span>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-            </div>
-          </div>
+
           <Button
             variant="outline"
             size="sm"
@@ -210,7 +218,8 @@ export default function Projects() {
                   <TableRow>
                     <TableCell colSpan={5}>
                       <div className="p-8 text-center text-muted-foreground">
-                        No projects found. Adjust filters or create a new project.
+                        No projects found. Adjust filters or create a new
+                        project.
                       </div>
                     </TableCell>
                   </TableRow>

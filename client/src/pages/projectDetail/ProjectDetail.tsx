@@ -25,7 +25,7 @@ import {
   Edit,
 } from "lucide-react";
 
-import { useParams } from "react-router-dom";
+import { useParams, Link as RouterLink } from "react-router-dom";
 import { CommentsSystem } from "@/components/CommentsSystem";
 import { useProjectContext } from "@/context/ProjectContext";
 import { useAssetContext } from "@/context/AssetContext";
@@ -47,6 +47,14 @@ import { useProjectTaskStats } from "@/hooks/useProjectTaskStats";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useCommentContext } from "@/context/CommentContext";
 import { Input } from "@/components/ui/input";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbSeparator,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -80,8 +88,14 @@ export default function ProjectDetail() {
     setFileToDelete,
     fileToDelete,
   } = useAssetContext();
-  const { comments, newComment, setNewComment, addComment, updateComment, deleteComment } =
-    useCommentContext();
+  const {
+    comments,
+    newComment,
+    setNewComment,
+    addComment,
+    updateComment,
+    deleteComment,
+  } = useCommentContext();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const filteredTasks = useMemo(
@@ -114,9 +128,10 @@ export default function ProjectDetail() {
         name: findAuthorName(c.authorId),
         avatar: "/placeholder.svg?height=32&width=32",
       },
-      createdAt: new Date(c.timestamp).toString() === "Invalid Date"
-        ? new Date().toISOString()
-        : new Date(c.timestamp).toISOString(),
+      createdAt:
+        new Date(c.timestamp).toString() === "Invalid Date"
+          ? new Date().toISOString()
+          : new Date(c.timestamp).toISOString(),
       likes: 0,
       isLiked: false,
     }));
@@ -141,6 +156,26 @@ export default function ProjectDetail() {
   return (
     <TaskContextProvider projectId={project.id}>
       <div className="space-y-6">
+        {/* Breadcrumb */}
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink>
+                <RouterLink to="/">Home</RouterLink>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink>
+                <RouterLink to="/projects">Projects</RouterLink>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{project.title}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         {/* Project Header */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -268,12 +303,10 @@ export default function ProjectDetail() {
                 }}
               >
                 <DialogTrigger asChild>
-                  {filteredTasks.length > 0 && (
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Task
-                    </Button>
-                  )}
+                  <Button onClick={() => setEditingTask(null)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Task
+                  </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
@@ -322,14 +355,14 @@ export default function ProjectDetail() {
             ) : (
               <div className="space-y-3">
                 {filteredTasks.map((task) => {
-                  // Ensure assignee is an array
                   const assignees = Array.isArray(task.assignee)
                     ? task.assignee
                     : [];
+                  const isDone = task.status === "Done";
                   return (
                     <Card
                       key={task.id}
-                      className="cursor-pointer hover:bg-muted/50"
+                      className="hover:shadow-md transition-all cursor-pointer group"
                       onClick={() => {
                         const enriched = getEnrichedTaskById(task.id);
                         if (enriched) {
@@ -338,34 +371,62 @@ export default function ProjectDetail() {
                       }}
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3">
-                            <Checkbox
-                              checked={task.status === "Done"}
-                              className="mt-1"
-                              onCheckedChange={(checked) =>
-                                updateTask(task.id, {
-                                  ...task,
-                                  status: checked ? "Done" : "To-Do",
-                                })
-                              }
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                            />
-                            <div className="space-y-1">
-                              <h3 className="font-medium">{task.title}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {task.description}
-                              </p>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={isDone}
+                            onCheckedChange={(checked) =>
+                              updateTask(task.id, {
+                                ...task,
+                                status: checked ? "Done" : "To-Do",
+                                updatedAt: new Date().toISOString(),
+                              })
+                            }
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-1"
+                          />
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h3
+                                  className={`font-medium text-base mb-1 ${
+                                    isDone
+                                      ? "line-through text-muted-foreground"
+                                      : ""
+                                  }`}
+                                >
+                                  {task.title}
+                                </h3>
+                                <p className="text-sm text-muted-foreground line-clamp-2">
+                                  {task.description}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2 mr-9">
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    task.priority === "high"
+                                      ? "text-red-600"
+                                      : task.priority === "medium"
+                                      ? "text-yellow-600"
+                                      : "text-green-600"
+                                  }
+                                >
+                                  {task.priority?.[0]?.toUpperCase()}
+                                  {task.priority?.slice(1)}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <span className="truncate max-w-[200px]">
                                   Assigned to:{" "}
                                   {assignees.length > 0
                                     ? assignees
                                         .map((id) => {
                                           const member = teamMembers.find(
-                                            (member) => member.id === id
+                                            (m) => m.id === id
                                           );
                                           return member
                                             ? `${member.firstname} ${member.lastname}`
@@ -374,26 +435,37 @@ export default function ProjectDetail() {
                                         .join(", ")
                                     : "Unassigned"}
                                 </span>
-                                <span>
-                                  Due:{" "}
-                                  {new Date(task.dueDate).toLocaleDateString()}
-                                </span>
                               </div>
+                              <span>
+                                Due:{" "}
+                                {new Date(task.dueDate).toLocaleDateString()}
+                              </span>
+                              <Badge variant="outline">{task.status}</Badge>
+                              {task.subtaskIds &&
+                                task.subtaskIds.length > 0 && (
+                                  <span>
+                                    0/{task.subtaskIds.length} subtasks
+                                  </span>
+                                )}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant={
-                                task.status === "Done"
-                                  ? "default"
-                                  : task.status === "In Progress"
-                                  ? "secondary"
-                                  : "outline"
-                              }
-                            >
-                              {task.status}
-                            </Badge>
 
+                            {typeof (task as any).progress === "number" &&
+                              (task as any).progress < 100 &&
+                              task.subtaskIds &&
+                              task.subtaskIds.length > 0 && (
+                                <div className="flex items-center gap-2 mt-3">
+                                  <Progress
+                                    value={(task as any).progress}
+                                    className="h-2 flex-1"
+                                  />
+                                  <span className="text-xs text-muted-foreground min-w-[40px]">
+                                    {(task as any).progress}%
+                                  </span>
+                                </div>
+                              )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -406,7 +478,6 @@ export default function ProjectDetail() {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-
                             <Button
                               variant="ghost"
                               size="sm"
@@ -604,7 +675,8 @@ export default function ProjectDetail() {
                   ? `${currentMember.firstname} ${currentMember.lastname}`
                   : "Current User",
                 avatar:
-                  currentMember?.avatar ?? "/placeholder.svg?height=32&width=32",
+                  currentMember?.avatar ??
+                  "/placeholder.svg?height=32&width=32",
                 role: currentMember?.role ?? "Member",
               }}
               placeholder="Add a comment..."
