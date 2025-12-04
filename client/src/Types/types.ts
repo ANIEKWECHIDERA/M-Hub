@@ -1,3 +1,5 @@
+import type { User } from "firebase/auth";
+
 export interface Project {
   id: number;
   title: string;
@@ -300,4 +302,15 @@ export interface NoteFormProps {
   note?: Note;
   onSave: (data: Partial<Note>) => void;
   onCancel: () => void;
+}
+
+// Authentication context type
+export interface AuthContextType {
+  currentUser: User | null;
+  loading: boolean;
+  error: string | null;
+  signUp: (email: string, password: string) => Promise<User | null>;
+  signIn: (email: string, password: string) => Promise<User | null>;
+  logout: () => Promise<void>;
+  clearError: () => void;
 }

@@ -9,11 +9,15 @@ import Settings from "./pages/Settings";
 import ProjectDetailWrapper from "./pages/projectDetail/ProjectDetailWrapper";
 import MyTasksPage from "./pages/MyTasks";
 import { AppContextProvider } from "./context/AppProvider";
+import LoginPage from "./pages/LoginPage";
+import SignUpPage from "./pages/SignupPage";
 
 function App() {
   return (
     <AppContextProvider>
       <Routes>
+        <Route path="login" element={<LoginPage />} />
+        <Route path="signup" element={<SignUpPage />} />
         <Route path="/" element={<Layout />}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />
