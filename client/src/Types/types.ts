@@ -313,4 +313,6 @@ export interface AuthContextType {
   signIn: (email: string, password: string) => Promise<User | null>;
   logout: () => Promise<void>;
   clearError: () => void;
+  signInWithGoogle: () => Promise<any>;
+  signUpWithGoogle: () => Promise<any>;
 }

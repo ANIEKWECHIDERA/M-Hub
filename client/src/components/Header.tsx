@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -16,40 +17,49 @@ import {
 } from "@/components/ui/popover";
 import { useTheme } from "../hooks/useTheme";
 import { useNotificationContext } from "@/context/NotificationContext";
-import { Search, Bell, Sun, Moon, User, Settings, LogOut } from "lucide-react";
-import { Input } from "./ui/input";
-import { Link } from "react-router-dom";
+import { useAuthContext } from "@/context/AuthContext";
+import { useUser } from "@/context/UserContext";
+import { Search, Bell, Sun, Moon, Settings, LogOut } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
-  const [searchQuery, setSearchQuery] = useState("");
   const { notifications, markAsRead, markAllAsRead, unreadCount } =
     useNotificationContext();
+  const { logout } = useAuthContext();
+  const { profile, loading: userLoading } = useUser();
+  const navigate = useNavigate();
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
+
+  const displayName = profile?.displayName || "User";
+  const email = profile?.email || "user@example.com";
+  const photoURL = profile?.photoURL;
+
+  const initials = displayName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center justify-end px-4 lg:px-6">
-        {/* Search */}
-        {/* <div className="flex-1 max-w-md">
-          <div className="relative">
-            <Input
-              placeholder="Search projects or tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pr-10"
-            />
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          </div>
-        </div> */}
+        {/* Optional Search */}
+        {/* <div className="flex-1 max-w-md">...</div> */}
 
-        {/* Right side actions */}
         <div className="flex items-center gap-2">
           {/* Theme Toggle */}
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="relative"
             aria-label="Toggle theme"
           >
             <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -86,32 +96,38 @@ export function Header() {
                   </Button>
                 </div>
                 <div className="space-y-2 max-h-80 overflow-y-auto">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`p-3 rounded-lg border cursor-pointer hover:bg-muted/50 ${
-                        notification.unread ? "bg-muted/30" : ""
-                      }`}
-                      onClick={() => markAsRead(notification.id)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1">
-                          <p className="text-sm font-medium">
-                            {notification.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {notification.time}
-                          </p>
+                  {notifications.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No notifications
+                    </p>
+                  ) : (
+                    notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors ${
+                          notification.unread ? "bg-muted/30" : ""
+                        }`}
+                        onClick={() => markAsRead(notification.id)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1 flex-1">
+                            <p className="text-sm font-medium">
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {notification.time}
+                            </p>
+                          </div>
+                          {notification.unread && (
+                            <div className="w-2 h-2 bg-primary rounded-full mt-1" />
+                          )}
                         </div>
-                        {notification.unread && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-1" />
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </PopoverContent>
@@ -122,36 +138,34 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage
-                    src="/placeholder.svg?height=32&width=32"
-                    alt="User"
-                  />
-                  <AvatarFallback>JD</AvatarFallback>
+                  <AvatarImage src={photoURL || undefined} alt={displayName} />
+                  <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <div className="flex items-center justify-start gap-2 p-2">
-                <div className="flex flex-col space-y-1 leading-none">
-                  <p className="font-medium">John Doe</p>
-                  <p className="w-[200px] truncate text-sm text-muted-foreground">
-                    john.doe@company.com
+            <DropdownMenuContent className="w-64" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {displayName}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {email}
                   </p>
                 </div>
-              </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {/* <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </DropdownMenuItem> */}
-              <Link to={"settings"}>
+              <Link to="/settings">
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
               </Link>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="text-red-600 focus:text-red-600"
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>

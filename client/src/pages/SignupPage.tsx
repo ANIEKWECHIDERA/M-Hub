@@ -19,24 +19,25 @@ import {
   Lock,
   User,
   AlertCircle,
-  Building,
+  //   Building,
 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuthContext } from "@/context/AuthContext";
 import { FcGoogle } from "react-icons/fc";
-
-const Link: React.FC<{
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-}> = ({ href, children, className }) => (
-  <a href={href} className={className}>
-    {children}
-  </a>
-);
+import { set } from "date-fns";
 
 export default function SignUpPage() {
+  const navigate = useNavigate();
+  const {
+    signUp,
+    signUpWithGoogle,
+    error: authError,
+    loading: authLoading,
+    clearError,
+  } = useAuthContext();
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -54,13 +55,9 @@ export default function SignUpPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.firstName.trim()) {
+    if (!formData.firstName.trim())
       newErrors.firstName = "First name is required";
-    }
-
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required";
-    }
+    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
 
     if (!formData.email) {
       newErrors.email = "Email is required";
@@ -68,9 +65,7 @@ export default function SignUpPage() {
       newErrors.email = "Please enter a valid email address";
     }
 
-    // if (!formData.company.trim()) {
-    //   newErrors.company = "Company name is required";
-    // }
+    // if (!formData.company.trim()) newErrors.company = "Company name is required";
 
     if (!formData.password) {
       newErrors.password = "Password is required";
@@ -81,9 +76,7 @@ export default function SignUpPage() {
         "Password must contain uppercase, lowercase, and number";
     }
 
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password";
-    } else if (formData.password !== formData.confirmPassword) {
+    if (formData.confirmPassword !== formData.password) {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
@@ -97,40 +90,33 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (!validateForm()) return;
 
-    setIsLoading(true);
+    clearError(); // Clear previous auth errors
     setErrors({});
 
-    try {
-      await Promise.resolve().then(
-        () => new Promise((r) => setTimeout(r, 2000))
-      );
-      console.log("Sign up successful:", formData);
-      window.location.href = "/dashboard";
-    } catch (error) {
-      setErrors({ general: "Sign up failed. Please try again." });
-    } finally {
-      setIsLoading(false);
+    const success = await signUp(formData.email, formData.password);
+
+    if (success) {
+      console.log("Sign up successful! User:", success);
+      // Optionally save extra user data (firstName, lastName, company) to Firestore here
+      navigate("/dashboard", { replace: true });
     }
+    // If failed → authError will be set in context and shown below
   };
 
   const handleGoogleSignUp = async () => {
-    setIsGoogleLoading(true);
+    clearError();
     setErrors({});
+    setIsGoogleLoading(true);
 
-    try {
-      await Promise.resolve().then(
-        () => new Promise((r) => setTimeout(r, 1500))
-      );
-      console.log("Google sign-up successful");
-      window.location.href = "/dashboard";
-    } catch (error) {
-      setErrors({ general: "Google sign-up failed. Please try again." });
-    } finally {
-      setIsGoogleLoading(false);
+    const result = await signUpWithGoogle();
+
+    if (result) {
+      navigate("/dashboard", { replace: true });
     }
+
+    setIsGoogleLoading(false);
   };
 
   return (
@@ -151,34 +137,22 @@ export default function SignUpPage() {
           </div>
 
           <div className="space-y-4 max-w-md">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-sm">Check</span>
+            {[
+              "Unlimited projects and team members",
+              "Advanced collaboration tools",
+              "Real-time notifications and updates",
+              "24/7 customer support",
+            ].map((item) => (
+              <div key={item} className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                  <span className="text-sm">Check</span>
+                </div>
+                <span>{item}</span>
               </div>
-              <span>Unlimited projects and team members</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-sm">Check</span>
-              </div>
-              <span>Advanced collaboration tools</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-sm">Check</span>
-              </div>
-              <span>Real-time notifications and updates</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-sm">Check</span>
-              </div>
-              <span>24/7 customer support</span>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Decorative Elements */}
         <div className="absolute top-20 right-20 w-32 h-32 bg-white/10 rounded-full blur-xl" />
         <div className="absolute bottom-20 left-20 w-24 h-24 bg-white/10 rounded-full blur-xl" />
         <div className="absolute top-1/2 right-10 w-16 h-16 bg-white/10 rounded-full blur-lg" />
@@ -209,11 +183,17 @@ export default function SignUpPage() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              {/* General Error */}
-              {errors.general && (
+              {/* Firebase Auth Error */}
+              {authError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{errors.general}</AlertDescription>
+                  <AlertDescription>
+                    {authError.includes("weak-password")
+                      ? "Password is too weak."
+                      : authError.includes("email-already-in-use")
+                      ? "This email is already registered."
+                      : authError}
+                  </AlertDescription>
                 </Alert>
               )}
 
@@ -222,7 +202,7 @@ export default function SignUpPage() {
                 variant="outline"
                 className="w-full h-11 border-2 hover:bg-muted/50 bg-transparent"
                 onClick={handleGoogleSignUp}
-                disabled={isGoogleLoading || isLoading}
+                disabled={isGoogleLoading || authLoading}
               >
                 {isGoogleLoading ? (
                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
@@ -243,7 +223,7 @@ export default function SignUpPage() {
                 </div>
               </div>
 
-              {/* Sign Up Form */}
+              {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -266,7 +246,7 @@ export default function SignUpPage() {
                             ? "border-red-500 focus-visible:ring-red-500"
                             : ""
                         }`}
-                        disabled={isLoading || isGoogleLoading}
+                        disabled={authLoading}
                       />
                     </div>
                     {errors.firstName && (
@@ -289,7 +269,7 @@ export default function SignUpPage() {
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
                       }`}
-                      disabled={isLoading || isGoogleLoading}
+                      disabled={authLoading}
                     />
                     {errors.lastName && (
                       <p className="text-sm text-red-500">{errors.lastName}</p>
@@ -314,7 +294,7 @@ export default function SignUpPage() {
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
                       }`}
-                      disabled={isLoading || isGoogleLoading}
+                      disabled={authLoading}
                     />
                   </div>
                   {errors.email && (
@@ -331,20 +311,12 @@ export default function SignUpPage() {
                       type="text"
                       placeholder="Your Company"
                       value={formData.company}
-                      onChange={(e) =>
-                        setFormData({ ...formData, company: e.target.value })
-                      }
-                      className={`pl-10 h-11 ${
-                        errors.company
-                          ? "border-red-500 focus-visible:ring-red-500"
-                          : ""
-                      }`}
-                      disabled={isLoading || isGoogleLoading}
+                      onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                      className={`pl-10 h-11 ${errors.company ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                      disabled={authLoading}
                     />
                   </div>
-                  {errors.company && (
-                    <p className="text-sm text-red-500">{errors.company}</p>
-                  )}
+                  {errors.company && <p className="text-sm text-red-500">{errors.company}</p>}
                 </div> */}
 
                 <div className="space-y-2">
@@ -364,7 +336,7 @@ export default function SignUpPage() {
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
                       }`}
-                      disabled={isLoading || isGoogleLoading}
+                      disabled={authLoading}
                     />
                     <Button
                       type="button"
@@ -372,12 +344,11 @@ export default function SignUpPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
-                      disabled={isLoading || isGoogleLoading}
                     >
                       {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        <EyeOff className="h-4 w-4" />
                       ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
+                        <Eye className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
@@ -406,7 +377,7 @@ export default function SignUpPage() {
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
                       }`}
-                      disabled={isLoading || isGoogleLoading}
+                      disabled={authLoading}
                     />
                     <Button
                       type="button"
@@ -416,12 +387,11 @@ export default function SignUpPage() {
                       onClick={() =>
                         setShowConfirmPassword(!showConfirmPassword)
                       }
-                      disabled={isLoading || isGoogleLoading}
                     >
                       {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        <EyeOff className="h-4 w-4" />
                       ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
+                        <Eye className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
@@ -432,53 +402,46 @@ export default function SignUpPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-start space-x-2">
-                    <Checkbox
-                      id="terms"
-                      checked={formData.agreeToTerms}
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          agreeToTerms: checked as boolean,
-                        })
-                      }
-                      disabled={isLoading || isGoogleLoading}
-                      className="mt-1"
-                    />
-                    <Label
-                      htmlFor="terms"
-                      className="text-sm font-normal leading-5"
+                <div className="flex items-start space-x-2">
+                  <Checkbox
+                    id="terms"
+                    checked={formData.agreeToTerms}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        agreeToTerms: checked as boolean,
+                      })
+                    }
+                    disabled={authLoading}
+                    className="mt-1"
+                  />
+                  <Label
+                    htmlFor="terms"
+                    className="text-sm font-normal leading-5"
+                  >
+                    I agree to the{" "}
+                    <Link to="/terms" className="text-primary hover:underline">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link
+                      to="/privacy"
+                      className="text-primary hover:underline"
                     >
-                      I agree to the{" "}
-                      <Link
-                        href="/terms"
-                        className="text-primary hover:underline"
-                      >
-                        Terms of Service
-                      </Link>{" "}
-                      and{" "}
-                      <Link
-                        href="/privacy"
-                        className="text-primary hover:underline"
-                      >
-                        Privacy Policy
-                      </Link>
-                    </Label>
-                  </div>
-                  {errors.agreeToTerms && (
-                    <p className="text-sm text-red-500">
-                      {errors.agreeToTerms}
-                    </p>
-                  )}
+                      Privacy Policy
+                    </Link>
+                  </Label>
                 </div>
+                {errors.agreeToTerms && (
+                  <p className="text-sm text-red-500">{errors.agreeToTerms}</p>
+                )}
 
                 <Button
                   type="submit"
                   className="w-full h-11 font-medium"
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={authLoading || isGoogleLoading}
                 >
-                  {isLoading ? (
+                  {authLoading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
                       Creating account...
@@ -492,7 +455,7 @@ export default function SignUpPage() {
               <div className="text-center text-sm text-muted-foreground">
                 Already have an account?{" "}
                 <Link
-                  href="/login"
+                  to="/login"
                   className="text-primary hover:underline font-medium"
                 >
                   Sign in

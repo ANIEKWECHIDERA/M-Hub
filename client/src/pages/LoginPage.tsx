@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,27 +14,35 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
-
-const Link: React.FC<{
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-}> = ({ href, children, className }) => (
-  <a href={href} className={className}>
-    {children}
-  </a>
-);
+import { Link, useNavigate } from "react-router-dom";
+import { useAuthContext } from "@/context/AuthContext";
 
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const {
+    signIn,
+    signInWithGoogle,
+    error: authError,
+    loading: authLoading,
+    clearError,
+    currentUser,
+  } = useAuthContext();
+
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (currentUser) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [currentUser, navigate]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -47,8 +55,6 @@ export default function LoginPage() {
 
     if (!formData.password) {
       newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
     }
 
     setErrors(newErrors);
@@ -57,39 +63,45 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (!validateForm()) return;
 
-    setIsLoading(true);
+    clearError();
     setErrors({});
 
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      console.log("Login successful:", formData);
-      // In a real app, use your router: navigate("/dashboard")
-      window.location.href = "/dashboard";
-    } catch (error) {
-      setErrors({ general: "Invalid email or password. Please try again." });
-    } finally {
-      setIsLoading(false);
+    const user = await signIn(formData.email, formData.password);
+
+    if (user) {
+      navigate("/dashboard", { replace: true });
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
+    clearError();
     setErrors({});
+    setIsGoogleLoading(true);
 
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      console.log("Google sign-in successful");
-      window.location.href = "/dashboard";
-    } catch (error) {
-      setErrors({ general: "Google sign-in failed. Please try again." });
-    } finally {
-      setIsGoogleLoading(false);
+    const result = await signInWithGoogle();
+
+    if (result) {
+      navigate("/dashboard", { replace: true });
     }
+    setIsGoogleLoading(false);
+    // Error is already set in context → will show below
   };
+
+  // Human-readable Firebase errors
+  const displayError = authError
+    ? authError.includes("wrong-password") ||
+      authError.includes("user-not-found")
+      ? "Invalid email or password."
+      : authError.includes("too-many-requests")
+      ? "Too many failed attempts. Please try again later."
+      : authError.includes("popup-closed-by-user")
+      ? "Sign-in cancelled."
+      : authError.includes("popup-blocked")
+      ? "Popup blocked. Please allow popups and try again."
+      : "Authentication failed. Please try again."
+    : errors.general;
 
   return (
     <div className="min-h-screen flex">
@@ -107,28 +119,20 @@ export default function LoginPage() {
               management platform
             </p>
           </div>
-
           <div className="grid grid-cols-2 gap-6 mt-8 max-w-md">
-            <div className="text-center">
-              <div className="text-2xl font-bold">500+</div>
-              <div className="text-sm text-white/80">Projects Completed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold">50+</div>
-              <div className="text-sm text-white/80">Happy Clients</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold">24/7</div>
-              <div className="text-sm text-white/80">Support</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold">99%</div>
-              <div className="text-sm text-white/80">Uptime</div>
-            </div>
+            {[
+              { stat: "500+", label: "Projects Completed" },
+              { stat: "50+", label: "Happy Clients" },
+              { stat: "24/7", label: "Support" },
+              { stat: "99%", label: "Uptime" },
+            ].map((item, i) => (
+              <div key={i} className="text-center">
+                <div className="text-2xl font-bold">{item.stat}</div>
+                <div className="text-sm text-white/80">{item.label}</div>
+              </div>
+            ))}
           </div>
         </div>
-
-        {/* Decorative Elements */}
         <div className="absolute top-20 right-20 w-32 h-32 bg-white/10 rounded-full blur-xl" />
         <div className="absolute bottom-20 left-20 w-24 h-24 bg-white/10 rounded-full blur-xl" />
         <div className="absolute top-1/2 right-10 w-16 h-16 bg-white/10 rounded-full blur-lg" />
@@ -137,7 +141,6 @@ export default function LoginPage() {
       {/* Right Side - Login Form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md space-y-6">
-          {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
               <span className="text-xl font-bold text-primary-foreground">
@@ -159,11 +162,11 @@ export default function LoginPage() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              {/* General Error */}
-              {errors.general && (
+              {/* Unified Error Display */}
+              {displayError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{errors.general}</AlertDescription>
+                  <AlertDescription>{displayError}</AlertDescription>
                 </Alert>
               )}
 
@@ -172,9 +175,9 @@ export default function LoginPage() {
                 variant="outline"
                 className="w-full h-11 border-2 hover:bg-muted/50 bg-transparent"
                 onClick={handleGoogleSignIn}
-                disabled={isGoogleLoading || isLoading}
+                disabled={isGoogleLoading || authLoading}
               >
-                {isGoogleLoading ? (
+                {isGoogleLoading || authLoading ? (
                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
                 ) : (
                   <FcGoogle className="w-5 h-5 mr-2" />
@@ -193,7 +196,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Email/Password Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email address</Label>
@@ -212,7 +214,7 @@ export default function LoginPage() {
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
                       }`}
-                      disabled={isLoading || isGoogleLoading}
+                      disabled={authLoading}
                     />
                   </div>
                   {errors.email && (
@@ -237,7 +239,7 @@ export default function LoginPage() {
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
                       }`}
-                      disabled={isLoading || isGoogleLoading}
+                      disabled={authLoading}
                     />
                     <Button
                       type="button"
@@ -245,12 +247,11 @@ export default function LoginPage() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
-                      disabled={isLoading || isGoogleLoading}
                     >
                       {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        <EyeOff className="h-4 w-4" />
                       ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
+                        <Eye className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
@@ -270,14 +271,14 @@ export default function LoginPage() {
                           rememberMe: checked as boolean,
                         })
                       }
-                      disabled={isLoading || isGoogleLoading}
+                      disabled={authLoading}
                     />
                     <Label htmlFor="remember" className="text-sm font-normal">
                       Remember me
                     </Label>
                   </div>
                   <Link
-                    href="/forgot-password"
+                    to="/forgot-password"
                     className="text-sm text-primary hover:underline font-medium"
                   >
                     Forgot password?
@@ -287,9 +288,9 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   className="w-full h-11 font-medium"
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={authLoading}
                 >
-                  {isLoading ? (
+                  {authLoading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
                       Signing in...
@@ -303,7 +304,7 @@ export default function LoginPage() {
               <div className="text-center text-sm text-muted-foreground">
                 Don't have an account?{" "}
                 <Link
-                  href="/signup"
+                  to="/signup"
                   className="text-primary hover:underline font-medium"
                 >
                   Sign up for free
@@ -312,15 +313,14 @@ export default function LoginPage() {
             </CardContent>
           </Card>
 
-          {/* Footer */}
           <div className="text-center text-xs text-muted-foreground">
             <p>
               By signing in, you agree to our{" "}
-              <Link href="/terms" className="hover:underline">
+              <Link to="/terms" className="hover:underline">
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="hover:underline">
+              <Link to="/privacy" className="hover:underline">
                 Privacy Policy
               </Link>
             </p>
