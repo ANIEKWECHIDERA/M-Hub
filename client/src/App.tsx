@@ -26,7 +26,7 @@ function ProtectedRoute() {
     );
   }
 
-  return currentUser ? <Outlet /> : <Navigate to="/signup" replace />;
+  return currentUser ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 // Public Route: Only unauthenticated users (blocks logged-in users)
@@ -88,7 +88,7 @@ function App() {
           </Route>
 
           {/* Catch-all: Redirect to dashboard if authenticated, else signup */}
-          <Route
+          {/* <Route
             path="*"
             element={
               <Navigate
@@ -99,7 +99,7 @@ function App() {
                 replace
               />
             }
-          />
+          /> */}
         </Routes>
       </AppContextProvider>
     </AuthProvider>

@@ -36,6 +36,7 @@ import { useTeamContext } from "@/context/TeamMemberContext";
 import { Toaster } from "sonner";
 import TeamMemberForm from "@/components/TeamMemberForm";
 import InviteForm from "@/components/InviteForm";
+import { useUser } from "@/context/UserContext";
 
 export default function Settings() {
   const {
@@ -49,9 +50,20 @@ export default function Settings() {
     loading,
     error,
   } = useTeamContext();
+  const { profile } = useUser();
   const [users, setUsers] = useState(teamMembers);
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<any>(null);
+  const displayName =
+    `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() || "User";
+
+  const initials = displayName
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -86,7 +98,9 @@ export default function Settings() {
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
                   <AvatarImage src="/placeholder.svg?height=80&width=80" />
-                  <AvatarFallback className="text-lg">JD</AvatarFallback>
+                  <AvatarFallback className="text-lg">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
                 <Button variant="outline">Change Avatar</Button>
               </div>
@@ -94,23 +108,21 @@ export default function Settings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue="John" />
+                  <Input id="firstName" defaultValue={profile?.firstName} />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue="Doe" />
+                  <Input id="lastName" defaultValue={profile?.lastName} />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
-                    defaultValue="john.doe@company.com"
+                    defaultValue={profile?.email}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Input id="role" defaultValue="Admin" disabled />
                 </div>
               </div>
 

@@ -304,7 +304,7 @@ export interface NoteFormProps {
   onCancel: () => void;
 }
 
-// Authentication context type
+////////////////// Authentication context type //////////////////
 export interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
@@ -315,4 +315,26 @@ export interface AuthContextType {
   clearError: () => void;
   signInWithGoogle: () => Promise<any>;
   signUpWithGoogle: () => Promise<any>;
+}
+
+/////////// user profile type //////////////////////////
+export interface UserProfile {
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  company?: string;
+  // Add any other fields you plan to store in Supabase
+  phone?: string;
+  bio?: string;
+  department?: string;
+  accessLevel?: string;
+}
+
+export interface UserContextType {
+  profile: UserProfile | null;
+  loading: boolean;
+  //   refreshProfile?: () => Promise<void>; // Optional: manual refresh
 }

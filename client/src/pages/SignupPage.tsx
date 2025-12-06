@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,6 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import { FcGoogle } from "react-icons/fc";
-import { set } from "date-fns";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -93,21 +92,33 @@ export default function SignUpPage() {
     if (!validateForm()) return;
 
     clearError(); // Clear previous auth errors
-    setErrors({});
 
     const success = await signUp(formData.email, formData.password);
-
     if (success) {
       console.log("Sign up successful! User:", success);
+
       // Optionally save extra user data (firstName, lastName, company) to Firestore here
+      localStorage.removeItem("signUpFormData");
       navigate("/dashboard", { replace: true });
     }
     // If failed → authError will be set in context and shown below
   };
 
+  const handleInputChange = (field: string, value: string | boolean) => {
+    const updatedData = { ...formData, [field]: value };
+    setFormData(updatedData);
+    localStorage.setItem("signUpFormData", JSON.stringify(updatedData));
+  };
+
+  useEffect(() => {
+    const savedData = localStorage.getItem("signUpFormData");
+    if (savedData) {
+      setFormData(JSON.parse(savedData));
+    }
+  }, []);
+
   const handleGoogleSignUp = async () => {
     clearError();
-    setErrors({});
     setIsGoogleLoading(true);
 
     const result = await signUpWithGoogle();
@@ -233,14 +244,16 @@ export default function SignUpPage() {
                       <Input
                         id="firstName"
                         type="text"
-                        placeholder="John"
+                        placeholder="First name"
                         value={formData.firstName}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const value = e.target.value;
                           setFormData({
                             ...formData,
-                            firstName: e.target.value,
-                          })
-                        }
+                            firstName: value,
+                          });
+                          handleInputChange("firstName", value);
+                        }}
                         className={`pl-10 h-11 ${
                           errors.firstName
                             ? "border-red-500 focus-visible:ring-red-500"
@@ -259,11 +272,16 @@ export default function SignUpPage() {
                     <Input
                       id="lastName"
                       type="text"
-                      placeholder="Doe"
+                      placeholder="Last name"
                       value={formData.lastName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, lastName: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({
+                          ...formData,
+                          lastName: value,
+                        });
+                        handleInputChange("lastName", value);
+                      }}
                       className={`h-11 ${
                         errors.lastName
                           ? "border-red-500 focus-visible:ring-red-500"
@@ -284,11 +302,16 @@ export default function SignUpPage() {
                     <Input
                       id="email"
                       type="email"
-                      placeholder="john@company.com"
+                      placeholder="Email address"
                       value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({
+                          ...formData,
+                          email: value,
+                        });
+                        handleInputChange("email", value);
+                      }}
                       className={`pl-10 h-11 ${
                         errors.email
                           ? "border-red-500 focus-visible:ring-red-500"
@@ -328,9 +351,14 @@ export default function SignUpPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Create a strong password"
                       value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({
+                          ...formData,
+                          password: value,
+                        });
+                        handleInputChange("password", value);
+                      }}
                       className={`pl-10 pr-10 h-11 ${
                         errors.password
                           ? "border-red-500 focus-visible:ring-red-500"
@@ -366,12 +394,14 @@ export default function SignUpPage() {
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="Confirm your password"
                       value={formData.confirmPassword}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const value = e.target.value;
                         setFormData({
                           ...formData,
-                          confirmPassword: e.target.value,
-                        })
-                      }
+                          confirmPassword: value,
+                        });
+                        handleInputChange("confirmPassword", value);
+                      }}
                       className={`pl-10 pr-10 h-11 ${
                         errors.confirmPassword
                           ? "border-red-500 focus-visible:ring-red-500"

@@ -17,7 +17,8 @@ export const useAuthContext = () => useContext(AuthContext)!;
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Clear error utility
@@ -26,6 +27,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (email: string, password: string) => {
     try {
       clearError();
+      setAuthLoading(true);
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -35,12 +37,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err: any) {
       setError(err.message);
       return null;
+    } finally {
+      setAuthLoading(false);
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
       clearError();
+      setAuthLoading(true);
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
@@ -50,6 +55,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err: any) {
       setError(err.message);
       return null;
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -86,7 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
-      setLoading(false);
+      setInitialLoading(false);
     });
 
     return unsubscribe;
@@ -94,7 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const value: AuthContextType = {
     currentUser,
-    loading,
+    loading: authLoading,
     error,
     signUp,
     signIn,
@@ -106,7 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {!initialLoading && children}
     </AuthContext.Provider>
   );
 };

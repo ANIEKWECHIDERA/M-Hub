@@ -1,26 +1,7 @@
 // src/context/UserContext.tsx
 import { createContext, useContext, useState, useEffect } from "react";
 import { useAuthContext } from "./AuthContext";
-
-interface UserProfile {
-  displayName: string;
-  email: string;
-  photoURL?: string;
-  firstName?: string;
-  lastName?: string;
-  role?: string;
-  company?: string;
-  // Add any other fields you plan to store in Supabase
-  phone?: string;
-  bio?: string;
-  department?: string;
-}
-
-interface UserContextType {
-  profile: UserProfile | null;
-  loading: boolean;
-  refreshProfile?: () => Promise<void>; // Optional: manual refresh
-}
+import type { UserContextType, UserProfile } from "@/Types/types";
 
 const UserContext = createContext<UserContextType>({
   profile: null,
@@ -108,9 +89,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   //     setLoading(false);
   //   };
 
-  return (
-    <UserContext.Provider value={{ profile, loading }}>
-      {children}
-    </UserContext.Provider>
-  );
+  const value: UserContextType = { profile, loading /*, refreshProfile */ };
+
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 };

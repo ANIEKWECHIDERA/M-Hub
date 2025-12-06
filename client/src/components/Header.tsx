@@ -1,4 +1,4 @@
-import { useState } from "react";
+// import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useNotificationContext } from "@/context/NotificationContext";
 import { useAuthContext } from "@/context/AuthContext";
 import { useUser } from "@/context/UserContext";
-import { Search, Bell, Sun, Moon, Settings, LogOut } from "lucide-react";
+import { Bell, Sun, Moon, Settings, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 export function Header() {
@@ -30,14 +30,15 @@ export function Header() {
   const { profile, loading: userLoading } = useUser();
   const navigate = useNavigate();
 
-  const [searchQuery, setSearchQuery] = useState("");
+  // const [searchQuery, setSearchQuery] = useState("");
 
   const handleLogout = async () => {
     await logout();
     navigate("/login", { replace: true });
   };
 
-  const displayName = profile?.displayName || "User";
+  const displayName =
+    `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() || "User";
   const email = profile?.email || "user@example.com";
   const photoURL = profile?.photoURL;
 
