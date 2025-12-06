@@ -13,8 +13,13 @@ import { AppContextProvider } from "./context/AppProvider";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignupPage";
 import { AuthProvider } from "./context/AuthContext";
+import ForgotPasswordPage from "./pages/ForgotPassword";
 
 // Protected Route: Only authenticated users
+function useRedirectPath() {
+  const { currentUser } = useAuthContext();
+  return currentUser ? "/dashboard" : "/signup";
+}
 function ProtectedRoute() {
   const { currentUser, loading } = useAuthContext();
 
@@ -47,62 +52,66 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <AuthProvider>
-      <AppContextProvider>
-        <Routes>
-          {/* Public Routes: Only for guests */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              <PublicRoute>
-                <SignUpPage />
-              </PublicRoute>
-            }
-          />
-
-          {/* Default redirect for root */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-          {/* Protected Routes: Only for logged-in users */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<Layout />}>
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="projects" element={<Projects />} />
-              <Route path="chat" element={<Chat />} />
-              <Route path="notepad" element={<Notepad />} />
-              <Route path="tools" element={<Tools />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="mytasks" element={<MyTasksPage />} />
-              <Route
-                path="projectdetails/:id"
-                element={<ProjectDetailWrapper />}
-              />
-            </Route>
-          </Route>
-
-          {/* Catch-all: Redirect to dashboard if authenticated, else signup */}
-          {/* <Route
-            path="*"
-            element={
-              <Navigate
-                to={(state) => {
-                  const { currentUser } = useAuthContext();
-                  return currentUser ? "/dashboard" : "/login";
-                }}
-                replace
-              />
-            }
-          /> */}
-        </Routes>
-      </AppContextProvider>
+      <AppWithAuth /> {/* New component that uses hooks */}
     </AuthProvider>
+  );
+}
+
+function AppWithAuth() {
+  const redirectPath = useRedirectPath(); // now safe
+  return (
+    <AppContextProvider>
+      <Routes>
+        {/* Public Routes */}
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <LoginPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <PublicRoute>
+              <SignUpPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicRoute>
+              <ForgotPasswordPage />
+            </PublicRoute>
+          }
+        />
+
+        {/* Default redirect */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+        {/* Protected Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="chat" element={<Chat />} />
+            <Route path="notepad" element={<Notepad />} />
+            <Route path="tools" element={<Tools />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="mytasks" element={<MyTasksPage />} />
+            <Route
+              path="projectdetails/:id"
+              element={<ProjectDetailWrapper />}
+            />
+          </Route>
+        </Route>
+
+        {/* Catch-all */}
+        <Route path="*" element={<Navigate to={redirectPath} replace />} />
+      </Routes>
+    </AppContextProvider>
   );
 }
 

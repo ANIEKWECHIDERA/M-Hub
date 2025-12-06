@@ -19,6 +19,7 @@ import {
   Lock,
   User,
   AlertCircle,
+  CircleCheckBig,
   //   Building,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -117,6 +118,10 @@ export default function SignUpPage() {
     }
   }, []);
 
+  useEffect(() => {
+    clearError();
+  }, []);
+
   const handleGoogleSignUp = async () => {
     clearError();
     setIsGoogleLoading(true);
@@ -156,7 +161,9 @@ export default function SignUpPage() {
             ].map((item) => (
               <div key={item} className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                  <span className="text-sm">Check</span>
+                  <span className="text-sm">
+                    <CircleCheckBig />
+                  </span>
                 </div>
                 <span>{item}</span>
               </div>
@@ -203,6 +210,8 @@ export default function SignUpPage() {
                       ? "Password is too weak."
                       : authError.includes("email-already-in-use")
                       ? "This email is already registered."
+                      : authError.includes("popup-closed-by-user")
+                      ? "Sign-in cancelled."
                       : authError}
                   </AlertDescription>
                 </Alert>

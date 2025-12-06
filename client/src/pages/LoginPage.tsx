@@ -44,6 +44,10 @@ export default function LoginPage() {
     }
   }, [currentUser, navigate]);
 
+  useEffect(() => {
+    clearError();
+  }, []);
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
