@@ -135,6 +135,19 @@ export default function SignUpPage() {
     setIsGoogleLoading(false);
   };
 
+  const displayError = authError
+    ? authError.includes("wrong-password") ||
+      authError.includes("user-not-found")
+      ? "Invalid email or password."
+      : authError.includes("too-many-requests")
+      ? "Too many failed attempts. Please try again later."
+      : authError.includes("popup-closed-by-user")
+      ? "Sign-in cancelled."
+      : authError.includes("popup-blocked")
+      ? "Popup blocked. Please allow popups and try again."
+      : "Authentication failed. Please try again."
+    : errors.general;
+
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Branding */}
@@ -204,15 +217,9 @@ export default function SignUpPage() {
               {/* Firebase Auth Error */}
               {authError && (
                 <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {authError.includes("weak-password")
-                      ? "Password is too weak."
-                      : authError.includes("email-already-in-use")
-                      ? "This email is already registered."
-                      : authError.includes("popup-closed-by-user")
-                      ? "Sign-in cancelled."
-                      : authError}
+                  <AlertCircle className="h-4 w-4 " />
+                  <AlertDescription className="inline">
+                    {displayError}
                   </AlertDescription>
                 </Alert>
               )}

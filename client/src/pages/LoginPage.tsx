@@ -170,7 +170,9 @@ export default function LoginPage() {
               {displayError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{displayError}</AlertDescription>
+                  <AlertDescription className="inline">
+                    {displayError}
+                  </AlertDescription>
                 </Alert>
               )}
 
