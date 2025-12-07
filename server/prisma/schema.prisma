@@ -1,0 +1,396 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// USER & AUTHENTICATION MODELS
+// ============================================
+model User {
+  id                String                @id @default(uuid())
+  firebaseUid       String                @unique // Firebase Authentication UID
+  email             String                @unique
+  displayName       String?
+  avatar            String?
+  firstName         String?
+  lastName          String?
+  photoURL          String?
+  phone             String?
+  bio               String?
+  companyId         String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  lastLogin         DateTime?
+
+  // Relations
+  company           Company?              @relation("UserCompanies", fields: [companyId], references: [id])
+  settings          UserSettings?
+  teamMemberships   TeamMember[]          @relation("UserTeamMember")
+  tasksAssigned     Task[]                @relation("TaskAssignees")
+  subtasks          Subtask[]             @relation("UserSubtasks")
+  commentsAuthored  Comment[]             @relation("CommentAuthor")
+  notesAuthored     Note[]                @relation("NoteAuthor")
+  assets            Assets[]              @relation("AssetUploader")
+  notifications     Notification[]        @relation("UserNotifications")
+
+  @@index([firebaseUid])
+  @@index([email])
+}
+
+// ============================================
+// COMPANY & ORGANIZATION MODELS
+// ============================================
+
+/// Represents a company/organization
+model Company {
+  id                String                @id @default(uuid())
+  name              String
+  description       String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  users             User[]                @relation("UserCompanies")
+  teamMembers       TeamMember[]          @relation("CompanyTeamMembers")
+  projects          Project[]             @relation("CompanyProjects")
+  tasks             Task[]                @relation("CompanyTasks")
+  subtasks          Subtask[]             @relation("CompanySubtasks")
+  assets            Assets[]              @relation("CompanyAssets")
+  comments          Comment[]             @relation("CompanyComments")
+  notes             Note[]                @relation("CompanyNotes")
+  clients           Client[]              @relation("CompanyClients")
+
+  @@index([name])
+}
+
+// ============================================
+// CLIENT MODELS
+// ============================================
+
+/// Represents a client associated with a company
+model Client {
+  id                String                @id @default(uuid())
+  companyId         String
+  name              String
+  email             String?
+  phone             String?
+  address           String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  company           Company               @relation("CompanyClients", fields: [companyId], references: [id], onDelete: Cascade)
+  projects          Project[]             @relation("ClientProjects")
+
+  @@index([companyId])
+  @@index([name])
+}
+
+// ============================================
+// TEAM MEMBER MODELS
+// ============================================
+
+/// Represents a team member within a company
+model TeamMember {
+  id                String                @id @default(uuid())
+  userId            String?
+  companyId         String
+  email             String
+  role              String
+  access            String                @default("team") // "Admin" or "Team"
+  status            String                @default("active") // "active" or "inactive"
+  lastLogin         DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  user              User?                 @relation("UserTeamMember", fields: [userId], references: [id], onDelete: SetNull)
+  company           Company               @relation("CompanyTeamMembers", fields: [companyId], references: [id], onDelete: Cascade)
+  assignedTasks     TaskTeamMemberAssignee[] @relation("TaskTeamMemberAssignees")
+  projectMemberships ProjectTeamMember[]  @relation("TeamMemberProjects")
+
+  @@unique([email, companyId])
+  @@index([companyId])
+  @@index([userId])
+}
+
+// ============================================
+// PROJECT MODELS
+// ============================================
+
+/// Represents a project
+model Project {
+  id                String                @id @default(uuid())
+  companyId         String
+  clientId          String?
+  title             String
+  description       String?
+  status            String                @default("Planning") // "Planning", "In Progress", "Active", "Completed"
+  deadline          DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  company           Company               @relation("CompanyProjects", fields: [companyId], references: [id], onDelete: Cascade)
+  client            Client?               @relation("ClientProjects", fields: [clientId], references: [id], onDelete: SetNull)
+  tasks             Task[]                @relation("ProjectTasks")
+  assets            Assets[]              @relation("ProjectAssets")
+  comments          Comment[]             @relation("ProjectComments")
+  notes             Note[]                @relation("ProjectNotes")
+  teamMembers       ProjectTeamMember[]   @relation("ProjectTeamMembers")
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([status])
+}
+
+/// Junction table for Project and TeamMember many-to-many relationship
+model ProjectTeamMember {
+  id                String                @id @default(uuid())
+  projectId         String
+  teamMemberId      String
+  role              String?
+  joinedAt          DateTime              @default(now())
+
+  // Relations
+  project           Project               @relation("ProjectTeamMembers", fields: [projectId], references: [id], onDelete: Cascade)
+  teamMember        TeamMember            @relation("TeamMemberProjects", fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, teamMemberId])
+  @@index([projectId])
+  @@index([teamMemberId])
+}
+
+// ============================================
+// TASK MODELS
+// ============================================
+
+/// Represents a task within a project
+model Task {
+  id                String                @id @default(uuid())
+  companyId         String
+  projectId         String
+  title             String
+  description       String?
+  status            String                @default("To-Do") // "To-Do", "In Progress", "Done"
+  priority          String                @default("medium") // "low", "medium", "high"
+  dueDate           DateTime?
+  progress          Int                   @default(0) // 0-100
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  company           Company               @relation("CompanyTasks", fields: [companyId], references: [id], onDelete: Cascade)
+  project           Project               @relation("ProjectTasks", fields: [projectId], references: [id], onDelete: Cascade)
+  assignees         User[]                @relation("TaskAssignees")
+  teamMemberAssignees TaskTeamMemberAssignee[] @relation("TaskAssignees")
+  subtasks          Subtask[]             @relation("TaskSubtasks")
+  comments          Comment[]             @relation("TaskComments")
+  assets            Assets[]              @relation("TaskAssets")
+  tags              TaskTag[]             @relation("TaskTags")
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([status])
+  @@index([priority])
+}
+
+/// Junction table for Task and TeamMember many-to-many relationship (assignees)
+model TaskTeamMemberAssignee {
+  id                String                @id @default(uuid())
+  taskId            String
+  teamMemberId      String
+  assignedAt        DateTime              @default(now())
+
+  // Relations
+  task              Task                  @relation("TaskAssignees", fields: [taskId], references: [id], onDelete: Cascade)
+  teamMember        TeamMember            @relation("TaskTeamMemberAssignees", fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, teamMemberId])
+  @@index([taskId])
+  @@index([teamMemberId])
+}
+
+/// Represents a tag for tasks
+model TaskTag {
+  id                String                @id @default(uuid())
+  taskId            String
+  tag               String
+
+  // Relations
+  task              Task                  @relation("TaskTags", fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+// ============================================
+// SUBTASK MODELS
+// ============================================
+
+model Subtask {
+  id                String                @id @default(uuid())
+  companyId         String
+  taskId            String
+  userId            String
+  title             String
+  completed         Boolean               @default(false)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  company           Company               @relation("CompanySubtasks", fields: [companyId], references: [id], onDelete: Cascade)
+  task              Task                  @relation("TaskSubtasks", fields: [taskId], references: [id], onDelete: Cascade)
+  user              User                  @relation("UserSubtasks", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([taskId])
+}
+
+
+// ============================================
+// ASSET/FILE MODELS
+// ============================================
+
+/// Represents an uploaded file/asset
+model Assets {
+  id                String                @id @default(uuid())
+  companyId         String
+  projectId         String
+  taskId            String?
+  uploadedById      String
+  name              String
+  size              String
+  type              String                // "pdf", "image", "document", etc.
+  url               String
+  uploadDate        DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  company           Company               @relation("CompanyAssets", fields: [companyId], references: [id], onDelete: Cascade)
+  project           Project               @relation("ProjectAssets", fields: [projectId], references: [id], onDelete: Cascade)
+  task              Task?                 @relation("TaskAssets", fields: [taskId], references: [id], onDelete: SetNull)
+  uploadedBy        User                  @relation("AssetUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([uploadedById])
+}
+
+// ============================================
+// COMMENT MODELS
+// ============================================
+
+/// Represents a comment on a project or task
+model Comment {
+  id                String                @id @default(uuid())
+  companyId         String
+  projectId         String
+  taskId            String?
+  authorId          String
+  content           String
+  timestamp         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  company           Company               @relation("CompanyComments", fields: [companyId], references: [id], onDelete: Cascade)
+  project           Project               @relation("ProjectComments", fields: [projectId], references: [id], onDelete: Cascade)
+  task              Task?                 @relation("TaskComments", fields: [taskId], references: [id], onDelete: SetNull)
+  author            User                  @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([authorId])
+}
+
+// ============================================
+// NOTE MODELS
+// ============================================
+
+/// Represents a note/notepad entry
+model Note {
+  id                String                @id @default(uuid())
+  companyId         String
+  projectId         String
+  authorId          String
+  title             String
+  content           String
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  company           Company               @relation("CompanyNotes", fields: [companyId], references: [id], onDelete: Cascade)
+  project           Project               @relation("ProjectNotes", fields: [projectId], references: [id], onDelete: Cascade)
+  author            User                  @relation("NoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  tags              NoteTag[]             @relation("NoteTags")
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([authorId])
+}
+
+/// Represents a tag for notes
+model NoteTag {
+  id                String                @id @default(uuid())
+  noteId            String
+  tag               String
+
+  // Relations
+  note              Note                  @relation("NoteTags", fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+}
+
+// ============================================
+// NOTIFICATION MODELS
+// ============================================
+
+/// Represents a notification for a user
+model Notification {
+  id                String                @id @default(uuid())
+  userId            String
+  type              String                // "task_assigned", "comment_added", "project_updated", etc.
+  title             String
+  message           String
+  read              Boolean               @default(false)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  user              User                  @relation("UserNotifications", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([read])
+}
+
+// ============================================
+// SETTINGS/PREFERENCES MODELS
+// ============================================
+
+/// Represents user preferences and settings
+model UserSettings {
+  id                    String                @id @default(uuid())
+  userId                String                @unique
+  theme                 String                @default("light") // "light" or "dark"
+  language              String                @default("en") // "en", "es", "fr"
+  notificationsEnabled  Boolean               @default(true)
+  compactMode           Boolean               @default(false)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  // Relations
+  user                  User                  @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}

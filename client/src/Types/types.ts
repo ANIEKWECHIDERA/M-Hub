@@ -325,7 +325,7 @@ export interface UserProfile {
   firstName?: string;
   lastName?: string;
   role?: string;
-  company?: string;
+  companyId?: string[];
   // Add any other fields you plan to store in Supabase
   phone?: string;
   bio?: string;

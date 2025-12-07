@@ -56,7 +56,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
           firstName: data.firstName,
           lastName: data.lastName,
           role: data.role,
-          company: data.company,
+          companyId: data.company,
           // Add more fields when Supabase is ready
         });
       } catch (error) {
