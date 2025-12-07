@@ -10,6 +10,7 @@ import {
 } from "../firebase/firebase";
 import type { AuthContextType } from "@/Types/types";
 import type { User } from "firebase/auth";
+import { API_CONFIG } from "@/lib/api";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -64,6 +65,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      const name =
+        user.displayName ?? user.providerData?.[0]?.displayName ?? null;
+      const email = user.email ?? user.providerData?.[0]?.email ?? null;
+
+      // fetch ID token
+      const idToken = await user.getIdToken();
+
+      // send to backend to sync
+      await fetch(`${API_CONFIG}/api/sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ name, email, avatar: user.photoURL ?? null }),
+      });
+
       return result;
     } catch (err: any) {
       setError(err.message);
