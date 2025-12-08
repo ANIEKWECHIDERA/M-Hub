@@ -1,11 +1,23 @@
 //set up an express app
 import express from "express";
+import cors from "cors";
 import authRoutes from "./routes/auth.routes";
+import userRoutes from "./routes/user.routes";
 import morgan from "morgan";
 import { logger } from "./utils/logger";
 
 const app = express();
 app.use(express.json());
+
+// CORS middleware - Allow all origins
+app.use(
+  cors({
+    origin: true, // This allows all origins
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(
   morgan("combined", {
@@ -15,7 +27,8 @@ app.use(
   })
 );
 // Mount auth routes
-app.use("/api/sync", authRoutes);
+app.use("/api/", authRoutes);
+app.use("/api/", userRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {

@@ -1,9 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// schema.prisma
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -11,386 +6,368 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Enable UUID extension once in your DB (via migration or manually)
+  // CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 }
 
 // ============================================
-// USER & AUTHENTICATION MODELS
+// USER & AUTHENTICATION
 // ============================================
-model User {
-  id                String                @id @default(uuid())
-  firebaseUid       String                @unique // Firebase Authentication UID
-  email             String                @unique
-  displayName       String?
-  avatar            String?
-  firstName         String?
-  lastName          String?
-  photoURL          String?
-  phone             String?
-  bio               String?
-  companyId         String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  lastLogin         DateTime?
+model users {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firebase_uid  String         @unique @map("firebase_uid")
+  email         String         @unique
+  display_name  String?        @map("display_name")
+  avatar        String?
+  first_name    String?        @map("first_name")
+  last_name     String?        @map("last_name")
+  photo_url     String?        @map("photo_url")
+  phone         String?
+  bio           String?
+  company_id    String?        @db.Uuid
+  created_at    DateTime       @default(now()) @map("created_at")
+  updated_at    DateTime       @updatedAt @map("updated_at")
+  last_login    DateTime?      @map("last_login")
 
   // Relations
-  company           Company?              @relation("UserCompanies", fields: [companyId], references: [id])
-  settings          UserSettings?
-  teamMemberships   TeamMember[]          @relation("UserTeamMember")
-  tasksAssigned     Task[]                @relation("TaskAssignees")
-  subtasks          Subtask[]             @relation("UserSubtasks")
-  commentsAuthored  Comment[]             @relation("CommentAuthor")
-  notesAuthored     Note[]                @relation("NoteAuthor")
-  assets            Assets[]              @relation("AssetUploader")
-  notifications     Notification[]        @relation("UserNotifications")
+  company       companies?     @relation("user_company", fields: [company_id], references: [id])
+  settings      user_settings?
+  team_members  team_members[] @relation("user_team_members")
+  tasks         tasks[]        @relation("task_assignees")
+  subtasks      subtasks[]     @relation("subtask_assignee")
+  comments      comments[]     @relation("comment_author")
+  notes         notes[]        @relation("note_author")
+  assets        assets[]       @relation("asset_uploader")
+  notifications notifications[] @relation("user_notifications")
 
-  @@index([firebaseUid])
+  @@map("users")
+  @@index([firebase_uid])
   @@index([email])
 }
 
 // ============================================
-// COMPANY & ORGANIZATION MODELS
+// COMPANY
 // ============================================
+model companies {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  created_at  DateTime     @default(now()) @map("created_at")
+  updated_at  DateTime     @updatedAt @map("updated_at")
 
-/// Represents a company/organization
-model Company {
-  id                String                @id @default(uuid())
-  name              String
-  description       String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  users       users[]      @relation("user_company")
+  team_members team_members[] @relation("company_team_members")
+  projects    projects[]   @relation("company_projects")
+  tasks       tasks[]      @relation("company_tasks")
+  subtasks    subtasks[]   @relation("company_subtasks")
+  assets      assets[]     @relation("company_assets")
+  comments    comments[]   @relation("company_comments")
+  notes       notes[]      @relation("company_notes")
+  clients     clients[]    @relation("company_clients")
 
-  // Relations
-  users             User[]                @relation("UserCompanies")
-  teamMembers       TeamMember[]          @relation("CompanyTeamMembers")
-  projects          Project[]             @relation("CompanyProjects")
-  tasks             Task[]                @relation("CompanyTasks")
-  subtasks          Subtask[]             @relation("CompanySubtasks")
-  assets            Assets[]              @relation("CompanyAssets")
-  comments          Comment[]             @relation("CompanyComments")
-  notes             Note[]                @relation("CompanyNotes")
-  clients           Client[]              @relation("CompanyClients")
-
+  @@map("companies")
   @@index([name])
 }
 
 // ============================================
-// CLIENT MODELS
+// CLIENTS
 // ============================================
+model clients {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String    @db.Uuid
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @updatedAt @map("updated_at")
 
-/// Represents a client associated with a company
-model Client {
-  id                String                @id @default(uuid())
-  companyId         String
-  name              String
-  email             String?
-  phone             String?
-  address           String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  company     companies @relation("company_clients", fields: [company_id], references: [id], onDelete: Cascade)
+  projects    projects[] @relation("client_projects")
 
-  // Relations
-  company           Company               @relation("CompanyClients", fields: [companyId], references: [id], onDelete: Cascade)
-  projects          Project[]             @relation("ClientProjects")
-
-  @@index([companyId])
+  @@map("clients")
+  @@index([company_id])
   @@index([name])
 }
 
 // ============================================
-// TEAM MEMBER MODELS
+// TEAM MEMBERS
 // ============================================
+model team_members {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String?   @db.Uuid
+  company_id  String    @db.Uuid
+  email       String
+  role        String
+  access      String    @default("team")
+  status      String    @default("active")
+  last_login  DateTime? @map("last_login")
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @updatedAt @map("updated_at")
 
-/// Represents a team member within a company
-model TeamMember {
-  id                String                @id @default(uuid())
-  userId            String?
-  companyId         String
-  email             String
-  role              String
-  access            String                @default("team") // "Admin" or "Team"
-  status            String                @default("active") // "active" or "inactive"
-  lastLogin         DateTime?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  user        users?    @relation("user_team_members", fields: [user_id], references: [id], onDelete: SetNull)
+  company     companies @relation("company_team_members", fields: [company_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  user              User?                 @relation("UserTeamMember", fields: [userId], references: [id], onDelete: SetNull)
-  company           Company               @relation("CompanyTeamMembers", fields: [companyId], references: [id], onDelete: Cascade)
-  assignedTasks     TaskTeamMemberAssignee[] @relation("TaskTeamMemberAssignees")
-  projectMemberships ProjectTeamMember[]  @relation("TeamMemberProjects")
+  task_assignments   task_team_member_assignees[] @relation("task_team_member_assignees")
+  project_memberships project_team_members[]       @relation("project_team_members")
 
-  @@unique([email, companyId])
-  @@index([companyId])
-  @@index([userId])
+  @@map("team_members")
+  @@unique([email, company_id])
+  @@index([company_id])
+  @@index([user_id])
 }
 
 // ============================================
-// PROJECT MODELS
+// PROJECTS
 // ============================================
+model projects {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String    @db.Uuid
+  client_id   String?   @db.Uuid
+  title       String
+  description String?
+  status      String    @default("Planning")
+  deadline    DateTime?
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @updatedAt @map("updated_at")
 
-/// Represents a project
-model Project {
-  id                String                @id @default(uuid())
-  companyId         String
-  clientId          String?
-  title             String
-  description       String?
-  status            String                @default("Planning") // "Planning", "In Progress", "Active", "Completed"
-  deadline          DateTime?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  company     companies   @relation("company_projects", fields: [company_id], references: [id], onDelete: Cascade)
+  client      clients?    @relation("client_projects", fields: [client_id], references: [id], onDelete: SetNull)
 
-  // Relations
-  company           Company               @relation("CompanyProjects", fields: [companyId], references: [id], onDelete: Cascade)
-  client            Client?               @relation("ClientProjects", fields: [clientId], references: [id], onDelete: SetNull)
-  tasks             Task[]                @relation("ProjectTasks")
-  assets            Assets[]              @relation("ProjectAssets")
-  comments          Comment[]             @relation("ProjectComments")
-  notes             Note[]                @relation("ProjectNotes")
-  teamMembers       ProjectTeamMember[]   @relation("ProjectTeamMembers")
+  tasks       tasks[]       @relation("project_tasks")
+  assets      assets[]      @relation("project_assets")
+  comments    comments[]    @relation("project_comments")
+  notes       notes[]       @relation("project_notes")
+  team_members project_team_members[] @relation("project_team_members")
 
-  @@index([companyId])
-  @@index([clientId])
+  @@map("projects")
+  @@index([company_id])
+  @@index([client_id])
   @@index([status])
 }
 
-/// Junction table for Project and TeamMember many-to-many relationship
-model ProjectTeamMember {
-  id                String                @id @default(uuid())
-  projectId         String
-  teamMemberId      String
-  role              String?
-  joinedAt          DateTime              @default(now())
+// Junction: Project ↔ TeamMember
+model project_team_members {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id      String    @db.Uuid
+  team_member_id  String    @db.Uuid
+  role            String?
+  joined_at       DateTime  @default(now()) @map("joined_at")
 
-  // Relations
-  project           Project               @relation("ProjectTeamMembers", fields: [projectId], references: [id], onDelete: Cascade)
-  teamMember        TeamMember            @relation("TeamMemberProjects", fields: [teamMemberId], references: [id], onDelete: Cascade)
+  project         projects     @relation("project_team_members", fields: [project_id], references: [id], onDelete: Cascade)
+  team_member     team_members @relation("project_team_members", fields: [team_member_id], references: [id], onDelete: Cascade)
 
-  @@unique([projectId, teamMemberId])
-  @@index([projectId])
-  @@index([teamMemberId])
+  @@map("project_team_members")
+  @@unique([project_id, team_member_id])
+  @@index([project_id])
+  @@index([team_member_id])
 }
 
 // ============================================
-// TASK MODELS
+// TASKS
 // ============================================
+model tasks {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String    @db.Uuid
+  project_id  String    @db.Uuid
+  title       String
+  description String?
+  status      String    @default("To-Do")
+  priority    String    @default("medium")
+  due_date    DateTime? @map("due_date")
+  progress    Int       @default(0)
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @updatedAt @map("updated_at")
 
-/// Represents a task within a project
-model Task {
-  id                String                @id @default(uuid())
-  companyId         String
-  projectId         String
-  title             String
-  description       String?
-  status            String                @default("To-Do") // "To-Do", "In Progress", "Done"
-  priority          String                @default("medium") // "low", "medium", "high"
-  dueDate           DateTime?
-  progress          Int                   @default(0) // 0-100
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  company     companies   @relation("company_tasks", fields: [company_id], references: [id], onDelete: Cascade)
+  project     projects    @relation("project_tasks", fields: [project_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  company           Company               @relation("CompanyTasks", fields: [companyId], references: [id], onDelete: Cascade)
-  project           Project               @relation("ProjectTasks", fields: [projectId], references: [id], onDelete: Cascade)
-  assignees         User[]                @relation("TaskAssignees")
-  teamMemberAssignees TaskTeamMemberAssignee[] @relation("TaskAssignees")
-  subtasks          Subtask[]             @relation("TaskSubtasks")
-  comments          Comment[]             @relation("TaskComments")
-  assets            Assets[]              @relation("TaskAssets")
-  tags              TaskTag[]             @relation("TaskTags")
+  assignees           users[]                   @relation("task_assignees")
+  team_member_assignees task_team_member_assignees[] @relation("task_team_member_assignees")
+  subtasks            subtasks[]                @relation("task_subtasks")
+  comments            comments[]                @relation("task_comments")
+  assets              assets[]                  @relation("task_assets")
+  tags                task_tags[]               @relation("task_tags")
 
-  @@index([companyId])
-  @@index([projectId])
+  @@map("tasks")
+  @@index([company_id])
+  @@index([project_id])
   @@index([status])
   @@index([priority])
 }
 
-/// Junction table for Task and TeamMember many-to-many relationship (assignees)
-model TaskTeamMemberAssignee {
-  id                String                @id @default(uuid())
-  taskId            String
-  teamMemberId      String
-  assignedAt        DateTime              @default(now())
+// Junction: Task ↔ TeamMember (assignee)
+model task_team_member_assignees {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id         String    @db.Uuid
+  team_member_id  String    @db.Uuid
+  assigned_at     DateTime  @default(now()) @map("assigned_at")
 
-  // Relations
-  task              Task                  @relation("TaskAssignees", fields: [taskId], references: [id], onDelete: Cascade)
-  teamMember        TeamMember            @relation("TaskTeamMemberAssignees", fields: [teamMemberId], references: [id], onDelete: Cascade)
+  task            tasks        @relation("task_team_member_assignees", fields: [task_id], references: [id], onDelete: Cascade)
+  team_member     team_members @relation("task_team_member_assignees", fields: [team_member_id], references: [id], onDelete: Cascade)
 
-  @@unique([taskId, teamMemberId])
-  @@index([taskId])
-  @@index([teamMemberId])
+  @@map("task_team_member_assignees")
+  @@unique([task_id, team_member_id])
+  @@index([task_id])
+  @@index([team_member_id])
 }
 
-/// Represents a tag for tasks
-model TaskTag {
-  id                String                @id @default(uuid())
-  taskId            String
-  tag               String
+model task_tags {
+  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id String @db.Uuid
+  tag     String
 
-  // Relations
-  task              Task                  @relation("TaskTags", fields: [taskId], references: [id], onDelete: Cascade)
+  task    tasks  @relation("task_tags", fields: [task_id], references: [id], onDelete: Cascade)
 
-  @@index([taskId])
-}
-
-// ============================================
-// SUBTASK MODELS
-// ============================================
-
-model Subtask {
-  id                String                @id @default(uuid())
-  companyId         String
-  taskId            String
-  userId            String
-  title             String
-  completed         Boolean               @default(false)
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-
-  // Relations
-  company           Company               @relation("CompanySubtasks", fields: [companyId], references: [id], onDelete: Cascade)
-  task              Task                  @relation("TaskSubtasks", fields: [taskId], references: [id], onDelete: Cascade)
-  user              User                  @relation("UserSubtasks", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([companyId])
-  @@index([taskId])
-}
-
-
-// ============================================
-// ASSET/FILE MODELS
-// ============================================
-
-/// Represents an uploaded file/asset
-model Assets {
-  id                String                @id @default(uuid())
-  companyId         String
-  projectId         String
-  taskId            String?
-  uploadedById      String
-  name              String
-  size              String
-  type              String                // "pdf", "image", "document", etc.
-  url               String
-  uploadDate        DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-
-  // Relations
-  company           Company               @relation("CompanyAssets", fields: [companyId], references: [id], onDelete: Cascade)
-  project           Project               @relation("ProjectAssets", fields: [projectId], references: [id], onDelete: Cascade)
-  task              Task?                 @relation("TaskAssets", fields: [taskId], references: [id], onDelete: SetNull)
-  uploadedBy        User                  @relation("AssetUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
-
-  @@index([companyId])
-  @@index([projectId])
-  @@index([taskId])
-  @@index([uploadedById])
+  @@map("task_tags")
+  @@index([task_id])
 }
 
 // ============================================
-// COMMENT MODELS
+// SUBTASKS
 // ============================================
+model subtasks {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String   @db.Uuid
+  task_id     String   @db.Uuid
+  user_id     String   @db.Uuid
+  title       String
+  completed   Boolean  @default(false)
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @updatedAt @map("updated_at")
 
-/// Represents a comment on a project or task
-model Comment {
-  id                String                @id @default(uuid())
-  companyId         String
-  projectId         String
-  taskId            String?
-  authorId          String
-  content           String
-  timestamp         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  company     companies @relation("company_subtasks", fields: [company_id], references: [id], onDelete: Cascade)
+  task        tasks     @relation("task_subtasks", fields: [task_id], references: [id], onDelete: Cascade)
+  user        users     @relation("subtask_assignee", fields: [user_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  company           Company               @relation("CompanyComments", fields: [companyId], references: [id], onDelete: Cascade)
-  project           Project               @relation("ProjectComments", fields: [projectId], references: [id], onDelete: Cascade)
-  task              Task?                 @relation("TaskComments", fields: [taskId], references: [id], onDelete: SetNull)
-  author            User                  @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@index([companyId])
-  @@index([projectId])
-  @@index([taskId])
-  @@index([authorId])
+  @@map("subtasks")
+  @@index([company_id])
+  @@index([task_id])
 }
 
 // ============================================
-// NOTE MODELS
+// ASSETS (FILES)
 // ============================================
+model assets {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id    String    @db.Uuid
+  project_id    String    @db.Uuid
+  task_id       String?   @db.Uuid
+  uploaded_by_id String   @db.Uuid @map("uploaded_by_id")
+  name          String
+  size          String
+  type          String
+  url           String
+  upload_date   DateTime  @default(now()) @map("upload_date")
+  updated_at    DateTime  @updatedAt @map("updated_at")
 
-/// Represents a note/notepad entry
-model Note {
-  id                String                @id @default(uuid())
-  companyId         String
-  projectId         String
-  authorId          String
-  title             String
-  content           String
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  company       companies @relation("company_assets", fields: [company_id], references: [id], onDelete: Cascade)
+  project       projects  @relation("project_assets", fields: [project_id], references: [id], onDelete: Cascade)
+  task          tasks?    @relation("task_assets", fields: [task_id], references: [id], onDelete: SetNull)
+  uploaded_by   users     @relation("asset_uploader", fields: [uploaded_by_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  company           Company               @relation("CompanyNotes", fields: [companyId], references: [id], onDelete: Cascade)
-  project           Project               @relation("ProjectNotes", fields: [projectId], references: [id], onDelete: Cascade)
-  author            User                  @relation("NoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  tags              NoteTag[]             @relation("NoteTags")
-
-  @@index([companyId])
-  @@index([projectId])
-  @@index([authorId])
-}
-
-/// Represents a tag for notes
-model NoteTag {
-  id                String                @id @default(uuid())
-  noteId            String
-  tag               String
-
-  // Relations
-  note              Note                  @relation("NoteTags", fields: [noteId], references: [id], onDelete: Cascade)
-
-  @@index([noteId])
+  @@map("assets")
+  @@index([company_id])
+  @@index([project_id])
+  @@index([task_id])
+  @@index([uploaded_by_id])
 }
 
 // ============================================
-// NOTIFICATION MODELS
+// COMMENTS
 // ============================================
+model comments {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String    @db.Uuid
+  project_id  String    @db.Uuid
+  task_id     String?   @db.Uuid
+  author_id   String    @db.Uuid
+  content     String
+  timestamp   DateTime  @default(now())
+  updated_at  DateTime  @updatedAt @map("updated_at")
 
-/// Represents a notification for a user
-model Notification {
-  id                String                @id @default(uuid())
-  userId            String
-  type              String                // "task_assigned", "comment_added", "project_updated", etc.
-  title             String
-  message           String
-  read              Boolean               @default(false)
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  company     companies @relation("company_comments", fields: [company_id], references: [id], onDelete: Cascade)
+  project     projects  @relation("project_comments", fields: [project_id], references: [id], onDelete: Cascade)
+  task        tasks?    @relation("task_comments", fields: [task_id], references: [id], onDelete: SetNull)
+  author      users     @relation("comment_author", fields: [author_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  user              User                  @relation("UserNotifications", fields: [userId], references: [id])
+  @@map("comments")
+  @@index([company_id])
+  @@index([project_id])
+  @@index([task_id])
+  @@index([author_id])
+}
 
-  @@index([userId])
+// ============================================
+// NOTES
+// ============================================
+model notes {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String    @db.Uuid
+  project_id  String    @db.Uuid
+  author_id   String    @db.Uuid
+  title       String
+  content     String
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @updatedAt @map("updated_at")
+
+  company     companies @relation("company_notes", fields: [company_id], references: [id], onDelete: Cascade)
+  project     projects  @relation("project_notes", fields: [project_id], references: [id], onDelete: Cascade)
+  author      users     @relation("note_author", fields: [author_id], references: [id], onDelete: Cascade)
+  tags        note_tags[] @relation("note_tags")
+
+  @@map("notes")
+  @@index([company_id])
+  @@index([project_id])
+  @@index([author_id])
+}
+
+model note_tags {
+  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  note_id String @db.Uuid
+  tag     String
+
+  note    notes  @relation("note_tags", fields: [note_id], references: [id], onDelete: Cascade)
+
+  @@map("note_tags")
+  @@index([note_id])
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+model notifications {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  type       String
+  title      String
+  message    String
+  read       Boolean  @default(false)
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  user       users    @relation("user_notifications", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+  @@index([user_id])
   @@index([read])
 }
 
 // ============================================
-// SETTINGS/PREFERENCES MODELS
+// USER SETTINGS
 // ============================================
+model user_settings {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                String   @unique @db.Uuid
+  theme                  String   @default("light")
+  language               String   @default("en")
+  notifications_enabled  Boolean  @default(true) @map("notifications_enabled")
+  compact_mode           Boolean  @default(false) @map("compact_mode")
+  created_at             DateTime @default(now()) @map("created_at")
+  updated_at             DateTime @updatedAt @map("updated_at")
 
-/// Represents user preferences and settings
-model UserSettings {
-  id                    String                @id @default(uuid())
-  userId                String                @unique
-  theme                 String                @default("light") // "light" or "dark"
-  language              String                @default("en") // "en", "es", "fr"
-  notificationsEnabled  Boolean               @default(true)
-  compactMode           Boolean               @default(false)
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
+  user                   users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  user                  User                  @relation(fields: [userId], references: [id])
-
-  @@index([userId])
+  @@map("user_settings")
+  @@index([user_id])
 }

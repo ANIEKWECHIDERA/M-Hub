@@ -315,11 +315,14 @@ export interface AuthContextType {
   clearError: () => void;
   signInWithGoogle: () => Promise<any>;
   signUpWithGoogle: () => Promise<any>;
+  idToken: string | null;
 }
 
 /////////// user profile type //////////////////////////
 export interface UserProfile {
-  displayName: string;
+  id: string;
+  firebaseUid: string;
+  displayName?: string;
   email: string;
   photoURL?: string;
   firstName?: string;
@@ -331,10 +334,15 @@ export interface UserProfile {
   bio?: string;
   department?: string;
   accessLevel?: string;
+  lastLogin?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface UserContextType {
   profile: UserProfile | null;
   loading: boolean;
+  updateProfile: (data: Partial<UserProfile>) => Promise<boolean>;
+  deleteAccount?: () => Promise<boolean>;
   //   refreshProfile?: () => Promise<void>; // Optional: manual refresh
 }

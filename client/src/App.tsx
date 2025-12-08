@@ -14,6 +14,7 @@ import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignupPage";
 import { AuthProvider } from "./context/AuthContext";
 import ForgotPasswordPage from "./pages/ForgotPassword";
+import CompleteProfile from "./pages/CompleteProfile";
 
 // Protected Route: Only authenticated users
 function useRedirectPath() {
@@ -101,6 +102,7 @@ function AppWithAuth() {
             <Route path="tools" element={<Tools />} />
             <Route path="settings" element={<Settings />} />
             <Route path="mytasks" element={<MyTasksPage />} />
+            <Route path="/complete-profile" element={<CompleteProfile />} />
             <Route
               path="projectdetails/:id"
               element={<ProjectDetailWrapper />}
