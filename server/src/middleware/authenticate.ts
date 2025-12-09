@@ -25,6 +25,16 @@ export default async function authenticate(
 
   try {
     const decoded = await admin.auth().verifyIdToken(token);
+
+    // Check revocation
+    const userRecord = await admin.auth().getUser(decoded.uid);
+    const tokensValidAfterTime = userRecord.tokensValidAfterTime
+      ? new Date(userRecord.tokensValidAfterTime).getTime() / 1000
+      : 0;
+
+    if (decoded.auth_time < tokensValidAfterTime) {
+      return res.status(401).json({ error: "Token has been revoked" });
+    }
     req.user = decoded; // Attach decoded Firebase user
     next();
   } catch (err) {

@@ -159,8 +159,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     try {
       clearError();
+      setAuthLoading(true);
+      if (idToken) {
+        await fetch(`${API_CONFIG.backend}/api/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+      }
+
       await signOut(auth);
       setIdToken(null);
+      setAuthLoading(false);
     } catch (err: any) {
       setError(err.message);
     }

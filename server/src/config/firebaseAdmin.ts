@@ -34,3 +34,13 @@ export const testFirebaseConnection = async () => {
     return false;
   }
 };
+
+export const revokeUserTokens = async (uid: string) => {
+  try {
+    await admin.auth().revokeRefreshTokens(uid);
+    logger.info(`Revoked refresh tokens for UID: ${uid}`);
+  } catch (err) {
+    logger.error("Failed to revoke tokens:", err);
+    throw err;
+  }
+};

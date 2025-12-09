@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,7 @@ export default function Settings() {
   const [users, setUsers] = useState(teamMembers);
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<any>(null);
+  const [isValid, setIsValid] = useState(false);
 
   const initials = (() => {
     if (!profile) return "User";
@@ -96,16 +97,33 @@ export default function Settings() {
     }
   }, [profile]);
 
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+
+  const validate = () => {
+    const first = firstNameRef.current?.value.trim();
+    const last = lastNameRef.current?.value.trim();
+    setIsValid(!!first && !!last);
+  };
+
   const handleUpdateProfile = async () => {
+    const firstName = firstNameRef.current?.value.trim() || "";
+    const lastName = lastNameRef.current?.value.trim() || "";
+
+    if (!firstName || !lastName) {
+      toast.error("First name and last name cannot be empty.");
+      return;
+    }
+
     const updates: Partial<UserProfileUpdate> = {
-      first_name: formData.firstName.trim() || undefined,
-      last_name: formData.lastName.trim() || undefined,
+      first_name: firstName,
+      last_name: lastName,
     };
 
     toast.promise(
       async () => {
         const success = await updateProfile(updates);
-        if (!success) throw new Error("Update failed");
+        if (!success) throw new Error("Failed to update profile");
         return { name: "Profile" };
       },
       {
@@ -158,14 +176,11 @@ export default function Settings() {
                   <Label htmlFor="firstName">First Name</Label>
                   <Input
                     id="firstName"
-                    value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        firstName: e.target.value,
-                      }))
-                    }
+                    ref={firstNameRef}
+                    defaultValue={profile?.first_name ?? ""}
                     disabled={loading}
+                    onInput={validate}
+                    placeholder="First name"
                   />
                 </div>
 
@@ -173,14 +188,11 @@ export default function Settings() {
                   <Label htmlFor="lastName">Last Name</Label>
                   <Input
                     id="lastName"
-                    value={formData.lastName}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        lastName: e.target.value,
-                      }))
-                    }
+                    ref={lastNameRef}
+                    defaultValue={profile?.last_name ?? ""}
                     disabled={loading}
+                    onInput={validate}
+                    placeholder="Last name"
                   />
                 </div>
 
@@ -189,19 +201,14 @@ export default function Settings() {
                   <Input
                     id="email"
                     type="email"
-                    defaultValue={profile?.email}
+                    value={profile?.email ?? ""}
                     disabled
                   />
                 </div>
               </div>
-
               <Button
                 onClick={handleUpdateProfile}
-                disabled={
-                  loading ||
-                  !formData.firstName.trim() ||
-                  !formData.lastName.trim()
-                }
+                disabled={loading || !isValid}
               >
                 {loading ? "Saving..." : "Save Changes"}
               </Button>
