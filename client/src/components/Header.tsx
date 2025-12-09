@@ -36,18 +36,41 @@ export function Header() {
     await logout();
     navigate("/login", { replace: true });
   };
+  // console.log("Header profile:", profile);
 
-  const displayName =
-    `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() || "User";
+  const displayName = profile?.displayName || "User";
   const email = profile?.email || "user@example.com";
   const photoURL = profile?.photoURL;
 
-  const initials = displayName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = (() => {
+    if (!profile) return "User";
+
+    const { first_name, last_name, displayName } = profile;
+
+    const initials =
+      [first_name, last_name]
+        .filter(Boolean)
+        .map((x) => x![0].toUpperCase())
+        .join("") ||
+      displayName
+        ?.split(" ")
+        .filter(Boolean)
+        .map((p) => p[0].toUpperCase())
+        .join("");
+
+    return initials || "User";
+  })();
+
+  // console.log("Header computed values:", {
+  //   displayName,
+  //   email,
+  //   photoURL,
+  //   initials,
+  // });
+
+  if (userLoading) {
+    return <header className="...">Loading...</header>; // Or skeleton
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

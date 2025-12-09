@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,10 +33,11 @@ import {
 } from "@/components/ui/dialog";
 import { User, Bell, Shield, Users, Plus, Edit, Trash2 } from "lucide-react";
 import { useTeamContext } from "@/context/TeamMemberContext";
-import { Toaster } from "sonner";
+import { toast, Toaster } from "sonner";
 import TeamMemberForm from "@/components/TeamMemberForm";
 import InviteForm from "@/components/InviteForm";
 import { useUser } from "@/context/UserContext";
+import type { UserProfileUpdate } from "@/Types/types";
 
 export default function Settings() {
   const {
@@ -50,23 +51,70 @@ export default function Settings() {
     loading,
     error,
   } = useTeamContext();
-  const { profile } = useUser();
+  const { profile, updateProfile } = useUser();
   const [users, setUsers] = useState(teamMembers);
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<any>(null);
-  const displayName =
-    `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() || "User";
 
-  const initials = displayName
-    .split(" ")
-    .map((n) => n[0])
-    .filter(Boolean)
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = (() => {
+    if (!profile) return "User";
+
+    const { first_name, last_name, displayName } = profile;
+
+    const initials =
+      [first_name, last_name]
+        .filter(Boolean)
+        .map((x) => x![0].toUpperCase())
+        .join("") ||
+      displayName
+        ?.split(" ")
+        .filter(Boolean)
+        .map((p) => p[0].toUpperCase())
+        .join("");
+
+    return initials || "User";
+  })();
+  const photoURL = profile?.photoURL;
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
+
+  const [formData, setFormData] = useState({
+    firstName: profile?.first_name ?? "",
+    lastName: profile?.last_name ?? "",
+    email: profile?.email ?? "",
+  });
+
+  // Sync form when profile loads/changes
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        firstName: profile.first_name ?? "",
+        lastName: profile.last_name ?? "",
+        email: profile.email ?? "",
+      });
+    }
+  }, [profile]);
+
+  const handleUpdateProfile = async () => {
+    const updates: Partial<UserProfileUpdate> = {
+      first_name: formData.firstName.trim() || undefined,
+      last_name: formData.lastName.trim() || undefined,
+    };
+
+    toast.promise(
+      async () => {
+        const success = await updateProfile(updates);
+        if (!success) throw new Error("Update failed");
+        return { name: "Profile" };
+      },
+      {
+        loading: "Updating profile...",
+        success: (data) => `${data.name} has been updated!`,
+        error: "Something went wrong, please try again.",
+      }
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -97,7 +145,7 @@ export default function Settings() {
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
-                  <AvatarImage src="/placeholder.svg?height=80&width=80" />
+                  <AvatarImage src={photoURL} />
                   <AvatarFallback className="text-lg">
                     {initials}
                   </AvatarFallback>
@@ -108,12 +156,32 @@ export default function Settings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue={profile?.firstName} />
+                  <Input
+                    id="firstName"
+                    value={formData.firstName}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        firstName: e.target.value,
+                      }))
+                    }
+                    disabled={loading}
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue={profile?.lastName} />
+                  <Input
+                    id="lastName"
+                    value={formData.lastName}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        lastName: e.target.value,
+                      }))
+                    }
+                    disabled={loading}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -122,11 +190,21 @@ export default function Settings() {
                     id="email"
                     type="email"
                     defaultValue={profile?.email}
+                    disabled
                   />
                 </div>
               </div>
 
-              <Button>Save Changes</Button>
+              <Button
+                onClick={handleUpdateProfile}
+                disabled={
+                  loading ||
+                  !formData.firstName.trim() ||
+                  !formData.lastName.trim()
+                }
+              >
+                {loading ? "Saving..." : "Save Changes"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

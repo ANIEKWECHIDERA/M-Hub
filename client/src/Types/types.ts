@@ -325,8 +325,8 @@ export interface UserProfile {
   displayName?: string;
   email: string;
   photoURL?: string;
-  firstName?: string;
-  lastName?: string;
+  first_name?: string;
+  last_name?: string;
   role?: string;
   companyId?: string[];
   // Add any other fields you plan to store in Supabase
@@ -337,6 +337,15 @@ export interface UserProfile {
   lastLogin?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface UserProfileUpdate {
+  first_name: string;
+  last_name: string;
+  phone?: string;
+  bio?: string;
+  department?: string;
+  access_level?: string;
 }
 
 export interface UserContextType {

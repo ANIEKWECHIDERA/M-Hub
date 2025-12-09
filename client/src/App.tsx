@@ -15,6 +15,7 @@ import SignUpPage from "./pages/SignupPage";
 import { AuthProvider } from "./context/AuthContext";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import CompleteProfile from "./pages/CompleteProfile";
+import { UserProvider } from "./context/UserContext";
 
 // Protected Route: Only authenticated users
 function useRedirectPath() {
@@ -53,7 +54,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <AuthProvider>
-      <AppWithAuth /> {/* New component that uses hooks */}
+      <UserProvider>
+        <AppWithAuth /> {/* New component that uses hooks */}
+      </UserProvider>
     </AuthProvider>
   );
 }

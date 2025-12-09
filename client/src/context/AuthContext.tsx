@@ -15,7 +15,13 @@ import { toast } from "sonner";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export const useAuthContext = () => useContext(AuthContext)!;
+export const useAuthContext = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuthContext must be used within AuthProvider");
+  }
+  return context;
+};
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);

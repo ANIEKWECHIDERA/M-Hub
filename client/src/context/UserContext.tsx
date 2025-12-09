@@ -24,19 +24,41 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Placeholder for future Supabase fetch
+  // console.log("UserProvider: currentUser:", currentUser); // Log Firebase user data
+  // console.log("UserProvider: idToken present?", !!idToken); // Check if token is available
+
   const fetchUserProfile =
     useCallback(async (): Promise<UserProfile | null> => {
-      if (!idToken) return null;
+      // console.log(
+      //   "fetchUserProfile() CALLED - idToken:",
+      //   idToken ? "YES" : "NO"
+      // );
+      // if (!idToken) {
+      //   console.log("fetchUserProfile: No idToken, skipping fetch");
+      //   return null;
+      // }
 
       try {
-        const res = await fetch(`${API_CONFIG.backend}/api/users/me`, {
+        const res = await fetch(`${API_CONFIG.backend}/api/user`, {
+          method: "GET",
           headers: { Authorization: `Bearer ${idToken}` },
         });
+        // console.log("Making GET request to:", `${API_CONFIG.backend}/api/user`);
+        // console.log("fetchUserProfile: Response status:", res.status); // Log status
 
-        if (!res.ok) throw new Error("Failed to fetch");
+        if (!res.ok) {
+          if (res.status === 404) {
+            console.log(
+              "fetchUserProfile: 404 - Profile not found. Consider creating one."
+            );
+            // Optional: Auto-create profile if 404 (uncomment if desired)
+            // await createProfileIfMissing();
+          }
+          throw new Error(`Failed to fetch: ${res.statusText}`);
+        }
 
         const { profile: data } = await res.json();
+        // console.log("Fetched user profile:", data);
 
         return {
           id: data.id,
@@ -44,8 +66,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
           email: data.email,
           displayName: data.display_name || currentUser?.displayName || "User",
           photoURL: data.photo_url || currentUser?.photoURL,
-          firstName: data.first_name,
-          lastName: data.last_name,
+          first_name: data.first_name,
+          last_name: data.last_name,
           role: data.role,
           companyId: data.company_id,
           lastLogin: data.last_login ? new Date(data.last_login) : undefined,
@@ -58,39 +80,76 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }, [idToken, currentUser]);
 
+  // Optional auto-create function (if you uncomment above)
+  // const createProfileIfMissing = async () => {
+  //   if (!currentUser) return;
+  //   try {
+  //     const res = await fetch(`${API_CONFIG.backend}/api/user`, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         Authorization: `Bearer ${idToken}`,
+  //       },
+  //       body: JSON.stringify({
+  //         firstName: currentUser.displayName?.split(" ")[0] || "",
+  //         lastName: currentUser.displayName?.split(" ")[1] || "",
+  //         email: currentUser.email,
+  //         firebase_uid: currentUser.uid,
+  //       }),
+  //     });
+  //     if (res.ok) {
+  //       console.log("createProfileIfMissing: Profile created successfully");
+  //     }
+  //   } catch (err) {
+  //     console.error("createProfileIfMissing error:", err);
+  //   }
+  // };
+
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    const data = await fetchUserProfile();
+
+    const newProfile = data || {
+      id: currentUser?.uid ?? "",
+      firebaseUid: currentUser?.uid ?? "",
+      displayName: currentUser?.displayName || "User",
+      email: currentUser?.email || "",
+      photoURL: currentUser?.photoURL ?? undefined,
+      firstName: currentUser?.displayName?.split(" ")[0] ?? undefined,
+      lastName: currentUser?.displayName?.split(" ")[1] ?? undefined,
+    };
+    setProfile(newProfile);
+    // console.log("loadProfile: Set profile to:", newProfile); // Log final profile
+
+    setLoading(false);
+  }, [fetchUserProfile, currentUser]);
+
   useEffect(() => {
+    // console.log("useEffect: currentUser changed:", currentUser); // Log on user change
+    // console.log("UserProvider useEffect - currentUser:", !!currentUser);
+    // console.log("UserProvider useEffect - idToken ready:", !!idToken);
     if (!currentUser) {
+      // console.log("No Firebase user → clearing profile");
       setProfile(null);
       setLoading(false);
       return;
     }
 
-    const loadProfile = useCallback(async () => {
+    if (!idToken) {
+      // console.log("Firebase user exists but idToken missing → waiting...");
       setLoading(true);
-      const data = await fetchUserProfile();
-      setProfile(
-        data || {
-          id: currentUser?.uid,
-          firebaseUid: currentUser?.uid,
-          displayName: currentUser?.displayName || "User",
-          email: currentUser?.email || "",
-          photoURL: currentUser?.photoURL ?? undefined, // Ensure `photoURL` is either a string or undefined
-          firstName: currentUser?.displayName?.split(" ")[0] ?? undefined, // You can infer firstName if needed
-          lastName: currentUser?.displayName?.split(" ")[1] ?? undefined, // Same for lastName if needed
-        }
-      );
-      setLoading(false);
-    }, [fetchUserProfile, currentUser]);
-
+      return;
+    }
+    // console.log("Both user + token ready → fetching profile from backend");
     loadProfile();
-  }, [currentUser]);
+  }, [currentUser, loadProfile, idToken]); // Added loadProfile to deps for safety
 
   const updateProfile = useCallback(
     async (updates: Partial<UserProfile>): Promise<boolean> => {
       if (!idToken) return false;
 
       try {
-        const res = await fetch(`${API_CONFIG.backend}/api/users/me`, {
+        const res = await fetch(`${API_CONFIG.backend}/api/user`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -99,10 +158,13 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
           body: JSON.stringify(updates),
         });
 
+        // console.log("updateProfile: Response status:", res.status);
+
         if (!res.ok) throw new Error("Update failed");
 
         const { profile: updated } = await res.json();
         setProfile((prev) => ({ ...prev!, ...updated }));
+        console.log("updateProfile: Updated profile:", updated);
         return true;
       } catch (err) {
         console.error("updateProfile error:", err);
@@ -117,10 +179,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       return false;
 
     try {
-      const res = await fetch(`${API_CONFIG.backend}/api/users/me`, {
+      const res = await fetch(`${API_CONFIG.backend}/api/user`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${idToken}` },
       });
+
+      // console.log("deleteAccount: Response status:", res.status);
 
       if (!res.ok) throw new Error("Delete failed");
 
