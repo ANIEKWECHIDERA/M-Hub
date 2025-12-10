@@ -132,7 +132,7 @@ export default function CompleteProfile() {
               type="submit"
               size="lg"
               className="w-full"
-              disabled={loading}
+              disabled={loading || !firstName.trim() || !lastName.trim()}
             >
               {loading ? (
                 <>

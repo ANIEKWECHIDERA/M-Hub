@@ -37,24 +37,77 @@ export const UserController = {
   },
 
   async createUser(req: any, res: Response) {
-    const { firstName, lastName, email, firebase_uid } = req.body;
-    logger.info("createUser: Creating with data:", {
-      firstName,
-      lastName,
-      email,
-      firebase_uid,
-    });
-    if (!email || !firebase_uid)
-      return res.status(400).json({ error: "Missing data" });
+    const { firstName, lastName, email, firebase_uid, termsAccepted } =
+      req.body;
 
-    const user = await UserService.createOrUpdate({
-      firebase_uid,
-      email,
-      first_name: firstName,
-      last_name: lastName,
-      display_name: `${firstName} ${lastName}`,
-    });
-    logger.info("createUser: Created/updated profile:", user);
-    res.json({ profile: user });
+    // Log received data safely
+    logger.info(
+      "createUser: Creating with data: " +
+        JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          firebase_uid,
+          termsAccepted,
+        })
+    );
+
+    // Validate required fields
+    const missingFields: string[] = [];
+    if (!email) missingFields.push("email");
+    if (!firebase_uid) missingFields.push("firebase_uid");
+    if (termsAccepted !== true) missingFields.push("termsAccepted");
+
+    if (missingFields.length > 0) {
+      logger.warn(
+        "createUser: Missing required fields: " + JSON.stringify(missingFields)
+      );
+      return res.status(400).json({
+        error: "Missing or invalid required data",
+        missingFields,
+      });
+    }
+
+    try {
+      // Check for existing user by firebase_uid
+      const existingByUid = await UserService.findByFirebaseUid(firebase_uid);
+      if (existingByUid) {
+        logger.warn(`createUser: Duplicate firebase_uid detected`);
+        return res.status(409).json({
+          error: "User with this firebase_uid already exists",
+        });
+      }
+
+      // Check for existing user by email
+      const existingByEmail = await UserService.findByEmail(email);
+      if (existingByEmail) {
+        logger.warn(`createUser: Duplicate email detected`);
+        return res.status(409).json({
+          error: "User with this email already exists",
+        });
+      }
+
+      // Create new user
+      const user = await UserService.create({
+        firebase_uid,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        display_name: `${firstName} ${lastName}`,
+        terms_accepted: true,
+        terms_accepted_at: new Date(),
+      });
+
+      logger.info(
+        "createUser: Successfully created user: " + JSON.stringify(user)
+      );
+      return res.status(201).json({ profile: user });
+    } catch (err: any) {
+      logger.error("createUser: Error creating user:", err);
+      return res.status(500).json({
+        error: "Failed to create user",
+        details: err.message || err,
+      });
+    }
   },
 };

@@ -10,6 +10,6 @@ router.patch("/user", authenticate, UserController.updateUser);
 router.delete("/user", authenticate, UserController.deleteUser);
 
 // POST /api/users — Create user profile (after signup)
-router.post("/user", authenticate, UserController.createUser);
+router.post("/user", UserController.createUser);
 
 export default router;

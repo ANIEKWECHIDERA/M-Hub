@@ -309,8 +309,17 @@ export interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   error: string | null;
-  signUp: (email: string, password: string) => Promise<User | null>;
-  signIn: (email: string, password: string) => Promise<User | null>;
+  signUp: (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: String,
+    termsAccepted: boolean
+  ) => Promise<{ user: User; error: null } | { user: null; error: any }>;
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{ user: User | null; error: String | null }>;
   logout: () => Promise<void>;
   clearError: () => void;
   signInWithGoogle: () => Promise<any>;

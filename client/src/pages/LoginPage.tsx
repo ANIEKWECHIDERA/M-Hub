@@ -16,6 +16,7 @@ import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -70,10 +71,13 @@ export default function LoginPage() {
     if (!validateForm()) return;
 
     clearError();
-    setErrors({});
 
-    const user = await signIn(formData.email, formData.password);
+    const { user, error } = await signIn(formData.email, formData.password);
 
+    if (error) {
+      toast.error(error, { action: { label: "Dismiss", onClick: () => {} } });
+      return;
+    }
     if (user) {
       navigate("/dashboard", { replace: true });
     }
@@ -81,7 +85,6 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     clearError();
-    setErrors({});
     setIsGoogleLoading(true);
 
     const result = await signInWithGoogle();

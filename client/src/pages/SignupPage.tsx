@@ -25,6 +25,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import { FcGoogle } from "react-icons/fc";
+import { toast } from "sonner";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -94,15 +95,35 @@ export default function SignUpPage() {
 
     clearError(); // Clear previous auth errors
 
-    const success = await signUp(formData.email, formData.password);
-    if (success) {
-      console.log("Sign up successful! User:", success);
+    const { user, error } = await signUp(
+      formData.email,
+      formData.password,
+      formData.firstName,
+      formData.lastName,
+      formData.agreeToTerms
+    );
 
-      // Optionally save extra user data (firstName, lastName, company) to Firestore here
+    if (error) {
+      console.error("SignUpPage handleSubmit error:", error);
+      toast.error(error, { action: { label: "Dismiss", onClick: () => {} } });
+      return;
+    }
+
+    // console.log("SignUpPage handleSubmit success:", formData);
+
+    if (user) {
+      console.log("Sign up successful!");
+      console.log("Firebase User:", user);
+      // console.log("Backend Profile:", success.profile);
+
+      // Clear saved form data
       localStorage.removeItem("signUpFormData");
+
+      // Redirect to dashboard
       navigate("/dashboard", { replace: true });
     }
-    // If failed → authError will be set in context and shown below
+
+    // If sign-up failed, the authError is already handled by context
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {

@@ -12,23 +12,35 @@ export const UserService = {
     return data;
   },
 
-  async createOrUpdate(userData: any) {
+  // Find user by email
+  async findByEmail(email: string) {
     const { data, error } = await supabaseAdmin
       .from("users")
-      .upsert(
-        {
-          firebase_uid: userData.firebase_uid,
-          email: userData.email,
-          display_name: userData.display_name ?? null,
-          photo_url: userData.photo_url ?? null,
-          first_name: userData.first_name ?? null,
-          last_name: userData.last_name ?? null,
-          company_id: userData.company_id ?? null,
-          last_login: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "firebase_uid" }
-      )
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (error && error.code !== "PGRST116") throw error;
+    return data;
+  },
+
+  // Strictly create new user
+  async create(userData: any) {
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .insert({
+        firebase_uid: userData.firebase_uid,
+        email: userData.email,
+        display_name: userData.display_name ?? null,
+        photo_url: userData.photo_url ?? null,
+        first_name: userData.first_name ?? null,
+        last_name: userData.last_name ?? null,
+        company_id: userData.company_id ?? null,
+        terms_accepted: userData.terms_accepted ?? null,
+        terms_accepted_at: userData.terms_accepted_at ?? null,
+        last_login: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .select()
       .single();
 

@@ -16,6 +16,7 @@ import { AuthProvider } from "./context/AuthContext";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import CompleteProfile from "./pages/CompleteProfile";
 import { UserProvider } from "./context/UserContext";
+import { Toaster } from "./components/ui/sonner";
 
 // Protected Route: Only authenticated users
 function useRedirectPath() {
@@ -55,6 +56,7 @@ function App() {
   return (
     <AuthProvider>
       <UserProvider>
+        <Toaster position="top-center" richColors />
         <AppWithAuth /> {/* New component that uses hooks */}
       </UserProvider>
     </AuthProvider>
@@ -97,6 +99,7 @@ function AppWithAuth() {
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
+          <Route path="/complete-profile" element={<CompleteProfile />} />
           <Route element={<Layout />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="projects" element={<Projects />} />
@@ -105,7 +108,6 @@ function AppWithAuth() {
             <Route path="tools" element={<Tools />} />
             <Route path="settings" element={<Settings />} />
             <Route path="mytasks" element={<MyTasksPage />} />
-            <Route path="/complete-profile" element={<CompleteProfile />} />
             <Route
               path="projectdetails/:id"
               element={<ProjectDetailWrapper />}

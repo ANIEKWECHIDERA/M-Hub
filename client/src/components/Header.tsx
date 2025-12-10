@@ -69,7 +69,11 @@ export function Header() {
   // });
 
   if (userLoading) {
-    return <header className="...">Loading...</header>; // Or skeleton
+    return (
+      <header className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </header>
+    ); // Or skeleton
   }
 
   return (

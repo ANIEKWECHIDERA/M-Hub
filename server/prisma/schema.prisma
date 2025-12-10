@@ -28,6 +28,8 @@ model users {
   created_at    DateTime       @default(now()) @map("created_at")
   updated_at    DateTime       @updatedAt @map("updated_at")
   last_login    DateTime?      @map("last_login")
+  terms_accepted   Boolean?       @map("terms_accepted")
+  terms_accepted_at DateTime?     @map("terms_accepted_at")
 
   // Relations
   company       companies?     @relation("user_company", fields: [company_id], references: [id])

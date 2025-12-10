@@ -33,19 +33,63 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Clear error utility
   const clearError = () => setError(null);
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: String,
+    termsAccepted: boolean
+  ) => {
     try {
       clearError();
       setAuthLoading(true);
+
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
-      return userCredential.user;
+
+      const firebase_uid = userCredential.user.uid;
+
+      const res = await fetch(`${API_CONFIG.backend}/api/user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          firebase_uid,
+          termsAccepted,
+        }),
+      });
+
+      console.log("Create user response:", firebase_uid);
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create user profile");
+      }
+
+      return { user: userCredential.user, error: null };
     } catch (err: any) {
+      // console.error("Firebase signup error:", err.code);
+
+      // Normalize Firebase error → human readable
+      let message = err.message;
+
+      if (err.code === "auth/email-already-in-use") {
+        message = "This email has already been used.";
+      } else if (err.code === "auth/invalid-email") {
+        message = "Please enter a valid email address.";
+      } else if (err.code === "auth/weak-password") {
+        message = "Your password is too weak. Please use a stronger password.";
+      } else if (err.code === "auth/too-many-requests") {
+        message = "Too many requests. Please try again later.";
+      }
+
       setError(err.message);
-      return null;
+      return { user: null, error: message };
     } finally {
       setAuthLoading(false);
     }
@@ -60,10 +104,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         password
       );
-      return userCredential.user;
+      return { user: userCredential.user, error: null };
     } catch (err: any) {
+      // console.error("Firebase signup error:", err.code);
       setError(err.message);
-      return null;
+      let message = err.message;
+
+      if (err.code === "auth/user-not-found") {
+        message = "No account found with this email.";
+      } else if (err.code === "auth/wrong-password") {
+        message = "Incorrect password or email. Please try again.";
+      } else if (err.code === "auth/invalid-email") {
+        message = "Incorrect password or email. Please try again.";
+      } else if (err.code === "auth/too-many-requests") {
+        message = "Too many login attempts. Please try again later.";
+      } else if (err.code === "auth/user-disabled") {
+        message = "This account has been disabled. Please contact support.";
+      } else if (err.code === "auth/invalid-credential") {
+        ("Incorrect password or email. Please try again.");
+      }
+
+      setError(err.message);
+      return { user: null, error: message };
     } finally {
       setAuthLoading(false);
     }

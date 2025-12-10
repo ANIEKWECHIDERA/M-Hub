@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { User, Bell, Shield, Users, Plus, Edit, Trash2 } from "lucide-react";
 import { useTeamContext } from "@/context/TeamMemberContext";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import TeamMemberForm from "@/components/TeamMemberForm";
 import InviteForm from "@/components/InviteForm";
 import { useUser } from "@/context/UserContext";
@@ -512,9 +512,6 @@ export default function Settings() {
           </div>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Sonner toaster */}
-      <Toaster position="top-right" />
     </div>
   );
 }
