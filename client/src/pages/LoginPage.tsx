@@ -75,6 +75,7 @@ export default function LoginPage() {
     const { user, error } = await signIn(formData.email, formData.password);
 
     if (error) {
+      // console.error("Login error:", error);
       toast.error(error, { action: { label: "Dismiss", onClick: () => {} } });
       return;
     }

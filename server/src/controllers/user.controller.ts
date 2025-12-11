@@ -37,8 +37,10 @@ export const UserController = {
   },
 
   async createUser(req: any, res: Response) {
-    const { firstName, lastName, email, firebase_uid, termsAccepted } =
-      req.body;
+    const { firstName, lastName, termsAccepted } = req.body;
+
+    const firebase_uid = req.user.uid;
+    const email = req.user.email;
 
     // Log received data safely
     logger.info(

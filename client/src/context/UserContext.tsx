@@ -15,6 +15,8 @@ const UserContext = createContext<UserContextType>({
   loading: true,
   updateProfile: async () => false,
   deleteAccount: async () => false,
+  fetchUserProfile: async () => null,
+  setProfile: () => {},
 });
 
 export const useUser = () => useContext(UserContext);
@@ -201,6 +203,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     loading,
     updateProfile,
     deleteAccount /*, refreshProfile */,
+    fetchUserProfile,
+    setProfile,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

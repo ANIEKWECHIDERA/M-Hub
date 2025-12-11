@@ -26,6 +26,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import { FcGoogle } from "react-icons/fc";
 import { toast } from "sonner";
+import { useUser } from "@/context/UserContext";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -36,6 +37,8 @@ export default function SignUpPage() {
     loading: authLoading,
     clearError,
   } = useAuthContext();
+
+  const { fetchUserProfile, setProfile } = useUser();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -104,7 +107,7 @@ export default function SignUpPage() {
     );
 
     if (error) {
-      console.error("SignUpPage handleSubmit error:", error);
+      // console.error("SignUpPage handleSubmit error:", error);
       toast.error(error, { action: { label: "Dismiss", onClick: () => {} } });
       return;
     }
@@ -112,9 +115,16 @@ export default function SignUpPage() {
     // console.log("SignUpPage handleSubmit success:", formData);
 
     if (user) {
-      console.log("Sign up successful!");
-      console.log("Firebase User:", user);
+      // console.log("Sign up successful!");
+      // console.log("Firebase User:", user);
       // console.log("Backend Profile:", success.profile);
+
+      const backendProfile = await fetchUserProfile();
+
+      if (backendProfile) {
+        setProfile(backendProfile);
+        console.log("Fetched backend profile:", backendProfile);
+      }
 
       // Clear saved form data
       localStorage.removeItem("signUpFormData");

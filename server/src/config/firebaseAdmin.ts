@@ -38,7 +38,7 @@ export const testFirebaseConnection = async () => {
 export const revokeUserTokens = async (uid: string) => {
   try {
     await admin.auth().revokeRefreshTokens(uid);
-    logger.info(`Revoked refresh tokens for UID: ${uid}`);
+    logger.info(`Revoked refresh tokens for UID`);
   } catch (err) {
     logger.error("Failed to revoke tokens:", err);
     throw err;

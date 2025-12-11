@@ -50,21 +50,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         password
       );
 
-      const firebase_uid = userCredential.user.uid;
+      const idToken = await userCredential.user.getIdToken();
+
+      // const firebase_uid = userCredential.user.uid;
 
       const res = await fetch(`${API_CONFIG.backend}/api/user`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           firstName,
           lastName,
-          email,
-          firebase_uid,
           termsAccepted,
         }),
       });
 
-      console.log("Create user response:", firebase_uid);
+      // console.log("Create user response:", firebase_uid);
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -107,7 +110,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return { user: userCredential.user, error: null };
     } catch (err: any) {
       // console.error("Firebase signup error:", err.code);
-      setError(err.message);
       let message = err.message;
 
       if (err.code === "auth/user-not-found") {
@@ -121,7 +123,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else if (err.code === "auth/user-disabled") {
         message = "This account has been disabled. Please contact support.";
       } else if (err.code === "auth/invalid-credential") {
-        ("Incorrect password or email. Please try again.");
+        message = "Incorrect password or email. Please try again.";
       }
 
       setError(err.message);
