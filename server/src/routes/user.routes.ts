@@ -2,6 +2,7 @@
 import express from "express";
 import authenticate from "../middleware/authenticate";
 import { UserController } from "../controllers/user.controller";
+import { createUserLimiter } from "../middleware/rateLimiter";
 
 const router = express.Router();
 
@@ -10,6 +11,11 @@ router.patch("/user", authenticate, UserController.updateUser);
 router.delete("/user", authenticate, UserController.deleteUser);
 
 // POST /api/users — Create user profile (after signup)
-router.post("/user", UserController.createUser);
+router.post(
+  "/user",
+  createUserLimiter,
+  authenticate,
+  UserController.createUser
+);
 
 export default router;

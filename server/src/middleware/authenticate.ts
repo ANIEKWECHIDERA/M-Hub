@@ -35,7 +35,8 @@ export default async function authenticate(
     if (decoded.auth_time < tokensValidAfterTime) {
       return res.status(401).json({ error: "Token has been revoked" });
     }
-    req.user = decoded; // Attach decoded Firebase user
+    req.user = decoded;
+    logger.info(decoded); // Attach decoded Firebase user
     next();
   } catch (err) {
     logger.error("Token verification failed:", err);

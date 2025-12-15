@@ -12,6 +12,7 @@ import type { AuthContextType } from "@/Types/types";
 import type { User } from "firebase/auth";
 import { API_CONFIG } from "@/lib/api";
 import { toast } from "sonner";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -29,9 +30,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
-
+  const navigate = useNavigate();
   // Clear error utility
   const clearError = () => setError(null);
+
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!authLoading && !currentUser && location.pathname !== "/signup") {
+      navigate("/login");
+    }
+  }, [currentUser, authLoading, location.pathname]);
 
   const signUp = async (
     email: string,
@@ -40,17 +49,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     lastName: String,
     termsAccepted: boolean
   ) => {
+    let userCredential;
+    let uidToDelete: string | null = null;
     try {
       clearError();
       setAuthLoading(true);
 
-      const userCredential = await createUserWithEmailAndPassword(
+      userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
 
       const idToken = await userCredential.user.getIdToken();
+      uidToDelete = userCredential.user.uid;
+
+      // console.log(
+      //   "ID Token after signup:",
+      //   idToken,
+      //   "Firebase userID:",
+      //   uidToDelete
+      // );
 
       // const firebase_uid = userCredential.user.uid;
 
@@ -63,6 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         body: JSON.stringify({
           firstName,
           lastName,
+          email,
           termsAccepted,
         }),
       });
@@ -71,10 +91,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        uidToDelete = userCredential.user.uid;
         throw new Error(err.error || "Failed to create user profile");
       }
 
-      return { user: userCredential.user, error: null };
+      console.log(
+        `User signed up and profile created: ${userCredential.user.uid}`
+      );
+
+      return {
+        user: userCredential.user,
+        error: null,
+        uidToDeleteOnError: null,
+      };
     } catch (err: any) {
       // console.error("Firebase signup error:", err.code);
 
@@ -89,10 +118,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         message = "Your password is too weak. Please use a stronger password.";
       } else if (err.code === "auth/too-many-requests") {
         message = "Too many requests. Please try again later.";
+      } else if (err.code === "auth/network-request-failed") {
+        message = "Please check your network connection and try again";
       }
 
-      setError(err.message);
-      return { user: null, error: message };
+      setError(message);
+      return { user: null, error: message, uidToDeleteOnError: uidToDelete };
     } finally {
       setAuthLoading(false);
     }

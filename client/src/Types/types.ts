@@ -315,11 +315,18 @@ export interface AuthContextType {
     firstName: string,
     lastName: String,
     termsAccepted: boolean
-  ) => Promise<{ user: User; error: null } | { user: null; error: any }>;
+  ) => Promise<{
+    user: User | null;
+    error: string | null;
+    uidToDeleteOnError: String | null;
+  }>;
   signIn: (
     email: string,
     password: string
-  ) => Promise<{ user: User | null; error: String | null }>;
+  ) => Promise<{
+    user: User | null;
+    error: String | null;
+  }>;
   logout: () => Promise<void>;
   clearError: () => void;
   signInWithGoogle: () => Promise<any>;

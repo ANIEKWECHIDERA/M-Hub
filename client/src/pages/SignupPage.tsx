@@ -27,6 +27,9 @@ import { useAuthContext } from "@/context/AuthContext";
 import { FcGoogle } from "react-icons/fc";
 import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
+import { API_CONFIG } from "@/lib/api";
+import { signOut } from "firebase/auth";
+import { auth } from "@/firebase/firebase";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -94,46 +97,100 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Validate form data
     if (!validateForm()) return;
 
     clearError(); // Clear previous auth errors
+    // let uidToDeleteOnError: String | null = null;
 
-    const { user, error } = await signUp(
-      formData.email,
-      formData.password,
-      formData.firstName,
-      formData.lastName,
-      formData.agreeToTerms
-    );
+    // console.log("Submitting sign-up with data:", formData);
 
-    if (error) {
-      // console.error("SignUpPage handleSubmit error:", error);
-      toast.error(error, { action: { label: "Dismiss", onClick: () => {} } });
-      return;
-    }
+    try {
+      // Attempt to sign up the user
+      const {
+        user,
+        error,
+        uidToDeleteOnError: errorUidToDelete,
+      } = await signUp(
+        formData.email,
+        formData.password,
+        formData.firstName,
+        formData.lastName,
+        formData.agreeToTerms
+      );
+      console.log("SignUp Response:", { user, error, errorUidToDelete });
 
-    // console.log("SignUpPage handleSubmit success:", formData);
+      if (error || !user) {
+        console.log("User signed failed:", errorUidToDelete);
+        if (errorUidToDelete) {
+          console.log(`firebase User: ${errorUidToDelete} needs deletion`);
+          try {
+            console.log(
+              "Attempting to delete Firebase user with UID:",
+              errorUidToDelete
+            );
 
-    if (user) {
-      // console.log("Sign up successful!");
-      // console.log("Firebase User:", user);
-      // console.log("Backend Profile:", success.profile);
+            // Make a request to the backend to delete the Firebase user
+            const response = await fetch(
+              `${API_CONFIG.backend}/api/deleteFirebaseUserId`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ uid: errorUidToDelete }), // Pass the Firebase UID to the backend
+              }
+            );
 
+            const data = await response.json();
+            if (response.ok) {
+              console.log(
+                "Orphaned Firebase user deleted successfully via backend"
+              );
+            } else {
+              console.error(
+                "Error deleting Firebase user via backend:",
+                data.error || data.message
+              );
+            }
+          } catch (deleteErr: any) {
+            console.error(
+              "Failed to delete Firebase user via backend:",
+              deleteErr
+            );
+          }
+        }
+        throw new Error(error || "Sign up failed");
+      }
+
+      toast.success("Welcome! Your account is created.", {
+        id: "profile-create",
+      });
+
+      // Fetch the user's backend profile
       const backendProfile = await fetchUserProfile();
+
+      console.log("SignUpPage: Fetched backend profile:", backendProfile);
 
       if (backendProfile) {
         setProfile(backendProfile);
         console.log("Fetched backend profile:", backendProfile);
       }
 
-      // Clear saved form data
+      // Clear saved form data from localStorage
       localStorage.removeItem("signUpFormData");
 
-      // Redirect to dashboard
+      // Redirect to dashboard ONLY on full success
       navigate("/dashboard", { replace: true });
-    }
+    } catch (err: any) {
+      toast.error(
+        err.message || "Failed to complete signup. Please try again.",
+        { id: "profile-create" }
+      );
 
-    // If sign-up failed, the authError is already handled by context
+      await signOut(auth); // Always sign out to remove token and force redirect to signup/login
+    }
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {

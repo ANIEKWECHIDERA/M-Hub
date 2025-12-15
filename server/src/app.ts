@@ -32,6 +32,7 @@ app.use("/api/", userRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {
+  console.log("Health check endpoint accessed");
   res.send("Server is running");
 });
 

@@ -39,9 +39,13 @@ export const UserController = {
   async createUser(req: any, res: Response) {
     const { firstName, lastName, termsAccepted } = req.body;
 
-    const firebase_uid = req.user.uid;
-    const email = req.user.email;
+    logger.info("createUser: Request body:", +JSON.stringify(req.body));
 
+    const firebase_uid = req.user.uid;
+    const emailFromToken = req.user.email;
+    const email = emailFromToken || req.body.email?.trim;
+
+    logger.info("createUser: Received firebase_uid:", emailFromToken);
     // Log received data safely
     logger.info(
       "createUser: Creating with data: " +
@@ -49,10 +53,23 @@ export const UserController = {
           firstName,
           lastName,
           email,
+          emailFromToken,
           firebase_uid,
           termsAccepted,
         })
     );
+
+    if (!firebase_uid) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    if (termsAccepted !== true) {
+      return res.status(400).json({ error: "You must accept terms" });
+    }
 
     // Validate required fields
     const missingFields: string[] = [];
@@ -95,7 +112,7 @@ export const UserController = {
         email,
         first_name: firstName,
         last_name: lastName,
-        display_name: `${firstName} ${lastName}`,
+        display_name: `${firstName} ${lastName}`.trim(),
         terms_accepted: true,
         terms_accepted_at: new Date(),
       });

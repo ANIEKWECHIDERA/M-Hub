@@ -2,7 +2,7 @@
 import express from "express";
 import { UserService } from "../services/user.service";
 import authenticate from "../middleware/authenticate";
-import { revokeUserTokens } from "../config/firebaseAdmin";
+import admin, { revokeUserTokens } from "../config/firebaseAdmin";
 import { logger } from "../utils/logger";
 
 const router = express.Router();
@@ -39,4 +39,25 @@ router.post("/logout", authenticate, async (req: any, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+router.post("/deleteFirebaseUserId", async (req: any, res) => {
+  const { uid } = req.body;
+  logger.info(`Received request to delete Firebase user with UID: ${uid}`);
+  if (!uid) {
+    return res.status(400).json({ error: "UID is required" });
+  }
+
+  try {
+    // Delete user using Firebase Admin SDK
+    await admin.auth().deleteUser(uid);
+    return (
+      res.status(200).json({ message: "User deleted successfully" }),
+      logger.info(`Deleted Firebase user with UID: ${uid}`)
+    );
+  } catch (error: any) {
+    logger.error("Error deleting user:", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
