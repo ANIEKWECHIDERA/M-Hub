@@ -28,7 +28,7 @@ import { FcGoogle } from "react-icons/fc";
 import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
 import { API_CONFIG } from "@/lib/api";
-import { signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth } from "@/firebase/firebase";
 
 export default function SignUpPage() {
@@ -167,9 +167,10 @@ export default function SignUpPage() {
       toast.success("Welcome! Your account is created.", {
         id: "profile-create",
       });
+      const idToken = await user.getIdToken();
 
       // Fetch the user's backend profile
-      const backendProfile = await fetchUserProfile();
+      const backendProfile = await fetchUserProfile(idToken);
 
       console.log("SignUpPage: Fetched backend profile:", backendProfile);
 

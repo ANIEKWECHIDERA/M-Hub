@@ -369,7 +369,7 @@ export interface UserContextType {
   loading: boolean;
   updateProfile: (data: Partial<UserProfile>) => Promise<boolean>;
   deleteAccount?: () => Promise<boolean>;
-  fetchUserProfile: () => Promise<UserProfile | null>;
+  fetchUserProfile: (idToken: string) => Promise<UserProfile | null>;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
   //   refreshProfile?: () => Promise<void>; // Optional: manual refresh
 }

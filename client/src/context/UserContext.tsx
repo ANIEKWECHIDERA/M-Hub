@@ -29,8 +29,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   // console.log("UserProvider: currentUser:", currentUser); // Log Firebase user data
   // console.log("UserProvider: idToken present?", !!idToken); // Check if token is available
 
-  const fetchUserProfile =
-    useCallback(async (): Promise<UserProfile | null> => {
+  const fetchUserProfile = useCallback(
+    async (idToken: string): Promise<UserProfile | null> => {
       // console.log(
       //   "fetchUserProfile() CALLED - idToken:",
       //   idToken ? "YES" : "NO"
@@ -80,7 +80,9 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         console.error("fetchProfile error:", err);
         return null;
       }
-    }, [idToken, currentUser]);
+    },
+    [idToken, currentUser]
+  );
 
   // Optional auto-create function (if you uncomment above)
   // const createProfileIfMissing = async () => {
@@ -109,7 +111,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
-    const data = await fetchUserProfile();
+    const data = await fetchUserProfile(idToken ?? "");
 
     const newProfile = data || {
       id: currentUser?.uid ?? "",

@@ -138,7 +138,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         password
       );
-      return { user: userCredential.user, error: null };
+      const idToken = await userCredential.user.getIdToken();
+      return { user: userCredential.user, idToken, error: null };
     } catch (err: any) {
       // console.error("Firebase signup error:", err.code);
       let message = err.message;
@@ -158,7 +159,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       setError(err.message);
-      return { user: null, error: message };
+      return { user: null, idToken: null, error: message };
     } finally {
       setAuthLoading(false);
     }
