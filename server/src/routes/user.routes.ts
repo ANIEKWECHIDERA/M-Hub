@@ -1,10 +1,10 @@
 // routes/user.routes.ts
-import express from "express";
+import { Router } from "express";
 import authenticate from "../middleware/authenticate";
 import { UserController } from "../controllers/user.controller";
 import { createUserLimiter } from "../middleware/rateLimiter";
 
-const router = express.Router();
+const router = Router();
 
 router.get("/user", authenticate, UserController.getUser);
 router.patch("/user", authenticate, UserController.updateUser);

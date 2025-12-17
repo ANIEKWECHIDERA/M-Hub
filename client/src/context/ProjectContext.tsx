@@ -23,7 +23,8 @@ export const ProjectContextProvider = ({
 
   const mockProjects: Project[] = [
     {
-      id: 1,
+      id: "1",
+      companyId: "comp-123",
       title: "Brand Redesign for LexCorp",
       client: "LexCorp Inc.",
       status: "In Progress",
@@ -33,7 +34,8 @@ export const ProjectContextProvider = ({
       team: [1, 2, 3],
     },
     {
-      id: 2,
+      id: "2",
+      companyId: "comp-123",
       title: "Website Development",
       client: "StartupXYZ",
       status: "Active",
@@ -42,7 +44,8 @@ export const ProjectContextProvider = ({
       team: [4, 3],
     },
     {
-      id: 3,
+      id: "3",
+      companyId: "comp-123",
       title: "Marketing Campaign",
       client: "RetailCo",
       status: "Completed",
@@ -52,7 +55,8 @@ export const ProjectContextProvider = ({
       team: [6, 7],
     },
     {
-      id: 4,
+      id: "4",
+      companyId: "comp-123",
       title: "Internal Tool Migration",
       client: "InHouse Ops",
       status: "Planning",
@@ -61,7 +65,8 @@ export const ProjectContextProvider = ({
       team: [4, 5, 12],
     },
     {
-      id: 5,
+      id: "5",
+      companyId: "comp-123",
       title: "Customer Feedback System",
       client: "EchoWare",
       status: "In Progress",
@@ -70,7 +75,8 @@ export const ProjectContextProvider = ({
       team: [8, 10, 13],
     },
     {
-      id: 6,
+      id: "6",
+      companyId: "comp-123",
       title: "Mobile App Launch",
       client: "Appify",
       status: "Active",
@@ -79,7 +85,8 @@ export const ProjectContextProvider = ({
       team: [1, 9, 11],
     },
     {
-      id: 7,
+      id: "7",
+      companyId: "comp-123",
       title: "SEO Optimization",
       client: "GreenSprout",
       status: "In Progress",
@@ -88,7 +95,8 @@ export const ProjectContextProvider = ({
       team: [6, 9],
     },
     {
-      id: 8,
+      id: "8",
+      companyId: "comp-123",
       title: "Cloud Infrastructure Overhaul",
       client: "TechNova",
       status: "Planning",
@@ -97,7 +105,8 @@ export const ProjectContextProvider = ({
       team: [3, 12, 14],
     },
     {
-      id: 9,
+      id: "9",
+      companyId: "comp-123",
       title: "Brand Awareness Campaign",
       client: "NovaFoods",
       status: "Completed",
@@ -106,7 +115,8 @@ export const ProjectContextProvider = ({
       team: [2, 5, 6],
     },
     {
-      id: 10,
+      id: "10",
+      companyId: "comp-123",
       title: "Data Dashboard",
       client: "MetricHub",
       status: "In Progress",
@@ -166,7 +176,7 @@ export const ProjectContextProvider = ({
   };
 
   // 🛠 Update project
-  const updateProject = async (id: number, data: Partial<Project>) => {
+  const updateProject = async (id: string, data: Partial<Project>) => {
     setProjects((prev) =>
       prev.map((proj) => (proj.id === id ? { ...proj, ...data } : proj))
     );
@@ -183,7 +193,7 @@ export const ProjectContextProvider = ({
   };
 
   // ❌ Delete project
-  const deleteProject = async (id: number) => {
+  const deleteProject = async (id: string) => {
     setProjects((prev) => prev.filter((proj) => proj.id !== id));
     toast.success("Project deleted successfully!");
     // TODO: DELETE from API (e.g., Firebase Firestore)

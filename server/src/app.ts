@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
+import projectRoutes from "./routes/project.routes";
 import morgan from "morgan";
 import { logger } from "./utils/logger";
 
@@ -29,6 +30,7 @@ app.use(
 // Mount auth routes
 app.use("/api/", authRoutes);
 app.use("/api/", userRoutes);
+app.use("/api/", projectRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {

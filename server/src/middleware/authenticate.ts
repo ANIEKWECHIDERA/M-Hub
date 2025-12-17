@@ -11,6 +11,10 @@ declare global {
   }
 }
 
+export interface AuthRequest extends Request {
+  user?: auth.DecodedIdToken;
+}
+
 export default async function authenticate(
   req: Request,
   res: Response,

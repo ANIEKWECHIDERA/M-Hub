@@ -28,7 +28,7 @@ import { FcGoogle } from "react-icons/fc";
 import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
 import { API_CONFIG } from "@/lib/api";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { signOut } from "firebase/auth";
 import { auth } from "@/firebase/firebase";
 
 export default function SignUpPage() {

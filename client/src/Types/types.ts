@@ -1,15 +1,15 @@
 import type { User } from "firebase/auth";
 
 export interface Project {
-  id: number;
+  id: string;
+  companyId: string;
+  client?: string;
   title: string;
-  client: string;
+  description?: string;
   status: string;
-
-  deadline: string;
-  description: string;
-
-  team: number[];
+  deadline?: Date | string;
+  team?: number[];
+  assets?: number[];
 }
 
 export interface ProjectContextType {
@@ -21,8 +21,8 @@ export interface ProjectContextType {
   error: string | null;
   fetchProjects: () => Promise<void>;
   addProject: (project: Project) => Promise<void>;
-  updateProject: (id: number, data: Partial<Project>) => Promise<void>;
-  deleteProject: (id: number) => Promise<void>;
+  updateProject: (id: string, data: Partial<Project>) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   confirmDelete: () => void;
   projectToDelete: Project | null;
   setProjectToDelete: React.Dispatch<React.SetStateAction<Project | null>>;
