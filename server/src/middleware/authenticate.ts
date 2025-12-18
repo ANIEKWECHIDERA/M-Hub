@@ -1,18 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import admin from "../config/firebaseAdmin";
-import type { auth } from "firebase-admin";
 import { logger } from "../utils/logger";
+import { AppUser } from "../types/types";
 
 declare global {
   namespace Express {
     interface Request {
-      user?: auth.DecodedIdToken;
+      user?: AppUser;
     }
   }
-}
-
-export interface AuthRequest extends Request {
-  user?: auth.DecodedIdToken;
 }
 
 export default async function authenticate(
@@ -21,6 +17,7 @@ export default async function authenticate(
   next: NextFunction
 ) {
   const authHeader = req.headers.authorization;
+
   if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -39,8 +36,22 @@ export default async function authenticate(
     if (decoded.auth_time < tokensValidAfterTime) {
       return res.status(401).json({ error: "Token has been revoked" });
     }
-    req.user = decoded;
-    logger.info(decoded); // Attach decoded Firebase user
+
+    // TEMPORARY HARDCODE (easy to replace later)
+    const appUser: AppUser = {
+      ...decoded,
+      company_id: "3b72e747-22d9-40b6-9445-8308253923c1",
+      role: "admin",
+    };
+
+    req.user = appUser;
+
+    logger.info("Authenticated user", {
+      uid: decoded.uid,
+      company_id: appUser.company_id,
+      role: appUser.role,
+    });
+
     next();
   } catch (err) {
     logger.error("Token verification failed:", err);
