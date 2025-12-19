@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [currentUser, authLoading, location.pathname]);
 
-  console.log("ID Token:", idToken);
+  // console.log("ID Token:", idToken);
 
   const signUp = async (
     email: string,

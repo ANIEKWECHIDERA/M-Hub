@@ -22,10 +22,13 @@ export function useProjectStats(projects: Project[], tasks: Task[]) {
     ).length;
 
     const overdueProjects = projects.filter(
-      (proj) => new Date(proj.deadline) < now && proj.status !== "Completed"
+      (proj) =>
+        proj.deadline &&
+        new Date(proj.deadline) < now &&
+        proj.status !== "Completed"
     ).length;
 
-    const getTaskStats = (projectId: number) => {
+    const getTaskStats = (projectId: string) => {
       const projTasks = tasks.filter((task) => task.projectId === projectId);
       const total = projTasks.length;
       const completed = projTasks.filter((t) => t.status === "Done").length;

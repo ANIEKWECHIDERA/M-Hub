@@ -7,6 +7,7 @@ import { TeamContextProvider } from "./TeamMemberContext.tsx";
 import { TaskContextProvider } from "./TaskContext.tsx";
 import { SubTasksContextProvider } from "./SubTasksContext.tsx";
 import { NotificationProvider } from "./NotificationContext.tsx";
+import { AuthProvider } from "./AuthContext.tsx";
 
 export const AppContextProvider = ({
   children,
@@ -14,22 +15,26 @@ export const AppContextProvider = ({
   children: React.ReactNode;
 }) => {
   return (
-    <SettingsProvider>
-      <NotificationProvider>
-        <TeamContextProvider>
-          <ProjectContextProvider>
-            <SubTasksContextProvider>
-              <TaskContextProvider>
-                <NoteContextProvider>
-                  <AssetContextProvider>
-                    <CommentContextProvider>{children}</CommentContextProvider>
-                  </AssetContextProvider>
-                </NoteContextProvider>
-              </TaskContextProvider>
-            </SubTasksContextProvider>
-          </ProjectContextProvider>
-        </TeamContextProvider>
-      </NotificationProvider>
-    </SettingsProvider>
+    <AuthProvider>
+      <SettingsProvider>
+        <NotificationProvider>
+          <TeamContextProvider>
+            <ProjectContextProvider>
+              <SubTasksContextProvider>
+                <TaskContextProvider>
+                  <NoteContextProvider>
+                    <AssetContextProvider>
+                      <CommentContextProvider>
+                        {children}
+                      </CommentContextProvider>
+                    </AssetContextProvider>
+                  </NoteContextProvider>
+                </TaskContextProvider>
+              </SubTasksContextProvider>
+            </ProjectContextProvider>
+          </TeamContextProvider>
+        </NotificationProvider>
+      </SettingsProvider>
+    </AuthProvider>
   );
 };

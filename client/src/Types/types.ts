@@ -1,5 +1,21 @@
 import type { User } from "firebase/auth";
 
+export interface CreateProjectDTO {
+  title: string;
+  description?: string;
+  status?: "Planning" | "In Progress" | "Completed";
+  deadline?: string; // ISO string
+  client_id?: string;
+}
+
+export interface UpdateProjectDTO {
+  title?: string;
+  description?: string;
+  status?: "Planning" | "In Progress" | "Completed";
+  deadline?: string;
+  client_id?: string;
+}
+
 export interface Project {
   id: string;
   companyId: string;
@@ -85,9 +101,9 @@ export interface Assignee {
 
 //////////////// TaskContextTypes ////////////////
 export interface Task {
-  id: number;
-  companyId: number;
-  projectId: number;
+  id: string;
+  companyId: string;
+  projectId: string;
   title: string;
   assignee?: number[];
   status: TaskStatus;

@@ -3,6 +3,8 @@ import type { Project, ProjectContextType } from "../Types/types";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useTeamContext } from "./TeamMemberContext";
+import { ProjectAPI } from "@/api/projects";
+import { useAuthContext } from "./AuthContext";
 
 const ProjectContext = createContext<ProjectContextType | null>(null);
 
@@ -133,25 +135,32 @@ export const ProjectContextProvider = ({
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  // 🔄 Fetch projects from API or mock on mount
+  const { idToken } = useAuthContext();
+
+  // Fetch projects from API on mount
   const fetchProjects = async () => {
     setLoading(true);
-    setError(null);
-    try {
-      // TODO: Replace with real API call (e.g., Firebase Firestore)
-      // Example with Firebase:
-      // import { collection, getDocs } from 'firebase/firestore';
-      // import { db } from '../lib/firebase';
-      // const querySnapshot = await getDocs(collection(db, 'projects'));
-      // const projectsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
-      // setProjects(projectsData);
 
-      setProjects(mockProjects);
+    setError(null);
+
+    try {
+      if (!idToken) {
+        setError("User not authenticated");
+        setLoading(false);
+        return;
+      }
+
+      const projects = await ProjectAPI.getAll(idToken);
+
+      setProjects(projects);
+
       setLoading(false);
-    } catch (err) {
+    } catch (err: any) {
       setError("Failed to fetch projects");
-      setLoading(false);
+
       console.error("Failed to fetch projects:", err);
+    } finally {
+      setLoading(false);
     }
   };
 

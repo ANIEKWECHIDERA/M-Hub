@@ -41,7 +41,7 @@ export const ProjectService = {
       .select("*")
       .eq("id", id)
       .eq("company_id", companyId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       logger.error("ProjectService.findById: supabase error", {
@@ -108,7 +108,7 @@ export const ProjectService = {
       .eq("id", id)
       .eq("company_id", companyId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       logger.error("ProjectService.update: supabase error", {

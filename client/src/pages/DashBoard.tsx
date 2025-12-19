@@ -45,7 +45,7 @@ export default function Dashboard() {
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
-
+  console.log(`fetched projects: ${JSON.stringify(projects)}`);
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -122,7 +122,7 @@ export default function Dashboard() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Clients</SelectItem>
-            {clients.map((client) => (
+            {clients.filter((client): client is string => client !== undefined).map((client) => (
               <SelectItem key={client} value={client}>
                 {client}
               </SelectItem>
@@ -183,7 +183,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
                     <span>
-                      {new Date(project.deadline).toLocaleDateString()}
+                      {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'No deadline'}
                     </span>
                   </div>
                   {total > 0 ? (
@@ -205,7 +205,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1">
                     <Users className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">
-                      {project.team.length} members
+                      {project.team?.length ?? 0} members
                     </span>
                   </div>
                   <Link to={`/projectdetails/${project.id}`}>

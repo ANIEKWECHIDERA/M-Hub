@@ -116,13 +116,15 @@ export default function MyTasksPage() {
     getEnrichedTasks,
   } = useTaskContext();
   const { teamMembers, currentMember } = useTeamContext();
-  const { updateSubtask, addSubtask, deleteSubtask, subtasks } = useSubTasksContext();
-  const { comments, addComment, updateComment, deleteComment } = useCommentContext();
+  const { updateSubtask, addSubtask, deleteSubtask, subtasks } =
+    useSubTasksContext();
+  const { comments, addComment, updateComment, deleteComment } =
+    useCommentContext();
 
   // Get assigneeId from auth context (fallback to 1 if not available)
   const assigneeId = currentMember?.id ?? 1; // TODO: Ensure currentUser.id comes from auth context
   // TODO: Make companyId dynamic (e.g., from user context or auth)
-  const companyId = 1; // Hardcoded for now
+  const companyId = "3b72e747-22d9-40b6-9445-8308253923c1"; // Hardcoded for now
 
   const tasks = useMemo(() => getEnrichedTasks(), [getEnrichedTasks, subtasks]);
   const deferredSearch = useDeferredValue(searchQuery);
@@ -261,7 +263,7 @@ export default function MyTasksPage() {
   };
 
   const handleStatusChange = async (
-    taskId: number,
+    taskId: string,
     newStatus: Task["status"]
   ) => {
     const updatedAt = new Date().toISOString();
@@ -351,30 +353,44 @@ export default function MyTasksPage() {
   const handleDeleteSubtask = async (taskId: number, subtaskId: number) => {
     if (!selectedTask) return;
     await deleteSubtask(subtaskId);
-    const newIds = (selectedTask.subtaskIds || []).filter((id) => id !== subtaskId);
-    const updatedSubtasks = (selectedTask.subtasks || []).filter((st) => st.id !== subtaskId);
+    const newIds = (selectedTask.subtaskIds || []).filter(
+      (id) => id !== subtaskId
+    );
+    const updatedSubtasks = (selectedTask.subtasks || []).filter(
+      (st) => st.id !== subtaskId
+    );
     const completedCount = updatedSubtasks.filter((st) => st.completed).length;
-    const progress = Math.round((completedCount / (updatedSubtasks.length || 1)) * 100);
+    const progress = Math.round(
+      (completedCount / (updatedSubtasks.length || 1)) * 100
+    );
     await updateTask(taskId, { subtaskIds: newIds, progress });
-    setSelectedTask({ ...selectedTask, subtaskIds: newIds, subtasks: updatedSubtasks, progress });
+    setSelectedTask({
+      ...selectedTask,
+      subtaskIds: newIds,
+      subtasks: updatedSubtasks,
+      progress,
+    });
   };
 
   const mappedCommentsForSelectedTask = useMemo(() => {
-    if (!selectedTask) return [] as Array<{
-      id: string;
-      content: string;
-      author: { id: string; name: string; avatar?: string; role?: string };
-      createdAt: string;
-      likes: number;
-      isLiked: boolean;
-    }>;
+    if (!selectedTask)
+      return [] as Array<{
+        id: string;
+        content: string;
+        author: { id: string; name: string; avatar?: string; role?: string };
+        createdAt: string;
+        likes: number;
+        isLiked: boolean;
+      }>;
     const findAuthorName = (authorId: number) => {
       const tm = teamMembers.find((m) => m.id === authorId);
       return tm ? `${tm.firstname} ${tm.lastname}` : `User ${authorId}`;
     };
     return comments
       .filter(
-        (c) => c.projectId === selectedTask.projectId && c.companyId === selectedTask.companyId
+        (c) =>
+          c.projectId === selectedTask.projectId &&
+          c.companyId === selectedTask.companyId
       )
       .map((c) => ({
         id: String(c.id),
@@ -384,9 +400,10 @@ export default function MyTasksPage() {
           name: findAuthorName(c.authorId),
           avatar: "/placeholder.svg?height=32&width=32",
         },
-        createdAt: new Date(c.timestamp).toString() === "Invalid Date"
-          ? new Date().toISOString()
-          : new Date(c.timestamp).toISOString(),
+        createdAt:
+          new Date(c.timestamp).toString() === "Invalid Date"
+            ? new Date().toISOString()
+            : new Date(c.timestamp).toISOString(),
         likes: 0,
         isLiked: false,
       }));
@@ -394,7 +411,12 @@ export default function MyTasksPage() {
 
   const handleAddComment = async (content: string) => {
     if (!selectedTask || !currentMember) return;
-    await addComment(content, selectedTask.companyId, currentMember.id, selectedTask.projectId);
+    await addComment(
+      content,
+      selectedTask.companyId,
+      currentMember.id,
+      selectedTask.projectId
+    );
   };
 
   const handleUpdateComment = async (commentId: string, content: string) => {
@@ -1071,10 +1093,17 @@ export default function MyTasksPage() {
                               <>
                                 <Input
                                   value={editingSubtaskTitle}
-                                  onChange={(e) => setEditingSubtaskTitle(e.target.value)}
+                                  onChange={(e) =>
+                                    setEditingSubtaskTitle(e.target.value)
+                                  }
                                   className="h-8 flex-1"
                                 />
-                                <Button size="sm" onClick={() => handleEditSubtaskSave(selectedTask.id)}>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleEditSubtaskSave(selectedTask.id)
+                                  }
+                                >
                                   Save
                                 </Button>
                                 <Button
@@ -1093,7 +1122,8 @@ export default function MyTasksPage() {
                                 <span
                                   className={cn(
                                     "text-sm flex-1",
-                                    subtask.completed && "line-through text-muted-foreground"
+                                    subtask.completed &&
+                                      "line-through text-muted-foreground"
                                   )}
                                 >
                                   {subtask.title}
@@ -1101,7 +1131,12 @@ export default function MyTasksPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleEditSubtaskStart(subtask.id, subtask.title)}
+                                  onClick={() =>
+                                    handleEditSubtaskStart(
+                                      subtask.id,
+                                      subtask.title
+                                    )
+                                  }
                                   className="h-8 w-8 p-0"
                                   aria-label="Edit subtask"
                                 >
@@ -1110,7 +1145,12 @@ export default function MyTasksPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleDeleteSubtask(selectedTask.id, subtask.id)}
+                                  onClick={() =>
+                                    handleDeleteSubtask(
+                                      selectedTask.id,
+                                      subtask.id
+                                    )
+                                  }
                                   className="h-8 w-8 p-0 text-red-600"
                                   aria-label="Delete subtask"
                                 >
@@ -1159,8 +1199,12 @@ export default function MyTasksPage() {
                   <CommentsSystem
                     comments={mappedCommentsForSelectedTask}
                     onCommentAdd={(content) => handleAddComment(content)}
-                    onCommentUpdate={(commentId, content) => handleUpdateComment(commentId, content)}
-                    onCommentDelete={(commentId) => handleDeleteComment(commentId)}
+                    onCommentUpdate={(commentId, content) =>
+                      handleUpdateComment(commentId, content)
+                    }
+                    onCommentDelete={(commentId) =>
+                      handleDeleteComment(commentId)
+                    }
                     onCommentLike={() => {}}
                     currentUser={{
                       id: assigneeId.toString(),
