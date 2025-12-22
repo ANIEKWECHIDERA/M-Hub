@@ -29,9 +29,9 @@ export const TaskContextProvider = ({
 
   const mockTasks: Task[] = [
     {
-      id: 1,
-      companyId: 1,
-      projectId: 1,
+      id: "1",
+      companyId: "1",
+      projectId: "1",
       title: "Create Logo Concepts",
       description: "Sketch and iterate on 3 logo options.",
       status: "To-Do",

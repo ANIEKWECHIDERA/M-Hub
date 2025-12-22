@@ -5,9 +5,22 @@ import { authorize } from "../middleware/authorize";
 
 const router = Router();
 
-router.get("/project", authenticate, ProjectController.getProjects);
-router.get("/project/:id", authenticate, ProjectController.getProject);
+// READ (admins + team members)
+router.get(
+  "/project",
+  authenticate,
+  authorize(["admin", "superAdmin", "team_member"]),
+  ProjectController.getProjects
+);
 
+router.get(
+  "/project/:id",
+  authenticate,
+  authorize(["admin", "superAdmin", "team_member"]),
+  ProjectController.getProject
+);
+
+// CREATE (admins only)
 router.post(
   "/project",
   authenticate,
@@ -15,6 +28,7 @@ router.post(
   ProjectController.createProject
 );
 
+// UPDATE (admins + team members)
 router.patch(
   "/project/:id",
   authenticate,
@@ -22,6 +36,7 @@ router.patch(
   ProjectController.updateProject
 );
 
+// DELETE (admins only)
 router.delete(
   "/project/:id",
   authenticate,

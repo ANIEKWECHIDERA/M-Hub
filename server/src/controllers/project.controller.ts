@@ -4,7 +4,7 @@ import { logger } from "../utils/logger";
 
 export const ProjectController = {
   async getProjects(req: Request, res: Response) {
-    console.log("REQ.USER:", req.user);
+    logger.info("REQ.USER:", req.user);
 
     if (!req.user?.company_id) {
       logger.error("Missing company_id on request", { user: req.user });
