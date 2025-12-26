@@ -42,6 +42,7 @@ export default async function authenticate(
       ...decoded,
       company_id: "3b72e747-22d9-40b6-9445-8308253923c1",
       role: "team_member",
+      user_id: "3b72e747-22d9-40b6-9445-8308253923c1",
     };
 
     req.user = appUser;
@@ -50,6 +51,7 @@ export default async function authenticate(
       uid: decoded.uid,
       company_id: appUser.company_id,
       role: appUser.role,
+      user_id: appUser.user_id,
     });
 
     next();
