@@ -41,7 +41,7 @@ export default async function authenticate(
     const appUser: AppUser = {
       ...decoded,
       company_id: "3b72e747-22d9-40b6-9445-8308253923c1",
-      role: "team_member",
+      role: "superAdmin",
       user_id: "3b72e747-22d9-40b6-9445-8308253923c1",
     };
 
