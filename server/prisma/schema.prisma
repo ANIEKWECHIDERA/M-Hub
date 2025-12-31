@@ -26,7 +26,7 @@ model users {
   bio           String?
   company_id    String?        @db.Uuid
   created_at    DateTime       @default(now()) @map("created_at")
-  updated_at    DateTime       @updatedAt @map("updated_at")
+  updated_at    DateTime       @default(now()) @updatedAt @map("updated_at")
   last_login    DateTime?      @map("last_login")
   terms_accepted   Boolean?       @map("terms_accepted")
   terms_accepted_at DateTime?     @map("terms_accepted_at")
@@ -55,7 +55,7 @@ model companies {
   name        String
   description String?
   created_at  DateTime     @default(now()) @map("created_at")
-  updated_at  DateTime     @updatedAt @map("updated_at")
+  updated_at  DateTime     @default(now()) @updatedAt @map("updated_at")
 
   users       users[]      @relation("user_company")
   team_members team_members[] @relation("company_team_members")
@@ -82,7 +82,7 @@ model clients {
   phone       String?
   address     String?
   created_at  DateTime  @default(now()) @map("created_at")
-  updated_at  DateTime  @updatedAt @map("updated_at")
+  updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
 
   company     companies @relation("company_clients", fields: [company_id], references: [id], onDelete: Cascade)
   projects    projects[] @relation("client_projects")
@@ -97,17 +97,16 @@ model clients {
 // ============================================
 model team_members {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id     String?   @db.Uuid
+  user_id     String   @db.Uuid
   company_id  String    @db.Uuid
   email       String
   role        String
-  access      String    @default("team")
+  access      String    @default("team_member")
   status      String    @default("active")
   last_login  DateTime? @map("last_login")
   created_at  DateTime  @default(now()) @map("created_at")
-  updated_at  DateTime  @updatedAt @map("updated_at")
-
-  user        users?    @relation("user_team_members", fields: [user_id], references: [id], onDelete: SetNull)
+  updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
+  user        users    @relation("user_team_members", fields: [user_id], references: [id], onDelete: Cascade)
   company     companies @relation("company_team_members", fields: [company_id], references: [id], onDelete: Cascade)
 
   task_assignments   task_team_member_assignees[] @relation("task_team_member_assignees")
@@ -131,7 +130,7 @@ model projects {
   status      String    @default("Planning")
   deadline    DateTime?
   created_at  DateTime  @default(now()) @map("created_at")
-  updated_at  DateTime  @updatedAt @map("updated_at")
+  updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
 
   company     companies   @relation("company_projects", fields: [company_id], references: [id], onDelete: Cascade)
   client      clients?    @relation("client_projects", fields: [client_id], references: [id], onDelete: SetNull)
@@ -179,7 +178,7 @@ model tasks {
   due_date    DateTime? @map("due_date")
   progress    Int       @default(0)
   created_at  DateTime  @default(now()) @map("created_at")
-  updated_at  DateTime  @updatedAt @map("updated_at")
+  updated_at  DateTime  @default(now())  @updatedAt @map("updated_at")
 
   company     companies   @relation("company_tasks", fields: [company_id], references: [id], onDelete: Cascade)
   project     projects    @relation("project_tasks", fields: [project_id], references: [id], onDelete: Cascade)
@@ -236,7 +235,7 @@ model subtasks {
   title       String
   completed   Boolean  @default(false)
   created_at  DateTime @default(now()) @map("created_at")
-  updated_at  DateTime @updatedAt @map("updated_at")
+  updated_at  DateTime @default(now()) @updatedAt @map("updated_at")
 
   company     companies @relation("company_subtasks", fields: [company_id], references: [id], onDelete: Cascade)
   task        tasks     @relation("task_subtasks", fields: [task_id], references: [id], onDelete: Cascade)
@@ -261,7 +260,7 @@ model assets {
   type          String
   url           String
   upload_date   DateTime  @default(now()) @map("upload_date")
-  updated_at    DateTime  @updatedAt @map("updated_at")
+  updated_at    DateTime  @default(now()) @updatedAt @map("updated_at")
 
   company       companies @relation("company_assets", fields: [company_id], references: [id], onDelete: Cascade)
   project       projects  @relation("project_assets", fields: [project_id], references: [id], onDelete: Cascade)
@@ -286,7 +285,7 @@ model comments {
   author_id   String    @db.Uuid
   content     String
   timestamp   DateTime  @default(now())
-  updated_at  DateTime  @updatedAt @map("updated_at")
+  updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
 
   company     companies @relation("company_comments", fields: [company_id], references: [id], onDelete: Cascade)
   project     projects  @relation("project_comments", fields: [project_id], references: [id], onDelete: Cascade)
@@ -311,7 +310,7 @@ model notes {
   title       String
   content     String
   created_at  DateTime  @default(now()) @map("created_at")
-  updated_at  DateTime  @updatedAt @map("updated_at")
+  updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
 
   company     companies @relation("company_notes", fields: [company_id], references: [id], onDelete: Cascade)
   project     projects  @relation("project_notes", fields: [project_id], references: [id], onDelete: Cascade)
@@ -346,7 +345,7 @@ model notifications {
   message    String
   read       Boolean  @default(false)
   created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @updatedAt @map("updated_at")
+  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
 
   user       users    @relation("user_notifications", fields: [user_id], references: [id], onDelete: Cascade)
 
@@ -366,7 +365,7 @@ model user_settings {
   notifications_enabled  Boolean  @default(true) @map("notifications_enabled")
   compact_mode           Boolean  @default(false) @map("compact_mode")
   created_at             DateTime @default(now()) @map("created_at")
-  updated_at             DateTime @updatedAt @map("updated_at")
+  updated_at             DateTime @default(now()) @updatedAt @map("updated_at")
 
   user                   users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
