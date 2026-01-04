@@ -5,6 +5,7 @@ import {
   ProjectResponseDTO,
 } from "../types/project.types";
 import { logger } from "../utils/logger";
+import { findOrCreateClient } from "../domain/client.domain";
 
 function toProjectResponseDTO(row: any): ProjectResponseDTO {
   return {
@@ -67,9 +68,21 @@ export const ProjectService = {
       company_id: payload.company_id,
     });
 
+    let clientId = payload.client_id ?? null;
+
+    // If client object provided, find or create it
+    if (!clientId && payload.client) {
+      clientId = await findOrCreateClient(payload.company_id, payload.client);
+    }
+
+    const { client, ...projectData } = payload;
+
     const { data, error } = await supabaseAdmin
       .from("projects")
-      .insert(payload)
+      .insert({
+        ...projectData,
+        client_id: clientId,
+      })
       .select(
         "id, company_id, client_id, title, description, status, deadline, created_at"
       )
@@ -79,6 +92,10 @@ export const ProjectService = {
       logger.error("ProjectService.create: supabase error", { error });
       throw error;
     }
+    logger.info("ProjectService.create: success", {
+      projectId: data.id,
+      clientId,
+    });
 
     return toProjectResponseDTO(data);
   },

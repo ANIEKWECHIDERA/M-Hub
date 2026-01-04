@@ -15,7 +15,15 @@ export interface CreateProjectDTO {
   description?: string;
   status?: string;
   deadline?: string;
-  client_id?: string | null;
+
+  // Linking options
+  client_id?: string;
+  client?: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
 }
 
 export interface UpdateProjectDTO {
