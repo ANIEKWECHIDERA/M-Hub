@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { ProjectService } from "../services/project.service";
+import { CreateProjectDTO, UpdateProjectDTO } from "../types/project.types";
 import { logger } from "../utils/logger";
 
 export const ProjectController = {
@@ -68,16 +69,18 @@ export const ProjectController = {
   async createProject(req: any, res: Response) {
     const companyId = req.user.company_id;
 
+    const payload: CreateProjectDTO = {
+      ...req.body,
+      company_id: companyId,
+    };
+
     try {
       logger.info("createProject: creating project", {
         companyId,
-        payload: req.body,
+        payload,
       });
 
-      const project = await ProjectService.create({
-        ...req.body,
-        company_id: companyId,
-      });
+      const project = await ProjectService.create(payload);
 
       logger.info("createProject: project created successfully", {
         companyId,
@@ -88,7 +91,7 @@ export const ProjectController = {
     } catch (error) {
       logger.error("createProject: failed to create project", {
         companyId,
-        payload: req.body,
+        payload,
         error,
       });
 
@@ -100,17 +103,19 @@ export const ProjectController = {
     const { id } = req.params;
     const companyId = req.user.company_id;
 
+    const payload: UpdateProjectDTO = req.body;
+
     try {
       logger.info("updateProject: updating project", {
         id,
         companyId,
-        payload: req.body,
+        payload,
       });
 
       const updatedProject = await ProjectService.update(
         id,
         companyId,
-        req.body
+        payload
       );
 
       if (!updatedProject) {
@@ -128,7 +133,7 @@ export const ProjectController = {
       logger.error("updateProject: failed to update project", {
         id,
         companyId,
-        payload: req.body,
+        payload,
         error,
       });
 
