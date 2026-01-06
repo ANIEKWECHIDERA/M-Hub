@@ -3,7 +3,7 @@ import {
   CreateTeamMemberDTO,
   UpdateTeamMemberDTO,
   TeamMemberResponseDTO,
-} from "../types/team-member.types";
+} from "../types/teamMember.types";
 import { logger } from "../utils/logger";
 
 function toTeamMemberResponseDTO(row: any): TeamMemberResponseDTO {

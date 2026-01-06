@@ -1,9 +1,9 @@
 import { Response } from "express";
-import { TeamMemberService } from "../services/team-member.service";
+import { TeamMemberService } from "../services/teamMember.service";
 import {
   CreateTeamMemberDTO,
   UpdateTeamMemberDTO,
-} from "../types/team-member.types";
+} from "../types/teamMember.types";
 import { logger } from "../utils/logger";
 
 export const TeamMemberController = {

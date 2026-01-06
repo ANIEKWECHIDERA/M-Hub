@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { TeamMemberController } from "../controllers/team-member.controller";
+import { TeamMemberController } from "../controllers/teamMember.controller";
 import authenticate from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 

@@ -66,6 +66,7 @@ model companies {
   comments    comments[]   @relation("company_comments")
   notes       notes[]      @relation("company_notes")
   clients     clients[]    @relation("company_clients")
+  project_team_members project_team_members[] @relation("company_project_team_members")
 
   @@map("companies")
   @@index([name])
@@ -97,7 +98,7 @@ model clients {
 // ============================================
 model team_members {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id     String   @db.Uuid
+  user_id     String?   @db.Uuid
   company_id  String    @db.Uuid
   email       String
   role        String
@@ -106,7 +107,7 @@ model team_members {
   last_login  DateTime? @map("last_login")
   created_at  DateTime  @default(now()) @map("created_at")
   updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
-  user        users    @relation("user_team_members", fields: [user_id], references: [id], onDelete: Cascade)
+  user        users?    @relation("user_team_members", fields: [user_id], references: [id], onDelete: SetNull)
   company     companies @relation("company_team_members", fields: [company_id], references: [id], onDelete: Cascade)
 
   task_assignments   task_team_member_assignees[] @relation("task_team_member_assignees")
@@ -150,6 +151,7 @@ model projects {
 // Junction: Project ↔ TeamMember
 model project_team_members {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id     String    @db.Uuid
   project_id      String    @db.Uuid
   team_member_id  String    @db.Uuid
   role            String?
@@ -157,9 +159,11 @@ model project_team_members {
 
   project         projects     @relation("project_team_members", fields: [project_id], references: [id], onDelete: Cascade)
   team_member     team_members @relation("project_team_members", fields: [team_member_id], references: [id], onDelete: Cascade)
+  company         companies    @relation("company_project_team_members", fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("project_team_members")
   @@unique([project_id, team_member_id])
+  @@index([company_id])
   @@index([project_id])
   @@index([team_member_id])
 }
@@ -200,6 +204,8 @@ model tasks {
 // Junction: Task ↔ TeamMember (assignee)
 model task_team_member_assignees {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id     String    @db.Uuid
+  project_id      String    @db.Uuid
   task_id         String    @db.Uuid
   team_member_id  String    @db.Uuid
   assigned_at     DateTime  @default(now()) @map("assigned_at")
