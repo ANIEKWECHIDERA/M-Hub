@@ -1,135 +1,131 @@
 import { supabaseAdmin } from "../config/supabaseClient";
-import { CreateProjectDTO, UpdateProjectDTO } from "../types/types";
+import {
+  CreateProjectDTO,
+  UpdateProjectDTO,
+  ProjectResponseDTO,
+} from "../types/project.types";
 import { logger } from "../utils/logger";
+import { findOrCreateClient } from "../domain/client.domain";
+
+function toProjectResponseDTO(row: any): ProjectResponseDTO {
+  return {
+    id: row.id,
+    company_id: row.company_id,
+    client_id: row.client_id,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    deadline: row.deadline,
+    created_at: row.created_at,
+  };
+}
 
 export const ProjectService = {
-  async findAll(companyId: string) {
+  async findAll(companyId: string): Promise<ProjectResponseDTO[]> {
     logger.info("ProjectService.findAll: start", { companyId });
 
     const { data, error } = await supabaseAdmin
       .from("projects")
-      .select("*")
+      .select(
+        "id, company_id, client_id, title, description, status, deadline, created_at"
+      )
       .eq("company_id", companyId)
       .order("created_at", { ascending: false });
 
     if (error) {
-      logger.error("ProjectService.findAll: supabase error", {
-        companyId,
-        error: {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        },
-      });
+      logger.error("ProjectService.findAll: supabase error", { error });
       throw error;
     }
 
-    logger.info("ProjectService.findAll: success", {
-      companyId,
-      count: data?.length ?? 0,
-    });
-
-    return data;
+    return data.map(toProjectResponseDTO);
   },
 
-  async findById(id: string, companyId: string) {
+  async findById(
+    id: string,
+    companyId: string
+  ): Promise<ProjectResponseDTO | null> {
     logger.info("ProjectService.findById: start", { id, companyId });
 
     const { data, error } = await supabaseAdmin
       .from("projects")
-      .select("*")
+      .select(
+        "id, company_id, client_id, title, description, status, deadline, created_at"
+      )
       .eq("id", id)
       .eq("company_id", companyId)
       .maybeSingle();
 
     if (error) {
-      logger.error("ProjectService.findById: supabase error", {
-        id,
-        companyId,
-        error: {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        },
-      });
+      logger.error("ProjectService.findById: supabase error", { error });
       throw error;
     }
 
-    logger.info("ProjectService.findById: success", { id, companyId });
-
-    return data;
+    return data ? toProjectResponseDTO(data) : null;
   },
 
-  async create(projectData: CreateProjectDTO) {
+  async create(payload: CreateProjectDTO): Promise<ProjectResponseDTO> {
     logger.info("ProjectService.create: start", {
-      company_id: projectData.company_id,
-      payloadKeys: Object.keys(projectData),
+      company_id: payload.company_id,
     });
+
+    let clientId = payload.client_id ?? null;
+
+    // If client object provided, find or create it
+    if (!clientId && payload.client) {
+      clientId = await findOrCreateClient(payload.company_id, payload.client);
+    }
+
+    const { client, ...projectData } = payload;
 
     const { data, error } = await supabaseAdmin
       .from("projects")
-      .insert(projectData)
-      .select()
+      .insert({
+        ...projectData,
+        client_id: clientId,
+      })
+      .select(
+        "id, company_id, client_id, title, description, status, deadline, created_at"
+      )
       .single();
 
     if (error) {
-      logger.error("ProjectService.create: supabase error", {
-        company_id: projectData.company_id,
-        error: {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        },
-      });
+      logger.error("ProjectService.create: supabase error", { error });
       throw error;
     }
-
     logger.info("ProjectService.create: success", {
-      projectId: data?.id,
-      company_id: data?.company_id,
+      projectId: data.id,
+      clientId,
     });
 
-    return data;
+    return toProjectResponseDTO(data);
   },
 
-  async update(id: string, companyId: string, projectData: UpdateProjectDTO) {
-    logger.info("ProjectService.update: start", {
-      id,
-      companyId,
-      payloadKeys: Object.keys(projectData),
-    });
+  async update(
+    id: string,
+    companyId: string,
+    payload: UpdateProjectDTO
+  ): Promise<ProjectResponseDTO | null> {
+    logger.info("ProjectService.update: start", { id, companyId });
 
     const { data, error } = await supabaseAdmin
       .from("projects")
-      .update(projectData)
+      .update(payload)
       .eq("id", id)
       .eq("company_id", companyId)
-      .select()
+      .select(
+        "id, company_id, client_id, title, description, status, deadline, created_at"
+      )
       .maybeSingle();
 
     if (error) {
-      logger.error("ProjectService.update: supabase error", {
-        id,
-        companyId,
-        error: {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        },
-      });
+      logger.error("ProjectService.update: supabase error", { error });
       throw error;
     }
 
-    logger.info("ProjectService.update: success", { id, companyId });
-
-    return data;
+    return data ? toProjectResponseDTO(data) : null;
   },
 
-  async deleteProjectById(id: string, companyId: string) {
+  async deleteProjectById(id: string, companyId: string): Promise<void> {
     logger.info("ProjectService.deleteProjectById: start", { id, companyId });
 
     const { error } = await supabaseAdmin
@@ -140,20 +136,9 @@ export const ProjectService = {
 
     if (error) {
       logger.error("ProjectService.deleteProjectById: supabase error", {
-        id,
-        companyId,
-        error: {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        },
+        error,
       });
       throw error;
     }
-
-    logger.info("ProjectService.deleteProjectById: success", { id, companyId });
-
-    return true;
   },
 };

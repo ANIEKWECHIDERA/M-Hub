@@ -7,6 +7,9 @@ import projectRoutes from "./routes/project.routes";
 import taskRoutes from "./routes/task.route";
 import subtaskRoutes from "./routes/subtask.routes";
 import companyRoutes from "./routes/company.routes";
+import clientRoutes from "./routes/client.routes";
+import teamMemberRoutes from "./routes/teamMember.routes";
+import projectTeamMemberRoutes from "./routes/projectTeamMembers.routes";
 import morgan from "morgan";
 import { logger } from "./utils/logger";
 
@@ -37,6 +40,9 @@ app.use("/api/", projectRoutes);
 app.use("/api/", taskRoutes);
 app.use("/api/", subtaskRoutes);
 app.use("/api/", companyRoutes);
+app.use("/api/", clientRoutes);
+app.use("/api/", teamMemberRoutes);
+app.use("/api/", projectTeamMemberRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {
