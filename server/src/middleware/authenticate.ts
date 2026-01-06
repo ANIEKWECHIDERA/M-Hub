@@ -42,7 +42,7 @@ export default async function authenticate(
       ...decoded,
       company_id: "3b72e747-22d9-40b6-9445-8308253923c1",
       role: "superAdmin",
-      user_id: "3b72e747-22d9-40b6-9445-8308253923c1",
+      // user_id: "3b72e747-22d9-40b6-9445-8308253923c1",
     };
 
     req.user = appUser;
