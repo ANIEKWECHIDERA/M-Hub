@@ -1,23 +1,24 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { ProjectTeamMemberService } from "../services/projectTeamMember.service";
 import { logger } from "../utils/logger";
 
 export const ProjectTeamMemberController = {
   async getAll(req: any, res: Response) {
     const companyId = req.user.company_id;
-    logger.info("PTM.getAll: start", { companyId });
+
+    logger.info("PTM.getAll:start", { companyId });
 
     try {
       const records = await ProjectTeamMemberService.findAll(companyId);
 
-      logger.info("PTM.getAll: success", {
+      logger.info("PTM.getAll:success", {
         companyId,
         count: records.length,
       });
 
       return res.json(records);
     } catch (error) {
-      logger.error("PTM.getAll: failed", { companyId, error });
+      logger.error("PTM.getAll:error", { companyId, error });
       return res.status(500).json({ error: "Failed to fetch project members" });
     }
   },
@@ -26,20 +27,20 @@ export const ProjectTeamMemberController = {
     const { id } = req.params;
     const companyId = req.user.company_id;
 
-    logger.info("PTM.getById: start", { id, companyId });
+    logger.info("PTM.getById:start", { id, companyId });
 
     try {
       const record = await ProjectTeamMemberService.findById(id, companyId);
 
       if (!record) {
-        logger.warn("PTM.getById: not found", { id, companyId });
+        logger.warn("PTM.getById:not_found", { id, companyId });
         return res.status(404).json({ error: "Record not found" });
       }
 
-      logger.info("PTM.getById: success", { id, companyId });
+      logger.info("PTM.getById:success", { id, companyId });
       return res.json(record);
     } catch (error) {
-      logger.error("PTM.getById: failed", { id, companyId, error });
+      logger.error("PTM.getById:error", { id, companyId, error });
       return res.status(500).json({ error: "Failed to fetch record" });
     }
   },
@@ -47,7 +48,7 @@ export const ProjectTeamMemberController = {
   async create(req: any, res: Response) {
     const companyId = req.user.company_id;
 
-    logger.info("PTM.create: start", {
+    logger.info("PTM.create:start", {
       companyId,
       payload: req.body,
     });
@@ -58,14 +59,14 @@ export const ProjectTeamMemberController = {
         company_id: companyId,
       });
 
-      logger.info("PTM.create: success", {
+      logger.info("PTM.create:success", {
         id: record.id,
         companyId,
       });
 
       return res.status(201).json(record);
     } catch (error) {
-      logger.error("PTM.create: failed", {
+      logger.error("PTM.create:error", {
         companyId,
         payload: req.body,
         error,
@@ -75,55 +76,19 @@ export const ProjectTeamMemberController = {
     }
   },
 
-  async update(req: any, res: Response) {
-    const { id } = req.params;
-    const companyId = req.user.company_id;
-
-    logger.info("PTM.update: start", {
-      id,
-      companyId,
-      payload: req.body,
-    });
-
-    try {
-      const updated = await ProjectTeamMemberService.update(
-        id,
-        companyId,
-        req.body
-      );
-
-      if (!updated) {
-        logger.warn("PTM.update: not found", { id, companyId });
-        return res.status(404).json({ error: "Record not found" });
-      }
-
-      logger.info("PTM.update: success", { id, companyId });
-      return res.json(updated);
-    } catch (error) {
-      logger.error("PTM.update: failed", {
-        id,
-        companyId,
-        payload: req.body,
-        error,
-      });
-
-      return res.status(500).json({ error: "Failed to update assignment" });
-    }
-  },
-
   async delete(req: any, res: Response) {
     const { id } = req.params;
     const companyId = req.user.company_id;
 
-    logger.info("PTM.delete: start", { id, companyId });
+    logger.info("PTM.delete:start", { id, companyId });
 
     try {
       await ProjectTeamMemberService.deleteById(id, companyId);
 
-      logger.info("PTM.delete: success", { id, companyId });
+      logger.info("PTM.delete:success", { id, companyId });
       return res.json({ success: true });
     } catch (error) {
-      logger.error("PTM.delete: failed", { id, companyId, error });
+      logger.error("PTM.delete:error", { id, companyId, error });
       return res.status(500).json({ error: "Failed to remove team member" });
     }
   },
@@ -132,14 +97,14 @@ export const ProjectTeamMemberController = {
     const companyId = req.user.company_id;
     const { project_id, team_member_ids, role } = req.body;
 
-    logger.info("PTM.bulkAssign: start", {
+    logger.info("PTM.bulkAssign:start", {
       companyId,
       project_id,
-      team_member_count: team_member_ids?.length,
+      teamMemberCount: team_member_ids?.length,
     });
 
     if (!Array.isArray(team_member_ids) || team_member_ids.length === 0) {
-      logger.warn("PTM.bulkAssign: invalid payload", { team_member_ids });
+      logger.warn("PTM.bulkAssign:invalid_payload", { team_member_ids });
       return res.status(400).json({
         error: "team_member_ids must be a non-empty array",
       });
@@ -153,7 +118,7 @@ export const ProjectTeamMemberController = {
         role,
       });
 
-      logger.info("PTM.bulkAssign: success", {
+      logger.info("PTM.bulkAssign:success", {
         project_id,
         assigned: result.length,
         companyId,
@@ -161,7 +126,7 @@ export const ProjectTeamMemberController = {
 
       return res.status(201).json(result);
     } catch (error) {
-      logger.error("PTM.bulkAssign: failed", {
+      logger.error("PTM.bulkAssign:error", {
         companyId,
         project_id,
         team_member_ids,

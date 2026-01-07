@@ -29,14 +29,14 @@ router.post(
 router.patch(
   "/team-members/:id",
   authenticate,
-  authorize(["admin", "superAdmin"]),
+  authorize(["superAdmin"]),
   TeamMemberController.updateTeamMember
 );
 
 router.delete(
   "/team-members/:id",
   authenticate,
-  authorize(["admin", "superAdmin"]),
+  authorize(["superAdmin"]),
   TeamMemberController.deleteTeamMember
 );
 

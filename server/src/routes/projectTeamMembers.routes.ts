@@ -8,14 +8,14 @@ const router = Router();
 router.get(
   "/project-team-members",
   authenticate,
-  authorize(["admin", "superAdmin"]),
+  authorize(["team_member", "admin", "superAdmin"]),
   ProjectTeamMemberController.getAll
 );
 
 router.get(
   "/project-team-members/:id",
   authenticate,
-  authorize(["admin", "superAdmin"]),
+  authorize(["team_member", "admin", "superAdmin"]),
   ProjectTeamMemberController.getById
 );
 
@@ -26,12 +26,12 @@ router.post(
   ProjectTeamMemberController.create
 );
 
-router.patch(
-  "/project-team-members/:id",
-  authenticate,
-  authorize(["admin", "superAdmin"]),
-  ProjectTeamMemberController.update
-);
+// router.patch(
+//   "/project-team-members/:id",
+//   authenticate,
+//   authorize(["admin", "superAdmin"]),
+//   ProjectTeamMemberController.update
+// );
 
 router.delete(
   "/project-team-members/:id",
