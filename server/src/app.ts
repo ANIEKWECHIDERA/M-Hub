@@ -11,6 +11,7 @@ import companyRoutes from "./routes/company.routes";
 import clientRoutes from "./routes/client.routes";
 import teamMemberRoutes from "./routes/teamMember.routes";
 import projectTeamMemberRoutes from "./routes/projectTeamMembers.routes";
+import assetRoutes from "./routes/asset.routes";
 import morgan from "morgan";
 import { logger } from "./utils/logger";
 
@@ -34,7 +35,7 @@ app.use(
     },
   })
 );
-// Mount auth routes
+// Mount routes
 app.use("/api/", authRoutes);
 app.use("/api/", userRoutes);
 app.use("/api/", projectRoutes);
@@ -45,6 +46,7 @@ app.use("/api/", companyRoutes);
 app.use("/api/", clientRoutes);
 app.use("/api/", teamMemberRoutes);
 app.use("/api/", projectTeamMemberRoutes);
+app.use("/api/", assetRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {
