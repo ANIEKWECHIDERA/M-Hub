@@ -1,6 +1,7 @@
+// src/types/express.ts
 import { Request } from "express";
 import { AppUser } from "./types";
 
-export interface request extends Request {
+export interface AuthenticatedRequest extends Request {
   user: AppUser;
 }

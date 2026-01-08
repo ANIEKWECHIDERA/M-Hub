@@ -16,7 +16,7 @@ router.post("/sync", authenticate, async (req: any, res) => {
     const existingUser = await UserService.findByFirebaseUid(firebaseUid);
 
     if (!existingUser) {
-      const user = await UserService.create({
+      const user = await UserService.createFromAuth({
         firebase_uid: firebaseUid,
         email: email || req.user.email,
         display_name: name || req.user.displayName,

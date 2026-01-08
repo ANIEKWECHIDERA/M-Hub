@@ -3,14 +3,6 @@ import admin from "../config/firebaseAdmin";
 import { logger } from "../utils/logger";
 import { AppUser } from "../types/types";
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AppUser;
-    }
-  }
-}
-
 export default async function authenticate(
   req: Request,
   res: Response,

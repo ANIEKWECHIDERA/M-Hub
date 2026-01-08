@@ -27,7 +27,7 @@ export const AuthController = {
         return res.json({ profile: existingUser });
       }
 
-      const user = await UserService.create({
+      const user = await UserService.createFromAuth({
         firebase_uid: firebaseUid,
         email: payload.email ?? req.user.email,
         display_name: payload.name ?? req.user.displayName,
