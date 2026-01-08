@@ -14,6 +14,7 @@ import projectTeamMemberRoutes from "./routes/projectTeamMembers.routes";
 import assetRoutes from "./routes/asset.routes";
 import morgan from "morgan";
 import { logger } from "./utils/logger";
+import commentRoutes from "./routes/comment.routes";
 
 const app = express();
 app.use(express.json());
@@ -47,6 +48,7 @@ app.use("/api/", clientRoutes);
 app.use("/api/", teamMemberRoutes);
 app.use("/api/", projectTeamMemberRoutes);
 app.use("/api/", assetRoutes);
+app.use("/api/", commentRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {

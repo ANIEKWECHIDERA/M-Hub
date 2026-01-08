@@ -314,6 +314,7 @@ model notes {
   project_id  String    @db.Uuid
   author_id   String    @db.Uuid
   title       String
+  visibility  String    @default("private")
   content     String
   created_at  DateTime  @default(now()) @map("created_at")
   updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
@@ -331,6 +332,7 @@ model notes {
 
 model note_tags {
   id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id String @db.Uuid
   note_id String @db.Uuid
   tag     String
 

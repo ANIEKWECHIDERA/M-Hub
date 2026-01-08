@@ -24,8 +24,8 @@ export interface Project {
   description?: string;
   status: string;
   deadline?: Date | string;
-  team?: number[];
-  assets?: number[];
+  team?: string[];
+  assets?: string[];
 }
 
 export interface ProjectContextType {
@@ -44,7 +44,7 @@ export interface ProjectContextType {
   setProjectToDelete: React.Dispatch<React.SetStateAction<Project | null>>;
   isDeleteDialogOpen: boolean;
   setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  getTeamMembersDetails: (memberIds: number[]) => TeamMember[];
+  getTeamMembersDetails: (memberIds: string[]) => TeamMember[];
   // Toaster: React.FC;
 }
 
@@ -56,8 +56,8 @@ export interface ProjectFormProps {
 
 //////////////// TeamContextTypes ////////////////
 export interface TeamMember {
-  id: number;
-  companyId?: number[];
+  id: string;
+  companyId?: string[];
   firstname: string;
   lastname: string;
   email: string;
@@ -75,8 +75,8 @@ export interface TeamContextType {
   setCurrentMember: React.Dispatch<React.SetStateAction<TeamMember | null>>;
   fetchTeamMembers: () => Promise<void>;
   addTeamMember: (member: TeamMember) => Promise<void>;
-  updateTeamMember: (id: number, data: Partial<TeamMember>) => Promise<void>;
-  deleteTeamMember: (id: number) => Promise<void>;
+  updateTeamMember: (id: string, data: Partial<TeamMember>) => Promise<void>;
+  deleteTeamMember: (id: string) => Promise<void>;
   confirmDelete: () => void;
   isDeleteDialogOpen: boolean;
   setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -93,7 +93,7 @@ export interface TeamMemberFormProps {
 }
 
 export interface Assignee {
-  id: number;
+  id: string;
   firstname: string;
   lastname: string;
   avatar?: string;
@@ -105,7 +105,7 @@ export interface Task {
   companyId: string;
   projectId: string;
   title: string;
-  assignee?: number[];
+  assignee?: string[];
   status: TaskStatus;
   dueDate: string;
   description: string;
@@ -115,7 +115,7 @@ export interface Task {
   tags?: string[];
   attachments?: number;
   comments?: number;
-  subtaskIds?: number[];
+  subtaskIds?: string[];
   progress?: number;
 }
 
@@ -134,12 +134,12 @@ export interface TaskContextType {
   setCurrentTask: React.Dispatch<React.SetStateAction<Task | null>>;
   fetchTasks: () => Promise<void>;
   addTask: (
-    projectId: number,
-    companyId: number,
+    projectId: string,
+    companyId: string,
     task: Partial<Task>
   ) => Promise<void>;
-  updateTask: (id: number, data: Partial<Task>) => Promise<void>;
-  deleteTask: (id: number) => Promise<void>;
+  updateTask: (id: string, data: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
   loading: boolean;
   error: string | null;
   selectedTask: EnrichedTask | null;
@@ -150,12 +150,12 @@ export interface TaskContextType {
   isDeleteDialogOpen: boolean;
   setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   getEnrichedTasks: () => EnrichedTask[];
-  getEnrichedTaskById: (id: number) => EnrichedTask | undefined;
+  getEnrichedTaskById: (id: string) => EnrichedTask | undefined;
 }
 
 export interface Subtask {
-  id: number;
-  companyId: number;
+  id: string;
+  companyId: string;
   title: string;
   completed: boolean;
   createdAt: string;
@@ -166,9 +166,9 @@ export interface SubtaskContextType {
   setSubtasks: React.Dispatch<React.SetStateAction<Subtask[]>>;
   fetchSubtasks: () => Promise<void>;
   addSubtask: (data: Omit<Subtask, "id">) => Promise<Subtask>;
-  updateSubtask: (id: number, data: Partial<Subtask>) => Promise<void>;
-  deleteSubtask: (id: number) => Promise<void>;
-  getSubtasksByIds: (ids: number[]) => Subtask[];
+  updateSubtask: (id: string, data: Partial<Subtask>) => Promise<void>;
+  deleteSubtask: (id: string) => Promise<void>;
+  getSubtasksByIds: (ids: string[]) => Subtask[];
   loading: boolean;
   error: string | null;
 }
@@ -185,7 +185,7 @@ export interface TaskFormProps {
   defaultValues?: {
     title?: string;
     description?: string;
-    assignee?: number[] | string;
+    assignee?: string[] | string;
     status?: string;
     dueDate?: string;
   };
@@ -193,10 +193,10 @@ export interface TaskFormProps {
 
 /////////////////// AssetContextTypes ///////////////
 export interface Assets {
-  id: number;
-  companyId: number;
-  projectId: number;
-  assigneeId: number;
+  id: string;
+  companyId: string;
+  projectId: string;
+  assigneeId: string;
   name: string;
   size: string;
   uploadDate: string;
@@ -212,8 +212,8 @@ export interface AssetContextType {
 
   fetchFiles: () => Promise<void>;
   addFile: (file: Assets) => Promise<void>;
-  updateFile: (id: number, data: Partial<Assets>) => Promise<void>;
-  deleteFile: (id: number) => Promise<void>;
+  updateFile: (id: string, data: Partial<Assets>) => Promise<void>;
+  deleteFile: (id: string) => Promise<void>;
   confirmFileDelete: () => void;
   fileToDelete: Assets | null;
   setFileToDelete: React.Dispatch<React.SetStateAction<Assets | null>>;
@@ -226,10 +226,10 @@ export interface AssetContextType {
 
 //////////////// CommentContextTypes //////////////
 export interface Comment {
-  id: number;
-  companyId: number;
-  projectId: number;
-  authorId: number;
+  id: string;
+  companyId: string;
+  projectId: string;
+  authorId: string;
   content: string;
   timestamp: string;
 }
@@ -245,12 +245,12 @@ export interface CommentContextType {
   fetchComments: () => Promise<void>;
   addComment: (
     content: string,
-    authorId: number,
-    companyId: number,
-    projectId: number
+    authorId: string,
+    companyId: string,
+    projectId: string
   ) => Promise<void>;
-  updateComment: (id: number, data: Partial<Comment>) => Promise<void>;
-  deleteComment: (id: number) => Promise<void>;
+  updateComment: (id: string, data: Partial<Comment>) => Promise<void>;
+  deleteComment: (id: string) => Promise<void>;
 
   loading: boolean;
   error: string | null;
@@ -277,10 +277,10 @@ export interface SettingsContextType {
 
 //////////// NoteTypes //////////////////////
 export interface Note {
-  id: number;
-  companyId: number;
-  projectId: number;
-  authorId: number;
+  id: string;
+  companyId: string;
+  projectId: string;
+  authorId: string;
   title: string;
   content: string;
   tags: string[];
@@ -296,18 +296,18 @@ export interface NoteContextType {
   tags: string[];
   fetchNotes: () => Promise<void>;
   addNote: (note: Note) => Promise<void>;
-  updateNote: (id: number, data: Partial<Note>) => Promise<void>;
-  deleteNote: (id: number) => Promise<void>;
+  updateNote: (id: string, data: Partial<Note>) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
 
   loading: boolean;
   error: string | null;
 }
 
 export interface NoteData {
-  id: number;
-  companyId: number;
-  projectId: number;
-  authorId: number;
+  id: string;
+  companyId: string;
+  projectId: string;
+  authorId: string;
   title: string;
   content: string;
   tags: string[];

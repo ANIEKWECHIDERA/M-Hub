@@ -66,7 +66,7 @@ export default function ProjectDetail() {
     currentProject,
     setCurrentProject,
   } = useProjectContext();
-  const project = projects.find((project) => project.id === Number(id));
+  const project = projects.find((project) => project.id === id);
   const {
     tasks,
     addTask,
@@ -99,19 +99,19 @@ export default function ProjectDetail() {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const filteredTasks = useMemo(
-    () => tasks.filter((task) => task.projectId === Number(id)),
+    () => tasks.filter((task) => task.projectId === id),
     [tasks, id]
   );
-  const { total, completed, progress } = useProjectTaskStats(Number(id));
+  const { total, completed, progress } = useProjectTaskStats(id ?? "");
 
   const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
   const { teamMembers, currentMember } = useTeamContext();
   const filteredfiles = useMemo(
-    () => files.filter((file) => file.projectId === Number(id)),
+    () => files.filter((file) => file.projectId === (id ?? "")),
     [files, id]
   );
   const filteredComments = useMemo(
-    () => comments.filter((comment) => comment.projectId === Number(id)),
+    () => comments.filter((comment) => comment.projectId === (id ?? "")),
     [comments, id]
   );
 
@@ -328,7 +328,7 @@ export default function ProjectDetail() {
                       if (editingTask) {
                         updateTask(editingTask.id, data);
                       } else {
-                        addTask(project.id, 1, data);
+                        addTask(project.id, "1", data);
                       }
                       setIsTaskDialogOpen(false);
                       setEditingTask(null);
@@ -564,7 +564,7 @@ export default function ProjectDetail() {
                     const fileData = {
                       id: files.length + 1,
                       companyId: 1,
-                      projectId: Number(id),
+                      projectId: id ?? "",
                       assigneeId: 1,
                       name: file.name,
                       type: file.type.split("/")[1] || "unknown",
@@ -665,9 +665,9 @@ export default function ProjectDetail() {
                 addComment(content, 1, currentMember?.id ?? 1, project.id)
               }
               onCommentUpdate={(commentId, content) =>
-                updateComment(Number(commentId), { content })
+                updateComment(commentId, { content })
               }
-              onCommentDelete={(commentId) => deleteComment(Number(commentId))}
+              onCommentDelete={(commentId) => deleteComment(commentId)}
               onCommentLike={() => {}}
               currentUser={{
                 id: String(currentMember?.id ?? 1),
