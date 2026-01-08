@@ -311,7 +311,7 @@ model comments {
 model notes {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   company_id  String    @db.Uuid
-  project_id  String    @db.Uuid
+  project_id  String?   @db.Uuid
   author_id   String    @db.Uuid
   title       String
   visibility  String    @default("private")
@@ -320,7 +320,7 @@ model notes {
   updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
 
   company     companies @relation("company_notes", fields: [company_id], references: [id], onDelete: Cascade)
-  project     projects  @relation("project_notes", fields: [project_id], references: [id], onDelete: Cascade)
+  project     projects?  @relation("project_notes", fields: [project_id], references: [id], onDelete: Cascade)
   author      users     @relation("note_author", fields: [author_id], references: [id], onDelete: Cascade)
   tags        note_tags[] @relation("note_tags")
 
@@ -348,6 +348,7 @@ model note_tags {
 model notifications {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id    String   @db.Uuid
+  company_id  String   @db.Uuid
   type       String
   title      String
   message    String

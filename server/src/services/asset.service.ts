@@ -14,7 +14,7 @@ export const AssetService = {
       file.buffer.toString("base64"),
       {
         resource_type: "auto",
-        folder: `mhub/${companyId}`,
+        folder: `m-hub/${companyId}`,
       }
     );
 
