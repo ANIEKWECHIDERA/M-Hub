@@ -27,7 +27,7 @@ const NoteForm = ({ note, onSave, onCancel }: NoteFormProps) => {
     const noteData: Partial<Note> = {
       title: formData.title,
       content: formData.content,
-      projectId: formData.projectId ? Number(formData.projectId) : undefined,
+      projectId: formData.projectId ? formData.projectId : undefined,
       tags: formData.tags
         .split(",")
         .map((tag) => tag.trim())

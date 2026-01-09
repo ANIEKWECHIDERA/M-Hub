@@ -23,7 +23,7 @@ export const TaskContextProvider = ({
   projectId,
 }: {
   children: React.ReactNode;
-  projectId?: number;
+  projectId?: string;
 }) => {
   const { projects } = useProjectContext();
 

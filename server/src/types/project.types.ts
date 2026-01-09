@@ -1,12 +1,23 @@
 export interface ProjectResponseDTO {
   id: string;
   company_id: string;
-  client_id?: string | null;
   title: string;
-  description?: string | null;
+  description: string | null;
   status: string;
-  deadline?: string | null;
+  deadline: string | null;
   created_at: string;
+
+  client: {
+    id: string;
+    name: string;
+  } | null;
+
+  team_members: {
+    id: string;
+    name: string;
+    avatar?: string | null;
+    role: string | null;
+  }[];
 }
 
 export interface CreateProjectDTO {

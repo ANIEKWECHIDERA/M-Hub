@@ -1,4 +1,3 @@
-// client/src/api/projects.ts
 import type {
   CreateProjectDTO,
   Project,
@@ -15,7 +14,10 @@ export const ProjectAPI = {
     return apiFetch<Project>(`/api/project/${id}`, undefined, idToken);
   },
 
-  create(payload: CreateProjectDTO, idToken: string) {
+  create(payload: CreateProjectDTO, idToken: string | null) {
+    if (!idToken) {
+      throw new Error("Missing ID token");
+    }
     return apiFetch<Project>(
       "/api/project",
       {
@@ -26,7 +28,10 @@ export const ProjectAPI = {
     );
   },
 
-  update(id: string, payload: UpdateProjectDTO, idToken: string) {
+  update(id: string, payload: UpdateProjectDTO, idToken: string | null) {
+    if (!idToken) {
+      throw new Error("Missing ID token");
+    }
     return apiFetch<Project>(
       `/api/project/${id}`,
       {
@@ -37,7 +42,10 @@ export const ProjectAPI = {
     );
   },
 
-  delete(id: string, idToken: string) {
+  delete(id: string, idToken: string | null) {
+    if (!idToken) {
+      throw new Error("Missing ID token");
+    }
     return apiFetch<{ success: true }>(
       `/api/project/${id}`,
       {

@@ -1,7 +1,7 @@
 import { useTaskContext } from "@/context/TaskContext";
 import { useMemo } from "react";
 
-export function useProjectTaskStats(projectId: number) {
+export function useProjectTaskStats(projectId: string) {
   const { tasks } = useTaskContext();
 
   return useMemo(() => {

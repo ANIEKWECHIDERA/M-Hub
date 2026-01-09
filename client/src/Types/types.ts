@@ -3,7 +3,7 @@ import type { User } from "firebase/auth";
 export interface CreateProjectDTO {
   title: string;
   description?: string;
-  status?: "Planning" | "In Progress" | "Completed";
+  status?: "Active" | "Planning" | "In Progress" | "On Hold" | "Completed";
   deadline?: string; // ISO string
   client_id?: string;
 }
@@ -11,21 +11,31 @@ export interface CreateProjectDTO {
 export interface UpdateProjectDTO {
   title?: string;
   description?: string;
-  status?: "Planning" | "In Progress" | "Completed";
+  status?: "Active" | "Planning" | "In Progress" | "On Hold" | "Completed";
   deadline?: string;
   client_id?: string;
 }
 
 export interface Project {
   id: string;
-  companyId: string;
-  client?: string;
+  company_id: string;
   title: string;
-  description?: string;
-  status: string;
-  deadline?: Date | string;
-  team?: string[];
-  assets?: string[];
+  description: string | null;
+  status: "Active" | "Planning" | "In Progress" | "On Hold" | "Completed";
+  deadline: string | null;
+  created_at: string;
+
+  client: {
+    id: string;
+    name: string;
+  } | null;
+
+  team_members: {
+    id: string;
+    name: string;
+    avatar?: string | null;
+    role: string | null;
+  }[];
 }
 
 export interface ProjectContextType {
@@ -35,17 +45,18 @@ export interface ProjectContextType {
   setCurrentProject: React.Dispatch<React.SetStateAction<Project | null>>;
   loading: boolean;
   error: string | null;
+
   fetchProjects: () => Promise<void>;
-  addProject: (project: Project) => Promise<void>;
-  updateProject: (id: string, data: Partial<Project>) => Promise<void>;
+  addProject: (project: CreateProjectDTO) => Promise<Project>;
+
+  updateProject: (id: string, data: CreateProjectDTO) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
+
   confirmDelete: () => void;
   projectToDelete: Project | null;
   setProjectToDelete: React.Dispatch<React.SetStateAction<Project | null>>;
   isDeleteDialogOpen: boolean;
   setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  getTeamMembersDetails: (memberIds: string[]) => TeamMember[];
-  // Toaster: React.FC;
 }
 
 export interface ProjectFormProps {

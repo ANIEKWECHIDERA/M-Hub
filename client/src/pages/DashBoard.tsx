@@ -122,11 +122,16 @@ export default function Dashboard() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Clients</SelectItem>
-            {clients.filter((client): client is string => client !== undefined).map((client) => (
-              <SelectItem key={client} value={client}>
-                {client}
-              </SelectItem>
-            ))}
+            {clients
+              .filter(
+                (client): client is { id: string; name: string } =>
+                  client !== undefined
+              )
+              .map((client) => (
+                <SelectItem key={client?.id} value={client?.name ?? "Unknown"}>
+                  {client?.name ?? "Unknown"}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
         <Button
@@ -154,7 +159,7 @@ export default function Dashboard() {
                   <div className="space-y-1">
                     <CardTitle className="text-lg">{project.title}</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      {project.client}
+                      {project.client?.name}
                     </p>
                   </div>
                   <Badge
@@ -183,7 +188,9 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
                     <span>
-                      {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'No deadline'}
+                      {project.deadline
+                        ? new Date(project.deadline).toLocaleDateString()
+                        : "No deadline"}
                     </span>
                   </div>
                   {total > 0 ? (
@@ -205,7 +212,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1">
                     <Users className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">
-                      {project.team?.length ?? 0} members
+                      {project.team_members?.length ?? 0} members
                     </span>
                   </div>
                   <Link to={`/projectdetails/${project.id}`}>

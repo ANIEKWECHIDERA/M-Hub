@@ -61,10 +61,10 @@ export default function Projects() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
   const clients = useMemo(
-    () => Array.from(new Set(projects.map((p) => p.client))),
+    () => Array.from(new Set(projects.map((p) => p.clientId ?? "Unknown"))),
     [projects]
   );
 
@@ -73,12 +73,16 @@ export default function Projects() {
       .filter((project) => {
         const matchesSearch =
           project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          project.client.toLowerCase().includes(searchTerm.toLowerCase());
+          (project.clientId ?? "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase());
         const matchesStatus =
           statusFilter === "all" || project.status === statusFilter;
         const matchesClient =
-          clientFilter === "all" || project.client === clientFilter;
-        const projectDate = new Date(project.deadline);
+          clientFilter === "all" || project.clientId === clientFilter;
+        const projectDate = project.deadline
+          ? new Date(project.deadline)
+          : new Date(0);
         const matchesFrom = dateFrom ? projectDate >= new Date(dateFrom) : true;
         const matchesTo = dateTo ? projectDate <= new Date(dateTo) : true;
         return (
@@ -91,7 +95,8 @@ export default function Projects() {
       })
       .sort(
         (a, b) =>
-          new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+          (a.deadline ? new Date(a.deadline).getTime() : 0) -
+          (b.deadline ? new Date(b.deadline).getTime() : 0)
       );
   }, [projects, searchTerm, statusFilter, clientFilter, dateFrom, dateTo]);
 
@@ -120,10 +125,9 @@ export default function Projects() {
             <ProjectForm
               onSave={async (data) => {
                 const newProject: Project = {
-                  id: projects.length + 1,
                   title: data.title || "",
-                  client: data.client || "",
-                  status: data.status || "Active",
+                  clientId: data.clientId || "",
+                  status: data.status || "Planning",
                   deadline: data.deadline || "",
                   description: data.description || "",
                   team: Array.isArray((data as any).team)
@@ -234,7 +238,7 @@ export default function Projects() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{project.client}</TableCell>
+                      <TableCell>{project.clientId}</TableCell>
                       <TableCell>
                         <Badge
                           variant={
@@ -249,7 +253,9 @@ export default function Projects() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {new Date(project.deadline).toLocaleDateString()}
+                        {project.deadline
+                          ? new Date(project.deadline).toLocaleDateString()
+                          : "N/A"}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

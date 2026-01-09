@@ -17,13 +17,15 @@ import { useTeamContext } from "@/context/TeamMemberContext";
 const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
   const [formData, setFormData] = useState({
     title: project.title || "",
-    client: project.client || "",
-    status: project.status || "Active",
+    client: project.clientId || "",
+    status: project.status || "Planning",
     deadline: project.deadline || "",
     description: project.description || "",
   });
-  const [selectedTeam, setSelectedTeam] = useState<number[]>(
-    Array.isArray((project as any).team) ? ((project as any).team as number[]) : []
+  const [selectedTeam, setSelectedTeam] = useState<string[]>(
+    Array.isArray((project as any).team)
+      ? ((project as any).team as string[])
+      : []
   );
   const { teamMembers } = useTeamContext();
   const [newClient, setNewClient] = useState("");
@@ -96,7 +98,16 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
         <Label htmlFor="status">Status</Label>
         <Select
           value={formData.status}
-          onValueChange={(value) => setFormData({ ...formData, status: value })}
+          onValueChange={(value) =>
+            setFormData({
+              ...formData,
+              status: value as
+                | "Active"
+                | "In Progress"
+                | "On Hold"
+                | "Completed",
+            })
+          }
         >
           <SelectTrigger>
             <SelectValue />
@@ -142,7 +153,10 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
           {teamMembers.map((member) => {
             const checked = selectedTeam.includes(member.id);
             return (
-              <label key={member.id} className="flex items-center gap-2 text-sm cursor-pointer">
+              <label
+                key={member.id}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
                 <Checkbox
                   checked={checked}
                   onCheckedChange={(isChecked) => {
@@ -153,12 +167,17 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
                     );
                   }}
                 />
-                <span>{member.firstname} {member.lastname}</span>
+                <span>
+                  {member.firstname} {member.lastname}
+                </span>
               </label>
             );
           })}
         </div>
-        <p className="text-xs text-muted-foreground">Select one or more members to assign to this project. These members will be available to assign tasks to.</p>
+        <p className="text-xs text-muted-foreground">
+          Select one or more members to assign to this project. These members
+          will be available to assign tasks to.
+        </p>
       </div>
 
       <div className="flex justify-end gap-2">

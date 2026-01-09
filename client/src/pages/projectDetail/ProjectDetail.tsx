@@ -58,14 +58,8 @@ import {
 
 export default function ProjectDetail() {
   const { id } = useParams();
-  const {
-    projects,
-    loading,
-    error,
-    getTeamMembersDetails,
-    currentProject,
-    setCurrentProject,
-  } = useProjectContext();
+  const { projects, loading, error, currentProject, setCurrentProject } =
+    useProjectContext();
   const project = projects.find((project) => project.id === id);
   const {
     tasks,
@@ -104,7 +98,7 @@ export default function ProjectDetail() {
   );
   const { total, completed, progress } = useProjectTaskStats(id ?? "");
 
-  const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
+  const team = currentProject ? currentProject.team_members ?? [] : [];
   const { teamMembers, currentMember } = useTeamContext();
   const filteredfiles = useMemo(
     () => files.filter((file) => file.projectId === (id ?? "")),
@@ -116,7 +110,7 @@ export default function ProjectDetail() {
   );
 
   const projectCommentsForSystem = useMemo(() => {
-    const findAuthorName = (authorId: number) => {
+    const findAuthorName = (authorId: string) => {
       const tm = teamMembers.find((m) => m.id === authorId);
       return tm ? `${tm.firstname} ${tm.lastname}` : `User ${authorId}`;
     };
@@ -183,7 +177,7 @@ export default function ProjectDetail() {
               <h1 className="text-3xl font-bold tracking-tight">
                 {project.title}
               </h1>
-              <p className="text-muted-foreground">{project.client}</p>
+              <p className="text-muted-foreground">{project.client?.name}</p>
             </div>
             <Badge
               variant={
@@ -207,7 +201,7 @@ export default function ProjectDetail() {
                   <div>
                     <p className="text-sm font-medium">Deadline</p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(project.deadline).toLocaleDateString()}
+                      {new Date(project.deadline ?? "").toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -220,7 +214,7 @@ export default function ProjectDetail() {
                   <div>
                     <p className="text-sm font-medium">Team Members</p>
                     <p className="text-sm text-muted-foreground">
-                      {project.team.length} members
+                      {(project.team_members ?? []).length} members
                     </p>
                   </div>
                 </div>
@@ -267,14 +261,14 @@ export default function ProjectDetail() {
                   <h3 className="text-lg font-semibold">Key Information</h3>
                   <ul className="text-sm text-muted-foreground space-y-2">
                     <li>
-                      <strong>Client:</strong> {project.client}
+                      <strong>Client:</strong> {project.client?.name}
                     </li>
                     <li>
                       <strong>Status:</strong> {project.status}
                     </li>
                     <li>
                       <strong>Deadline:</strong>{" "}
-                      {new Date(project.deadline).toLocaleDateString()}
+                      {new Date(project.deadline ?? "").toLocaleDateString()}
                     </li>
                     <li>
                       <strong>Total Tasks:</strong> {total}
@@ -514,23 +508,26 @@ export default function ProjectDetail() {
           <TabsContent value="team" className="space-y-4">
             <h2 className="text-xl font-semibold">Team Members</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {team.map((member) => (
-                <Card key={member.id}>
+              {team.map((team_members) => (
+                <Card key={team_members.id}>
                   <CardContent className="p-4 flex items-center gap-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={member.avatar || "/placeholder.svg"} />
+                      <AvatarImage
+                        src={team_members.avatar || "/placeholder.svg"}
+                      />
                       <AvatarFallback>
-                        {`${member.firstname?.[0] ?? ""}${
-                          member.lastname?.[0] ?? ""
-                        }`}
+                        {team_members.name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">
-                        {member.firstname} {member.lastname}
-                      </p>
+                      <p className="font-medium">{team_members.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {member.role}
+                        {team_members.role}
                       </p>
                     </div>
                   </CardContent>
