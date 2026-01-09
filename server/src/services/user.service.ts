@@ -26,16 +26,27 @@ export const UserService = {
   },
 
   async createFromAuth(dto: CreateUserFromAuthDTO) {
-    return prisma.users.create({
-      data: {
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .insert({
         firebase_uid: dto.firebase_uid,
         email: dto.email,
         display_name: dto.display_name ?? null,
         photo_url: dto.photo_url ?? null,
         terms_accepted: false,
         terms_accepted_at: null,
-      },
-    });
+        last_login: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
   },
 
   async create(userData: {
