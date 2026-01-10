@@ -5,10 +5,12 @@ export async function apiFetch<T>(
   options: RequestInit = {},
   idToken: string
 ): Promise<T> {
+  const isFormData = options.body instanceof FormData;
+
   const res = await fetch(`${API_CONFIG.backend}${url}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       Authorization: `Bearer ${idToken}`,
       ...options.headers,
     },

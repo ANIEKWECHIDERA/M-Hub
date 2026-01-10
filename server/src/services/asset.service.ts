@@ -1,28 +1,55 @@
+import { UploadApiResponse } from "cloudinary";
 import cloudinary from "../config/cloudinary";
 import { supabaseAdmin } from "../config/supabaseClient";
 import { CreateAssetDTO } from "../types/asset.types";
 import { logger } from "../utils/logger";
+import streamifier from "streamifier";
+import { v4 as uuidv4 } from "uuid";
 
 export const AssetService = {
-  async uploadToCloudinary(file: Express.Multer.File, companyId: string) {
+  async uploadToCloudinary(
+    file: Express.Multer.File,
+    companyId: string
+  ): Promise<UploadApiResponse> {
     logger.info("Asset.uploadToCloudinary:start", {
       companyId,
       filename: file.originalname,
+      mimetype: file.mimetype,
     });
-    const base64 = file.buffer.toString("base64");
-    const dataUri = `data:${file.mimetype};base64,${base64}`;
-    const result = await cloudinary.uploader.upload(dataUri, {
-      resource_type: "auto",
-      folder: `m-hub ${companyId}/${file.originalname}`,
-    });
+    return new Promise<UploadApiResponse>((resolve, reject) => {
+      const safeName = file.originalname
+        .replace(/\.[^/.]+$/, "") // remove extension
+        .replace(/[^a-zA-Z0-9-_]/g, "_") // replace symbols
+        .toLowerCase();
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: "auto",
+          folder: `m-hub ${companyId}/${safeName}`,
+          public_id: uuidv4(),
+          use_filename: false,
+          unique_filename: true,
+        },
+        (error, result) => {
+          if (error) {
+            logger.error("Asset.uploadToCloudinary:error", error);
+            return reject(error);
+          }
 
-    logger.info("Asset.uploadToCloudinary:success", {
-      public_id: result.public_id,
-    });
+          if (!result) {
+            return reject(new Error("Cloudinary upload failed"));
+          }
 
-    return result;
+          logger.info("Asset.uploadToCloudinary:success", {
+            public_id: result.public_id,
+            secure_url: result.secure_url,
+          });
+
+          resolve(result);
+        }
+      );
+      streamifier.createReadStream(file.buffer).pipe(stream);
+    });
   },
-
   async create(payload: CreateAssetDTO) {
     logger.info("Asset.create:start", {
       company_id: payload.company_id,
