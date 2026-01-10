@@ -11,6 +11,7 @@ import type {
   CreateProjectDTO,
   Project,
   ProjectContextType,
+  UpdateProjectDTO,
 } from "../Types/types";
 import { ProjectAPI } from "@/api/projects.api";
 
@@ -74,7 +75,7 @@ export const ProjectContextProvider = ({
     return project;
   };
 
-  const updateProject = async (id: string, data: CreateProjectDTO) => {
+  const updateProject = async (id: string, data: UpdateProjectDTO) => {
     const updated = await ProjectAPI.update(id, data, idToken);
     if (!updated) return;
 

@@ -5,7 +5,7 @@ import { logger } from "../utils/logger";
 export const AssetController = {
   async upload(req: any, res: Response) {
     const companyId = req.user.company_id;
-    const userId = req.user.id;
+    const userId = req.user.user_id;
     const { project_id, task_id } = req.body;
     const files = req.files as Express.Multer.File[];
 

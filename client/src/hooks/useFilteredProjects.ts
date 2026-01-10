@@ -11,7 +11,7 @@ export function useFilteredProjects(
       const statusMatch =
         statusFilter === "all" || project.status.toLowerCase() === statusFilter;
       const clientMatch =
-        clientFilter === "all" || project.client === clientFilter;
+        clientFilter === "all" || project.client?.name === clientFilter;
       return statusMatch && clientMatch;
     });
   }, [projects, statusFilter, clientFilter]);

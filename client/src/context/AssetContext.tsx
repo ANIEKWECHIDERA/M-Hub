@@ -1,14 +1,21 @@
-import { createContext, useContext, useEffect, useState } from "react";
-
-import type { AssetContextType, Assets } from "../Types/types";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import { toast } from "sonner";
+import { useAuthContext } from "./AuthContext";
+import type { Assets, AssetContextType } from "@/Types/types";
+import { AssetsAPI } from "@/api/assets.api";
 
 const AssetContext = createContext<AssetContextType | null>(null);
 
 export const useAssetContext = () => {
   const context = useContext(AssetContext);
   if (!context) {
-    throw new Error("useAssetContext must be used within an AssetProvider");
+    throw new Error("useAssetContext must be used within AssetContextProvider");
   }
   return context;
 };
@@ -18,84 +25,71 @@ export const AssetContextProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const mockFiles: Assets[] = [
-    {
-      id: 1,
-      companyId: 1,
-      projectId: 1,
-      assigneeId: 2,
-      name: "logo-conceptsddddd.pdf",
-      size: "2.4 MB",
-      uploadDate: "2024-01-10",
-      type: "pdf",
-      url: "",
-    },
-    {
-      id: 2,
-      companyId: 1,
-      projectId: 1,
-      assigneeId: 2,
-      name: "brand-colors.png",
-      size: "856 KB",
-      uploadDate: "2024-01-12",
-      type: "image",
-      url: "",
-    },
-    {
-      id: 3,
-      companyId: 1,
-      projectId: 3,
-      assigneeId: 2,
-      name: "style-guide.docx",
-      size: "1.2 MB",
-      uploadDate: "2024-01-14",
-      type: "document",
-      url: "",
-    },
-  ];
+  const { idToken } = useAuthContext();
 
   const [files, setFiles] = useState<Assets[]>([]);
   const [currentFile, setCurrentFile] = useState<Assets | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [fileToDelete, setFileToDelete] = useState<Assets | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const fetchFiles = async () => {
-    setLoading(true);
+  const fetchFilesByProject = useCallback(
+    async (projectId: string) => {
+      if (!idToken) return;
+
+      setLoading(true);
+      try {
+        const data = await AssetsAPI.getByProject(projectId, idToken);
+        setFiles(data);
+        setError(null);
+      } catch (err: any) {
+        const msg = err.message || "Failed to fetch assets";
+        setError(msg);
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [idToken]
+  );
+
+  const uploadFiles = async (
+    projectId: string,
+    filesToUpload: File[],
+    taskId?: string
+  ) => {
+    if (!idToken) return;
+
     try {
-      // TODO: Replace with real fetch (e.g. Firebase, REST API)
-      setFiles(mockFiles);
-      setError(null);
-    } catch (err) {
-      setError("Failed to fetch files.");
-    } finally {
-      setLoading(false);
+      const uploaded = await AssetsAPI.upload(
+        projectId,
+        filesToUpload,
+        idToken,
+        taskId
+      );
+
+      console.log("uploaded files:", uploaded);
+
+      setFiles((prev) => [...uploaded, ...prev]);
+      toast.success("Files uploaded successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
     }
   };
 
-  const addFile = async (file: Assets) => {
-    setFiles((prev) => [...prev, file]);
-    toast.success("File uploaded successfully!");
-    // TODO: Upload to backend
-  };
+  const deleteFile = async (id: string) => {
+    if (!idToken) return;
 
-  const updateFile = async (id: number, data: Partial<Assets>) => {
-    setFiles((prev) =>
-      prev.map((file) => (file.id === id ? { ...file, ...data } : file))
-    );
-    // TODO: Update in backend
+    try {
+      await AssetsAPI.delete(id, idToken);
+      setFiles((prev) => prev.filter((f) => f.id !== id));
+      toast.success("File deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Delete failed");
+    }
   };
-
-  const deleteFile = async (id: number) => {
-    setFiles((prev) => prev.filter((file) => file.id !== id));
-    toast.success("File deleted successfully!");
-    // TODO: Delete from backend
-  };
-
-  useEffect(() => {
-    fetchFiles();
-  }, []);
 
   const confirmFileDelete = () => {
     if (fileToDelete) {
@@ -105,17 +99,17 @@ export const AssetContextProvider = ({
     }
   };
 
-  const value = {
+  const value: AssetContextType = {
     files,
-    setFiles,
     currentFile,
-    setCurrentFile,
-    fetchFiles,
-    addFile,
-    updateFile,
-    deleteFile,
     loading,
     error,
+
+    fetchFilesByProject,
+    uploadFiles,
+    deleteFile,
+
+    setCurrentFile,
     confirmFileDelete,
     isDeleteDialogOpen,
     fileToDelete,

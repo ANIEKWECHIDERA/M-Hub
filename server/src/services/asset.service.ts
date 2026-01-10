@@ -9,14 +9,12 @@ export const AssetService = {
       companyId,
       filename: file.originalname,
     });
-
-    const result = await cloudinary.uploader.upload(
-      file.buffer.toString("base64"),
-      {
-        resource_type: "auto",
-        folder: `m-hub/${companyId}`,
-      }
-    );
+    const base64 = file.buffer.toString("base64");
+    const dataUri = `data:${file.mimetype};base64,${base64}`;
+    const result = await cloudinary.uploader.upload(dataUri, {
+      resource_type: "auto",
+      folder: `m-hub ${companyId}/${file.originalname}`,
+    });
 
     logger.info("Asset.uploadToCloudinary:success", {
       public_id: result.public_id,

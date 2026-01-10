@@ -13,20 +13,22 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ProjectFormProps } from "../Types/types";
 import { useTeamContext } from "@/context/TeamMemberContext";
+import { useClientContext } from "@/context/ClientContext";
 
 const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
   const [formData, setFormData] = useState({
     title: project.title || "",
-    client: project.clientId || "",
+    client_id: project.client?.id || null,
     status: project.status || "Planning",
     deadline: project.deadline || "",
     description: project.description || "",
   });
   const [selectedTeam, setSelectedTeam] = useState<string[]>(
-    Array.isArray((project as any).team)
-      ? ((project as any).team as string[])
+    Array.isArray((project as any).team_members)
+      ? ((project as any).team_members as string[])
       : []
   );
+  const { clients } = useClientContext();
   const { teamMembers } = useTeamContext();
   const [newClient, setNewClient] = useState("");
   const [showNewClientInput, setShowNewClientInput] = useState(false);
@@ -35,14 +37,13 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
     e.preventDefault();
     const finalData = {
       ...formData,
-      client: showNewClientInput && newClient ? newClient : formData.client,
-      team: selectedTeam,
+      client_id:
+        showNewClientInput && newClient ? newClient : formData.client_id,
+      team_member_ids: selectedTeam,
     };
     // TODO: Validate form data before saving (e.g., title and deadline required)
     onSave(finalData);
   };
-
-  const clients = ["TechCorp Inc.", "StartupXYZ", "RetailCo"];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -69,12 +70,12 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
           />
         ) : (
           <Select
-            value={formData.client}
+            value={formData.client_id ?? ""}
             onValueChange={(value) => {
               if (value === "NewClient") {
                 setShowNewClientInput(true);
               } else {
-                setFormData({ ...formData, client: value });
+                setFormData({ ...formData, client_id: value });
                 setShowNewClientInput(false);
               }
             }}
@@ -84,8 +85,8 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
             </SelectTrigger>
             <SelectContent>
               {clients.map((client) => (
-                <SelectItem key={client} value={client}>
-                  {client}
+                <SelectItem key={client.id} value={client.id}>
+                  {client.name}
                 </SelectItem>
               ))}
               <SelectItem value="NewClient">+ Add New Client</SelectItem>

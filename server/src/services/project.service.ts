@@ -3,6 +3,7 @@ import {
   CreateProjectDTO,
   UpdateProjectDTO,
   ProjectResponseDTO,
+  UpdateProjectInput,
 } from "../types/project.types";
 import { logger } from "../utils/logger";
 import { findOrCreateClient } from "../domain/client.domain";
@@ -85,67 +86,125 @@ export const ProjectService = {
       company_id: payload.company_id,
     });
 
-    let clientId = payload.client_id ?? null;
+    const { team_member_ids, client, ...projectPayload } = payload;
 
-    // If client object provided, find or create it
-    if (!clientId && payload.client) {
-      clientId = await findOrCreateClient(payload.company_id, payload.client);
+    // 1️⃣ Resolve client
+    let clientId = projectPayload.client_id ?? null;
+
+    if (!clientId && client) {
+      clientId = await findOrCreateClient(payload.company_id, client);
     }
 
-    const { client, ...projectData } = payload;
-
-    const { data, error } = await supabaseAdmin
+    // 2️⃣ Create project (projects table ONLY)
+    const { data: project, error } = await supabaseAdmin
       .from("projects")
       .insert({
-        ...projectData,
+        ...projectPayload,
         client_id: clientId,
       })
-      .select(
-        "id, company_id, client_id, title, description, status, deadline, created_at"
-      )
+      .select("id")
       .single();
 
     if (error) {
-      logger.error("ProjectService.create: supabase error", { error });
+      logger.error("ProjectService.create: project insert error", { error });
       throw error;
     }
 
-    const project = await this.findById(data.id, payload.company_id);
+    // 3️⃣ Insert team members (junction table)
+    if (team_member_ids && team_member_ids.length > 0) {
+      const rows = team_member_ids.map((teamMemberId) => ({
+        project_id: project.id,
+        team_member_id: teamMemberId,
+        company_id: payload.company_id,
+      }));
 
-    if (!project) {
+      const { error: membersError } = await supabaseAdmin
+        .from("project_team_members")
+        .insert(rows);
+
+      if (membersError) {
+        logger.error("ProjectService.create: insert team members error", {
+          membersError,
+        });
+        throw membersError;
+      }
+    }
+
+    // 4️⃣ Return enriched project
+    const enriched = await this.findById(project.id, payload.company_id);
+
+    if (!enriched) {
       throw new Error("Failed to retrieve created project");
     }
 
     logger.info("ProjectService.create: success", {
-      projectId: data.id,
+      projectId: project.id,
       clientId,
     });
 
-    return project;
+    return enriched;
   },
-
   async update(
     id: string,
     companyId: string,
-    payload: UpdateProjectDTO
+    payload: UpdateProjectInput
   ): Promise<ProjectResponseDTO | null> {
     logger.info("ProjectService.update: start", { id, companyId });
 
-    const { data, error } = await supabaseAdmin
-      .from("projects")
-      .update(payload)
-      .eq("id", id)
-      .eq("company_id", companyId)
-      .select(
-        "id, company_id, client_id, title, description, status, deadline, created_at"
-      )
-      .maybeSingle();
+    const { team_member_ids, ...projectData } = payload;
 
-    if (error) {
-      logger.error("ProjectService.update: supabase error", { error });
-      throw error;
+    // Update project table (ONLY scalar fields)
+    if (Object.keys(projectData).length > 0) {
+      const { error } = await supabaseAdmin
+        .from("projects")
+        .update(projectData)
+        .eq("id", id)
+        .eq("company_id", companyId);
+
+      if (error) {
+        logger.error("ProjectService.update: project update error", { error });
+        throw error;
+      }
     }
 
+    // Update team members (junction table)
+    if (team_member_ids) {
+      // Remove existing members
+      const { error: deleteError } = await supabaseAdmin
+        .from("project_team_members")
+        .delete()
+        .eq("project_id", id)
+        .eq("company_id", companyId);
+
+      if (deleteError) {
+        logger.error("ProjectService.update: delete team members error", {
+          deleteError,
+        });
+        throw deleteError;
+      }
+
+      // Insert new members
+      if (team_member_ids.length > 0) {
+        const rows = team_member_ids.map((teamMemberId) => ({
+          project_id: id,
+          team_member_id: teamMemberId,
+          company_id: companyId,
+        }));
+
+        const { error: insertError } = await supabaseAdmin
+          .from("project_team_members")
+          .insert(rows);
+
+        if (insertError) {
+          logger.error("ProjectService.update: insert team members error", {
+            insertError,
+          });
+          throw insertError;
+        }
+      }
+    }
+
+    // Return enriched project
     return this.findById(id, companyId);
   },
 

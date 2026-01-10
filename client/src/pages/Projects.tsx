@@ -39,7 +39,7 @@ import ProjectForm from "@/components/ProjectForm";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
 import { useProjectContext } from "@/context/ProjectContext";
 import { Link } from "react-router-dom";
-import type { Project } from "../Types/types";
+import type { CreateProjectDTO, Project } from "../Types/types";
 
 export default function Projects() {
   const {
@@ -64,7 +64,7 @@ export default function Projects() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
   const clients = useMemo(
-    () => Array.from(new Set(projects.map((p) => p.clientId ?? "Unknown"))),
+    () => Array.from(new Set(projects.map((p) => p.client?.name ?? "Unknown"))),
     [projects]
   );
 
@@ -73,13 +73,13 @@ export default function Projects() {
       .filter((project) => {
         const matchesSearch =
           project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (project.clientId ?? "")
+          (project.client?.id ?? "")
             .toLowerCase()
             .includes(searchTerm.toLowerCase());
         const matchesStatus =
           statusFilter === "all" || project.status === statusFilter;
         const matchesClient =
-          clientFilter === "all" || project.clientId === clientFilter;
+          clientFilter === "all" || project.client?.name === clientFilter;
         const projectDate = project.deadline
           ? new Date(project.deadline)
           : new Date(0);
@@ -124,14 +124,14 @@ export default function Projects() {
             </DialogHeader>
             <ProjectForm
               onSave={async (data) => {
-                const newProject: Project = {
+                const newProject: CreateProjectDTO = {
                   title: data.title || "",
-                  clientId: data.clientId || "",
+                  client_id: data.client?.id || undefined,
                   status: data.status || "Planning",
-                  deadline: data.deadline || "",
-                  description: data.description || "",
-                  team: Array.isArray((data as any).team)
-                    ? ((data as any).team as number[])
+                  deadline: data.deadline || undefined,
+                  description: data.description || undefined,
+                  team_member_ids: Array.isArray((data as any).team)
+                    ? ((data as any).team as string[])
                     : [],
                 };
                 await addProject(newProject);
@@ -238,7 +238,7 @@ export default function Projects() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{project.clientId}</TableCell>
+                      <TableCell>{project.client?.name}</TableCell>
                       <TableCell>
                         <Badge
                           variant={
@@ -313,7 +313,7 @@ export default function Projects() {
             project={projects.find((p) => p.id === editingProjectId)}
             onSave={async (data) => {
               if (editingProjectId) {
-                await updateProject(editingProjectId, data);
+                await updateProject(editingProjectId, data as any);
                 setEditingProjectId(null);
               }
             }}

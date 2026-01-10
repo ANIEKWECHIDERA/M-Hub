@@ -35,6 +35,8 @@ export interface CreateProjectDTO {
     phone?: string;
     address?: string;
   };
+
+  team_member_ids?: string[];
 }
 
 export interface UpdateProjectDTO {
@@ -43,4 +45,8 @@ export interface UpdateProjectDTO {
   status?: string;
   deadline?: string;
   client_id?: string | null;
+}
+
+export interface UpdateProjectInput extends UpdateProjectDTO {
+  team_member_ids?: string[];
 }

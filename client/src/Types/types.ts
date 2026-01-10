@@ -6,6 +6,7 @@ export interface CreateProjectDTO {
   status?: "Active" | "Planning" | "In Progress" | "On Hold" | "Completed";
   deadline?: string; // ISO string
   client_id?: string;
+  team_member_ids?: string[];
 }
 
 export interface UpdateProjectDTO {
@@ -14,6 +15,7 @@ export interface UpdateProjectDTO {
   status?: "Active" | "Planning" | "In Progress" | "On Hold" | "Completed";
   deadline?: string;
   client_id?: string;
+  team_member_ids?: string[];
 }
 
 export interface Project {
@@ -205,34 +207,41 @@ export interface TaskFormProps {
 /////////////////// AssetContextTypes ///////////////
 export interface Assets {
   id: string;
-  companyId: string;
-  projectId: string;
-  assigneeId: string;
+  company_id: string;
+  project_id: string;
+  task_id?: string | null;
+  uploaded_by_id: string;
+
   name: string;
   size: string;
-  uploadDate: string;
-  url: string;
   type: "pdf" | "image" | "document" | string;
+  url: string;
+
+  upload_date: string;
+  updated_at: string;
 }
 
 export interface AssetContextType {
   files: Assets[];
-  setFiles: React.Dispatch<React.SetStateAction<Assets[]>>;
   currentFile: Assets | null;
-  setCurrentFile: React.Dispatch<React.SetStateAction<Assets | null>>;
-
-  fetchFiles: () => Promise<void>;
-  addFile: (file: Assets) => Promise<void>;
-  updateFile: (id: string, data: Partial<Assets>) => Promise<void>;
-  deleteFile: (id: string) => Promise<void>;
-  confirmFileDelete: () => void;
-  fileToDelete: Assets | null;
-  setFileToDelete: React.Dispatch<React.SetStateAction<Assets | null>>;
-  isDeleteDialogOpen: boolean;
-  setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
   loading: boolean;
   error: string | null;
+
+  fetchFilesByProject: (projectId: string) => Promise<void>;
+  uploadFiles: (
+    projectId: string,
+    files: File[],
+    taskId?: string
+  ) => Promise<void>;
+  deleteFile: (id: string) => Promise<void>;
+
+  setCurrentFile: React.Dispatch<React.SetStateAction<Assets | null>>;
+  isDeleteDialogOpen: boolean;
+  setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  fileToDelete: Assets | null;
+  setFileToDelete: React.Dispatch<React.SetStateAction<Assets | null>>;
+  confirmFileDelete: () => void;
 }
 
 //////////////// CommentContextTypes //////////////
@@ -399,4 +408,24 @@ export interface UserContextType {
   fetchUserProfile: (idToken: string) => Promise<UserProfile | null>;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
   //   refreshProfile?: () => Promise<void>; // Optional: manual refresh
+
+  ////////////////////////clients/////////////////
+}
+export interface Client {
+  id: string;
+  company_id: string;
+  name: string;
+  contact_person: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ClientContextType {
+  clients: Client[];
+  loading: boolean;
+  error: string | null;
+  fetchClients: () => Promise<void>;
 }

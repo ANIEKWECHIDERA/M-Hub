@@ -14,20 +14,6 @@ router.post(
   AssetController.upload
 );
 
-// router.get(
-//   "/assets",
-//   authenticate,
-//   authorize(["admin", "superAdmin", "team_member"]),
-//   AssetController.getAll
-// );
-
-// router.get(
-//   "/assets/:id",
-//   authenticate,
-//   authorize(["admin", "superAdmin", "team_member"]),
-//   AssetController.getById
-// );
-
 router.get(
   "/assets/:projectId",
   authenticate,

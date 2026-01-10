@@ -76,8 +76,9 @@ export default function ProjectDetail() {
   } = useTaskContext();
   const {
     files,
+    fetchFilesByProject,
     currentFile,
-    addFile,
+    uploadFiles,
     confirmFileDelete,
     setFileToDelete,
     fileToDelete,
@@ -101,7 +102,7 @@ export default function ProjectDetail() {
   const team = currentProject ? currentProject.team_members ?? [] : [];
   const { teamMembers, currentMember } = useTeamContext();
   const filteredfiles = useMemo(
-    () => files.filter((file) => file.projectId === (id ?? "")),
+    () => files.filter((file) => file.project_id === (id ?? "")),
     [files, id]
   );
   const filteredComments = useMemo(
@@ -135,14 +136,33 @@ export default function ProjectDetail() {
   //   selectedTask?.assignee.includes(member.id)
   // );
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (project && (!currentProject || currentProject.id !== project.id)) {
       setCurrentProject(project);
     }
   }, [project, currentProject, setCurrentProject]);
 
+  useEffect(() => {
+    if (project?.id) {
+      fetchFilesByProject(project.id);
+    }
+  }, [project?.id, fetchFilesByProject]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !project?.id) return;
+
+    // snapshot files immediately
+    const files = Array.from(e.target.files);
+
+    // reset input immediately
+    e.target.value = "";
+
+    await uploadFiles(project.id, files);
+
+    console.log("uploaded files:", files);
+  };
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!project) return <div>No project data available</div>;
@@ -261,7 +281,10 @@ export default function ProjectDetail() {
                   <h3 className="text-lg font-semibold">Key Information</h3>
                   <ul className="text-sm text-muted-foreground space-y-2">
                     <li>
-                      <strong>Client:</strong> {project.client?.name}
+                      <strong>Client:</strong>{" "}
+                      {project.client?.name
+                        ? project.client?.name
+                        : "No client assigned"}
                     </li>
                     <li>
                       <strong>Status:</strong> {project.status}
@@ -550,28 +573,12 @@ export default function ProjectDetail() {
                 Upload File
               </label>
               <Input
-                id="file-upload"
-                className="hidden"
-                type="file"
                 ref={fileInputRef}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    // Normalize file data
-                    const fileData = {
-                      id: files.length + 1,
-                      companyId: 1,
-                      projectId: id ?? "",
-                      assigneeId: 1,
-                      name: file.name,
-                      type: file.type.split("/")[1] || "unknown",
-                      size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-                      uploadDate: new Date().toISOString(),
-                      url: URL.createObjectURL(file), // For download
-                    };
-                    addFile(fileData); // Assuming addFile(fileData) in AssetContext
-                  }
-                }}
+                type="file"
+                multiple
+                className="hidden"
+                id="file-upload"
+                onChange={handleFileUpload}
               />
             </div>
 
@@ -614,13 +621,7 @@ export default function ProjectDetail() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                // Assuming file has 'url' property
-                                if (file.url) {
-                                  const a = document.createElement("a");
-                                  a.href = file.url;
-                                  a.download = file.name;
-                                  a.click();
-                                }
+                                window.open(file.url, "_blank");
                               }}
                             >
                               <Download className="h-4 w-4" />
@@ -642,7 +643,7 @@ export default function ProjectDetail() {
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Uploaded on{" "}
-                          {new Date(file.uploadDate).toLocaleDateString()}
+                          {new Date(file.upload_date).toLocaleDateString()}
                         </p>
                       </div>
                     </CardContent>

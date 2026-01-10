@@ -1,4 +1,3 @@
-//set up an express app
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.routes";
@@ -19,9 +18,9 @@ import noteRoutes from "./routes/note.routes";
 import noteTagRoutes from "./routes/noteTag.routes";
 import notificationRoutes from "./routes/notification.routes";
 import userSettingsRoutes from "./routes/userSettings.routes";
+import bodyParser from "body-parser";
 
 const app = express();
-app.use(express.json());
 
 // CORS middleware - Allow all origins
 app.use(
@@ -32,6 +31,10 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json({}));
+app.use(express.urlencoded({ extended: true }));
 
 app.use(
   morgan("combined", {
@@ -63,5 +66,30 @@ app.get("/api/health", async (req, res) => {
   console.log("Health check endpoint accessed");
   res.send("Server is running");
 });
+
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    logger.error("Unhandled error", {
+      message: err.message,
+      stack: err.stack,
+    });
+
+    // Multer errors
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        error: "File too large (max 20MB)",
+      });
+    }
+
+    return res.status(err.status || 500).json({
+      error: err.message || "Internal server error",
+    });
+  }
+);
 
 export default app;
