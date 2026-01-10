@@ -1,121 +1,120 @@
 import { createContext, useContext, useEffect, useState } from "react";
-
-import type { Comment, CommentContextType } from "../Types/types";
-import { format, parse } from "date-fns";
+import type { Comment, CommentContextType } from "@/Types/types";
+import { useAuthContext } from "./AuthContext";
+import { commentsAPI } from "@/api/comments.api";
 
 const CommentContext = createContext<CommentContextType | null>(null);
 
 export const useCommentContext = () => {
   const context = useContext(CommentContext);
   if (!context) {
-    throw new Error("useCommentContext must be used within a CommentProvider");
+    throw new Error(
+      "useCommentContext must be used within CommentContextProvider"
+    );
   }
   return context;
 };
 
 export const CommentContextProvider = ({
+  projectId,
   children,
 }: {
+  projectId: string;
   children: React.ReactNode;
 }) => {
-  const mockComments: Comment[] = [
-    {
-      id: 1,
-      companyId: 1,
-      projectId: 1,
-      authorId: 2,
-      content:
-        "Great progress on the logo Designs! I think option 2 works best with the brand direction.",
-      timestamp: "2024-01-15 10:30 AM",
-    },
-    {
-      id: 2,
-      companyId: 1,
-      projectId: 1,
-      authorId: 4,
-      content: "Thanks! I’ll refine option 2 and prepare the color variations.",
-      timestamp: "2024-01-15 11:15 AM",
-    },
-  ];
+  const { idToken } = useAuthContext();
 
   const [comments, setComments] = useState<Comment[]>([]);
   const [currentComment, setCurrentComment] = useState<Comment | null>(null);
+  const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [newComment, setNewComment] = useState("");
 
   const fetchComments = async () => {
+    if (!idToken || !projectId) return;
+
     setLoading(true);
     try {
-      // TODO: Replace with backend fetch
-      setComments(mockComments);
+      const data = await commentsAPI.getByProject(projectId, idToken);
+      setComments(data);
       setError(null);
     } catch (err) {
-      setError("Failed to fetch comments.");
+      setError("Failed to fetch comments");
     } finally {
       setLoading(false);
     }
   };
 
-  const addComment = async (
-    content: string,
-    companyId: number,
-    authorId: number,
-    projectId: number
-  ) => {
-    const newComment: Comment = {
-      id: comments.length + 1,
-      companyId,
-      projectId,
-      authorId,
-      content,
-      timestamp: format(
-        parse(new Date().toLocaleString(), "dd/MM/yyyy, HH:mm:ss", new Date()),
-        "PPP p"
-      ),
-    };
-    setComments((prev) => [...prev, newComment]);
-    setNewComment("");
+  const addComment: CommentContextType["addComment"] = async ({
+    content,
+    projectId,
+    taskId,
+  }) => {
+    if (!idToken) return;
+    console.log("[Context] addComment called", { content, projectId });
 
-    // TODO: Save to backend
+    try {
+      const created = await commentsAPI.create(
+        {
+          project_id: projectId,
+          content,
+          task_id: taskId,
+        },
+        idToken
+      );
+
+      setComments((prev) => [...prev, created]);
+      setNewComment("");
+    } catch {
+      setError("Failed to add comment");
+    }
   };
 
-  const updateComment = async (id: number, data: Partial<Comment>) => {
-    setComments((prev) =>
-      prev.map((comment) =>
-        comment.id === id ? { ...comment, ...data } : comment
-      )
-    );
+  const updateComment = async (id: string, data: { content?: string }) => {
+    if (!idToken) return;
 
-    // TODO: Update in backend
+    try {
+      const updated = await commentsAPI.update(id, data, idToken);
+
+      setComments((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    } catch {
+      setError("Failed to update comment");
+    }
   };
 
-  const deleteComment = async (id: number) => {
-    setComments((prev) => prev.filter((comment) => comment.id !== id));
+  const deleteComment = async (id: string) => {
+    if (!idToken) return;
 
-    // TODO: Delete from backend
+    try {
+      await commentsAPI.delete(id, idToken);
+      setComments((prev) => prev.filter((c) => c.id !== id));
+    } catch {
+      setError("Failed to delete comment");
+    }
   };
 
   useEffect(() => {
     fetchComments();
-  }, []);
-
-  const value = {
-    newComment,
-    comments,
-    setComments,
-    currentComment,
-    setCurrentComment,
-    fetchComments,
-    addComment,
-    updateComment,
-    deleteComment,
-    loading,
-    error,
-    setNewComment,
-  };
+  }, [projectId, idToken]);
 
   return (
-    <CommentContext.Provider value={value}>{children}</CommentContext.Provider>
+    <CommentContext.Provider
+      value={{
+        comments,
+        setComments,
+        currentComment,
+        setCurrentComment,
+        newComment,
+        setNewComment,
+        fetchComments,
+        addComment,
+        updateComment,
+        deleteComment,
+        loading,
+        error,
+      }}
+    >
+      {children}
+    </CommentContext.Provider>
   );
 };

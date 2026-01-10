@@ -249,9 +249,10 @@ export interface Comment {
   id: string;
   companyId: string;
   projectId: string;
+  taskId?: string | null;
   authorId: string;
   content: string;
-  timestamp: string;
+  timestamp: string; // ISO string
 }
 
 export interface CommentContextType {
@@ -261,19 +262,32 @@ export interface CommentContextType {
   setCurrentComment: React.Dispatch<React.SetStateAction<Comment | null>>;
   newComment: string;
   setNewComment: React.Dispatch<React.SetStateAction<string>>;
-
   fetchComments: () => Promise<void>;
-  addComment: (
-    content: string,
-    authorId: string,
-    companyId: string,
-    projectId: string
+  addComment: (data: {
+    content: string;
+    projectId: string;
+    taskId?: string;
+  }) => Promise<void>;
+
+  updateComment: (
+    id: string,
+    data: Partial<Pick<Comment, "content">>
   ) => Promise<void>;
-  updateComment: (id: string, data: Partial<Comment>) => Promise<void>;
+
   deleteComment: (id: string) => Promise<void>;
 
   loading: boolean;
   error: string | null;
+}
+
+export interface CreateCommentPayload {
+  project_id: string;
+  content: string;
+  task_id?: string;
+}
+
+export interface UpdateCommentPayload {
+  content?: string;
 }
 
 //////////////// SettingsContextTypes //////////////

@@ -660,7 +660,10 @@ export default function ProjectDetail() {
             <CommentsSystem
               comments={projectCommentsForSystem}
               onCommentAdd={(content) =>
-                addComment(content, 1, currentMember?.id ?? 1, project.id)
+                addComment({
+                  content,
+                  projectId: project.id,
+                })
               }
               onCommentUpdate={(commentId, content) =>
                 updateComment(commentId, { content })
@@ -668,7 +671,7 @@ export default function ProjectDetail() {
               onCommentDelete={(commentId) => deleteComment(commentId)}
               onCommentLike={() => {}}
               currentUser={{
-                id: String(currentMember?.id ?? 1),
+                id: currentMember?.id ?? "fallback-user-id",
                 name: currentMember
                   ? `${currentMember.firstname} ${currentMember.lastname}`
                   : "Current User",

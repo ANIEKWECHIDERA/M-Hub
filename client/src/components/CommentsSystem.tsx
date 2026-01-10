@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +33,8 @@ import {
   Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProjectContext } from "@/context/ProjectContext";
+import { useUser } from "@/context/UserContext";
 
 interface Comment {
   id: string;
@@ -63,14 +63,14 @@ interface Comment {
 
 interface EnhancedCommentsSystemProps {
   comments: Comment[];
-  onCommentAdd?: (
+  onCommentAdd: (
     content: string,
     parentId?: string,
     mentions?: string[]
   ) => void;
-  onCommentUpdate?: (commentId: string, content: string) => void;
-  onCommentDelete?: (commentId: string) => void;
-  onCommentLike?: (commentId: string) => void;
+  onCommentUpdate: (commentId: string, content: string) => void;
+  onCommentDelete: (commentId: string) => void;
+  onCommentLike: (commentId: string) => void;
   currentUser?: {
     id: string;
     name: string;
@@ -113,21 +113,43 @@ export function CommentsSystem({
     "newest"
   );
 
+  const { profile } = useUser();
+  const photoURL = profile?.photoURL;
+  const initials = (() => {
+    if (!profile) return "User";
+
+    const { first_name, last_name, displayName } = profile;
+    const initials =
+      [first_name, last_name]
+        .filter(Boolean)
+        .map((x) => x![0].toUpperCase())
+        .join("") ||
+      displayName
+        ?.split(" ")
+        .filter(Boolean)
+        .map((p) => p[0].toUpperCase())
+        .join("");
+
+    return initials || "User";
+  })();
+
   const handleSubmitComment = () => {
-    if (newComment.trim()) {
-      onCommentAdd?.(newComment, replyingTo || undefined, selectedMentions);
-      setNewComment("");
-      setReplyingTo(null);
-      setSelectedMentions([]);
-    }
+    const content = newComment.trim();
+    if (!content) return;
+
+    onCommentAdd(content);
+
+    setNewComment("");
   };
 
   const handleEditComment = (commentId: string) => {
-    if (editContent.trim()) {
-      onCommentUpdate?.(commentId, editContent);
-      setEditingComment(null);
-      setEditContent("");
-    }
+    const content = editContent.trim();
+    if (!content) return;
+
+    onCommentUpdate(commentId, content);
+
+    setEditingComment(null);
+    setEditContent("");
   };
 
   const startEdit = (comment: Comment) => {
@@ -213,16 +235,9 @@ export function CommentsSystem({
         >
           <CardContent className="p-4">
             <div className="flex gap-3">
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarImage
-                  src={comment.author.avatar || "/placeholder.svg"}
-                />
-                <AvatarFallback>
-                  {comment.author.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </AvatarFallback>
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={photoURL || "/placeholder.svg"} />
+                <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
 
               <div className="flex-1 min-w-0">
@@ -465,193 +480,6 @@ export function CommentsSystem({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              Comments ({comments.length})
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Filter className="h-4 w-4 mr-2" />
-                    Filter
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setFilterBy("all")}>
-                    All Comments
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterBy("mentions")}>
-                    Mentions
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterBy("liked")}>
-                    Liked
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search comments..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          {/* Sort */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sort by:</span>
-            <div className="flex gap-1">
-              <Button
-                variant={sortBy === "newest" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSortBy("newest")}
-              >
-                Newest
-              </Button>
-              <Button
-                variant={sortBy === "oldest" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSortBy("oldest")}
-              >
-                Oldest
-              </Button>
-              <Button
-                variant={sortBy === "most-liked" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSortBy("most-liked")}
-              >
-                Most Liked
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* New Comment Form */}
-      {!replyingTo && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex gap-3">
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarImage src={currentUser?.avatar || "/placeholder.svg"} />
-                <AvatarFallback>
-                  {currentUser?.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("") || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 space-y-3">
-                <Textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder={placeholder}
-                  className="min-h-[100px]"
-                  maxLength={maxCommentLength}
-                />
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Dialog open={showMentions} onOpenChange={setShowMentions}>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <AtSign className="h-4 w-4 mr-1" />
-                          Mention
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[400px]">
-                        <DialogHeader>
-                          <DialogTitle>Mention Team Member</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-2">
-                          <Input
-                            placeholder="Search team members..."
-                            value={mentionQuery}
-                            onChange={(e) => setMentionQuery(e.target.value)}
-                          />
-                          <div className="max-h-60 overflow-y-auto space-y-1">
-                            {teamMembers
-                              .filter((member) =>
-                                member.name
-                                  .toLowerCase()
-                                  .includes(mentionQuery.toLowerCase())
-                              )
-                              .map((member) => (
-                                <Button
-                                  key={member.id}
-                                  variant="ghost"
-                                  className="w-full justify-start"
-                                  onClick={() => handleMention(member.name)}
-                                >
-                                  <Avatar className="h-6 w-6 mr-2">
-                                    <AvatarImage
-                                      src={member.avatar || "/placeholder.svg"}
-                                    />
-                                    <AvatarFallback className="text-xs">
-                                      {member.name
-                                        .split(" ")
-                                        .map((n) => n[0])
-                                        .join("")}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="text-left">
-                                    <p className="text-sm font-medium">
-                                      {member.name}
-                                    </p>
-                                    {member.role && (
-                                      <p className="text-xs text-muted-foreground">
-                                        {member.role}
-                                      </p>
-                                    )}
-                                  </div>
-                                </Button>
-                              ))}
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-
-                    {allowAttachments && (
-                      <Button variant="ghost" size="sm">
-                        <Paperclip className="h-4 w-4 mr-1" />
-                        Attach
-                      </Button>
-                    )}
-
-                    <Button variant="ghost" size="sm">
-                      <Smile className="h-4 w-4 mr-1" />
-                      Emoji
-                    </Button>
-
-                    <span className="text-xs text-muted-foreground">
-                      {newComment.length}/{maxCommentLength}
-                    </span>
-                  </div>
-
-                  <Button
-                    onClick={handleSubmitComment}
-                    disabled={!newComment.trim()}
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    Comment
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Comments List */}
       <div className="space-y-4">
         {filteredComments.map((comment) => (
@@ -676,6 +504,44 @@ export function CommentsSystem({
           </Card>
         )}
       </div>
+
+      {/* New Comment Form */}
+      {!replyingTo && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex gap-3">
+              <Avatar className="h-8 w-8 flex-shrink-0">
+                <AvatarImage src={photoURL || "/placeholder.svg"} />
+                <AvatarFallback>{initials || "U"}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-3">
+                <Textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder={placeholder}
+                  className="min-h-[100px]"
+                  maxLength={maxCommentLength}
+                />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {newComment.length}/{maxCommentLength}
+                    </span>
+                  </div>
+
+                  <Button
+                    onClick={handleSubmitComment}
+                    disabled={!newComment.trim()}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Comment
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
