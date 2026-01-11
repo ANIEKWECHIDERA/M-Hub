@@ -45,7 +45,10 @@ import {
 import type { Task } from "@/Types/types";
 import { useProjectTaskStats } from "@/hooks/useProjectTaskStats";
 import { useTeamContext } from "@/context/TeamMemberContext";
-import { useCommentContext } from "@/context/CommentContext";
+import {
+  CommentContextProvider,
+  useCommentContext,
+} from "@/context/CommentContext";
 import { Input } from "@/components/ui/input";
 import {
   Breadcrumb,
@@ -77,7 +80,6 @@ export default function ProjectDetail() {
   const {
     files,
     fetchFilesByProject,
-    currentFile,
     uploadFiles,
     confirmFileDelete,
     setFileToDelete,
@@ -85,8 +87,7 @@ export default function ProjectDetail() {
   } = useAssetContext();
   const {
     comments,
-    newComment,
-    setNewComment,
+    loading: commentLoading,
     addComment,
     updateComment,
     deleteComment,
@@ -100,37 +101,11 @@ export default function ProjectDetail() {
   const { total, completed, progress } = useProjectTaskStats(id ?? "");
 
   const team = currentProject ? currentProject.team_members ?? [] : [];
-  const { teamMembers, currentMember } = useTeamContext();
+  const { teamMembers } = useTeamContext();
   const filteredfiles = useMemo(
     () => files.filter((file) => file.project_id === (id ?? "")),
     [files, id]
   );
-  const filteredComments = useMemo(
-    () => comments.filter((comment) => comment.projectId === (id ?? "")),
-    [comments, id]
-  );
-
-  const projectCommentsForSystem = useMemo(() => {
-    const findAuthorName = (authorId: string) => {
-      const tm = teamMembers.find((m) => m.id === authorId);
-      return tm ? `${tm.firstname} ${tm.lastname}` : `User ${authorId}`;
-    };
-    return filteredComments.map((c) => ({
-      id: String(c.id),
-      content: c.content,
-      author: {
-        id: String(c.authorId),
-        name: findAuthorName(c.authorId),
-        avatar: "/placeholder.svg?height=32&width=32",
-      },
-      createdAt:
-        new Date(c.timestamp).toString() === "Invalid Date"
-          ? new Date().toISOString()
-          : new Date(c.timestamp).toISOString(),
-      likes: 0,
-      isLiked: false,
-    }));
-  }, [filteredComments, teamMembers]);
 
   // const selectedAssignees = teamMembers.filter((member) =>
   //   selectedTask?.assignee.includes(member.id)
@@ -654,35 +629,18 @@ export default function ProjectDetail() {
           </TabsContent>
 
           {/* Comments Tab */}
-
-          <TabsContent value="comments" className="space-y-4">
-            <h2 className="text-xl font-semibold">Project Comments</h2>
-            <CommentsSystem
-              comments={projectCommentsForSystem}
-              onCommentAdd={(content) =>
-                addComment({
-                  content,
-                  projectId: project.id,
-                })
-              }
-              onCommentUpdate={(commentId, content) =>
-                updateComment(commentId, { content })
-              }
-              onCommentDelete={(commentId) => deleteComment(commentId)}
-              onCommentLike={() => {}}
-              currentUser={{
-                id: currentMember?.id ?? "fallback-user-id",
-                name: currentMember
-                  ? `${currentMember.firstname} ${currentMember.lastname}`
-                  : "Current User",
-                avatar:
-                  currentMember?.avatar ??
-                  "/placeholder.svg?height=32&width=32",
-                role: currentMember?.role ?? "Member",
-              }}
-              placeholder="Add a comment..."
-            />
-          </TabsContent>
+          <CommentContextProvider projectId={project.id}>
+            <TabsContent value="comments" className="space-y-4">
+              <h2 className="text-xl font-semibold">Project Comments</h2>
+              <CommentsSystem
+                comments={comments}
+                loading={commentLoading}
+                onCommentAdd={addComment}
+                onCommentUpdate={updateComment}
+                onCommentDelete={deleteComment}
+              />
+            </TabsContent>
+          </CommentContextProvider>
         </Tabs>
 
         {/* Delete Confirmation Dialog */}

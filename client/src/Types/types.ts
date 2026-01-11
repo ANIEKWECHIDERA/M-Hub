@@ -252,22 +252,38 @@ export interface Comment {
   taskId?: string | null;
   authorId: string;
   content: string;
-  timestamp: string; // ISO string
+  timestamp: string;
+  author: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  createdAt: string;
 }
 
-export interface CommentContextType {
+export interface OptimisticComment extends Comment {
+  id: string;
+  content: string;
+  authorId: string;
+  author: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  createdAt: string;
+  updatedAt?: string;
+  isEdited?: boolean;
+}
+
+export interface CommentContextTypek {
   comments: Comment[];
   setComments: React.Dispatch<React.SetStateAction<Comment[]>>;
   currentComment: Comment | null;
   setCurrentComment: React.Dispatch<React.SetStateAction<Comment | null>>;
   newComment: string;
   setNewComment: React.Dispatch<React.SetStateAction<string>>;
-  fetchComments: () => Promise<void>;
-  addComment: (data: {
-    content: string;
-    projectId: string;
-    taskId?: string;
-  }) => Promise<void>;
+  fetchComments: (projectId: string) => Promise<void>;
+  addComment: (content: string, taskId?: string) => Promise<Comment>;
 
   updateComment: (
     id: string,
@@ -288,6 +304,49 @@ export interface CreateCommentPayload {
 
 export interface UpdateCommentPayload {
   content?: string;
+}
+
+export interface BackendComment {
+  id: string;
+  company_id: string;
+  project_id: string;
+  task_id?: string | null;
+  author_id: string;
+  content: string;
+  timestamp: string;
+  updated_at: string;
+
+  author: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+}
+
+// UI-safe comment (used everywhere else)
+export interface UIComment {
+  id: string;
+  content: string;
+  author_id: string;
+  author: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  createdAt: string;
+  updatedAt?: string;
+  isEdited?: boolean;
+}
+
+export interface CommentContextType {
+  comments: UIComment[];
+  loading: boolean;
+  error: string | null;
+
+  fetchComments: () => Promise<void>;
+  addComment: (content: string, taskId?: string) => Promise<UIComment>;
+  updateComment: (id: string, content: string) => Promise<void>;
+  deleteComment: (id: string) => Promise<void>;
 }
 
 //////////////// SettingsContextTypes //////////////

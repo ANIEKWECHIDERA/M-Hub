@@ -2,7 +2,6 @@ import { SettingsProvider } from "./SettingsContext.tsx";
 import { ProjectContextProvider } from "./ProjectContext.tsx";
 import { NoteContextProvider } from "./NoteContext.tsx";
 import { AssetContextProvider } from "./AssetContext.tsx";
-import { CommentContextProvider } from "./CommentContext.tsx";
 import { TeamContextProvider } from "./TeamMemberContext.tsx";
 import { TaskContextProvider } from "./TaskContext.tsx";
 import { SubTasksContextProvider } from "./SubTasksContext.tsx";
@@ -25,11 +24,7 @@ export const AppContextProvider = ({
                 <SubTasksContextProvider>
                   <TaskContextProvider>
                     <NoteContextProvider>
-                      <AssetContextProvider>
-                        <CommentContextProvider>
-                          {children}
-                        </CommentContextProvider>
-                      </AssetContextProvider>
+                      <AssetContextProvider>{children}</AssetContextProvider>
                     </NoteContextProvider>
                   </TaskContextProvider>
                 </SubTasksContextProvider>

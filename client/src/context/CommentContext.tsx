@@ -1,17 +1,22 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import type { Comment, CommentContextType } from "@/Types/types";
-import { useAuthContext } from "./AuthContext";
+import {
+  createContext,
+  useContext,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import { commentsAPI } from "@/api/comments.api";
+import { useAuthContext } from "../context/AuthContext";
+import type { UIComment } from "../Types/types";
+import { mapBackendCommentToUI } from "../mapper/comment.mapper";
+import type { CommentContextType } from "@/Types/types";
 
 const CommentContext = createContext<CommentContextType | null>(null);
 
 export const useCommentContext = () => {
   const context = useContext(CommentContext);
-  if (!context) {
-    throw new Error(
-      "useCommentContext must be used within CommentContextProvider"
-    );
-  }
+  if (!context)
+    throw new Error("useCommentContext must be used within provider");
   return context;
 };
 
@@ -24,94 +29,69 @@ export const CommentContextProvider = ({
 }) => {
   const { idToken } = useAuthContext();
 
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [currentComment, setCurrentComment] = useState<Comment | null>(null);
-  const [newComment, setNewComment] = useState("");
+  const [comments, setComments] = useState<UIComment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     if (!idToken || !projectId) return;
 
     setLoading(true);
     try {
       const data = await commentsAPI.getByProject(projectId, idToken);
-      setComments(data);
-      setError(null);
-    } catch (err) {
+      setComments(data.map(mapBackendCommentToUI));
+    } catch {
       setError("Failed to fetch comments");
     } finally {
       setLoading(false);
     }
+  }, [idToken, projectId]);
+
+  const addComment = async (content: string, taskId?: string) => {
+    if (!idToken) throw new Error("Authentication required");
+
+    const created = await commentsAPI.create(
+      { project_id: projectId, content, task_id: taskId },
+      idToken
+    );
+
+    const normalized = mapBackendCommentToUI(created);
+    setComments((prev) => [normalized, ...prev]);
+
+    return normalized;
   };
 
-  const addComment: CommentContextType["addComment"] = async ({
-    content,
-    projectId,
-    taskId,
-  }) => {
-    if (!idToken) return;
-    console.log("[Context] addComment called", { content, projectId });
-
-    try {
-      const created = await commentsAPI.create(
-        {
-          project_id: projectId,
-          content,
-          task_id: taskId,
-        },
-        idToken
-      );
-
-      setComments((prev) => [...prev, created]);
-      setNewComment("");
-    } catch {
-      setError("Failed to add comment");
-    }
-  };
-
-  const updateComment = async (id: string, data: { content?: string }) => {
+  const updateComment = async (id: string, content: string) => {
     if (!idToken) return;
 
-    try {
-      const updated = await commentsAPI.update(id, data, idToken);
+    await commentsAPI.update(id, { content }, idToken);
 
-      setComments((prev) => prev.map((c) => (c.id === id ? updated : c)));
-    } catch {
-      setError("Failed to update comment");
-    }
+    setComments((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, content, isEdited: true } : c))
+    );
   };
 
   const deleteComment = async (id: string) => {
     if (!idToken) return;
 
-    try {
-      await commentsAPI.delete(id, idToken);
-      setComments((prev) => prev.filter((c) => c.id !== id));
-    } catch {
-      setError("Failed to delete comment");
-    }
+    await commentsAPI.delete(id, idToken);
+    setComments((prev) => prev.filter((c) => c.id !== id));
   };
 
   useEffect(() => {
     fetchComments();
-  }, [projectId, idToken]);
+  }, [fetchComments]);
 
   return (
     <CommentContext.Provider
       value={{
         comments,
-        setComments,
-        currentComment,
-        setCurrentComment,
-        newComment,
-        setNewComment,
+        loading,
+        error,
         fetchComments,
         addComment,
         updateComment,
         deleteComment,
-        loading,
-        error,
       }}
     >
       {children}

@@ -1,4 +1,5 @@
 import type {
+  BackendComment,
   Comment,
   CreateCommentPayload,
   UpdateCommentPayload,
@@ -6,8 +7,8 @@ import type {
 import { apiFetch } from "./http";
 
 export const commentsAPI = {
-  getByProject(projectId: string, idToken: string): Promise<Comment[]> {
-    return apiFetch<Comment[]>(
+  getByProject(projectId: string, idToken: string): Promise<BackendComment[]> {
+    return apiFetch<BackendComment[]>(
       `/api/project/${projectId}/comments`,
       {
         method: "GET",
@@ -16,8 +17,11 @@ export const commentsAPI = {
     );
   },
 
-  create(payload: CreateCommentPayload, idToken: string): Promise<Comment> {
-    return apiFetch<Comment>(
+  create(
+    payload: CreateCommentPayload,
+    idToken: string
+  ): Promise<BackendComment> {
+    return apiFetch<BackendComment>(
       "/api/comments",
       {
         method: "POST",
@@ -31,8 +35,8 @@ export const commentsAPI = {
     id: string,
     payload: UpdateCommentPayload,
     idToken: string
-  ): Promise<Comment> {
-    return apiFetch<Comment>(
+  ): Promise<BackendComment> {
+    return apiFetch<BackendComment>(
       `/api/comments/${id}`,
       {
         method: "PATCH",
