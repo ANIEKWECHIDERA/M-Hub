@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import type { TaskFormProps, TeamMemberSummary } from "@/Types/types";
 import { useProjectContext } from "@/context/ProjectContext";
-import { Checkbox } from "@radix-ui/react-checkbox";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
   const { currentProject } = useProjectContext();
@@ -98,12 +98,21 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
                 <Checkbox
                   checked={checked}
                   onCheckedChange={(isChecked) => {
-                    setFormData((prev) => {
-                      const newAssignees = isChecked
-                        ? [...prev.assignees, member.id]
-                        : prev.assignees.filter((id) => id !== member.id);
-                      return { ...prev, assignees: newAssignees };
-                    });
+                    if (isChecked === true) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        assignees: Array.from(
+                          new Set([...prev.assignees, member.id])
+                        ),
+                      }));
+                    } else {
+                      setFormData((prev) => ({
+                        ...prev,
+                        assignees: prev.assignees.filter(
+                          (id) => id !== member.id
+                        ),
+                      }));
+                    }
                   }}
                 />
                 <span>{member.name}</span>

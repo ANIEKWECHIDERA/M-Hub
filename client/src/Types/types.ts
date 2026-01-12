@@ -166,6 +166,7 @@ export interface TaskWithAssigneesDTO {
   updatedAt?: string;
   team_members?: TeamMemberSummary[]; // For frontend display
   assignees?: TeamMemberDTO[]; // For backend compatibility
+  team_member_ids?: string[]; // For creating/updating tasks
 }
 
 // Payload for creating tasks

@@ -66,11 +66,11 @@ export const TaskController = {
   },
 
   async updateTask(req: any, res: Response) {
-    const { id } = req.params;
+    const { taskId } = req.params;
     const companyId = req.user.company_id;
 
     try {
-      const updatedTask = await TaskService.update(id, companyId, req.body);
+      const updatedTask = await TaskService.update(taskId, companyId, req.body);
 
       if (!updatedTask) {
         return res.status(404).json({ error: "Task not found" });
@@ -84,11 +84,11 @@ export const TaskController = {
   },
 
   async deleteTask(req: any, res: Response) {
-    const { id } = req.params;
+    const { taskId } = req.params;
     const companyId = req.user.company_id;
 
     try {
-      await TaskService.deleteById(id, companyId);
+      await TaskService.deleteById(taskId, companyId);
       return res.json({ success: true });
     } catch (error) {
       logger.error("deleteTask failed", { error });

@@ -16,7 +16,7 @@ function mapTaskBase(task: any) {
     status: task.status,
     priority: task.priority,
     progress: task.progress,
-    dueDate: task.due_date,
+    due_date: task.due_date,
     createdAt: task.created_at,
     updatedAt: task.updated_at,
   };

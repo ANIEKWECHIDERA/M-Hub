@@ -20,9 +20,13 @@ const TaskDetailDialog = ({
     <Dialog open={!!task} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] rounded-lg shadow-lg">
         <DialogHeader>
-          <DialogTitle className={`text-2xl font-semibold ${
-            task.status === "Done" ? "line-through text-muted-foreground" : "text-gray-900"
-          }`}>
+          <DialogTitle
+            className={`text-2xl font-semibold ${
+              task.status === "Done"
+                ? "line-through text-muted-foreground"
+                : "text-gray-900"
+            }`}
+          >
             {task.title}
           </DialogTitle>
         </DialogHeader>
@@ -45,7 +49,7 @@ const TaskDetailDialog = ({
             </Label>
             <p className="mt-1 text-base text-gray-800">
               {assignee.length > 0
-                ? assignee.map((a) => `${a.firstname} ${a.lastname}`).join(", ")
+                ? assignee.map((a) => `${a.name}`)
                 : "Unassigned"}
             </p>
           </div>
@@ -77,11 +81,13 @@ const TaskDetailDialog = ({
               Due Date
             </Label>
             <p className="mt-1 text-base text-gray-800">
-              {new Date(task.dueDate).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              {task.due_date
+                ? new Date(task.due_date).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                : "No due date"}
             </p>
           </div>
 

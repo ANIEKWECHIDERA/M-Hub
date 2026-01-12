@@ -1,44 +1,10 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 
-import type { CreateTaskPayload, TaskWithAssigneesDTO } from "@/Types/types";
+import type { TaskContextType, TaskWithAssigneesDTO } from "@/Types/types";
 import { tasksAPI } from "@/api/tasks.api";
 import { useAuthContext } from "./AuthContext";
-
-type TaskContextType = {
-  tasks: TaskWithAssigneesDTO[];
-  setTasks: React.Dispatch<React.SetStateAction<TaskWithAssigneesDTO[]>>;
-
-  loading: boolean;
-  error: string | null;
-
-  addTask: (
-    data: Partial<CreateTaskPayload>
-  ) => Promise<TaskWithAssigneesDTO | void>;
-
-  updateTask: (
-    id: string,
-    data: Partial<TaskWithAssigneesDTO>
-  ) => Promise<void>;
-
-  deleteTask: (id: string) => Promise<void>;
-
-  selectedTask: TaskWithAssigneesDTO | null;
-  setSelectedTask: React.Dispatch<
-    React.SetStateAction<TaskWithAssigneesDTO | null>
-  >;
-
-  // 🔽 delete dialog state
-  isDeleteDialogOpen: boolean;
-  setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-
-  taskToDelete: TaskWithAssigneesDTO | null;
-  setTaskToDelete: React.Dispatch<
-    React.SetStateAction<TaskWithAssigneesDTO | null>
-  >;
-
-  confirmDelete: () => Promise<void>;
-};
+import { normalizeTask } from "@/mapper/task.mapper";
 
 const TaskContext = createContext<TaskContextType | null>(null);
 
@@ -75,11 +41,13 @@ export const TaskContextProvider = ({
       setLoading(false);
       return;
     }
+
     setLoading(true);
     setError(null);
+
     try {
-      const data = await tasksAPI.getAllByProject(projectId, idToken); // Fetch tasks by projectId
-      setTasks(data);
+      const data = await tasksAPI.getAllByProject(projectId, idToken);
+      setTasks(data.map(normalizeTask));
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to fetch tasks");
@@ -90,20 +58,21 @@ export const TaskContextProvider = ({
 
   useEffect(() => {
     fetchTasks();
-  }, [projectId, idToken]); // Re-fetch when projectId or idToken changes
+  }, [projectId, idToken]);
 
   // Optimistic add
   const addTask = async (data: Partial<TaskWithAssigneesDTO>) => {
     if (!idToken) {
       setError("Authentication required");
-      setLoading(false);
       return;
     }
-    const tempId = "temp-" + Date.now();
+
+    const tempId = `temp-${Date.now()}`;
+
     const optimisticTask: TaskWithAssigneesDTO = {
       id: tempId,
-      companyId: "", // filled by backend
-      projectId: projectId, // Set the correct projectId
+      companyId: "",
+      projectId,
       title: data.title || "",
       description: data.description || "",
       status: data.status || "To-Do",
@@ -112,15 +81,20 @@ export const TaskContextProvider = ({
       due_date: data.due_date || "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      assignees: data.assignees || [],
+      team_members: [], // ✅ no project reference
     };
 
     setTasks((prev) => [optimisticTask, ...prev]);
-    console.log("Adding task:", data, "to project:");
+
     try {
-      const savedTask = await tasksAPI.create(projectId, data, idToken); // Pass projectId to the API
-      setTasks((prev) => prev.map((t) => (t.id === tempId ? savedTask : t)));
+      const savedTask = await tasksAPI.create(projectId, data, idToken);
+
+      setTasks((prev) =>
+        prev.map((t) => (t.id === tempId ? normalizeTask(savedTask) : t))
+      );
+
       toast.success("Task created!");
+      return savedTask;
     } catch (err: any) {
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
       toast.error("Failed to create task");
@@ -135,21 +109,18 @@ export const TaskContextProvider = ({
   ) => {
     if (!idToken) {
       setError("Authentication required");
-      setLoading(false);
       return;
     }
-    const prevTasks = [...tasks];
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, ...data, updatedAt: new Date().toISOString() } : t
-      )
-    );
-    console.log("Updating task:", id, data);
+
     try {
-      await tasksAPI.update(id, data, idToken);
+      const updatedTask = await tasksAPI.update(id, data, idToken);
+      console.log("Updated Task:", updatedTask);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? normalizeTask(updatedTask) : t))
+      );
+
       toast.success("Task updated!");
     } catch (err: any) {
-      setTasks(prevTasks);
       toast.error("Failed to update task");
       console.error(err);
     }
@@ -191,7 +162,10 @@ export const TaskContextProvider = ({
         setIsDeleteDialogOpen,
         taskToDelete,
         setTaskToDelete,
-        confirmDelete: async () => {},
+        confirmDelete: async () => {
+          deleteTask(taskToDelete!.id);
+          setIsDeleteDialogOpen(false);
+        },
       }}
     >
       {children}
