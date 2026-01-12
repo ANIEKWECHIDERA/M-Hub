@@ -37,7 +37,7 @@ export const AssetContextProvider = ({
 
   const fetchFilesByProject = useCallback(
     async (projectId: string) => {
-      if (!idToken) return;
+      if (!idToken) throw new Error("Authentication required");
 
       setLoading(true);
       try {
@@ -60,7 +60,7 @@ export const AssetContextProvider = ({
     filesToUpload: File[],
     taskId?: string
   ) => {
-    if (!idToken) return;
+    if (!idToken) throw new Error("Authentication required");
 
     try {
       const uploaded = await AssetsAPI.upload(
@@ -80,7 +80,7 @@ export const AssetContextProvider = ({
   };
 
   const deleteFile = async (id: string) => {
-    if (!idToken) return;
+    if (!idToken) throw new Error("Authentication required");
 
     try {
       await AssetsAPI.delete(id, idToken);

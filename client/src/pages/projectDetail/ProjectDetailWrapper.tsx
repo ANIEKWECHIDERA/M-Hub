@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { TaskContextProvider } from "@/context/TaskContext";
-import ProjectDetail from "./ProjectDetail";
+import { ProjectDetail } from "./ProjectDetail";
 import { CommentContextProvider } from "@/context/CommentContext";
 import { useProjectContext } from "@/context/ProjectContext";
 

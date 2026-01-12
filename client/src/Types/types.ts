@@ -81,6 +81,13 @@ export interface TeamMember {
   status?: "active" | "inactive";
 }
 
+export interface TeamMemberDTO {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
 export interface TeamContextType {
   teamMembers: TeamMember[];
   setTeamMembers: React.Dispatch<React.SetStateAction<TeamMember[]>>;
@@ -105,67 +112,7 @@ export interface TeamMemberFormProps {
   onCancel: () => void;
 }
 
-export interface Assignee {
-  id: string;
-  firstname: string;
-  lastname: string;
-  avatar?: string;
-}
-
-//////////////// TaskContextTypes ////////////////
-export interface Task {
-  id: string;
-  companyId: string;
-  projectId: string;
-  title: string;
-  assignee?: string[];
-  status: TaskStatus;
-  dueDate: string;
-  description: string;
-  priority: "low" | "medium" | "high";
-  createdAt: string;
-  updatedAt?: string;
-  tags?: string[];
-  attachments?: number;
-  comments?: number;
-  subtaskIds?: string[];
-  progress?: number;
-}
-
-export type TaskStatus = "To-Do" | "In Progress" | "Done";
-
-export interface EnrichedTask extends Task {
-  projectTitle: string;
-  clientName: string;
-  subtasks?: Subtask[];
-}
-
-export interface TaskContextType {
-  tasks: Task[];
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-  currentTask: Task | null;
-  setCurrentTask: React.Dispatch<React.SetStateAction<Task | null>>;
-  fetchTasks: () => Promise<void>;
-  addTask: (
-    projectId: string,
-    companyId: string,
-    task: Partial<Task>
-  ) => Promise<void>;
-  updateTask: (id: string, data: Partial<Task>) => Promise<void>;
-  deleteTask: (id: string) => Promise<void>;
-  loading: boolean;
-  error: string | null;
-  selectedTask: EnrichedTask | null;
-  setSelectedTask: React.Dispatch<React.SetStateAction<EnrichedTask | null>>;
-  confirmDelete: () => void;
-  TaskToDelete: Task | null;
-  setTaskToDelete: React.Dispatch<React.SetStateAction<Task | null>>;
-  isDeleteDialogOpen: boolean;
-  setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  getEnrichedTasks: () => EnrichedTask[];
-  getEnrichedTaskById: (id: string) => EnrichedTask | undefined;
-}
-
+///////////////////////subtask//////////////
 export interface Subtask {
   id: string;
   companyId: string;
@@ -186,22 +133,107 @@ export interface SubtaskContextType {
   error: string | null;
 }
 
-export interface TaskDetailDialogProps {
-  task: Task | null;
-  onClose: () => void;
-  assignee: Assignee[];
+//////////////// TaskContextTypes ////////////////
+export type TaskStatus = "To-Do" | "In Progress" | "Done";
+export type TaskPriority = "low" | "medium" | "high";
+
+export interface TeamMemberSummary {
+  id: string;
+  name: string;
+  role: string;
+  avatar?: string | null;
+}
+
+export interface TeamMemberDTO {
+  id: string;
+  name: string;
+  role: string;
+  avatar?: string | null;
+}
+
+// Main task interface used throughout the app
+export interface TaskWithAssigneesDTO {
+  id: string;
+  companyId: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  progress: number;
+  due_date?: string;
+  createdAt: string;
+  updatedAt?: string;
+  team_members?: TeamMemberSummary[]; // For frontend display
+  assignees?: TeamMemberDTO[]; // For backend compatibility
+}
+
+// Payload for creating tasks
+export interface CreateTaskPayload {
+  id?: string;
+  title: string;
+  description?: string;
+  status?: TaskStatus;
+  priority: TaskPriority;
+  due_date?: string;
+  team_member_ids: string[];
+}
+
+// Payload for updating tasks
+export interface UpdateTaskPayload {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  due_date?: string;
+  team_member_ids?: string[];
 }
 
 export interface TaskFormProps {
-  onSave: (formData: any) => void;
+  defaultValues?: TaskWithAssigneesDTO;
+  onSave: (data: CreateTaskPayload) => void;
   onCancel: () => void;
-  defaultValues?: {
-    title?: string;
-    description?: string;
-    assignee?: string[] | string;
-    status?: string;
-    dueDate?: string;
-  };
+}
+
+export interface TaskDetailDialogProps {
+  task: TaskWithAssigneesDTO | null;
+  onClose: () => void;
+  assignee: TeamMemberSummary[];
+}
+
+export interface TaskContextType {
+  tasks: TaskWithAssigneesDTO[];
+  setTasks: React.Dispatch<React.SetStateAction<TaskWithAssigneesDTO[]>>;
+
+  loading: boolean;
+  error: string | null;
+
+  addTask: (
+    data: Partial<CreateTaskPayload>
+  ) => Promise<TaskWithAssigneesDTO | void>;
+
+  updateTask: (
+    id: string,
+    data: Partial<TaskWithAssigneesDTO>
+  ) => Promise<void>;
+
+  deleteTask: (id: string) => Promise<void>;
+
+  selectedTask: TaskWithAssigneesDTO | null;
+  setSelectedTask: React.Dispatch<
+    React.SetStateAction<TaskWithAssigneesDTO | null>
+  >;
+
+  // 🔽 delete dialog state
+  isDeleteDialogOpen: boolean;
+  setIsDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
+  taskToDelete: TaskWithAssigneesDTO | null;
+  setTaskToDelete: React.Dispatch<
+    React.SetStateAction<TaskWithAssigneesDTO | null>
+  >;
+
+  confirmDelete: () => Promise<void>;
 }
 
 /////////////////// AssetContextTypes ///////////////

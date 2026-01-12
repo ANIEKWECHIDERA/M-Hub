@@ -10,20 +10,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
+import type { TaskFormProps, TeamMemberSummary } from "@/Types/types";
 import { useProjectContext } from "@/context/ProjectContext";
-import type { TaskFormProps } from "@/Types/types";
+import { Checkbox } from "@radix-ui/react-checkbox";
 
 const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
-  const { currentProject, getTeamMembersDetails } = useProjectContext();
-  const team = currentProject ? getTeamMembersDetails(currentProject.team) : [];
+  const { currentProject } = useProjectContext();
+
+  // Only members assigned to this project
+  const projectTeamMembers: TeamMemberSummary[] = (
+    currentProject?.team_members ?? []
+  ).filter((member) => member.role !== null) as TeamMemberSummary[];
 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    assignee: [] as number[], // Initialize as array of IDs
+    assignees: [] as string[], // IDs of team members
     status: "To-Do",
-    dueDate: "",
+    due_date: "",
     priority: "medium" as "low" | "medium" | "high",
   });
 
@@ -32,30 +36,27 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
       setFormData({
         title: defaultValues.title || "",
         description: defaultValues.description || "",
-        assignee: Array.isArray(defaultValues.assignee)
-          ? defaultValues.assignee.map(Number)
-          : defaultValues.assignee
-          ? [Number(defaultValues.assignee)]
+        assignees: Array.isArray(defaultValues.team_members)
+          ? defaultValues.team_members.map((m) => m.id)
           : [],
         status: defaultValues.status || "To-Do",
-        dueDate: defaultValues.dueDate || "",
-        priority: (defaultValues as any).priority || "medium",
+        due_date: defaultValues.due_date || "",
+        priority: defaultValues.priority || "medium",
       });
     }
   }, [defaultValues]);
 
-  // const handleAssigneeChange = (memberId: number, checked: boolean) => {
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     assignee: checked
-  //       ? [...prev.assignee, memberId]
-  //       : prev.assignee.filter((id) => id !== memberId),
-  //   }));
-  // };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+
+    onSave({
+      title: formData.title,
+      description: formData.description,
+      status: formData.status as "To-Do" | "In Progress" | "Done",
+      priority: formData.priority,
+      due_date: formData.due_date,
+      team_member_ids: formData.assignees,
+    });
   };
 
   return (
@@ -85,56 +86,62 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="assignee">Assignee</Label>
+        <Label htmlFor="assignee">Assignee(s)</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
+          {projectTeamMembers.map((member) => {
+            const checked = formData.assignees.includes(member.id);
+            return (
+              <label
+                key={member.id}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={(isChecked) => {
+                    setFormData((prev) => {
+                      const newAssignees = isChecked
+                        ? [...prev.assignees, member.id]
+                        : prev.assignees.filter((id) => id !== member.id);
+                      return { ...prev, assignees: newAssignees };
+                    });
+                  }}
+                />
+                <span>{member.name}</span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Select one or more members to assign to this task.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="status">Status</Label>
         <Select
-          value={formData.assignee[0]?.toString() || ""}
-          onValueChange={(value) =>
-            setFormData({
-              ...formData,
-              assignee: value ? [Number(value)] : [],
-            })
-          }
+          value={formData.status}
+          onValueChange={(value) => setFormData({ ...formData, status: value })}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Select assignee" />
+            <SelectValue placeholder="Select status" />
           </SelectTrigger>
           <SelectContent>
-            {team.map((member) => (
-              <SelectItem key={member.id} value={member.id.toString()}>
-                {`${member.firstname} ${member.lastname} - ${member.role}`}
-              </SelectItem>
-            ))}
+            <SelectItem value="To-Do">To-Do</SelectItem>
+            <SelectItem value="In Progress">In Progress</SelectItem>
+            <SelectItem value="Done">Done</SelectItem>
           </SelectContent>
         </Select>
       </div>
-
-      {defaultValues && (
-        <div className="space-y-2">
-          <Label htmlFor="status">Status</Label>
-          <Select
-            value={formData.status}
-            onValueChange={(value) =>
-              setFormData({ ...formData, status: value })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="To-Do">To-Do</SelectItem>
-              <SelectItem value="In Progress">In Progress</SelectItem>
-              <SelectItem value="Done">Done</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
 
       <div className="space-y-2">
         <Label htmlFor="priority">Priority</Label>
         <Select
           value={formData.priority}
           onValueChange={(value) =>
-            setFormData({ ...formData, priority: value as any })
+            setFormData({
+              ...formData,
+              priority: value as "medium" | "low" | "high",
+            })
           }
         >
           <SelectTrigger>
@@ -153,9 +160,9 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
         <Input
           id="due-date"
           type="date"
-          value={formData.dueDate}
+          value={formData.due_date}
           onChange={(e) =>
-            setFormData({ ...formData, dueDate: e.target.value })
+            setFormData({ ...formData, due_date: e.target.value })
           }
           required
         />

@@ -28,7 +28,7 @@ export const ClientProvider = ({ children }: { children: React.ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchClients = useCallback(async () => {
-    if (!idToken) return;
+    if (!idToken) throw new Error("Authentication required");
 
     try {
       setLoading(true);

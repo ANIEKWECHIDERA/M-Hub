@@ -34,7 +34,8 @@ export const CommentContextProvider = ({
   const [error, setError] = useState<string | null>(null);
 
   const fetchComments = useCallback(async () => {
-    if (!idToken || !projectId) return;
+    if (!idToken || !projectId)
+      throw new Error("Authentication and project ID required");
 
     setLoading(true);
     try {

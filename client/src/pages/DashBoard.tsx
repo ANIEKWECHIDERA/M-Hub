@@ -45,7 +45,7 @@ export default function Dashboard() {
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
-  console.log(`fetched projects: ${JSON.stringify(projects)}`);
+  // console.log(`fetched projects: ${JSON.stringify(projects)}`);
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

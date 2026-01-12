@@ -183,7 +183,7 @@ export function CommentsSystem({
     });
   };
 
-  console.log("CommentsSystem rendered:", comments, "user:", currentUser);
+  // console.log("CommentsSystem rendered:", comments, "user:", currentUser);
 
   const isAuthor = (comment: Comment) =>
     currentUser && currentUser.id === comment.author_id;

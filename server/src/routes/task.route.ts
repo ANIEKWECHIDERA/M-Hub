@@ -7,22 +7,22 @@ const router = Router();
 
 // READ (admins + team members)
 router.get(
-  "/task",
+  "/projects/:projectId/tasks",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  TaskController.getTasks
+  TaskController.getTasksByProject
 );
 
 router.get(
-  "/task/:id",
+  "/task/:taskId",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  TaskController.getTask
+  TaskController.getTaskById
 );
 
 // CREATE (admins only)
 router.post(
-  "/task",
+  "/projects/:projectId/tasks",
   authenticate,
   authorize(["admin", "superAdmin"]),
   TaskController.createTask
@@ -30,7 +30,7 @@ router.post(
 
 // UPDATE (admins + team members)
 router.patch(
-  "/task/:id",
+  "/task/:taskId",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   TaskController.updateTask
@@ -38,7 +38,7 @@ router.patch(
 
 // DELETE (admins only)
 router.delete(
-  "/task/:id",
+  "/task/:taskId",
   authenticate,
   authorize(["admin", "superAdmin"]),
   TaskController.deleteTask
