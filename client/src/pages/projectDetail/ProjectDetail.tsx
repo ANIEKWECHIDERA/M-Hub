@@ -28,7 +28,7 @@ import { useProjectContext } from "@/context/ProjectContext";
 import { useAssetContext } from "@/context/AssetContext";
 import TaskDetailDialog from "@/components/TaskDetailDialog";
 import TaskForm from "@/components/TaskForm";
-import { TaskContextProvider, useTaskContext } from "@/context/TaskContext";
+import { useTaskContext } from "@/context/TaskContext";
 import { Toaster } from "sonner";
 import {
   AlertDialog,

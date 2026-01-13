@@ -29,19 +29,14 @@ export default function Dashboard() {
     statusFilter,
     clientFilter
   );
-  const stats = useProjectStats(projects, tasks);
-  // const projectTasks = (projectId: number) =>
-  //   tasks.filter((task) => task.projectId === projectId);
 
-  // const getTaskStats = (projectId: number) => {
-  //   const projTasks = projectTasks(projectId);
-  //   const total = projTasks.length;
-  //   const completed = projTasks.filter((t) => t.status === "Done").length;
-  //   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-  //   return { total, completed, progress };
-  // };
-
-  const { getTaskStats } = useProjectStats(projects, tasks);
+  const {
+    totalProjects,
+    activeProjects,
+    completedProjects,
+    overdueProjects,
+    getTaskStats,
+  } = useProjectStats(projects, tasks);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -67,37 +62,43 @@ export default function Dashboard() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalProjects}</div>
+            <div className="text-2xl font-bold">{totalProjects}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Projects
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.activeTasks}</div>
+            <div className="text-2xl font-bold">{activeProjects}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Overdue Projects
+            </CardTitle>
             <AlertCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-500">
-              {stats.overdueTasks}
+              {overdueProjects}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Completed Projects
+            </CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-500">
-              {stats.completedProjects}
+              {completedProjects}
             </div>
           </CardContent>
         </Card>
@@ -149,6 +150,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProjects.map((project) => {
           const { total, completed, progress } = getTaskStats(project.id);
+          console.log("DASHBOARD tasks length:", tasks.length);
+
           return (
             <Card
               key={project.id}

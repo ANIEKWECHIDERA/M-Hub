@@ -20,6 +20,13 @@ router.get(
   TaskController.getTaskById
 );
 
+router.get(
+  "/projects/:projectId/task-stats",
+  authenticate,
+  authorize(["admin", "superAdmin", "team_member"]),
+  TaskController.getProjectTaskStats
+);
+
 // CREATE (admins only)
 router.post(
   "/projects/:projectId/tasks",

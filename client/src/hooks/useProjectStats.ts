@@ -1,7 +1,10 @@
 import { useMemo } from "react";
-import type { Project, Task } from "@/Types/types";
+import type { Project, TaskWithAssigneesDTO } from "@/Types/types";
 
-export function useProjectStats(projects: Project[], tasks: Task[]) {
+export function useProjectStats(
+  projects: Project[],
+  tasks: TaskWithAssigneesDTO[]
+) {
   return useMemo(() => {
     const now = new Date();
 
@@ -13,9 +16,13 @@ export function useProjectStats(projects: Project[], tasks: Task[]) {
 
     const activeTasks = tasks.filter((task) => task.status !== "Done").length;
 
-    const overdueTasks = tasks.filter(
-      (task) => new Date(task.dueDate) < now && task.status !== "Done"
+    const activeProjects = projects.filter(
+      (proj) => proj.status !== "Completed"
     ).length;
+
+    // const overdueTasks = tasks.filter(
+    //   (task) => new Date(task.due_date) < now && task.status !== "Done"
+    // ).length;
 
     const completedProjects = projects.filter(
       (proj) => proj.status === "Completed"
@@ -29,7 +36,14 @@ export function useProjectStats(projects: Project[], tasks: Task[]) {
     ).length;
 
     const getTaskStats = (projectId: string) => {
-      const projTasks = tasks.filter((task) => task.projectId === projectId);
+      const projTasks = tasks.filter((task) => {
+        console.log("COMPARE", {
+          taskProjectId: task.projectId,
+          projectId,
+          equal: task.projectId === projectId,
+        });
+        return task.projectId === projectId;
+      });
       const total = projTasks.length;
       const completed = projTasks.filter((t) => t.status === "Done").length;
       const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -42,7 +56,8 @@ export function useProjectStats(projects: Project[], tasks: Task[]) {
       completedTasks,
       totalTasks,
       activeTasks,
-      overdueTasks,
+      activeProjects,
+      // overdueTasks,
       completedProjects,
       overdueProjects,
       getTaskStats,

@@ -40,6 +40,12 @@ export interface Project {
   }[];
 }
 
+export type ProjectTaskStats = {
+  total: number;
+  completed: number;
+  progress: number;
+};
+
 export interface ProjectContextType {
   projects: Project[];
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
@@ -133,7 +139,7 @@ export interface SubtaskContextType {
   error: string | null;
 }
 
-//////////////// TaskContextTypes ////////////////
+//////////////// Task Types ////////////////
 export type TaskStatus = "To-Do" | "In Progress" | "Done";
 export type TaskPriority = "low" | "medium" | "high";
 

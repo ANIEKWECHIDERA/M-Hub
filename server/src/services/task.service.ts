@@ -194,6 +194,63 @@ export const TaskService = {
   },
 
   /**
+   * Get project task stats (computed)
+   * Used by: GET /projects/:projectId/task-stats
+   */
+  async getProjectTaskStats(
+    companyId: string,
+    projectId: string
+  ): Promise<{
+    total: number;
+    completed: number;
+    progress: number;
+  }> {
+    logger.info("TaskService.getProjectTaskStats", {
+      companyId,
+      projectId,
+    });
+
+    // Fetch counts in parallel
+    const [
+      { count: total, error: totalError },
+      { count: completed, error: completedError },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("tasks")
+        .select("*", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("project_id", projectId),
+
+      supabaseAdmin
+        .from("tasks")
+        .select("*", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("project_id", projectId)
+        .eq("status", "Done"),
+    ]);
+
+    if (totalError || completedError) {
+      logger.error("TaskService.getProjectTaskStats error", {
+        totalError,
+        completedError,
+      });
+      throw totalError || completedError;
+    }
+
+    const safeTotal = total ?? 0;
+    const safeCompleted = completed ?? 0;
+
+    const progress =
+      safeTotal > 0 ? Math.round((safeCompleted / safeTotal) * 100) : 0;
+
+    return {
+      total: safeTotal,
+      completed: safeCompleted,
+      progress,
+    };
+  },
+
+  /**
    * Create task WITH assignees
    * Used by: POST /projects/:projectId/tasks
    */

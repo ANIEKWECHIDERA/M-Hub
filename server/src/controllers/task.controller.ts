@@ -47,6 +47,26 @@ export const TaskController = {
     }
   },
 
+  async getProjectTaskStats(req: any, res: Response) {
+    const { projectId } = req.params;
+    const companyId = req.user.company_id;
+
+    if (!projectId) {
+      return res.status(400).json({ error: "Invalid project ID" });
+    }
+
+    try {
+      const stats = await TaskService.getProjectTaskStats(companyId, projectId);
+
+      return res.json(stats);
+    } catch (error) {
+      logger.error("getProjectTaskStats failed", { error });
+      return res
+        .status(500)
+        .json({ error: "Failed to fetch project task stats" });
+    }
+  },
+
   async createTask(req: any, res: Response) {
     const { projectId } = req.params;
     const companyId = req.user.company_id;

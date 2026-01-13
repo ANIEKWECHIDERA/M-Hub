@@ -180,7 +180,6 @@ model tasks {
   status      String    @default("To-Do")
   priority    String    @default("medium")
   due_date    DateTime? @map("due_date")
-  progress    Int       @default(0)
   created_at  DateTime  @default(now()) @map("created_at")
   updated_at  DateTime  @default(now())  @updatedAt @map("updated_at")
 

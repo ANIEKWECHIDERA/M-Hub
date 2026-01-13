@@ -18,9 +18,11 @@ export const useTaskContext = () => {
 export const TaskContextProvider = ({
   projectId,
   children,
+  projectIds,
 }: {
   projectId: string;
   children: React.ReactNode;
+  projectIds?: string[];
 }) => {
   const [tasks, setTasks] = useState<TaskWithAssigneesDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,9 +36,11 @@ export const TaskContextProvider = ({
   );
   const { idToken } = useAuthContext();
 
+  const ids = projectIds?.length ? projectIds : projectId ? [projectId] : [];
+
   // Fetch tasks from API
   const fetchTasks = async () => {
-    if (!idToken) {
+    if (!idToken || !ids?.length) {
       setError("Authentication required");
       setLoading(false);
       return;
@@ -46,8 +50,11 @@ export const TaskContextProvider = ({
     setError(null);
 
     try {
-      const data = await tasksAPI.getAllByProject(projectId, idToken);
-      setTasks(data.map(normalizeTask));
+      const allTasks = await Promise.all(
+        ids.map((id) => tasksAPI.getAllByProject(id, idToken))
+      );
+      // Flatten the results and normalize
+      setTasks(allTasks.flat().map(normalizeTask));
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to fetch tasks");
@@ -57,6 +64,7 @@ export const TaskContextProvider = ({
   };
 
   useEffect(() => {
+    if (!projectId || !idToken) return;
     fetchTasks();
   }, [projectId, idToken]);
 
