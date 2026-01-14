@@ -35,11 +35,6 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
   const [formData, setFormData] = useState(initialForm);
 
   const isDirty = !isEqual(formData, initialForm);
-  const [selectedTeam] = useState<string[]>(
-    Array.isArray((project as any).team_members)
-      ? ((project as any).team_members as string[])
-      : []
-  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,8 +46,9 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
       ...formData,
       client_id:
         showNewClientInput && newClient ? newClient : formData.client_id,
-      team_member_ids: selectedTeam,
+      team_member_ids: formData.team_member_ids,
     };
+    console.log("Form Data:", finalData);
     // TODO: Validate form data before saving (e.g., title and deadline required)
     onSave(finalData);
     setLoading(false);
@@ -174,16 +170,23 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
                 >
                   <Checkbox
                     checked={checked}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        team_member_ids: checked
-                          ? [...prev.team_member_ids, member.id]
+                    onCheckedChange={(checked) => {
+                      // Update team_member_ids
+                      setFormData((prev) => {
+                        const updatedTeamMembers = checked
+                          ? Array.from(
+                              new Set([...prev.team_member_ids, member.id])
+                            ) // Prevent duplicates
                           : prev.team_member_ids.filter(
                               (id) => id !== member.id
-                            ),
-                      }))
-                    }
+                            );
+
+                        return {
+                          ...prev,
+                          team_member_ids: updatedTeamMembers,
+                        };
+                      });
+                    }}
                   />
                   <span>{member.name}</span>
                 </label>

@@ -215,7 +215,8 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1">
                     <Users className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">
-                      {project.team_members?.length ?? 0} members
+                      {project.team_members?.length ?? 0}{" "}
+                      {project.team_members?.length <= 1 ? "member" : "members"}
                     </span>
                   </div>
                   <Link to={`/projectdetails/${project.id}`}>

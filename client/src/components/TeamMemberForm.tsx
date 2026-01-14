@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -16,15 +16,29 @@ const TeamMemberForm = ({
   onSave,
   onCancel,
 }: TeamMemberFormProps) => {
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     role: member.role,
     access: member.access,
     status: member.status,
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormData);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Effect to track changes in formData
+  useEffect(() => {
+    setIsDirty(
+      formData.role !== initialFormData.role ||
+        formData.access !== initialFormData.access ||
+        formData.status !== initialFormData.status
+    );
+  }, [formData, initialFormData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    if (isDirty) {
+      onSave(formData); // Only save if there are changes
+    }
   };
 
   return (
@@ -41,7 +55,7 @@ const TeamMemberForm = ({
           id="email"
           type="email"
           value={member.email}
-          // onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          // onChange={(e) => setFormData({ ...formData, email: e.target.value })}  // Disabled field
           placeholder="Enter email address"
           disabled
         />
@@ -98,7 +112,9 @@ const TeamMemberForm = ({
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">Save Changes</Button>
+        <Button type="submit" disabled={!isDirty}>
+          Save Changes
+        </Button>
       </div>
     </form>
   );
