@@ -35,6 +35,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
 
   const [formData, setFormData] = useState(initialForm);
   const isDirty = !isEqual(formData, initialForm);
+  console.log("default values:", defaultValues);
 
   useEffect(() => {
     if (defaultValues) {
