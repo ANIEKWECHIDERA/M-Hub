@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -290,6 +291,9 @@ export function ProjectDetail() {
                   <DialogTitle>
                     {editingTask ? "Update Task" : "Create New Task"}
                   </DialogTitle>
+                  <DialogDescription>
+                    Update the task details and save your changes.
+                  </DialogDescription>
                 </DialogHeader>
                 <TaskForm
                   key={editingTask?.id ?? "new"}

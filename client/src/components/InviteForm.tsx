@@ -10,11 +10,11 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 
-const InviteForm = ({ user, onSave, onCancel }: any) => {
+const InviteForm = ({ onSave, onCancel }: any) => {
   const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    role: user?.role || "Team",
+    email: "",
+    role: "",
+    access: "team_member",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -24,41 +24,35 @@ const InviteForm = ({ user, onSave, onCancel }: any) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="user-name">Name</Label>
+      <div>
+        <Label>Email</Label>
         <Input
-          id="user-name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="Enter team member name"
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="user-email">Email</Label>
-        <Input
-          id="user-email"
           type="email"
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          placeholder="Enter official email address"
           required
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="user-role">Access</Label>
-        <Select
+      <div>
+        <Label>Role</Label>
+        <Input
           value={formData.role}
-          onValueChange={(value) => setFormData({ ...formData, role: value })}
+          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+          required
+        />
+      </div>
+
+      <div>
+        <Label>Access</Label>
+        <Select
+          value={formData.access}
+          onValueChange={(value) => setFormData({ ...formData, access: value })}
         >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger />
           <SelectContent>
             <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="team">Team</SelectItem>
+            <SelectItem value="team_member">Team</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -67,10 +61,9 @@ const InviteForm = ({ user, onSave, onCancel }: any) => {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">{user ? "Update Details" : "Send Invite"}</Button>
+        <Button type="submit">Send Invite</Button>
       </div>
     </form>
   );
 };
-
 export default InviteForm;

@@ -13,23 +13,28 @@ import {
 import type { TaskFormProps, TeamMemberSummary } from "@/Types/types";
 import { useProjectContext } from "@/context/ProjectContext";
 import { Checkbox } from "@/components/ui/checkbox";
+import { normalizeDate, isEqual } from "@/utils/helpers";
 
 const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
   const { currentProject } = useProjectContext();
+  const [loading, setLoading] = useState(false);
+
+  const initialForm = {
+    title: defaultValues?.title || "",
+    description: defaultValues?.description || "",
+    assignees: defaultValues?.team_members?.map((m) => m.id) || [],
+    status: defaultValues?.status || "To-Do",
+    due_date: normalizeDate(defaultValues?.due_date),
+    priority: defaultValues?.priority || "medium",
+  };
 
   // Only members assigned to this project
   const projectTeamMembers: TeamMemberSummary[] = (
     currentProject?.team_members ?? []
   ).filter((member) => member.role !== null) as TeamMemberSummary[];
 
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    assignees: [] as string[], // IDs of team members
-    status: "To-Do",
-    due_date: "",
-    priority: "medium" as "low" | "medium" | "high",
-  });
+  const [formData, setFormData] = useState(initialForm);
+  const isDirty = !isEqual(formData, initialForm);
 
   useEffect(() => {
     if (defaultValues) {
@@ -40,7 +45,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
           ? defaultValues.team_members.map((m) => m.id)
           : [],
         status: defaultValues.status || "To-Do",
-        due_date: defaultValues.due_date || "",
+        due_date: normalizeDate(defaultValues.due_date || ""),
         priority: defaultValues.priority || "medium",
       });
     }
@@ -48,6 +53,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isDirty) return;
 
     onSave({
       title: formData.title,
@@ -57,6 +63,9 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
       due_date: formData.due_date,
       team_member_ids: formData.assignees,
     });
+    setLoading(false);
+
+    // console.log("Form submitted with data:", formData);
   };
 
   return (
@@ -84,52 +93,58 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
           rows={3}
         />
       </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="assignee">Assignee(s)</Label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-          {projectTeamMembers.map((member) => {
-            const checked = formData.assignees.includes(member.id);
-            return (
-              <label
-                key={member.id}
-                className="flex items-center gap-2 text-sm cursor-pointer"
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(isChecked) => {
-                    if (isChecked === true) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        assignees: Array.from(
-                          new Set([...prev.assignees, member.id])
-                        ),
-                      }));
-                    } else {
-                      setFormData((prev) => ({
-                        ...prev,
-                        assignees: prev.assignees.filter(
-                          (id) => id !== member.id
-                        ),
-                      }));
-                    }
-                  }}
-                />
-                <span>{member.name}</span>
-              </label>
-            );
-          })}
+      {projectTeamMembers.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="assignee">Assignee(s)</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
+            {projectTeamMembers.map((member) => {
+              const checked = formData.assignees.includes(member.id);
+              return (
+                <label
+                  key={member.id}
+                  className="flex items-center gap-2 text-sm cursor-pointer"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(isChecked) => {
+                      if (isChecked === true) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          assignees: Array.from(
+                            new Set([...prev.assignees, member.id])
+                          ),
+                        }));
+                      } else {
+                        setFormData((prev) => ({
+                          ...prev,
+                          assignees: prev.assignees.filter(
+                            (id) => id !== member.id
+                          ),
+                        }));
+                      }
+                    }}
+                  />
+                  <span>{member.name}</span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Select one or more members to assign to this task.
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Select one or more members to assign to this task.
-        </p>
-      </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="status">Status</Label>
         <Select
           value={formData.status}
-          onValueChange={(value) => setFormData({ ...formData, status: value })}
+          onValueChange={(value) =>
+            setFormData({
+              ...formData,
+              status: value as "To-Do" | "In Progress" | "Done",
+            })
+          }
         >
           <SelectTrigger>
             <SelectValue placeholder="Select status" />
@@ -170,19 +185,28 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
           id="due-date"
           type="date"
           value={formData.due_date}
-          onChange={(e) =>
-            setFormData({ ...formData, due_date: e.target.value })
-          }
+          onChange={(e) => {
+            setFormData({
+              ...formData,
+              due_date: e.target.value,
+            });
+            // console.log(e.target.value);
+          }}
           required
         />
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={loading}
+          onClick={onCancel}
+        >
           Cancel
         </Button>
-        <Button type="submit">
-          {defaultValues ? "Update Task" : "Add Task"}
+        <Button type="submit" disabled={!isDirty || loading}>
+          {loading ? "Saving..." : defaultValues ? "Update Task" : "Add Task"}
         </Button>
       </div>
     </form>

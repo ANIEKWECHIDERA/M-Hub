@@ -1,13 +1,18 @@
+// types/teamMember.types.ts
 export interface TeamMemberResponseDTO {
   id: string;
-  user_id?: string | null;
+  user_id: string | null;
   company_id: string;
   email: string;
   role: string;
   access: string;
   status: string;
-  last_login?: string | null;
+  last_login: string | null;
   created_at: string;
+
+  // computed
+  name: string;
+  avatar: string | null;
 }
 
 export interface CreateTeamMemberDTO {

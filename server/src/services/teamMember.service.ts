@@ -1,4 +1,6 @@
 import { supabaseAdmin } from "../config/supabaseClient";
+import { TEAM_MEMBER_SELECT } from "../dbSelect/teamMember.select";
+import { toTeamMemberResponseDTO } from "../mapper/teamMemberResposeDTO";
 import {
   CreateTeamMemberDTO,
   UpdateTeamMemberDTO,
@@ -6,29 +8,13 @@ import {
 } from "../types/teamMember.types";
 import { logger } from "../utils/logger";
 
-function toTeamMemberResponseDTO(row: any): TeamMemberResponseDTO {
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    company_id: row.company_id,
-    email: row.email,
-    role: row.role,
-    access: row.access,
-    status: row.status,
-    last_login: row.last_login,
-    created_at: row.created_at,
-  };
-}
-
 export const TeamMemberService = {
   async findAll(companyId: string): Promise<TeamMemberResponseDTO[]> {
     logger.info("TeamMemberService.findAll: start", { companyId });
 
     const { data, error } = await supabaseAdmin
       .from("team_members")
-      .select(
-        "id, user_id, company_id, email, role, access, status, last_login, created_at"
-      )
+      .select(TEAM_MEMBER_SELECT)
       .eq("company_id", companyId)
       .order("created_at", { ascending: false });
 
@@ -45,9 +31,7 @@ export const TeamMemberService = {
 
     const { data, error } = await supabaseAdmin
       .from("team_members")
-      .select(
-        "id, user_id, company_id, email, role, access, status, last_login, created_at"
-      )
+      .select(TEAM_MEMBER_SELECT)
       .eq("company_id", companyId)
       .eq("id", id)
       .maybeSingle();
@@ -70,9 +54,7 @@ export const TeamMemberService = {
         access: payload.access ?? "team_member",
         status: payload.status ?? "active",
       })
-      .select(
-        "id, user_id, company_id, email, role, access, status, last_login, created_at"
-      )
+      .select(TEAM_MEMBER_SELECT)
       .single();
 
     if (error) throw error;
@@ -92,9 +74,7 @@ export const TeamMemberService = {
       .update(payload)
       .eq("company_id", companyId)
       .eq("id", id)
-      .select(
-        "id, user_id, company_id, email, role, access, status, last_login, created_at"
-      )
+      .select(TEAM_MEMBER_SELECT)
       .maybeSingle();
 
     if (error) throw error;

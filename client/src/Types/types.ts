@@ -76,22 +76,23 @@ export interface ProjectFormProps {
 //////////////// TeamContextTypes ////////////////
 export interface TeamMember {
   id: string;
-  companyId?: string[];
-  firstname: string;
-  lastname: string;
+  user_id: string | null;
+  company_id: string;
   email: string;
   role: string;
-  access: "Admin" | "Team";
-  lastlogin: Date | string;
-  avatar: string;
-  status?: "active" | "inactive";
+  access: string; // "admin" | "team_member"
+  status: string; // "active" | "inactive"
+  last_login: Date | null;
+  created_at: Date;
+
+  name: string;
+  avatar: string | null;
 }
 
-export interface TeamMemberDTO {
-  id: string;
+export interface CreateTeamMemberDTO {
   email: string;
   role: string;
-  status: string;
+  access: string;
 }
 
 export interface TeamContextType {

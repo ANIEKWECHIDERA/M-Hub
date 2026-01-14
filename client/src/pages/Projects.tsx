@@ -21,6 +21,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -39,7 +40,7 @@ import ProjectForm from "@/components/ProjectForm";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
 import { useProjectContext } from "@/context/ProjectContext";
 import { Link } from "react-router-dom";
-import type { CreateProjectDTO, Project } from "../Types/types";
+import type { CreateProjectDTO } from "../Types/types";
 
 export default function Projects() {
   const {
@@ -308,6 +309,9 @@ export default function Projects() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>
+              Update the task details and save your changes.
+            </DialogDescription>
           </DialogHeader>
           <ProjectForm
             project={projects.find((p) => p.id === editingProjectId)}

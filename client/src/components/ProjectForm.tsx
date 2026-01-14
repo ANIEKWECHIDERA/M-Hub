@@ -14,27 +14,39 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { ProjectFormProps } from "../Types/types";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useClientContext } from "@/context/ClientContext";
+import { isEqual, normalizeDate } from "@/utils/helpers";
 
 const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
-  const [formData, setFormData] = useState({
-    title: project.title || "",
-    client_id: project.client?.id || null,
-    status: project.status || "Planning",
-    deadline: project.deadline || "",
-    description: project.description || "",
-  });
-  const [selectedTeam, setSelectedTeam] = useState<string[]>(
-    Array.isArray((project as any).team_members)
-      ? ((project as any).team_members as string[])
-      : []
-  );
   const { clients } = useClientContext();
   const { teamMembers } = useTeamContext();
   const [newClient, setNewClient] = useState("");
   const [showNewClientInput, setShowNewClientInput] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const initialForm = {
+    title: project.title || "",
+    client_id: project.client?.id || "",
+    status: project.status || "Planning",
+    deadline: normalizeDate(project.deadline),
+    description: project.description || "",
+    team_member_ids: project.team_members?.map((m: any) => m.id) || [],
+  };
+
+  const [formData, setFormData] = useState(initialForm);
+
+  const isDirty = !isEqual(formData, initialForm);
+  const [selectedTeam] = useState<string[]>(
+    Array.isArray((project as any).team_members)
+      ? ((project as any).team_members as string[])
+      : []
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isDirty) return;
+
+    setLoading(true);
+
     const finalData = {
       ...formData,
       client_id:
@@ -43,6 +55,7 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
     };
     // TODO: Validate form data before saving (e.g., title and deadline required)
     onSave(finalData);
+    setLoading(false);
   };
 
   return (
@@ -148,45 +161,57 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
         />
       </div>
 
-      <div className="space-y-2">
-        <Label>Team Members</Label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-          {teamMembers.map((member) => {
-            const checked = selectedTeam.includes(member.id);
-            return (
-              <label
-                key={member.id}
-                className="flex items-center gap-2 text-sm cursor-pointer"
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(isChecked) => {
-                    setSelectedTeam((prev) =>
-                      isChecked
-                        ? Array.from(new Set([...prev, member.id]))
-                        : prev.filter((id) => id !== member.id)
-                    );
-                  }}
-                />
-                <span>
-                  {member.firstname} {member.lastname}
-                </span>
-              </label>
-            );
-          })}
+      {teamMembers.length > 0 && (
+        <div className="space-y-2">
+          <Label>Team Members</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
+            {teamMembers.map((member: any) => {
+              const checked = formData.team_member_ids.includes(member.id);
+              return (
+                <label
+                  key={member.id}
+                  className="flex items-center gap-2 text-sm cursor-pointer"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        team_member_ids: checked
+                          ? [...prev.team_member_ids, member.id]
+                          : prev.team_member_ids.filter(
+                              (id) => id !== member.id
+                            ),
+                      }))
+                    }
+                  />
+                  <span>{member.name}</span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Select one or more members to assign to this project. These members
+            will be available to assign tasks to.
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Select one or more members to assign to this project. These members
-          will be available to assign tasks to.
-        </p>
-      </div>
+      )}
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={loading}
+          onClick={onCancel}
+        >
           Cancel
         </Button>
-        <Button type="submit">
-          {project.id ? "Update Project" : "Create Project"}
+        <Button type="submit" disabled={!isDirty || loading}>
+          {loading
+            ? "Saving..."
+            : project.id
+            ? "Update Project"
+            : "Create Project"}
         </Button>
       </div>
     </form>

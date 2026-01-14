@@ -9,20 +9,17 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import type { TeamMember, TeamMemberFormProps } from "@/Types/types";
+import type { TeamMemberFormProps } from "@/Types/types";
 
 const TeamMemberForm = ({
   member = {},
   onSave,
   onCancel,
 }: TeamMemberFormProps) => {
-  const [formData, setFormData] = useState<Partial<TeamMember>>({
-    firstname: member.firstname || "",
-    lastname: member.lastname || "",
-    email: member.email || "",
-    role: member.role || "",
-    access: member.access || "Team",
-    status: member.status || "active",
+  const [formData, setFormData] = useState({
+    role: member.role,
+    access: member.access,
+    status: member.status,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -32,41 +29,21 @@ const TeamMemberForm = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/*READ ONLY FIELDS*/}
       <div className="space-y-2">
-        <Label htmlFor="firstname">First Name</Label>
-        <Input
-          id="firstname"
-          value={formData.firstname}
-          onChange={(e) =>
-            setFormData({ ...formData, firstname: e.target.value })
-          }
-          placeholder="Enter first name"
-          required
-        />
+        <Label htmlFor="name">Name</Label>
+        <Input id="name" value={member.name} disabled />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="lastname">Last Name</Label>
-        <Input
-          id="lastname"
-          value={formData.lastname}
-          onChange={(e) =>
-            setFormData({ ...formData, lastname: e.target.value })
-          }
-          placeholder="Enter last name"
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">Work Email</Label>
         <Input
           id="email"
           type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          value={member.email}
+          // onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           placeholder="Enter email address"
-          required
+          disabled
         />
       </div>
 
@@ -86,15 +63,15 @@ const TeamMemberForm = ({
         <Select
           value={formData.access}
           onValueChange={(value) =>
-            setFormData({ ...formData, access: value as "Admin" | "Team" })
+            setFormData({ ...formData, access: value as string })
           }
         >
           <SelectTrigger>
             <SelectValue placeholder="Select access level" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Admin">Admin</SelectItem>
-            <SelectItem value="Team">Team</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="team_member">Team Member</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -121,9 +98,7 @@ const TeamMemberForm = ({
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">
-          {member.id ? "Update Member" : "Add Member"}
-        </Button>
+        <Button type="submit">Save Changes</Button>
       </div>
     </form>
   );

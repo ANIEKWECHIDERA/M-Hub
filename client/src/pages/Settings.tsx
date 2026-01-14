@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -132,6 +133,29 @@ export default function Settings() {
         error: "Something went wrong, please try again.",
       }
     );
+  };
+
+  console.log("TEAM MEMBERS:", teamMembers);
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr + "Z"); // treat backend time as UTC
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000); // difference in seconds
+
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    if (diff < 31536000)
+      return date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   return (
@@ -380,50 +404,57 @@ export default function Settings() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {teamMembers.map((teammember) => (
-                    <TableRow key={teammember.id}>
+                  {teamMembers.map((team_members: any) => (
+                    <TableRow key={team_members.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                            <AvatarImage src={team_members.avatar} />
                             <AvatarFallback>
-                              {`${teammember.firstname?.[0] ?? ""}${
-                                teammember.lastname?.[0] ?? ""
-                              }`}
+                              {team_members.name
+                                ?.split(" ")
+                                .map((n: any) => n[0])
+                                .slice(0, 2)
+                                .join("")
+                                .toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="font-medium">
-                              {teammember.firstname} {teammember.lastname}
+                              {team_members.name}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {teammember.email}
+                              {team_members.email}
                             </div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={"outline"}>{teammember.role}</Badge>
+                        <Badge variant={"outline"}>{team_members.role}</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-green-600">
-                          {teammember.status}
+                          {team_members.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {new Date(teammember.lastlogin).toLocaleDateString()}
+                        {team_members.last_login === null
+                          ? "Never"
+                          : formatTime(team_members.last_login)}
                       </TableCell>
                       <TableCell>
                         <Badge
                           variant={
-                            teammember.access === "Admin"
+                            team_members.access === "Admin"
                               ? "default"
-                              : teammember.role === "Team"
+                              : team_members.role === "Team"
                               ? "secondary"
                               : "outline"
                           }
                         >
-                          {teammember.access}
+                          {team_members.access === "admin"
+                            ? "Admin"
+                            : "Team Member"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -431,9 +462,9 @@ export default function Settings() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            aria-label={`Edit ${teammember.firstname} ${teammember.lastname}`}
+                            aria-label={`Edit ${team_members.firstname} ${team_members.lastname}`}
                             onClick={() => {
-                              setEditingUserId(teammember.id);
+                              setEditingUserId(team_members.id);
                             }}
                           >
                             <Edit className="h-4 w-4" />
@@ -442,9 +473,9 @@ export default function Settings() {
                             variant="ghost"
                             size="sm"
                             className="text-red-500 hover:text-red-700"
-                            aria-label={`Delete ${teammember.firstname} ${teammember.lastname}`}
+                            aria-label={`Delete ${team_members.firstname} ${team_members.lastname}`}
                             onClick={() => {
-                              setMemberToDelete(teammember);
+                              setMemberToDelete(team_members);
                               setIsDeleteDialogOpen(true);
                             }}
                           >
@@ -469,9 +500,12 @@ export default function Settings() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Edit Team Member</DialogTitle>
+            <DialogDescription>
+              Update the team member details and save your changes.
+            </DialogDescription>
           </DialogHeader>
           <TeamMemberForm
-            member={teamMembers.find((m) => m.id === editingUserId)}
+            member={teamMembers.find((m: any) => m.id === editingUserId)}
             onSave={async (data) => {
               if (editingUserId) {
                 await updateTeamMember(editingUserId, data);
