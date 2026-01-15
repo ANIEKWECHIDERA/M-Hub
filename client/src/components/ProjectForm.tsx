@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,9 +23,12 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
   const [showNewClientInput, setShowNewClientInput] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Create a ref for the new client input
+  const newClientInputRef = useRef<HTMLInputElement>(null);
+
   const initialForm = {
     title: project.title || "",
-    client_id: project.client?.id || "",
+    client_id: project.client?.id,
     status: project.status || "Planning",
     deadline: normalizeDate(project.deadline),
     description: project.description || "",
@@ -54,6 +57,13 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
     setLoading(false);
   };
 
+  // Focus the input when showNewClientInput becomes true
+  useEffect(() => {
+    if (showNewClientInput && newClientInputRef.current) {
+      newClientInputRef.current.focus();
+    }
+  }, [showNewClientInput]);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
@@ -72,6 +82,7 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
         {showNewClientInput ? (
           <Input
             id="new-client"
+            ref={newClientInputRef} // Attach ref here
             value={newClient}
             onChange={(e) => setNewClient(e.target.value)}
             placeholder="Enter new client name"
@@ -171,12 +182,11 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
                   <Checkbox
                     checked={checked}
                     onCheckedChange={(checked) => {
-                      // Update team_member_ids
                       setFormData((prev) => {
                         const updatedTeamMembers = checked
                           ? Array.from(
                               new Set([...prev.team_member_ids, member.id])
-                            ) // Prevent duplicates
+                            )
                           : prev.team_member_ids.filter(
                               (id) => id !== member.id
                             );

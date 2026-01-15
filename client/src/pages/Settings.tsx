@@ -135,7 +135,7 @@ export default function Settings() {
     );
   };
 
-  console.log("TEAM MEMBERS:", teamMembers);
+  // console.log("TEAM MEMBERS:", teamMembers);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr + "Z"); // treat backend time as UTC
@@ -373,6 +373,9 @@ export default function Settings() {
                   <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                       <DialogTitle>Invite Team Member</DialogTitle>
+                      <DialogDescription>
+                        Invite Team Members.
+                      </DialogDescription>
                     </DialogHeader>
                     <InviteForm
                       onSave={(data: any) => {
