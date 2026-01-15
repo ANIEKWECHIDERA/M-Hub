@@ -185,7 +185,7 @@ export function ProjectDetail() {
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium">Deadline</p>
+                  <p className="text-sm font-medium">Project Deadline</p>
                   <p className="text-sm text-muted-foreground">
                     {new Date(project.deadline ?? "").toLocaleDateString()}
                   </p>
@@ -200,7 +200,8 @@ export function ProjectDetail() {
                 <div>
                   <p className="text-sm font-medium">Team Members</p>
                   <p className="text-sm text-muted-foreground">
-                    {(project.team_members ?? []).length} members
+                    {(project.team_members ?? []).length}{" "}
+                    {project.team_members.length <= 1 ? "member" : "members"}
                   </p>
                 </div>
               </div>
@@ -252,14 +253,14 @@ export function ProjectDetail() {
                     <strong>Status:</strong> {project.status}
                   </li>
                   <li>
-                    <strong>Deadline:</strong>{" "}
+                    <strong>Project Deadline:</strong>{" "}
                     {new Date(project.deadline ?? "").toLocaleDateString()}
                   </li>
                   <li>
-                    <strong>Total Tasks:</strong> {total}
+                    <strong>Total Task(s):</strong> {total}
                   </li>
                   <li>
-                    <strong>Completed Tasks:</strong> {completed}
+                    <strong>Completed Task(s):</strong> {completed}
                   </li>
                   <li>
                     <strong>Progress:</strong> {progress}%

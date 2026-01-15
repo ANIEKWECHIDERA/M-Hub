@@ -26,16 +26,22 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
     status: defaultValues?.status || "To-Do",
     due_date: normalizeDate(defaultValues?.due_date),
     priority: defaultValues?.priority || "medium",
+    team_member_ids: defaultValues?.team_members?.map((m: any) => m.id) || [],
   };
 
   // Only members assigned to this project
   const projectTeamMembers: TeamMemberSummary[] = (
     currentProject?.team_members ?? []
-  ).filter((member) => member.role !== null) as TeamMemberSummary[];
+  ).filter((member) => member.id !== null) as TeamMemberSummary[];
 
   const [formData, setFormData] = useState(initialForm);
   const isDirty = !isEqual(formData, initialForm);
-  console.log("default values:", defaultValues);
+  console.log(
+    "default values:",
+    defaultValues,
+    "Project TeamMember:",
+    currentProject?.team_members
+  );
 
   useEffect(() => {
     if (defaultValues) {
@@ -48,6 +54,8 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
         status: defaultValues.status || "To-Do",
         due_date: normalizeDate(defaultValues.due_date || ""),
         priority: defaultValues.priority || "medium",
+        team_member_ids:
+          defaultValues?.team_members?.map((m: any) => m.id) || [],
       });
     }
   }, [defaultValues]);

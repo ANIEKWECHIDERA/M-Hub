@@ -2,6 +2,7 @@ import type { TaskDetailDialogProps } from "../Types/types";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -20,6 +21,7 @@ const TaskDetailDialog = ({
     <Dialog open={!!task} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] rounded-lg shadow-lg">
         <DialogHeader>
+          <DialogDescription></DialogDescription>
           <DialogTitle
             className={`text-2xl font-semibold ${
               task.status === "Done"
