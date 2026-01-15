@@ -8,39 +8,7 @@ import {
 import { logger } from "../utils/logger";
 import { findOrCreateClient } from "../domain/client.domain";
 import { PROJECT_SELECT } from "../dbSelect/project.select";
-
-function toProjectResponseDTO(row: any): ProjectResponseDTO {
-  return {
-    id: row.id,
-    company_id: row.company_id,
-    title: row.title,
-    description: row.description,
-    status: row.status,
-    deadline: row.deadline,
-    created_at: row.created_at,
-
-    client: row.clients
-      ? {
-          id: row.clients.id,
-          name: row.clients.name,
-        }
-      : null,
-
-    team_members: (row.project_team_members ?? []).map((ptm: any) => {
-      const user = ptm.team_members?.users;
-
-      return {
-        id: ptm.team_members.id,
-        name:
-          user?.display_name ??
-          [user?.first_name, user?.last_name].filter(Boolean).join(" ") ??
-          ptm.team_members.email, // safe fallback
-        avatar: user?.avatar ?? null,
-        role: ptm.role,
-      };
-    }),
-  };
-}
+import { toProjectResponseDTO } from "../mapper/projectResponse.DTO";
 
 export const ProjectService = {
   async findAll(companyId: string): Promise<ProjectResponseDTO[]> {

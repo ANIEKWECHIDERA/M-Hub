@@ -7,6 +7,9 @@ export const PROJECT_SELECT = `
   deadline,
   created_at,
 
+  tasks_total:tasks(count),
+  tasks_done:tasks(count).filter(status.eq."Done"),
+
   clients (
     id,
     name
@@ -26,5 +29,5 @@ export const PROJECT_SELECT = `
         avatar
       )
     )
-  )
+  ),
 `;

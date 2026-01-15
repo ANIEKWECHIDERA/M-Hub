@@ -139,6 +139,29 @@ export const AssetService = {
   async deleteById(id: string, companyId: string) {
     logger.info("Asset.delete:start", { id, companyId });
 
+    //get the asset url from the backend
+    const { data: assetData, error: fetchError } = await supabaseAdmin
+      .from("assets")
+      .select("url")
+      .eq("id", id)
+      .eq("company_id", companyId)
+      .single();
+
+    if (fetchError) {
+      logger.error("Asset.fetch.error", { id, companyId, fetchError });
+      throw fetchError;
+    }
+
+    //delete asset from cloudinary
+    if (assetData?.url) {
+      try {
+        await cloudinary.uploader.destroy(assetData?.url);
+        logger.info("Asset.cloudinary:deleted", { url: assetData?.url });
+      } catch (cloudError) {
+        logger.error("Asset.cloudinary:error", { url: assetData?.url });
+      }
+    }
+
     const { error } = await supabaseAdmin
       .from("assets")
       .delete()

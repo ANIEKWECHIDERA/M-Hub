@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "../config/supabaseClient";
 import { TEAM_MEMBER_SELECT } from "../dbSelect/teamMember.select";
-import { toTeamMemberResponseDTO } from "../mapper/teamMemberResposeDTO";
+import { toTeamMemberResponseDTO } from "../mapper/teamMemberRespose.DTO";
 import {
   CreateTeamMemberDTO,
   UpdateTeamMemberDTO,

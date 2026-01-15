@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useProjectContext } from "@/context/ProjectContext";
 import { useFilteredProjects } from "../hooks/useFilteredProjects";
 import { useProjectStats } from "../hooks/useProjectStats";
-import { useClients } from "../hooks/useClients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,11 +16,12 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar, Users, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTaskContext } from "@/context/TaskContext";
+import { useClientContext } from "@/context/ClientContext";
 
 export default function Dashboard() {
   const { projects, loading, error } = useProjectContext();
   const { tasks } = useTaskContext();
-  const clients = useClients(projects);
+  const { clients } = useClientContext();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const filteredProjects = useFilteredProjects(
@@ -30,17 +30,13 @@ export default function Dashboard() {
     clientFilter
   );
 
-  const {
-    totalProjects,
-    activeProjects,
-    completedProjects,
-    overdueProjects,
-    getTaskStats,
-  } = useProjectStats(projects, tasks);
+  const { totalProjects, activeProjects, completedProjects, overdueProjects } =
+    useProjectStats(projects, tasks);
+  console.log("tasks:", tasks, "projects:", projects);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
-  // console.log(`fetched projects: ${JSON.stringify(projects)}`);
+  console.log(`fetched projects: ${JSON.stringify(projects)}`);
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -123,16 +119,11 @@ export default function Dashboard() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Clients</SelectItem>
-            {clients
-              .filter(
-                (client): client is { id: string; name: string } =>
-                  client !== undefined
-              )
-              .map((client) => (
-                <SelectItem key={client?.id} value={client?.name ?? "Unknown"}>
-                  {client?.name ?? "Unknown"}
-                </SelectItem>
-              ))}
+            {clients.map((client) => (
+              <SelectItem key={client.id} value={client.name}>
+                {client.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Button
@@ -149,84 +140,88 @@ export default function Dashboard() {
       {/* Project Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProjects.map((project) => {
-          const { total, completed, progress } = getTaskStats(project.id);
           console.log("DASHBOARD tasks length:", tasks.length);
 
           return (
-            <Card
-              key={project.id}
-              className="hover:shadow-lg transition-shadow"
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">{project.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {project.client?.name}
-                    </p>
+            <Link to={`/projectdetails/${project.id}`}>
+              <Card
+                key={project.id}
+                className="hover:shadow-lg transition-shadow"
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="text-lg">{project.title}</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {project.client?.name}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={
+                        project.status === "Completed"
+                          ? "default"
+                          : project.status === "In Progress"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      {project.status}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={
-                      project.status === "Completed"
-                        ? "default"
-                        : project.status === "In Progress"
-                        ? "secondary"
-                        : "outline"
-                    }
-                  >
-                    {project.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Progress</span>
-                    <span>{progress}%</span>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Progress</span>
+                      <span>{project.progress}%</span>
+                    </div>
+                    <Progress value={project.progress} className="h-2" />
                   </div>
-                  <Progress value={progress} className="h-2" />
-                </div>
 
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    <span>
-                      {project.deadline
-                        ? new Date(project.deadline).toLocaleDateString()
-                        : "No deadline"}
-                    </span>
-                  </div>
-                  {total > 0 ? (
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4" />
+                      <Calendar className="h-4 w-4" />
                       <span>
-                        {completed}/{total} {total === 1 ? "task" : "tasks"}
+                        {project.deadline
+                          ? new Date(project.deadline).toLocaleDateString()
+                          : "No deadline"}
                       </span>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4" />
-                      <span>No tasks</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {project.team_members?.length ?? 0}{" "}
-                      {project.team_members?.length <= 1 ? "member" : "members"}
-                    </span>
+                    {project.task_count > 0 ? (
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>
+                          {/* {completed}/{total} {total === 1 ? "task" : "tasks"} */}
+                          {project.task_count}{" "}
+                          {project.task_count === 1 ? "task" : "tasks"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>No tasks</span>
+                      </div>
+                    )}
                   </div>
-                  <Link to={`/projectdetails/${project.id}`}>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        {project.team_members?.length ?? 0}{" "}
+                        {project.team_members?.length <= 1
+                          ? "member"
+                          : "members"}
+                      </span>
+                    </div>
+
                     <Button variant="outline" size="sm" onClick={() => {}}>
                       View Details
                     </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           );
         })}
       </div>

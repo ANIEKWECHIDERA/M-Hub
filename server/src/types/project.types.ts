@@ -18,6 +18,9 @@ export interface ProjectResponseDTO {
     avatar?: string | null;
     role: string | null;
   }[];
+  task_count: number;
+  completed_task_count: number;
+  progress: number;
 }
 
 export interface CreateProjectDTO {

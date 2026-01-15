@@ -13,11 +13,11 @@ import type { Client, ClientContextType } from "@/Types/types";
 const ClientContext = createContext<ClientContextType | null>(null);
 
 export const useClientContext = () => {
-  const ctx = useContext(ClientContext);
-  if (!ctx) {
+  const context = useContext(ClientContext);
+  if (!context) {
     throw new Error("useClientContext must be used within ClientProvider");
   }
-  return ctx;
+  return context;
 };
 
 export const ClientProvider = ({ children }: { children: React.ReactNode }) => {

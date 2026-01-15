@@ -38,6 +38,9 @@ export interface Project {
     avatar?: string | null;
     role: string | null;
   }[];
+
+  task_count: number;
+  progress: number;
 }
 
 export type ProjectTaskStats = {
