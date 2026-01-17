@@ -52,6 +52,7 @@ export const ProjectController = {
       logger.info("getProject: project fetched successfully", {
         id,
         companyId,
+        project,
       });
 
       return res.json(project);
@@ -115,7 +116,7 @@ export const ProjectController = {
       const updatedProject = await ProjectService.update(
         id,
         companyId,
-        payload
+        payload,
       );
 
       if (!updatedProject) {

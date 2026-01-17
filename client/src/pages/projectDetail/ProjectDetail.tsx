@@ -95,20 +95,20 @@ export function ProjectDetail() {
 
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithAssigneesDTO | null>(
-    null
+    null,
   );
 
   const filteredTasks = useMemo(
     () => tasks.filter((task) => task.projectId === id),
-    [tasks, id]
+    [tasks, id],
   );
 
   const { total, completed, progress } = useProjectTaskStats(id ?? "");
-  const team = currentProject ? currentProject.team_members ?? [] : [];
+  const team = currentProject ? (currentProject.team_members ?? []) : [];
 
   const filteredfiles = useMemo(
     () => files.filter((file) => file.project_id === (id ?? "")),
-    [files, id]
+    [files, id],
   );
 
   useEffect(() => {
@@ -135,6 +135,8 @@ export function ProjectDetail() {
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!project) return <div>No project data available</div>;
+
+  console.log("current Project data:", currentProject);
 
   return (
     <div className="space-y-6">
@@ -171,8 +173,8 @@ export function ProjectDetail() {
               project.status === "Completed"
                 ? "default"
                 : project.status === "In Progress"
-                ? "secondary"
-                : "outline"
+                  ? "secondary"
+                  : "outline"
             }
           >
             {project.status}
@@ -323,8 +325,8 @@ export function ProjectDetail() {
                           prev.map((t) =>
                             t.id === created.id
                               ? { ...created, team_members: teamMembers }
-                              : t
-                          )
+                              : t,
+                          ),
                         );
                       }
 
@@ -400,8 +402,8 @@ export function ProjectDetail() {
                                   task.priority === "high"
                                     ? "text-red-600"
                                     : task.priority === "medium"
-                                    ? "text-yellow-600"
-                                    : "text-green-600"
+                                      ? "text-yellow-600"
+                                      : "text-green-600"
                                 }
                               >
                                 {task.priority?.[0]?.toUpperCase()}
@@ -555,7 +557,7 @@ export function ProjectDetail() {
                           <div>
                             <p className="font-medium text-sm">
                               {`${file.name.slice(0, 20)}...${file.name.slice(
-                                -4
+                                -4,
                               )}`}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -627,8 +629,8 @@ export function ProjectDetail() {
                 {taskToDelete
                   ? `${taskToDelete.title}`
                   : fileToDelete
-                  ? `${fileToDelete.name}`
-                  : "No item selected for deletion"}
+                    ? `${fileToDelete.name}`
+                    : "No item selected for deletion"}
               </strong>
               ? This action cannot be undone.
             </AlertDialogDescription>
