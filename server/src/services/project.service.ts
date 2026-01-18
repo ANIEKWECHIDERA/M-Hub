@@ -30,7 +30,7 @@ export const ProjectService = {
 
   async findById(
     id: string,
-    companyId: string
+    companyId: string,
   ): Promise<ProjectResponseDTO | null> {
     logger.info("ProjectService.findById: start", { id, companyId });
 
@@ -41,6 +41,7 @@ export const ProjectService = {
       .eq("company_id", companyId)
       .maybeSingle();
 
+    logger.info("Backend res without Mapper:", data);
     if (error) {
       logger.error("ProjectService.findById: supabase error", { error });
       throw error;
@@ -115,7 +116,7 @@ export const ProjectService = {
   async update(
     id: string,
     companyId: string,
-    payload: UpdateProjectInput
+    payload: UpdateProjectInput,
   ): Promise<ProjectResponseDTO | null> {
     logger.info("ProjectService.update: start", { id, companyId });
 

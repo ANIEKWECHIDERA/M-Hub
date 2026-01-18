@@ -6,6 +6,13 @@ export function toProjectResponseDTO(row: any): ProjectResponseDTO {
 
   const progress =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  // const clientRow = row.clients?.[0] ?? null;
+
+  const teamMembers = Array.isArray(row.project_team_members)
+    ? row.project_team_members
+    : [];
+
   return {
     id: row.id,
     company_id: row.company_id,
@@ -22,15 +29,17 @@ export function toProjectResponseDTO(row: any): ProjectResponseDTO {
         }
       : null,
 
-    team_members: (row.project_team_members ?? []).map((ptm: any) => {
-      const user = ptm.team_members?.users;
+    team_members: teamMembers.map((ptm: any) => {
+      const tm = ptm.team_members;
+      const user = tm?.users;
 
       return {
-        id: ptm.team_members.id,
+        id: tm?.id,
         name:
           user?.display_name ??
           [user?.first_name, user?.last_name].filter(Boolean).join(" ") ??
-          ptm.team_members.email, // safe fallback
+          tm?.email ??
+          "Unknown",
         avatar: user?.avatar ?? null,
         role: ptm.role,
       };
