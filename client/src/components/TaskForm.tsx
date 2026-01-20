@@ -35,7 +35,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
   // Only members assigned to this project
   const projectTeamMembers: TeamMemberSummary[] = (
     currentProject?.team_members ?? []
-  ).filter((member) => member.role !== null) as TeamMemberSummary[];
+  ).filter((member) => member.id !== null) as TeamMemberSummary[];
 
   useEffect(() => {
     if (!defaultValues) return;
@@ -118,7 +118,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
                         assignees:
                           isChecked === true
                             ? Array.from(
-                                new Set([...prev.assignees, member.id])
+                                new Set([...prev.assignees, member.id]),
                               )
                             : prev.assignees.filter((id) => id !== member.id),
                       }));

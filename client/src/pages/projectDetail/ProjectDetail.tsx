@@ -284,18 +284,23 @@ export function ProjectDetail() {
               }}
             >
               <DialogTrigger asChild>
-                <Button onClick={() => setEditingTask(null)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Task
-                </Button>
+                {filteredTasks.length !== 0 && (
+                  <Button onClick={() => setEditingTask(null)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Task
+                  </Button>
+                )}
               </DialogTrigger>
+
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>
                     {editingTask ? "Update Task" : "Create New Task"}
                   </DialogTitle>
                   <DialogDescription>
-                    Update the task details and save your changes.
+                    {editingTask
+                      ? "Update the task details and save your changes."
+                      : "Create New Task"}
                   </DialogDescription>
                 </DialogHeader>
                 <TaskForm
@@ -480,33 +485,45 @@ export function ProjectDetail() {
 
         <TabsContent value="team" className="space-y-4">
           <h2 className="text-xl font-semibold">Team Members</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {team.map((team_members) => (
-              <Card key={team_members.id}>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage
-                      src={team_members.avatar || "/placeholder.svg"}
-                    />
-                    <AvatarFallback>
-                      {team_members.name
-                        ?.split(" ")
-                        .map((n) => n[0])
-                        .slice(0, 2)
-                        .join("")
-                        .toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{team_members.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {team_members.role}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+
+          {team && team.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {team.map((team_members) => (
+                <Card key={team_members.id}>
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage
+                        src={team_members.avatar || "/placeholder.svg"}
+                      />
+                      <AvatarFallback>
+                        {team_members.name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{team_members.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {team_members.role}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+              <p className="text-sm">
+                No team members have been added to this project yet.
+              </p>
+              <p className="text-xs mt-1">
+                Add team members from the Projects Page.
+              </p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="assets" className="space-y-4">
@@ -661,7 +678,7 @@ export function ProjectDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Toaster position="top-right" />
+      {/* <Toaster position="top-right" /> */}
     </div>
   );
 }

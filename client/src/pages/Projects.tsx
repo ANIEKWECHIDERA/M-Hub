@@ -66,7 +66,7 @@ export default function Projects() {
 
   const clients = useMemo(
     () => Array.from(new Set(projects.map((p) => p.client?.name ?? "Unknown"))),
-    [projects]
+    [projects],
   );
 
   const filteredProjects = useMemo(() => {
@@ -97,7 +97,7 @@ export default function Projects() {
       .sort(
         (a, b) =>
           (a.deadline ? new Date(a.deadline).getTime() : 0) -
-          (b.deadline ? new Date(b.deadline).getTime() : 0)
+          (b.deadline ? new Date(b.deadline).getTime() : 0),
       );
   }, [projects, searchTerm, statusFilter, clientFilter, dateFrom, dateTo]);
 
@@ -246,8 +246,8 @@ export default function Projects() {
                             project.status === "Completed"
                               ? "default"
                               : project.status === "In Progress"
-                              ? "secondary"
-                              : "outline"
+                                ? "secondary"
+                                : "outline"
                           }
                         >
                           {project.status}
@@ -355,7 +355,7 @@ export default function Projects() {
       </AlertDialog>
 
       {/* Sonner toaster */}
-      <Toaster position="top-right" />
+      {/* <Toaster position="top-right" /> */}
     </div>
   );
 }

@@ -8,7 +8,7 @@ export const useSubTasksContext = () => {
   const context = useContext(SubTasksContext);
   if (!context) {
     throw new Error(
-      "useSubTasksContext must be used within a SubTasksContextProvider"
+      "useSubTasksContext must be used within a SubTasksContextProvider",
     );
   }
   return context;
@@ -214,7 +214,7 @@ export const SubTasksContextProvider = ({
 
   const updateSubtask = async (id: number, data: Partial<Subtask>) => {
     setSubtasks((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...data } : s))
+      prev.map((s) => (s.id === id ? { ...s, ...data } : s)),
     );
     toast.success("Subtask updated");
     // TODO: Persist to backend
