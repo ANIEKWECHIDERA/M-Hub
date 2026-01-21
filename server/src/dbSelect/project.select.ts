@@ -28,6 +28,8 @@ export const PROJECT_SELECT = `
     )
   ),
 
-  tasks_total:tasks(count),
-  tasks_done:tasks(count).filter(status.eq."Done"),
+task_counts:project_task_counts (
+  total_tasks,
+  completed_tasks
+)
 `;

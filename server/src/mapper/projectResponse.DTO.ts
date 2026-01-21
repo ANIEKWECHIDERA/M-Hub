@@ -1,8 +1,8 @@
 import { ProjectResponseDTO } from "../types/project.types";
 
 export function toProjectResponseDTO(row: any): ProjectResponseDTO {
-  const totalTasks = row.tasks_total?.[0]?.count ?? 0;
-  const completedTasks = row.tasks_done?.[0]?.count ?? 0;
+  const totalTasks = row.task_counts?.[0]?.total_tasks ?? 0;
+  const completedTasks = row.task_counts?.[0]?.completed_tasks ?? 0;
 
   const progress =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -40,7 +40,7 @@ export function toProjectResponseDTO(row: any): ProjectResponseDTO {
           [user?.first_name, user?.last_name].filter(Boolean).join(" ") ??
           tm?.email ??
           "Unknown",
-        avatar: user?.avatar ?? null,
+        avatar: user?.avatar ?? user?.photo_url,
         role: ptm.role,
       };
     }),
