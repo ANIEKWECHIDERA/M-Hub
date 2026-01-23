@@ -43,12 +43,12 @@ import {
   type LucideProps,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CommentsSystem } from "@/components/CommentsSystem";
-import type { EnrichedTask, Subtask, Task, TaskStatus } from "@/Types/types";
+// import { CommentsSystem } from "@/components/CommentsSystem";
+import type { Subtask, TaskStatus } from "@/Types/types";
 import { useTaskContext } from "@/context/TaskContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useSubTasksContext } from "@/context/SubTasksContext";
-import { useCommentContext } from "@/context/CommentContext";
+// import { useCommentContext } from "@/context/CommentContext";
 
 // Comments are sourced from CommentContext; removed mock comments
 
@@ -103,30 +103,29 @@ export default function MyTasksPage() {
   const [editingSubtaskId, setEditingSubtaskId] = useState<number | null>(null);
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState("");
   const {
+    tasks,
     setTasks,
     addTask,
     selectedTask,
     setSelectedTask,
     setIsDeleteDialogOpen,
     setTaskToDelete,
-    TaskToDelete,
     isDeleteDialogOpen,
     confirmDelete,
     updateTask,
-    getEnrichedTasks,
   } = useTaskContext();
   const { teamMembers, currentMember } = useTeamContext();
   const { updateSubtask, addSubtask, deleteSubtask, subtasks } =
     useSubTasksContext();
-  const { comments, addComment, updateComment, deleteComment } =
-    useCommentContext();
+  // const { comments, addComment, updateComment, deleteComment } =
+  //   useCommentContext();
 
   // Get assigneeId from auth context (fallback to 1 if not available)
   const assigneeId = currentMember?.id ?? 1; // TODO: Ensure currentUser.id comes from auth context
   // TODO: Make companyId dynamic (e.g., from user context or auth)
   const companyId = "3b72e747-22d9-40b6-9445-8308253923c1"; // Hardcoded for now
 
-  const tasks = useMemo(() => getEnrichedTasks(), [getEnrichedTasks, subtasks]);
+  // const tasks = tasks;
   const deferredSearch = useDeferredValue(searchQuery);
   const stats = useMemo(() => {
     const now = new Date();
@@ -136,9 +135,9 @@ export default function MyTasksPage() {
     // Filter tasks by assignee and company
     const assignedTasks = tasks.filter(
       (task) =>
-        Array.isArray(task.assignee) &&
-        task.assignee.includes(assigneeId) &&
-        task.companyId === companyId
+        Array.isArray(task.assignees) &&
+        task.assignees.includes(assigneeId) &&
+        task.companyId === companyId,
     );
 
     return {
@@ -148,10 +147,10 @@ export default function MyTasksPage() {
         .length,
       todo: assignedTasks.filter((t) => t.status === "To-Do").length,
       overdue: assignedTasks.filter(
-        (t) => new Date(t.dueDate) < today && t.status !== "Done"
+        (t) => new Date(t.due_date ?? 0) < today && t.status !== "Done",
       ).length,
       dueToday: assignedTasks.filter((t) => {
-        const dueDate = new Date(t.dueDate);
+        const dueDate = new Date(t.due_date ?? 0);
         return dueDate >= today && dueDate < tomorrow && t.status !== "Done";
       }).length,
     };
@@ -162,27 +161,29 @@ export default function MyTasksPage() {
     const filtered = tasks.filter((task) => {
       // Only show tasks assigned to the specific team member and company
       const matchesAssignee =
-        Array.isArray(task.assignee) && task.assignee.includes(assigneeId);
+        Array.isArray(task.assignees) && task.assignees?.includes(assigneeId);
       const matchesCompany = task.companyId === companyId;
 
       const matchesSearch =
         task.title.toLowerCase().includes(deferredSearch.toLowerCase()) ||
-        task.description.toLowerCase().includes(deferredSearch.toLowerCase()) ||
-        task.projectTitle.toLowerCase().includes(deferredSearch.toLowerCase());
+        task.description
+          ?.toLowerCase()
+          .includes(deferredSearch.toLowerCase()) ||
+        task.title.toLowerCase().includes(deferredSearch.toLowerCase());
 
       const matchesStatus =
         filterStatus === "all" || task.status === filterStatus;
       const matchesPriority =
         filterPriority === "all" || task.priority === filterPriority;
       const matchesProject =
-        filterProject === "all" || task.projectTitle === filterProject;
+        filterProject === "all" || task.title === filterProject;
 
       // View mode filters
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const tomorrow = new Date(today.getTime() + 86400000);
       const nextWeek = new Date(today.getTime() + 604800000);
-      const dueDate = new Date(task.dueDate);
+      const dueDate = new Date(task.due_date ?? 0);
 
       let matchesViewMode = true;
       switch (viewMode) {
@@ -214,12 +215,15 @@ export default function MyTasksPage() {
     filtered.sort((a, b) => {
       switch (sortBy) {
         case "dueDate":
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          return (
+            new Date(a.due_date ?? 0).getTime() -
+            new Date(b.due_date ?? 0).getTime()
+          );
         case "priority":
           const priorityOrder = { high: 3, medium: 2, low: 1 };
           return priorityOrder[b.priority] - priorityOrder[a.priority];
         case "project":
-          return a.projectTitle.localeCompare(b.projectTitle);
+          return a.title.localeCompare(b.title);
         case "status":
           return a.status.localeCompare(b.status);
         default:
@@ -240,7 +244,7 @@ export default function MyTasksPage() {
   ]);
 
   const projects = useMemo(() => {
-    return Array.from(new Set(tasks.map((t) => t.projectTitle)));
+    return Array.from(new Set(tasks.map((t) => t.title)));
   }, [tasks]);
 
   const isOverdue = (dueDate: string, status: string) => {
@@ -264,7 +268,7 @@ export default function MyTasksPage() {
 
   const handleStatusChange = async (
     taskId: string,
-    newStatus: Task["status"]
+    newStatus: Task["status"],
   ) => {
     const updatedAt = new Date().toISOString();
     await updateTask(taskId, { status: newStatus, updatedAt });
@@ -273,159 +277,159 @@ export default function MyTasksPage() {
     }
   };
 
-  const handleSubtaskToggle = async (taskId: number, subtaskId: number) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task || !task.subtasks) return;
+  // const handleSubtaskToggle = async (taskId: string, subtaskId: string) => {
+  //   const task = tasks.find((t) => t.id === taskId);
+  //   if (!task || !task.subtasks) return;
 
-    const toggledSubtask = task.subtasks.find((st) => st.id === subtaskId);
-    if (!toggledSubtask) return;
+  //   const toggledSubtask = task.subtasks.find((st) => st.id === subtaskId);
+  //   if (!toggledSubtask) return;
 
-    const updatedSubtasks = task.subtasks.map((st) =>
-      st.id === subtaskId ? { ...st, completed: !st.completed } : st
-    );
-    const completedCount = updatedSubtasks.filter((st) => st.completed).length;
-    const progress = Math.round(
-      (completedCount / (updatedSubtasks.length || 1)) * 100
-    );
+  //   const updatedSubtasks = task.subtasks.map((st) =>
+  //     st.id === subtaskId ? { ...st, completed: !st.completed } : st,
+  //   );
+  //   const completedCount = updatedSubtasks.filter((st) => st.completed).length;
+  //   const progress = Math.round(
+  //     (completedCount / (updatedSubtasks.length || 1)) * 100,
+  //   );
 
-    await updateSubtask(subtaskId, { completed: !toggledSubtask.completed });
-    await updateTask(taskId, { progress });
+  //   await updateSubtask(subtaskId, { completed: !toggledSubtask.completed });
+  //   await updateTask(taskId, { progress });
 
-    if (selectedTask?.id === taskId) {
-      setSelectedTask({ ...selectedTask, subtasks: updatedSubtasks, progress });
-    }
-  };
+  //   if (selectedTask?.id === taskId) {
+  //     setSelectedTask({ ...selectedTask, subtasks: updatedSubtasks, progress });
+  //   }
+  // };
 
-  const handleAddSubtask = async () => {
-    if (!newSubtask.trim() || !selectedTask) return;
+  // const handleAddSubtask = async () => {
+  //   if (!newSubtask.trim() || !selectedTask) return;
 
-    const subtask: Omit<Subtask, "id"> = {
-      companyId: 1, // TODO: Make dynamic
-      title: newSubtask,
-      completed: false,
-      createdAt: new Date().toISOString(),
-    };
+  //   const subtask: Omit<Subtask, "id"> = {
+  //     companyId: 1, // TODO: Make dynamic
+  //     title: newSubtask,
+  //     completed: false,
+  //     createdAt: new Date().toISOString(),
+  //   };
 
-    const created = await addSubtask(subtask);
+  //   const created = await addSubtask(subtask);
 
-    const newIds = [...(selectedTask.subtaskIds || []), created.id];
-    await updateTask(selectedTask.id, { subtaskIds: newIds });
+  //   const newIds = [...(selectedTask.subtaskIds || []), created.id];
+  //   await updateTask(selectedTask.id, { subtaskIds: newIds });
 
-    const updatedSubtasks = [...(selectedTask.subtasks || []), created];
-    const completedCount = updatedSubtasks.filter((st) => st.completed).length;
-    const progress = Math.round(
-      (completedCount / (updatedSubtasks.length || 1)) * 100
-    );
-    await updateTask(selectedTask.id, { progress });
+  //   const updatedSubtasks = [...(selectedTask.subtasks || []), created];
+  //   const completedCount = updatedSubtasks.filter((st) => st.completed).length;
+  //   const progress = Math.round(
+  //     (completedCount / (updatedSubtasks.length || 1)) * 100,
+  //   );
+  //   await updateTask(selectedTask.id, { progress });
 
-    setSelectedTask({
-      ...selectedTask,
-      subtaskIds: newIds,
-      subtasks: updatedSubtasks,
-      progress,
-    });
-    setNewSubtask("");
-  };
+  //   setSelectedTask({
+  //     ...selectedTask,
+  //     subtaskIds: newIds,
+  //     subtasks: updatedSubtasks,
+  //     progress,
+  //   });
+  //   setNewSubtask("");
+  // };
 
-  const handleEditSubtaskStart = (subtaskId: number, currentTitle: string) => {
-    setEditingSubtaskId(subtaskId);
-    setEditingSubtaskTitle(currentTitle);
-  };
+  // const handleEditSubtaskStart = (subtaskId: string, currentTitle: string) => {
+  //   setEditingSubtaskId(subtaskId);
+  //   setEditingSubtaskTitle(currentTitle);
+  // };
 
-  const handleEditSubtaskSave = async (taskId: number) => {
-    if (!selectedTask || editingSubtaskId == null) return;
-    const trimmed = editingSubtaskTitle.trim();
-    if (!trimmed) return;
-    await updateSubtask(editingSubtaskId, { title: trimmed });
-    const updatedSubtasks = (selectedTask.subtasks || []).map((st) =>
-      st.id === editingSubtaskId ? { ...st, title: trimmed } : st
-    );
-    const completedCount = updatedSubtasks.filter((st) => st.completed).length;
-    const progress = Math.round(
-      (completedCount / (updatedSubtasks.length || 1)) * 100
-    );
-    await updateTask(taskId, { progress });
-    setSelectedTask({ ...selectedTask, subtasks: updatedSubtasks, progress });
-    setEditingSubtaskId(null);
-    setEditingSubtaskTitle("");
-  };
+  // const handleEditSubtaskSave = async (taskId: string) => {
+  //   if (!selectedTask || editingSubtaskId == null) return;
+  //   const trimmed = editingSubtaskTitle.trim();
+  //   if (!trimmed) return;
+  //   await updateSubtask(editingSubtaskId, { title: trimmed });
+  //   const updatedSubtasks = (selectedTask.subtasks || []).map((st) =>
+  //     st.id === editingSubtaskId ? { ...st, title: trimmed } : st,
+  //   );
+  //   const completedCount = updatedSubtasks.filter((st) => st.completed).length;
+  //   const progress = Math.round(
+  //     (completedCount / (updatedSubtasks.length || 1)) * 100,
+  //   );
+  //   await updateTask(taskId, { progress });
+  //   setSelectedTask({ ...selectedTask, subtasks: updatedSubtasks, progress });
+  //   setEditingSubtaskId(null);
+  //   setEditingSubtaskTitle("");
+  // };
 
-  const handleDeleteSubtask = async (taskId: number, subtaskId: number) => {
-    if (!selectedTask) return;
-    await deleteSubtask(subtaskId);
-    const newIds = (selectedTask.subtaskIds || []).filter(
-      (id) => id !== subtaskId
-    );
-    const updatedSubtasks = (selectedTask.subtasks || []).filter(
-      (st) => st.id !== subtaskId
-    );
-    const completedCount = updatedSubtasks.filter((st) => st.completed).length;
-    const progress = Math.round(
-      (completedCount / (updatedSubtasks.length || 1)) * 100
-    );
-    await updateTask(taskId, { subtaskIds: newIds, progress });
-    setSelectedTask({
-      ...selectedTask,
-      subtaskIds: newIds,
-      subtasks: updatedSubtasks,
-      progress,
-    });
-  };
+  // const handleDeleteSubtask = async (taskId: string, subtaskId: string) => {
+  //   if (!selectedTask) return;
+  //   await deleteSubtask(subtaskId);
+  //   const newIds = (selectedTask.subtaskIds || []).filter(
+  //     (id) => id !== subtaskId,
+  //   );
+  //   const updatedSubtasks = (selectedTask.subtasks || []).filter(
+  //     (st) => st.id !== subtaskId,
+  //   );
+  //   const completedCount = updatedSubtasks.filter((st) => st.completed).length;
+  //   const progress = Math.round(
+  //     (completedCount / (updatedSubtasks.length || 1)) * 100,
+  //   );
+  //   await updateTask(taskId, { subtaskIds: newIds, progress });
+  //   setSelectedTask({
+  //     ...selectedTask,
+  //     subtaskIds: newIds,
+  //     subtasks: updatedSubtasks,
+  //     progress,
+  //   });
+  // };
 
-  const mappedCommentsForSelectedTask = useMemo(() => {
-    if (!selectedTask)
-      return [] as Array<{
-        id: string;
-        content: string;
-        author: { id: string; name: string; avatar?: string; role?: string };
-        createdAt: string;
-        likes: number;
-        isLiked: boolean;
-      }>;
-    const findAuthorName = (authorId: number) => {
-      const tm = teamMembers.find((m) => m.id === authorId);
-      return tm ? `${tm.firstname} ${tm.lastname}` : `User ${authorId}`;
-    };
-    return comments
-      .filter(
-        (c) =>
-          c.projectId === selectedTask.projectId &&
-          c.companyId === selectedTask.companyId
-      )
-      .map((c) => ({
-        id: String(c.id),
-        content: c.content,
-        author: {
-          id: String(c.authorId),
-          name: findAuthorName(c.authorId),
-          avatar: "/placeholder.svg?height=32&width=32",
-        },
-        createdAt:
-          new Date(c.timestamp).toString() === "Invalid Date"
-            ? new Date().toISOString()
-            : new Date(c.timestamp).toISOString(),
-        likes: 0,
-        isLiked: false,
-      }));
-  }, [comments, selectedTask, teamMembers]);
+  // const mappedCommentsForSelectedTask = useMemo(() => {
+  //   if (!selectedTask)
+  //     return [] as Array<{
+  //       id: string;
+  //       content: string;
+  //       author: { id: string; name: string; avatar?: string; role?: string };
+  //       createdAt: string;
+  //       likes: number;
+  //       isLiked: boolean;
+  //     }>;
+  //   const findAuthorName = (authorId: string) => {
+  //     const tm = teamMembers.find((m) => m.id === authorId);
+  //     return tm ? `${tm.firstname} ${tm.lastname}` : `User ${authorId}`;
+  //   };
+  //   return comments
+  //     .filter(
+  //       (c) =>
+  //         c.projectId === selectedTask.projectId &&
+  //         c.companyId === selectedTask.companyId,
+  //     )
+  //     .map((c) => ({
+  //       id: String(c.id),
+  //       content: c.content,
+  //       author: {
+  //         id: String(c.authorId),
+  //         name: findAuthorName(c.authorId),
+  //         avatar: "/placeholder.svg?height=32&width=32",
+  //       },
+  //       createdAt:
+  //         new Date(c.timestamp).toString() === "Invalid Date"
+  //           ? new Date().toISOString()
+  //           : new Date(c.timestamp).toISOString(),
+  //       likes: 0,
+  //       isLiked: false,
+  //     }));
+  // }, [comments, selectedTask, teamMembers]);
 
-  const handleAddComment = async (content: string) => {
-    if (!selectedTask || !currentMember) return;
-    await addComment(
-      content,
-      selectedTask.companyId,
-      currentMember.id,
-      selectedTask.projectId
-    );
-  };
+  // const handleAddComment = async (content: string) => {
+  //   if (!selectedTask || !currentMember) return;
+  //   await addComment(
+  //     content,
+  //     selectedTask.companyId,
+  //     currentMember.id,
+  //     selectedTask.projectId,
+  //   );
+  // };
 
-  const handleUpdateComment = async (commentId: string, content: string) => {
-    await updateComment(Number(commentId), { content });
-  };
+  // const handleUpdateComment = async (commentId: string, content: string) => {
+  //   await updateComment(Number(commentId), { content });
+  // };
 
-  const handleDeleteComment = async (commentId: string) => {
-    await deleteComment(Number(commentId));
-  };
+  // const handleDeleteComment = async (commentId: string) => {
+  //   await deleteComment(Number(commentId));
+  // };
 
   const completionPercentage =
     stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
@@ -626,8 +630,13 @@ export default function MyTasksPage() {
             const statusKey = task.status as TaskStatus;
             const StatusIcon = statusConfig[statusKey].icon;
 
-            const isTaskOverdue = isOverdue(task.dueDate, task.status);
-            const isTaskDueToday = isDueToday(task.dueDate);
+            const isTaskOverdue = isOverdue(
+              task.due_date ? "no due date" : `${task.due_date}`,
+              task.status,
+            );
+            const isTaskDueToday = isDueToday(
+              task.due_date ? "no due date" : `${task.due_date}`,
+            );
 
             return (
               <Card
@@ -653,7 +662,7 @@ export default function MyTasksPage() {
                             className={cn(
                               "font-medium text-base mb-1",
                               task.status === "Done" &&
-                                "line-through text-muted-foreground"
+                                "line-through text-muted-foreground",
                             )}
                           >
                             {task.title}
@@ -668,7 +677,7 @@ export default function MyTasksPage() {
                             variant="outline"
                             className={cn(
                               "text-xs",
-                              priorityConfig[task.priority].color
+                              priorityConfig[task.priority].color,
                             )}
                           >
                             {priorityConfig[task.priority].label}
@@ -721,7 +730,7 @@ export default function MyTasksPage() {
                         <div className="flex items-center gap-1">
                           <FolderOpen className="h-3.5 w-3.5" />
                           <span className="truncate max-w-[150px]">
-                            {task.projectTitle}
+                            {task.title}
                           </span>
                         </div>
 
@@ -731,7 +740,7 @@ export default function MyTasksPage() {
                           <StatusIcon
                             className={cn(
                               "h-3.5 w-3.5",
-                              statusConfig[statusKey].color
+                              statusConfig[statusKey].color,
                             )}
                           />
                           <span>{statusConfig[statusKey].label}</span>
@@ -743,7 +752,7 @@ export default function MyTasksPage() {
                           className={cn(
                             "flex items-center gap-1",
                             isTaskOverdue && "text-red-500",
-                            isTaskDueToday && "text-blue-500 font-medium"
+                            isTaskDueToday && "text-blue-500 font-medium",
                           )}
                         >
                           {isTaskOverdue ? (
@@ -755,12 +764,16 @@ export default function MyTasksPage() {
                             {isTaskOverdue
                               ? "Overdue"
                               : isTaskDueToday
-                              ? "Due Today"
-                              : new Date(task.dueDate).toLocaleDateString()}
+                                ? "Due Today"
+                                : new Date(
+                                    task.due_date
+                                      ? "No task"
+                                      : `${task.due_date}`,
+                                  ).toLocaleDateString()}
                           </span>
                         </div>
 
-                        {task.subtasks && task.subtasks.length > 0 && (
+                        {/* {task.subtasks && task.subtasks.length > 0 && (
                           <>
                             <Separator orientation="vertical" className="h-4" />
                             <div className="flex items-center gap-1">
@@ -774,9 +787,9 @@ export default function MyTasksPage() {
                               </span>
                             </div>
                           </>
-                        )}
+                        )} */}
 
-                        {(task.attachments || 0) > 0 && (
+                        {/* {(task.attachments || 0) > 0 && (
                           <>
                             <Separator orientation="vertical" className="h-4" />
                             <div className="flex items-center gap-1">
@@ -784,9 +797,9 @@ export default function MyTasksPage() {
                               <span>{task.attachments}</span>
                             </div>
                           </>
-                        )}
+                        )} */}
 
-                        {(task.comments || 0) > 0 && (
+                        {/* {(task.comments || 0) > 0 && (
                           <>
                             <Separator orientation="vertical" className="h-4" />
                             <div className="flex items-center gap-1">
@@ -794,10 +807,10 @@ export default function MyTasksPage() {
                               <span>{task.comments}</span>
                             </div>
                           </>
-                        )}
+                        )} */}
                       </div>
 
-                      {task.progress !== undefined &&
+                      {/* {task.progress !== undefined &&
                         task.progress < 100 &&
                         task.subtasks &&
                         task.subtasks.length > 0 && (
@@ -810,9 +823,9 @@ export default function MyTasksPage() {
                               {task.progress}%
                             </span>
                           </div>
-                        )}
+                        )} */}
 
-                      {task.tags && task.tags.length > 0 && (
+                      {/* {task.tags && task.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {task.tags.map((tag, index) => (
                             <Badge
@@ -824,7 +837,7 @@ export default function MyTasksPage() {
                             </Badge>
                           ))}
                         </div>
-                      )}
+                      )} */}
                     </div>
 
                     <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1" />
@@ -863,7 +876,7 @@ export default function MyTasksPage() {
                     onCheckedChange={(checked) => {
                       handleStatusChange(
                         selectedTask.id,
-                        checked ? "Done" : "To-Do"
+                        checked ? "Done" : "To-Do",
                       );
                     }}
                     className="mt-1"
@@ -873,7 +886,7 @@ export default function MyTasksPage() {
                       className={cn(
                         "text-xl",
                         selectedTask.status === "Done" &&
-                          "line-through text-muted-foreground"
+                          "line-through text-muted-foreground",
                       )}
                     >
                       {selectedTask.title}
@@ -951,18 +964,18 @@ export default function MyTasksPage() {
                         <div className="flex items-center gap-2">
                           <FolderOpen className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">
-                            {selectedTask.projectTitle}
+                            {selectedTask.title}
                           </span>
                         </div>
                       </div>
-                      <div>
+                      {/* <div>
                         <p className="text-sm text-muted-foreground mb-1">
                           Client
                         </p>
                         <span className="text-sm font-medium">
                           {selectedTask.clientName}
                         </span>
-                      </div>
+                      </div> */}
                       <div>
                         <p className="text-sm text-muted-foreground mb-1">
                           Priority
@@ -995,15 +1008,19 @@ export default function MyTasksPage() {
                           className={cn(
                             "flex items-center gap-1",
                             isOverdue(
-                              selectedTask.dueDate,
-                              selectedTask.status
-                            ) && "text-red-500"
+                              selectedTask.due_date
+                                ? "No task"
+                                : `${selectedTask.due_date}`,
+                              selectedTask.status,
+                            ) && "text-red-500",
                           )}
                         >
                           <Calendar className="h-4 w-4" />
                           <span className="text-sm font-medium">
                             {new Date(
-                              selectedTask.dueDate
+                              selectedTask.due_date
+                                ? "No task"
+                                : `${selectedTask.due_date}`,
                             ).toLocaleDateString()}
                           </span>
                         </div>
@@ -1015,14 +1032,14 @@ export default function MyTasksPage() {
                         <span className="text-sm">
                           {selectedTask.updatedAt
                             ? new Date(
-                                selectedTask.updatedAt
+                                selectedTask.updatedAt,
                               ).toLocaleDateString()
                             : "N/A"}
                         </span>
                       </div>
                     </div>
 
-                    {selectedTask.tags && selectedTask.tags.length > 0 && (
+                    {/* {selectedTask.tags && selectedTask.tags.length > 0 && (
                       <div>
                         <p className="text-sm text-muted-foreground mb-2">
                           Tags
@@ -1035,12 +1052,12 @@ export default function MyTasksPage() {
                           ))}
                         </div>
                       </div>
-                    )}
+                    )} */}
                   </CardContent>
                 </Card>
 
                 {/* Subtasks */}
-                <Card>
+                {/* <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base flex items-center gap-2">
@@ -1051,7 +1068,7 @@ export default function MyTasksPage() {
                             <Badge variant="secondary" className="text-xs">
                               {
                                 selectedTask.subtasks.filter(
-                                  (st) => st.completed
+                                  (st) => st.completed,
                                 ).length
                               }
                               /{selectedTask.subtasks.length}
@@ -1123,7 +1140,7 @@ export default function MyTasksPage() {
                                   className={cn(
                                     "text-sm flex-1",
                                     subtask.completed &&
-                                      "line-through text-muted-foreground"
+                                      "line-through text-muted-foreground",
                                   )}
                                 >
                                   {subtask.title}
@@ -1134,7 +1151,7 @@ export default function MyTasksPage() {
                                   onClick={() =>
                                     handleEditSubtaskStart(
                                       subtask.id,
-                                      subtask.title
+                                      subtask.title,
                                     )
                                   }
                                   className="h-8 w-8 p-0"
@@ -1148,7 +1165,7 @@ export default function MyTasksPage() {
                                   onClick={() =>
                                     handleDeleteSubtask(
                                       selectedTask.id,
-                                      subtask.id
+                                      subtask.id,
                                     )
                                   }
                                   className="h-8 w-8 p-0 text-red-600"
@@ -1172,7 +1189,7 @@ export default function MyTasksPage() {
                         placeholder="Add a new subtask..."
                         value={newSubtask}
                         onChange={(e) => setNewSubtask(e.target.value)}
-                        onKeyPress={(e) => {
+                        onClick={(e) => {
                           if (e.key === "Enter") {
                             handleAddSubtask();
                           }
@@ -1192,10 +1209,10 @@ export default function MyTasksPage() {
                       manageable steps
                     </p>
                   </CardContent>
-                </Card>
+                </Card> */}
 
                 {/* Comments */}
-                <div>
+                {/* <div>
                   <CommentsSystem
                     comments={mappedCommentsForSelectedTask}
                     onCommentAdd={(content) => handleAddComment(content)}
@@ -1218,7 +1235,7 @@ export default function MyTasksPage() {
                     }}
                     placeholder="Add a note or update..."
                   />
-                </div>
+                </div> */}
               </div>
             </>
           )}

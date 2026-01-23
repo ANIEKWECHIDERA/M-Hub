@@ -28,11 +28,11 @@ export const TaskContextProvider = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskWithAssigneesDTO | null>(
-    null
+    null,
   );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<TaskWithAssigneesDTO | null>(
-    null
+    null,
   );
   const { idToken } = useAuthContext();
 
@@ -51,8 +51,9 @@ export const TaskContextProvider = ({
 
     try {
       const allTasks = await Promise.all(
-        ids.map((id) => tasksAPI.getAllByProject(id, idToken))
+        ids.map((id) => tasksAPI.getAllByProject(id, idToken)),
       );
+      console.log("All tasks:", allTasks);
       // Flatten the results and normalize
       setTasks(allTasks.flat().map(normalizeTask));
     } catch (err: any) {
@@ -98,7 +99,7 @@ export const TaskContextProvider = ({
       const savedTask = await tasksAPI.create(projectId, data, idToken);
 
       setTasks((prev) =>
-        prev.map((t) => (t.id === tempId ? normalizeTask(savedTask) : t))
+        prev.map((t) => (t.id === tempId ? normalizeTask(savedTask) : t)),
       );
 
       toast.success("Task created!");
@@ -113,7 +114,7 @@ export const TaskContextProvider = ({
   // Optimistic update
   const updateTask = async (
     id: string,
-    data: Partial<TaskWithAssigneesDTO>
+    data: Partial<TaskWithAssigneesDTO>,
   ) => {
     if (!idToken) {
       setError("Authentication required");
@@ -124,7 +125,7 @@ export const TaskContextProvider = ({
       const updatedTask = await tasksAPI.update(id, data, idToken);
       console.log("Updated Task:", updatedTask);
       setTasks((prev) =>
-        prev.map((t) => (t.id === id ? normalizeTask(updatedTask) : t))
+        prev.map((t) => (t.id === id ? normalizeTask(updatedTask) : t)),
       );
 
       toast.success("Task updated!");
