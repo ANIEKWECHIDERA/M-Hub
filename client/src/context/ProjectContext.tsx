@@ -69,6 +69,10 @@ export const ProjectContextProvider = ({
   }, [fetchProjects]);
 
   const addProject = async (data: CreateProjectDTO) => {
+    if (!idToken) {
+      setError("Authentication required");
+      throw new Error("No auth token");
+    }
     const promise = ProjectAPI.create(data, idToken);
     toast.promise(promise, {
       loading: "Creating project...",
@@ -86,6 +90,10 @@ export const ProjectContextProvider = ({
     id: string,
     data: UpdateProjectDTO,
   ): Promise<Project> => {
+    if (!idToken) {
+      setError("Authentication required");
+      throw new Error("No auth token");
+    }
     const promise = ProjectAPI.update(id, data, idToken);
 
     toast.promise(promise, {
@@ -104,6 +112,10 @@ export const ProjectContextProvider = ({
   };
 
   const deleteProject = async (id: string): Promise<void> => {
+    if (!idToken) {
+      setError("Authentication required");
+      throw new Error("No auth token");
+    }
     const promise = ProjectAPI.delete(id, idToken);
 
     toast.promise(promise, {

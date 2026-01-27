@@ -49,7 +49,7 @@ export const TeamContextProvider = ({
     if (!idToken) {
       setError("Authentication required");
       setLoading(false);
-      return;
+      throw new Error("No auth token");
     }
     try {
       const member = await teamMembersAPI.invite(payload, idToken);
@@ -63,29 +63,37 @@ export const TeamContextProvider = ({
   const updateTeamMember = async (id: string, payload: Partial<TeamMember>) => {
     if (!idToken) {
       setError("Authentication required");
-      setLoading(false);
-      return;
+      throw new Error("No auth token");
     }
-    try {
-      const updated = await teamMembersAPI.update(id, payload, idToken);
 
-      setTeamMembers((prev) => prev.map((m) => (m.id === id ? updated : m)));
+    const promise = teamMembersAPI.update(id, payload, idToken);
 
-      toast.success("Team member updated");
-    } catch {
-      toast.error("Failed to update team member");
-    }
+    toast.promise(promise, {
+      loading: "Updating Team member...",
+      success: "Team member updated",
+      error: "Failed to update Team member",
+    });
+
+    const updated = await promise;
+    if (!updated) throw new Error("Update failed");
+
+    setTeamMembers((prev) => prev.map((m) => (m.id === id ? updated : m)));
   };
 
   const deleteTeamMember = async (id: string) => {
     if (!idToken) {
       setError("Authentication required");
-      setLoading(false);
-      return;
+      throw new Error("No auth token");
     }
-    await teamMembersAPI.delete(id, idToken);
+
+    const promise = teamMembersAPI.delete(id, idToken);
+    toast.promise(promise, {
+      loading: "Removing Team member...",
+      success: "Team member deleted",
+      error: "Failed to delete Team member",
+    });
+    await promise;
     setTeamMembers((prev) => prev.filter((m) => m.id !== id));
-    toast.success("Team member removed");
   };
 
   useEffect(() => {

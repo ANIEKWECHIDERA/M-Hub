@@ -70,10 +70,12 @@ export const TaskContextProvider = ({
   }, [projectId, idToken]);
 
   // Optimistic add
-  const addTask = async (data: Partial<TaskWithAssigneesDTO>) => {
+  const addTask = async (
+    data: Partial<TaskWithAssigneesDTO>,
+  ): Promise<TaskWithAssigneesDTO | undefined> => {
     if (!idToken) {
       setError("Authentication required");
-      return;
+      throw new Error("No auth token");
     }
 
     const tempId = `temp-${Date.now()}`;
@@ -90,24 +92,30 @@ export const TaskContextProvider = ({
       due_date: data.due_date || "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      team_members: [], // ✅ no project reference
+      team_members: [],
     };
 
     setTasks((prev) => [optimisticTask, ...prev]);
 
+    const promise = tasksAPI.create(projectId, data, idToken);
+
+    toast.promise(promise, {
+      loading: "Creating task...",
+      success: "Task created!",
+      error: "Failed to create task",
+    });
+
     try {
-      const savedTask = await tasksAPI.create(projectId, data, idToken);
+      const savedTask = await promise;
 
       setTasks((prev) =>
         prev.map((t) => (t.id === tempId ? normalizeTask(savedTask) : t)),
       );
 
-      toast.success("Task created!");
-      return savedTask;
-    } catch (err: any) {
+      return normalizeTask(savedTask);
+    } catch (err) {
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
-      toast.error("Failed to create task");
-      console.error(err);
+      throw err;
     }
   };
 
@@ -115,43 +123,53 @@ export const TaskContextProvider = ({
   const updateTask = async (
     id: string,
     data: Partial<TaskWithAssigneesDTO>,
-  ) => {
+  ): Promise<TaskWithAssigneesDTO> => {
     if (!idToken) {
       setError("Authentication required");
-      return;
+      throw new Error("No auth token");
     }
 
-    try {
-      const updatedTask = await tasksAPI.update(id, data, idToken);
-      console.log("Updated Task:", updatedTask);
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? normalizeTask(updatedTask) : t)),
-      );
+    const promise = tasksAPI.update(id, data, idToken);
 
-      toast.success("Task updated!");
-    } catch (err: any) {
-      toast.error("Failed to update task");
-      console.error(err);
-    }
+    toast.promise(promise, {
+      loading: "Updating task...",
+      success: "Task updated!",
+      error: "Failed to update task",
+    });
+
+    const updatedTask = await promise;
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? normalizeTask(updatedTask) : t)),
+    );
+
+    return normalizeTask(updatedTask);
   };
 
   // Optimistic delete
-  const deleteTask = async (id: string) => {
+  const deleteTask = async (id: string): Promise<void> => {
     if (!idToken) {
       setError("Authentication required");
-      setLoading(false);
-      return;
+      throw new Error("No auth token");
     }
-    const prevTasks = [...tasks];
+
+    const prevTasks = tasks;
+
     setTasks((prev) => prev.filter((t) => t.id !== id));
 
+    const promise = tasksAPI.delete(id, idToken);
+
+    toast.promise(promise, {
+      loading: "Deleting task...",
+      success: "Task deleted!",
+      error: "Failed to delete task",
+    });
+
     try {
-      await tasksAPI.delete(id, idToken);
-      toast.success("Task deleted!");
-    } catch (err: any) {
-      setTasks(prevTasks);
-      toast.error("Failed to delete task");
-      console.error(err);
+      await promise;
+    } catch (err) {
+      setTasks(prevTasks); // rollback
+      throw err;
     }
   };
 

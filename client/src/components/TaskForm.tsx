@@ -55,13 +55,13 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
     setFormData(updatedInitialForm);
   }, [defaultValues]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isDirty) return;
 
     setLoading(true);
 
-    onSave({
+    await onSave({
       title: formData.title,
       description: formData.description,
       status: formData.status as "To-Do" | "In Progress" | "Done",
@@ -74,7 +74,10 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form
+      onSubmit={handleSubmit}
+      className={`space-y-4 ${loading ? "pointer-events-none opacity-60" : ""}`}
+    >
       <div className="space-y-2">
         <Label htmlFor="task-title">Task Title</Label>
         <Input

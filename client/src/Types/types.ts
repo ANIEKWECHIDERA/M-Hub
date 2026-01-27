@@ -226,7 +226,7 @@ export interface TaskContextType {
   updateTask: (
     id: string,
     data: Partial<TaskWithAssigneesDTO>,
-  ) => Promise<void>;
+  ) => Promise<TaskWithAssigneesDTO>;
 
   deleteTask: (id: string) => Promise<void>;
 

@@ -65,7 +65,7 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
   }, [showNewClientInput]);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className={`space-y-4 ${loading ? "pointer-events-none opacity-60" : ""}`}>
       <div className="space-y-2">
         <Label htmlFor="title">Project Title</Label>
         <Input

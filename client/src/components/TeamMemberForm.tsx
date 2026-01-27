@@ -24,20 +24,23 @@ const TeamMemberForm = ({
 
   const [formData, setFormData] = useState(initialFormData);
   const [isDirty, setIsDirty] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Effect to track changes in formData
   useEffect(() => {
     setIsDirty(
       formData.role !== initialFormData.role ||
         formData.access !== initialFormData.access ||
-        formData.status !== initialFormData.status
+        formData.status !== initialFormData.status,
     );
   }, [formData, initialFormData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isDirty) {
-      onSave(formData); // Only save if there are changes
+      setLoading(true);
+      await onSave(formData); // Only save if there are changes
+      setLoading(false);
     }
   };
 
@@ -109,10 +112,15 @@ const TeamMemberForm = ({
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button
+          type="button"
+          disabled={!isDirty || loading}
+          variant="outline"
+          onClick={onCancel}
+        >
           Cancel
         </Button>
-        <Button type="submit" disabled={!isDirty}>
+        <Button type="submit" disabled={!isDirty || loading}>
           Save Changes
         </Button>
       </div>

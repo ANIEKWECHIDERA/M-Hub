@@ -30,7 +30,7 @@ import { useAssetContext } from "@/context/AssetContext";
 import TaskDetailDialog from "@/components/TaskDetailDialog";
 import TaskForm from "@/components/TaskForm";
 import { useTaskContext } from "@/context/TaskContext";
-import { Toaster } from "sonner";
+// import { Toaster } from "sonner";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -55,6 +55,7 @@ import {
   BreadcrumbSeparator,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import Loader from "@/components/Loader";
 
 export function ProjectDetail() {
   const { id } = useParams();
@@ -74,6 +75,7 @@ export function ProjectDetail() {
     confirmDelete,
     updateTask,
     setTasks,
+    loading: taskLoading,
   } = useTaskContext();
 
   const {
@@ -274,212 +276,222 @@ export function ProjectDetail() {
         </TabsContent>
 
         <TabsContent value="tasks" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Project Tasks</h2>
-            <Dialog
-              open={isTaskDialogOpen}
-              onOpenChange={(open) => {
-                setIsTaskDialogOpen(open);
-                if (!open) setEditingTask(null);
-              }}
-            >
-              <DialogTrigger asChild>
-                {filteredTasks.length !== 0 && (
-                  <Button onClick={() => setEditingTask(null)}>
+          {taskLoading ? (
+            <Loader />
+          ) : (
+            <>
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Project Tasks</h2>
+                <Dialog
+                  open={isTaskDialogOpen}
+                  onOpenChange={(open) => {
+                    setIsTaskDialogOpen(open);
+                    if (!open) setEditingTask(null);
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    {filteredTasks.length !== 0 && (
+                      <Button onClick={() => setEditingTask(null)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Task
+                      </Button>
+                    )}
+                  </DialogTrigger>
+
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>
+                        {editingTask ? "Update Task" : "Create New Task"}
+                      </DialogTitle>
+                      <DialogDescription>
+                        {editingTask
+                          ? "Update the task details and save your changes."
+                          : "Create New Task"}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <TaskForm
+                      key={editingTask?.id ?? "new"}
+                      defaultValues={editingTask ?? undefined}
+                      onSave={async (data) => {
+                        try {
+                          if (editingTask) {
+                            // Update existing task
+                            await updateTask(editingTask.id, data);
+                          } else {
+                            // Create new task
+                            const created = await addTask(data);
+                            if (!created) return;
+
+                            const teamMembers: TeamMemberSummary[] =
+                              project.team_members
+                                ?.filter((m) =>
+                                  data.team_member_ids.includes(m.id),
+                                )
+                                .map((m) => ({
+                                  id: m.id,
+                                  name: m.name,
+                                  avatar: m.avatar ?? null,
+                                  role: m.role ?? "member",
+                                })) ?? [];
+
+                            setTasks((prev) =>
+                              prev.map((t) =>
+                                t.id === created.id
+                                  ? { ...created, team_members: teamMembers }
+                                  : t,
+                              ),
+                            );
+                          }
+
+                          setIsTaskDialogOpen(false);
+                          setEditingTask(null);
+                        } catch (error) {
+                          console.error("Failed to save task:", error);
+                        }
+                      }}
+                      onCancel={() => {
+                        setIsTaskDialogOpen(false);
+                        setEditingTask(null);
+                      }}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {filteredTasks.length === 0 ? (
+                <div className="text-center space-y-4">
+                  <p className="text-muted-foreground">
+                    No tasks yet for this project.
+                  </p>
+                  <Button onClick={() => setIsTaskDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Task
                   </Button>
-                )}
-              </DialogTrigger>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredTasks.map((task) => {
+                    const isDone = task.status === "Done";
+                    return (
+                      <Card
+                        key={task.id}
+                        className="hover:shadow-md transition-all cursor-pointer group"
+                        onClick={() => setSelectedTask(task)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={isDone}
+                              onCheckedChange={(checked) =>
+                                updateTask(task.id, {
+                                  status: checked ? "Done" : "To-Do",
+                                })
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-1"
+                            />
 
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingTask ? "Update Task" : "Create New Task"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingTask
-                      ? "Update the task details and save your changes."
-                      : "Create New Task"}
-                  </DialogDescription>
-                </DialogHeader>
-                <TaskForm
-                  key={editingTask?.id ?? "new"}
-                  defaultValues={editingTask ?? undefined}
-                  onSave={async (data) => {
-                    try {
-                      if (editingTask) {
-                        // Update existing task
-                        await updateTask(editingTask.id, data);
-                      } else {
-                        // Create new task
-                        const created = await addTask(data);
-                        if (!created) return;
-
-                        const teamMembers: TeamMemberSummary[] =
-                          project.team_members
-                            ?.filter((m) => data.team_member_ids.includes(m.id))
-                            .map((m) => ({
-                              id: m.id,
-                              name: m.name,
-                              avatar: m.avatar ?? null,
-                              role: m.role ?? "member",
-                            })) ?? [];
-
-                        setTasks((prev) =>
-                          prev.map((t) =>
-                            t.id === created.id
-                              ? { ...created, team_members: teamMembers }
-                              : t,
-                          ),
-                        );
-                      }
-
-                      setIsTaskDialogOpen(false);
-                      setEditingTask(null);
-                    } catch (error) {
-                      console.error("Failed to save task:", error);
-                    }
-                  }}
-                  onCancel={() => {
-                    setIsTaskDialogOpen(false);
-                    setEditingTask(null);
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {filteredTasks.length === 0 ? (
-            <div className="text-center space-y-4">
-              <p className="text-muted-foreground">
-                No tasks yet for this project.
-              </p>
-              <Button onClick={() => setIsTaskDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Task
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredTasks.map((task) => {
-                const isDone = task.status === "Done";
-                return (
-                  <Card
-                    key={task.id}
-                    className="hover:shadow-md transition-all cursor-pointer group"
-                    onClick={() => setSelectedTask(task)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={isDone}
-                          onCheckedChange={(checked) =>
-                            updateTask(task.id, {
-                              status: checked ? "Done" : "To-Do",
-                            })
-                          }
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-1"
-                        />
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="flex-1 min-w-0">
-                              <h3
-                                className={`font-medium text-base mb-1 ${
-                                  isDone
-                                    ? "line-through text-muted-foreground"
-                                    : ""
-                                }`}
-                              >
-                                {task.title}
-                              </h3>
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {task.description}
-                              </p>
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <h3
+                                    className={`font-medium text-base mb-1 ${
+                                      isDone
+                                        ? "line-through text-muted-foreground"
+                                        : ""
+                                    }`}
+                                  >
+                                    {task.title}
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground line-clamp-2">
+                                    {task.description}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 mr-9">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      task.priority === "high"
+                                        ? "text-red-600"
+                                        : task.priority === "medium"
+                                          ? "text-yellow-600"
+                                          : "text-green-600"
+                                    }
+                                  >
+                                    {task.priority?.[0]?.toUpperCase()}
+                                    {task.priority?.slice(1)}
+                                  </Badge>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <span className="truncate max-w-[200px]">
+                                    Assigned to:{" "}
+                                    {task.team_members &&
+                                    task.team_members.length > 0
+                                      ? task.team_members
+                                          .map((m) => m.name)
+                                          .join(", ")
+                                      : "Unassigned"}
+                                  </span>
+                                </div>
+                                {task.due_date && (
+                                  <span>
+                                    Due:{" "}
+                                    {new Date(
+                                      task.due_date,
+                                    ).toLocaleDateString()}
+                                  </span>
+                                )}
+                                <Badge variant="outline">{task.status}</Badge>
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-2 mr-9">
-                              <Badge
-                                variant="outline"
-                                className={
-                                  task.priority === "high"
-                                    ? "text-red-600"
-                                    : task.priority === "medium"
-                                      ? "text-yellow-600"
-                                      : "text-green-600"
-                                }
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingTask(task);
+                                  setIsTaskDialogOpen(true);
+                                }}
+                                aria-label={`Edit task ${task.title}`}
                               >
-                                {task.priority?.[0]?.toUpperCase()}
-                                {task.priority?.slice(1)}
-                              </Badge>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700"
+                                aria-label={`Delete task ${task.title}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTaskToDelete(task);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
 
-                          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <span className="truncate max-w-[200px]">
-                                Assigned to:{" "}
-                                {task.team_members &&
-                                task.team_members.length > 0
-                                  ? task.team_members
-                                      .map((m) => m.name)
-                                      .join(", ")
-                                  : "Unassigned"}
-                              </span>
-                            </div>
-                            {task.due_date && (
-                              <span>
-                                Due:{" "}
-                                {new Date(task.due_date).toLocaleDateString()}
-                              </span>
-                            )}
-                            <Badge variant="outline">{task.status}</Badge>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingTask(task);
-                              setIsTaskDialogOpen(true);
-                            }}
-                            aria-label={`Edit task ${task.title}`}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-700"
-                            aria-label={`Delete task ${task.title}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setTaskToDelete(task);
-                              setIsDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          {selectedTask && (
-            <TaskDetailDialog
-              task={selectedTask}
-              onClose={() => setSelectedTask(null)}
-              assignee={selectedTask.team_members ?? []}
-            />
+              {selectedTask && (
+                <TaskDetailDialog
+                  task={selectedTask}
+                  onClose={() => setSelectedTask(null)}
+                  assignee={selectedTask.team_members ?? []}
+                />
+              )}
+            </>
           )}
         </TabsContent>
 
