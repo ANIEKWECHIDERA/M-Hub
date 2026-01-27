@@ -60,7 +60,7 @@ export interface ProjectContextType {
   fetchProjects: () => Promise<void>;
   addProject: (project: CreateProjectDTO) => Promise<Project>;
 
-  updateProject: (id: string, data: CreateProjectDTO) => Promise<void>;
+  updateProject: (id: string, data: UpdateProjectDTO) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
 
   confirmDelete: () => void;
@@ -72,7 +72,7 @@ export interface ProjectContextType {
 
 export interface ProjectFormProps {
   project?: Partial<Project>;
-  onSave: (data: Partial<Project>) => void;
+  onSave: (data: Partial<CreateProjectDTO>) => void;
   onCancel: () => void;
 }
 
@@ -220,12 +220,12 @@ export interface TaskContextType {
   error: string | null;
 
   addTask: (
-    data: Partial<CreateTaskPayload>
+    data: Partial<CreateTaskPayload>,
   ) => Promise<TaskWithAssigneesDTO | void>;
 
   updateTask: (
     id: string,
-    data: Partial<TaskWithAssigneesDTO>
+    data: Partial<TaskWithAssigneesDTO>,
   ) => Promise<void>;
 
   deleteTask: (id: string) => Promise<void>;
@@ -275,7 +275,7 @@ export interface AssetContextType {
   uploadFiles: (
     projectId: string,
     files: File[],
-    taskId?: string
+    taskId?: string,
   ) => Promise<void>;
   deleteFile: (id: string) => Promise<void>;
 
@@ -330,7 +330,7 @@ export interface CommentContextTypek {
 
   updateComment: (
     id: string,
-    data: Partial<Pick<Comment, "content">>
+    data: Partial<Pick<Comment, "content">>,
   ) => Promise<void>;
 
   deleteComment: (id: string) => Promise<void>;
@@ -466,7 +466,7 @@ export interface AuthContextType {
     password: string,
     firstName: string,
     lastName: String,
-    termsAccepted: boolean
+    termsAccepted: boolean,
   ) => Promise<{
     user: User | null;
     error: string | null;
@@ -474,7 +474,7 @@ export interface AuthContextType {
   }>;
   signIn: (
     email: string,
-    password: string
+    password: string,
   ) => Promise<{
     user: User | null;
     error: String | null;

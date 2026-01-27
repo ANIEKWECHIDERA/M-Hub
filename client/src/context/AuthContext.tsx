@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     password: string,
     firstName: string,
     lastName: String,
-    termsAccepted: boolean
+    termsAccepted: boolean,
   ) => {
     let userCredential;
     let uidToDelete: string | null = null;
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
-        password
+        password,
       );
 
       const idToken = await userCredential.user.getIdToken();
@@ -98,7 +98,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       console.log(
-        `User signed up and profile created: ${userCredential.user.uid}`
+        `User signed up and profile created: ${userCredential.user.uid}`,
       );
 
       return {
@@ -138,7 +138,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
-        password
+        password,
       );
       const idToken = await userCredential.user.getIdToken();
       return { user: userCredential.user, idToken, error: null };
@@ -233,7 +233,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const opened = window.open(
               `/complete-profile?token=${idToken}`,
               "completeProfile",
-              "width=500,height=600"
+              "width=500,height=600",
             );
 
             if (!opened || opened.closed) {

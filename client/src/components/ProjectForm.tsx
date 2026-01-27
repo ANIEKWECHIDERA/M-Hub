@@ -39,7 +39,7 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
 
   const isDirty = !isEqual(formData, initialForm);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isDirty) return;
 
@@ -51,9 +51,9 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
         showNewClientInput && newClient ? newClient : formData.client_id,
       team_member_ids: formData.team_member_ids,
     };
-    console.log("Form Data:", finalData);
+    // console.log("Form Data:", finalData);
     // TODO: Validate form data before saving (e.g., title and deadline required)
-    onSave(finalData);
+    await onSave(finalData);
     setLoading(false);
   };
 
@@ -185,10 +185,10 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
                       setFormData((prev) => {
                         const updatedTeamMembers = checked
                           ? Array.from(
-                              new Set([...prev.team_member_ids, member.id])
+                              new Set([...prev.team_member_ids, member.id]),
                             )
                           : prev.team_member_ids.filter(
-                              (id) => id !== member.id
+                              (id) => id !== member.id,
                             );
 
                         return {
@@ -223,8 +223,8 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
           {loading
             ? "Saving..."
             : project.id
-            ? "Update Project"
-            : "Create Project"}
+              ? "Update Project"
+              : "Create Project"}
         </Button>
       </div>
     </form>

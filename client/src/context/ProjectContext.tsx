@@ -21,7 +21,7 @@ export const useProjectContext = () => {
   const context = useContext(ProjectContext);
   if (!context) {
     throw new Error(
-      "useProjectContext must be used within ProjectContextProvider"
+      "useProjectContext must be used within ProjectContextProvider",
     );
   }
   return context;
@@ -69,34 +69,52 @@ export const ProjectContextProvider = ({
   }, [fetchProjects]);
 
   const addProject = async (data: CreateProjectDTO) => {
-    const project = await ProjectAPI.create(data, idToken);
+    const promise = ProjectAPI.create(data, idToken);
+    toast.promise(promise, {
+      loading: "Creating project...",
+      success: "Project created successfully",
+      error: "Failed to create project",
+    });
+
+    const project = await promise;
     setProjects((prev) => [project, ...prev]);
-    toast.success("Project created successfully");
+
     return project;
   };
 
-  const updateProject = async (id: string, data: UpdateProjectDTO) => {
-    const updated = await ProjectAPI.update(id, data, idToken);
-    if (!updated) return;
+  const updateProject = async (
+    id: string,
+    data: UpdateProjectDTO,
+  ): Promise<Project> => {
+    const promise = ProjectAPI.update(id, data, idToken);
+
+    toast.promise(promise, {
+      loading: "Updating project...",
+      success: "Project updated",
+      error: "Failed to update project",
+    });
+
+    const updated = await promise;
+    if (!updated) throw new Error("Update failed");
 
     setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    setCurrentProject((p) => (p?.id === id ? updated : p));
 
-    if (currentProject?.id === id) {
-      setCurrentProject(updated);
-    }
-
-    toast.success("Project updated");
+    return updated;
   };
 
-  const deleteProject = async (id: string) => {
-    await ProjectAPI.delete(id, idToken);
+  const deleteProject = async (id: string): Promise<void> => {
+    const promise = ProjectAPI.delete(id, idToken);
+
+    toast.promise(promise, {
+      loading: "Deleting project...",
+      success: "Project deleted",
+      error: "Failed to delete project",
+    });
+
+    await promise;
+
     setProjects((prev) => prev.filter((p) => p.id !== id));
-
-    if (currentProject?.id === id) {
-      setCurrentProject(null);
-    }
-
-    toast.success("Project deleted");
   };
 
   const confirmDelete = () => {

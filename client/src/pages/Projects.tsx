@@ -35,7 +35,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { Toaster } from "@/components/ui/sonner";
+// import { Toaster } from "@/components/ui/sonner";
 import ProjectForm from "@/components/ProjectForm";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
 import { useProjectContext } from "@/context/ProjectContext";
@@ -122,17 +122,18 @@ export default function Projects() {
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Create New Project</DialogTitle>
+              <DialogDescription>Input project details.</DialogDescription>
             </DialogHeader>
             <ProjectForm
               onSave={async (data) => {
                 const newProject: CreateProjectDTO = {
                   title: data.title || "",
-                  client_id: data.client?.id || undefined,
+                  client_id: data.client_id || undefined,
                   status: data.status || "Planning",
                   deadline: data.deadline || undefined,
                   description: data.description || undefined,
-                  team_member_ids: Array.isArray((data as any).team)
-                    ? ((data as any).team as string[])
+                  team_member_ids: Array.isArray(data.team_member_ids)
+                    ? (data.team_member_ids as string[])
                     : [],
                 };
                 await addProject(newProject);
