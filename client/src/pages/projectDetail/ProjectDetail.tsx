@@ -138,7 +138,7 @@ export function ProjectDetail() {
   if (error) return <div>Error: {error}</div>;
   if (!project) return <div>No project data available</div>;
 
-  console.log("current Project data:", currentProject);
+  // console.log("current Project data:", currentProject);
 
   return (
     <div className="space-y-6">
