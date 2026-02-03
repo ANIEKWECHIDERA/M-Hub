@@ -19,12 +19,12 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
 export const useNotificationContext = () => {
-  const ctx = useContext(NotificationContext);
-  if (!ctx)
+  const context = useContext(NotificationContext);
+  if (!context)
     throw new Error(
       "useNotificationContext must be used within NotificationProvider"
     );
-  return ctx;
+  return context;
 };
 
 const initialMock: NotificationItem[] = [

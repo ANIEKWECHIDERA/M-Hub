@@ -11,7 +11,7 @@ export const tasksAPI = {
     return apiFetch<TaskWithAssigneesDTO[]>(
       `/api/projects/${projectId}/tasks`,
       undefined,
-      idToken
+      idToken,
     );
   },
 
@@ -24,7 +24,7 @@ export const tasksAPI = {
     return apiFetch<TaskWithAssigneesDTO>(
       `/api/task/${id}`,
       undefined,
-      idToken
+      idToken,
     );
   },
 
@@ -37,7 +37,7 @@ export const tasksAPI = {
   create(
     projectId: string,
     payload: Partial<TaskWithAssigneesDTO>,
-    idToken: string
+    idToken: string,
   ) {
     return apiFetch<TaskWithAssigneesDTO>(
       `/api/projects/${projectId}/tasks`,
@@ -45,7 +45,7 @@ export const tasksAPI = {
         method: "POST",
         body: JSON.stringify(payload),
       },
-      idToken
+      idToken,
     );
   },
 
@@ -62,7 +62,7 @@ export const tasksAPI = {
         method: "PATCH",
         body: JSON.stringify(payload),
       },
-      idToken
+      idToken,
     );
   },
 
@@ -75,7 +75,16 @@ export const tasksAPI = {
     return apiFetch<{ success: boolean }>(
       `/api/task/${id}`,
       { method: "DELETE" },
-      idToken
+      idToken,
+    );
+  },
+
+  ///////// MY TASKS /////////
+  getMyTasks(idToken: string) {
+    return apiFetch<TaskWithAssigneesDTO[]>(
+      `/api/my-tasks`,
+      undefined,
+      idToken,
     );
   },
 };

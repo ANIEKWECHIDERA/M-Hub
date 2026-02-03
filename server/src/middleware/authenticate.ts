@@ -6,7 +6,7 @@ import { AppUser } from "../types/types";
 export default async function authenticate(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   const authHeader = req.headers.authorization;
 

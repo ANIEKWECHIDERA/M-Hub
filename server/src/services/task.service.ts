@@ -2,25 +2,14 @@ import { supabaseAdmin } from "../config/supabaseClient";
 import { logger } from "../utils/logger";
 import { TaskWithAssigneesDTO } from "../dtos/task.dto";
 import { TASK_SELECT } from "../dbSelect/task.select";
+import { MyTaskResponseDTO } from "../dtos/myTasksRes.dto";
+import { GetMyTasksDTO } from "../dtos/getMyTasks.dto";
+import { mapTaskBase } from "../mapper/task.mapper";
+import { MY_TASKS_SELECT } from "../dbSelect/myTasks.select";
 
 /**
  * Maps raw task row → base DTO (no relations)
  */
-function mapTaskBase(task: any) {
-  return {
-    id: task.id,
-    companyId: task.company_id,
-    projectId: task.project_id,
-    title: task.title,
-    description: task.description,
-    status: task.status,
-    priority: task.priority,
-    progress: task.progress,
-    due_date: task.due_date,
-    createdAt: task.created_at,
-    updatedAt: task.updated_at,
-  };
-}
 
 export const TaskService = {
   /**
@@ -29,7 +18,7 @@ export const TaskService = {
    */
   async findAllEnrichedByProject(
     companyId: string,
-    projectId: string
+    projectId: string,
   ): Promise<TaskWithAssigneesDTO[]> {
     const { data: tasks, error: taskError } = await supabaseAdmin
       .from("tasks")
@@ -97,7 +86,7 @@ export const TaskService = {
             avatar: user?.photo_url ?? user?.avatar ?? null,
           },
         ];
-      })
+      }),
     );
 
     // Build assignment map
@@ -107,7 +96,7 @@ export const TaskService = {
         acc[a.task_id].push(a.team_member_id);
         return acc;
       },
-      {}
+      {},
     );
 
     // Enrich tasks
@@ -125,7 +114,7 @@ export const TaskService = {
    */
   async findByIdEnriched(
     taskId: string,
-    companyId: string
+    companyId: string,
   ): Promise<TaskWithAssigneesDTO | null> {
     // Fetch the task
     const { data: task, error: taskError } = await supabaseAdmin
@@ -199,7 +188,7 @@ export const TaskService = {
    */
   async getProjectTaskStats(
     companyId: string,
-    projectId: string
+    projectId: string,
   ): Promise<{
     total: number;
     completed: number;
@@ -378,7 +367,7 @@ export const TaskService = {
       due_date: string;
       progress: number;
       team_member_ids: string[];
-    }>
+    }>,
   ): Promise<TaskWithAssigneesDTO | null> {
     logger.info("TaskService.update", { taskId, companyId });
 
@@ -509,5 +498,51 @@ export const TaskService = {
     }
 
     return true;
+  },
+
+  ///////// MY TASKS /////////
+
+  async getAssignedTasks(
+    teamMemberId: string,
+    companyId: string,
+  ): Promise<MyTaskResponseDTO[]> {
+    logger.info("Services: Fetching tasks for team member", {
+      teamMemberId,
+      companyId,
+    });
+
+    try {
+      const { data: assignments, error: error } = await supabaseAdmin
+        .from("task_team_member_assignees")
+        .select(MY_TASKS_SELECT)
+        .eq("company_id", companyId)
+        .eq("team_member_id", teamMemberId);
+
+      if (error) {
+        throw error;
+      }
+
+      return assignments.map((assignment: any) => ({
+        taskId: assignment.task.id,
+        title: assignment.task.title,
+        description: assignment.task.description,
+        status: assignment.task.status,
+        priority: assignment.task.priority,
+        due_date: assignment.task.due_date,
+        project: {
+          id: assignment.task.project.id,
+          title: assignment.task.project.title,
+          status: assignment.task.project.status,
+        },
+      }));
+    } catch (error) {
+      logger.error("Failed to fetch my tasks", {
+        teamMemberId,
+        companyId,
+        error,
+      });
+
+      throw new Error("Failed to fetch assigned tasks");
+    }
   },
 };

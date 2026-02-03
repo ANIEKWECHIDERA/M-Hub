@@ -40,11 +40,17 @@ export const TaskContextProvider = ({
 
   // Fetch tasks from API
   const fetchTasks = async () => {
-    if (!idToken || !ids?.length) {
+    if (!idToken) {
       setError("Authentication required");
       setLoading(false);
       return;
     }
+
+    // if (!ids.length) {
+    //   setTasks([]);
+    //   setLoading(false);
+    //   return;
+    // }
 
     setLoading(true);
     setError(null);

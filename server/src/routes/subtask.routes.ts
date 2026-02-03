@@ -2,6 +2,7 @@ import { Router } from "express";
 import { SubtaskController } from "../controllers/subtask.controller";
 import authenticate from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
+import { resolveTeamMember } from "../middleware/resolveTeamMember";
 
 const router = Router();
 
@@ -10,14 +11,16 @@ router.get(
   "/subtask",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  SubtaskController.getSubtasks
+  resolveTeamMember,
+  SubtaskController.getSubtasks,
 );
 
 router.get(
   "/subtask/:id",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  SubtaskController.getSubtask
+  resolveTeamMember,
+  SubtaskController.getSubtask,
 );
 
 // CREATE
@@ -25,7 +28,8 @@ router.post(
   "/subtask",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  SubtaskController.createSubtask
+  resolveTeamMember,
+  SubtaskController.createSubtask,
 );
 
 // UPDATE
@@ -33,7 +37,8 @@ router.patch(
   "/subtask/:id",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  SubtaskController.updateSubtask
+  resolveTeamMember,
+  SubtaskController.updateSubtask,
 );
 
 // DELETE
@@ -41,7 +46,8 @@ router.delete(
   "/subtask/:id",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  SubtaskController.deleteSubtask
+  resolveTeamMember,
+  SubtaskController.deleteSubtask,
 );
 
 export default router;

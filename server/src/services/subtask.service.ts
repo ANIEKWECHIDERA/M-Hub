@@ -2,14 +2,18 @@ import { supabaseAdmin } from "../config/supabaseClient";
 import { logger } from "../utils/logger";
 
 export const SubtaskService = {
-  async findAll(companyId: string, userId: string, taskId?: string) {
-    logger.info("SubtaskService.findAll: start", { companyId, userId, taskId });
+  async findAll(companyId: string, teamMemberId: string, taskId?: string) {
+    logger.info("SubtaskService.findAll: start", {
+      companyId,
+      teamMemberId,
+      taskId,
+    });
 
     let query = supabaseAdmin
       .from("subtasks")
       .select("*")
       .eq("company_id", companyId)
-      .eq("user_id", userId)
+      .eq("team_member_id", teamMemberId)
       .order("created_at", { ascending: false });
 
     if (taskId) {
@@ -26,15 +30,19 @@ export const SubtaskService = {
     return data;
   },
 
-  async findById(id: string, companyId: string, userId: string) {
-    logger.info("SubtaskService.findById: start", { id, companyId, userId });
+  async findById(id: string, companyId: string, teamMemberId: string) {
+    logger.info("SubtaskService.findById: start", {
+      id,
+      companyId,
+      teamMemberId,
+    });
 
     const { data, error } = await supabaseAdmin
       .from("subtasks")
       .select("*")
       .eq("id", id)
       .eq("company_id", companyId)
-      .eq("user_id", userId)
+      .eq("team_member_id", teamMemberId)
       .maybeSingle();
 
     if (error) {
@@ -68,17 +76,21 @@ export const SubtaskService = {
   async update(
     id: string,
     companyId: string,
-    userId: string,
-    subtaskData: any
+    teamMemberId: string,
+    subtaskData: any,
   ) {
-    logger.info("SubtaskService.update: start", { id, companyId, userId });
+    logger.info("SubtaskService.update: start", {
+      id,
+      companyId,
+      teamMemberId,
+    });
 
     const { data, error } = await supabaseAdmin
       .from("subtasks")
       .update(subtaskData)
       .eq("id", id)
       .eq("company_id", companyId)
-      .eq("user_id", userId)
+      .eq("team_member_id", teamMemberId)
       .select()
       .maybeSingle();
 
@@ -90,15 +102,19 @@ export const SubtaskService = {
     return data;
   },
 
-  async deleteById(id: string, companyId: string, userId: string) {
-    logger.info("SubtaskService.deleteById: start", { id, companyId, userId });
+  async deleteById(id: string, companyId: string, teamMemberId: string) {
+    logger.info("SubtaskService.deleteById: start", {
+      id,
+      companyId,
+      teamMemberId,
+    });
 
     const { error } = await supabaseAdmin
       .from("subtasks")
       .delete()
       .eq("id", id)
       .eq("company_id", companyId)
-      .eq("user_id", userId);
+      .eq("team_member_id", teamMemberId);
 
     if (error) {
       logger.error("SubtaskService.deleteById: supabase error", { error });

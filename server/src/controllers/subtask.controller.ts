@@ -5,11 +5,15 @@ import { logger } from "../utils/logger";
 export const SubtaskController = {
   async getSubtasks(req: any, res: Response) {
     const companyId = req.user.company_id;
-    const userId = req.user.user_id;
+    const teamMemberId = req.user.team_member_id;
     const { task_id } = req.query;
 
     try {
-      const subtasks = await SubtaskService.findAll(companyId, userId, task_id);
+      const subtasks = await SubtaskService.findAll(
+        companyId,
+        teamMemberId,
+        task_id,
+      );
 
       if (!subtasks.length) {
         return res.status(404).json({ error: "Subtasks not found" });
@@ -25,10 +29,14 @@ export const SubtaskController = {
   async getSubtask(req: any, res: Response) {
     const { id } = req.params;
     const companyId = req.user.company_id;
-    const userId = req.user.user_id;
+    const teamMemberId = req.user.team_member_id;
 
     try {
-      const subtask = await SubtaskService.findById(id, userId, companyId);
+      const subtask = await SubtaskService.findById(
+        id,
+        teamMemberId,
+        companyId,
+      );
 
       if (!subtask) {
         return res.status(404).json({ error: "Subtask not found" });
@@ -43,13 +51,13 @@ export const SubtaskController = {
 
   async createSubtask(req: any, res: Response) {
     const companyId = req.user.company_id;
-    const userId = req.user.user_id;
+    const teamMemberId = req.user.team_member_id;
 
     try {
       const subtask = await SubtaskService.create({
         ...req.body,
         company_id: companyId,
-        created_by: userId,
+        created_by: teamMemberId,
       });
 
       return res.status(201).json(subtask);
@@ -62,14 +70,14 @@ export const SubtaskController = {
   async updateSubtask(req: any, res: Response) {
     const { id } = req.params;
     const companyId = req.user.company_id;
-    const userId = req.user.user_id;
+    const teamMemberId = req.user.team_member_id;
 
     try {
       const updatedSubtask = await SubtaskService.update(
         id,
         companyId,
-        userId,
-        req.body
+        teamMemberId,
+        req.body,
       );
 
       if (!updatedSubtask) {
@@ -86,10 +94,10 @@ export const SubtaskController = {
   async deleteSubtask(req: any, res: Response) {
     const { id } = req.params;
     const companyId = req.user.company_id;
-    const userId = req.user.user_id;
+    const teamMemberId = req.user.team_member_id;
 
     try {
-      await SubtaskService.deleteById(id, companyId, userId);
+      await SubtaskService.deleteById(id, companyId, teamMemberId);
       return res.json({ success: true });
     } catch (error) {
       logger.error("deleteSubtask failed", { error });

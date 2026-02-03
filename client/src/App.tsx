@@ -8,7 +8,7 @@ import Notepad from "./pages/Notepad";
 import Tools from "./pages/Tools";
 import Settings from "./pages/Settings";
 import ProjectDetailWrapper from "./pages/projectDetail/ProjectDetailWrapper";
-import MyTasksPage from "./pages/MyTasks";
+// import MyTasksPage from "./pages/MyTasks";
 import { AppContextProvider } from "./context/AppProvider";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignupPage";
@@ -17,6 +17,7 @@ import ForgotPasswordPage from "./pages/ForgotPassword";
 import CompleteProfile from "./pages/CompleteProfile";
 import { UserProvider } from "./context/UserContext";
 import { Toaster } from "./components/ui/sonner";
+import { MyTasksPage } from "./pages/MyTasks/MyTasksPage";
 
 // Protected Route: Only authenticated users
 function useRedirectPath() {
@@ -107,6 +108,7 @@ function AppWithAuth() {
             <Route path="notepad" element={<Notepad />} />
             <Route path="tools" element={<Tools />} />
             <Route path="settings" element={<Settings />} />
+            {/* <Route path="mytasks" element={<MyTasksPage />} /> */}
             <Route path="mytasks" element={<MyTasksPage />} />
             <Route
               path="projectdetails/:id"

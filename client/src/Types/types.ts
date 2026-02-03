@@ -125,10 +125,9 @@ export interface TeamMemberFormProps {
 ///////////////////////subtask//////////////
 export interface Subtask {
   id: string;
-  companyId: string;
   title: string;
   completed: boolean;
-  createdAt: string;
+  created_at: string;
 }
 
 export interface SubtaskContextType {
@@ -136,11 +135,43 @@ export interface SubtaskContextType {
   setSubtasks: React.Dispatch<React.SetStateAction<Subtask[]>>;
   fetchSubtasks: () => Promise<void>;
   addSubtask: (data: Omit<Subtask, "id">) => Promise<Subtask>;
-  updateSubtask: (id: string, data: Partial<Subtask>) => Promise<void>;
+  updateSubtask: (id: string, data: Partial<Subtask>) => Promise<Subtask>;
   deleteSubtask: (id: string) => Promise<void>;
   getSubtasksByIds: (ids: string[]) => Subtask[];
+  getSubtasksByTaskId: (taskId: string) => Subtask[];
   loading: boolean;
   error: string | null;
+}
+
+export interface SubtaskDTO {
+  id: string;
+  company_id: string;
+  task_id: string;
+  team_member_id: string;
+  title: string;
+  completed: boolean;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+export type CreateSubtaskDTO = {
+  task_id: string;
+  title: string;
+  completed?: boolean;
+  team_member_id?: string;
+};
+
+export type UpdateSubtaskDTO = Partial<CreateSubtaskDTO>;
+
+export interface Subtask {
+  id: string;
+  company_id: string;
+  task_id: string;
+  team_member_id: string;
+  title: string;
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 //////////////// Task Types ////////////////
@@ -177,6 +208,25 @@ export interface TaskWithAssigneesDTO {
   team_members?: TeamMemberSummary[]; // For frontend display
   assignees?: TeamMemberDTO[]; // For backend compatibility
   team_member_ids?: string[]; // For creating/updating tasks
+  project?: {
+    id: string;
+    title: string;
+    status: string;
+  };
+}
+
+export interface MyTasksDTO {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date?: string;
+  description: string;
+  project?: {
+    id: string;
+    title: string;
+    status: string;
+  };
 }
 
 // Payload for creating tasks
@@ -245,6 +295,22 @@ export interface TaskContextType {
   >;
 
   confirmDelete: () => Promise<void>;
+}
+
+///////// MY TASKS /////////
+export interface MyTasksContextType {
+  tasks: TaskWithAssigneesDTO[];
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+}
+
+export interface MyTaskCardProps {
+  task: TaskWithAssigneesDTO;
+  onToggleStatus?: (taskId: string, done: boolean) => void;
+  onEdit?: (task: TaskWithAssigneesDTO) => void;
+  onDelete?: (task: TaskWithAssigneesDTO) => void;
+  onOpen?: (task: TaskWithAssigneesDTO) => void;
 }
 
 /////////////////// AssetContextTypes ///////////////

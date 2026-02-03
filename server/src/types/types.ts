@@ -23,4 +23,5 @@ import type { auth } from "firebase-admin";
 export interface AppUser extends auth.DecodedIdToken {
   company_id: string;
   role?: string;
+  team_member_id?: string;
 }

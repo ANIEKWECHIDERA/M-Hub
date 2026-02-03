@@ -1,11 +1,10 @@
-export interface MyTaskResponseDTO {
+export interface TaskAssignments {
   taskId: string;
   title: string;
-  description: string | null;
+  description?: string | null;
   status: string;
   priority: string;
-  due_date: Date | null;
-
+  dueDate: Date | null;
   project: {
     id: string;
     title: string;

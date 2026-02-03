@@ -8,6 +8,7 @@ import { SubTasksContextProvider } from "./SubTasksContext.tsx";
 import { NotificationProvider } from "./NotificationContext.tsx";
 import { AuthProvider } from "./AuthContext.tsx";
 import { ClientProvider } from "./ClientContext.tsx";
+import { MyTasksProvider } from "./MyTaskContext.tsx";
 
 export const AppContextProvider = ({
   children,
@@ -16,23 +17,25 @@ export const AppContextProvider = ({
 }) => {
   return (
     <AuthProvider>
-      <SettingsProvider>
-        <NotificationProvider>
-          <TeamContextProvider>
-            <ClientProvider>
-              <ProjectContextProvider>
-                <SubTasksContextProvider>
-                  <TaskContextProvider>
-                    <NoteContextProvider>
-                      <AssetContextProvider>{children}</AssetContextProvider>
-                    </NoteContextProvider>
-                  </TaskContextProvider>
-                </SubTasksContextProvider>
-              </ProjectContextProvider>
-            </ClientProvider>
-          </TeamContextProvider>
-        </NotificationProvider>
-      </SettingsProvider>
+      <MyTasksProvider>
+        <SettingsProvider>
+          <NotificationProvider>
+            <TeamContextProvider>
+              <ClientProvider>
+                <ProjectContextProvider>
+                  <SubTasksContextProvider>
+                    <TaskContextProvider>
+                      <NoteContextProvider>
+                        <AssetContextProvider>{children}</AssetContextProvider>
+                      </NoteContextProvider>
+                    </TaskContextProvider>
+                  </SubTasksContextProvider>
+                </ProjectContextProvider>
+              </ClientProvider>
+            </TeamContextProvider>
+          </NotificationProvider>
+        </SettingsProvider>
+      </MyTasksProvider>
     </AuthProvider>
   );
 };

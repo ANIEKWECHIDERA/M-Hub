@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { TaskService } from "../services/task.service";
 import { logger } from "../utils/logger";
 
@@ -10,7 +10,7 @@ export const TaskController = {
     try {
       const tasks = await TaskService.findAllEnrichedByProject(
         companyId,
-        projectId
+        projectId,
       );
 
       return res.json(tasks);
@@ -113,6 +113,30 @@ export const TaskController = {
     } catch (error) {
       logger.error("deleteTask failed", { error });
       return res.status(500).json({ error: "Failed to delete task" });
+    }
+  },
+
+  ///////// MY TASKS /////////
+
+  async getMyTasks(req: any, res: Response) {
+    const companyId = req.user.company_id;
+    const teamMemberId = req.user.team_member_id;
+
+    try {
+      const myTasks = await TaskService.getAssignedTasks(
+        teamMemberId,
+        companyId,
+      );
+      logger.info("fetched my tasks:", myTasks);
+
+      if (!myTasks || myTasks.length === 0) {
+        return res.status(404).json({ error: "No assigned Tasks found" });
+      }
+
+      return res.status(200).json(myTasks);
+    } catch (error) {
+      logger.error("Controller error: getMyTasks failed", { error });
+      return res.status(500).json({ error: "Failed to fetch my tasks" });
     }
   },
 };

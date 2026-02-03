@@ -36,7 +36,7 @@ model users {
   settings      user_settings?
   team_members  team_members[] @relation("user_team_members")
   tasks         tasks[]        @relation("task_assignees")
-  subtasks      subtasks[]     @relation("subtask_assignee")
+
   comments      comments[]     @relation("comment_author")
   notes         notes[]        @relation("note_author")
   assets        assets[]       @relation("asset_uploader")
@@ -109,7 +109,7 @@ model team_members {
   updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
   user        users?    @relation("user_team_members", fields: [user_id], references: [id], onDelete: SetNull)
   company     companies @relation("company_team_members", fields: [company_id], references: [id], onDelete: Cascade)
-
+  subtasks      subtasks[]     @relation("subtask_assignee")
   task_assignments   task_team_member_assignees[] @relation("task_team_member_assignees")
   project_memberships project_team_members[]       @relation("project_team_members")
 
@@ -236,7 +236,7 @@ model subtasks {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   company_id  String   @db.Uuid
   task_id     String   @db.Uuid
-  user_id     String   @db.Uuid
+  team_member_id     String   @db.Uuid
   title       String
   completed   Boolean  @default(false)
   created_at  DateTime @default(now()) @map("created_at")
@@ -244,7 +244,7 @@ model subtasks {
 
   company     companies @relation("company_subtasks", fields: [company_id], references: [id], onDelete: Cascade)
   task        tasks     @relation("task_subtasks", fields: [task_id], references: [id], onDelete: Cascade)
-  user        users     @relation("subtask_assignee", fields: [user_id], references: [id], onDelete: Cascade)
+  team_member team_members @relation("subtask_assignee", fields: [team_member_id], references: [id], onDelete: Cascade)
 
   @@map("subtasks")
   @@index([company_id])
