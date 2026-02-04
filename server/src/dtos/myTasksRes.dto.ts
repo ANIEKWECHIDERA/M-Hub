@@ -1,5 +1,5 @@
 export interface MyTaskResponseDTO {
-  taskId: string;
+  id: string;
   title: string;
   description: string | null;
   status: string;

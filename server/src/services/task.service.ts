@@ -523,7 +523,7 @@ export const TaskService = {
       }
 
       return assignments.map((assignment: any) => ({
-        taskId: assignment.task.id,
+        id: assignment.task.id,
         title: assignment.task.title,
         description: assignment.task.description,
         status: assignment.task.status,

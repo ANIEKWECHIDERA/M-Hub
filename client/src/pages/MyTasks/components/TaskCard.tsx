@@ -37,7 +37,7 @@ export function TaskCard({ task, onOpen, onToggleStatus }: TaskCardProps) {
     dueDate < startOfTomorrow &&
     task.status !== "Done";
 
-  console.log("Rendering TaskCard for task:", task);
+  const isDone = task.status === "Done";
 
   return (
     <Card
@@ -47,10 +47,10 @@ export function TaskCard({ task, onOpen, onToggleStatus }: TaskCardProps) {
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <Checkbox
-            checked={task.status === "Done"}
-            onCheckedChange={(checked) =>
-              onToggleStatus(task.id, Boolean(checked))
-            }
+            checked={isDone}
+            onCheckedChange={(checked) => {
+              onToggleStatus(task.id, Boolean(checked));
+            }}
             onClick={(e) => e.stopPropagation()}
             className="mt-1"
           />
@@ -59,11 +59,9 @@ export function TaskCard({ task, onOpen, onToggleStatus }: TaskCardProps) {
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex-1 min-w-0">
                 <h3
-                  className={cn(
-                    "font-medium text-base mb-1 truncate",
-                    task.status === "Done" &&
-                      "line-through text-muted-foreground",
-                  )}
+                  className={`font-medium text-base mb-1 ${
+                    isDone ? "line-through text-muted-foreground" : ""
+                  }`}
                 >
                   {task.title}
                 </h3>

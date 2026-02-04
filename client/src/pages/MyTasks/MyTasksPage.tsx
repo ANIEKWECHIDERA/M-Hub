@@ -8,12 +8,14 @@ import { MyTasksStats } from "./components/TasksStats";
 import { TasksList } from "./components/TasksList";
 import { TaskDetailsSheet } from "./components/TaskDetailsSheet";
 import { MyTasksToolbar } from "./components/MyTasksToolbar";
+import { useTaskContext } from "@/context/TaskContext";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
 
 export function MyTasksPage() {
   /* ---------------- Context ---------------- */
   const { tasks, loading, error, refetch } = useMyTasksContext();
+  const { updateTask } = useTaskContext();
 
   /* ---------------- UI State ---------------- */
   const [selectedTask, setSelectedTask] = useState<TaskWithAssigneesDTO | null>(
@@ -64,6 +66,12 @@ export function MyTasksPage() {
     setDetailsOpen(true);
   };
 
+  const handleToggleTaskStatus = async (taskId: string, checked: boolean) => {
+    await updateTask(taskId, {
+      status: checked ? "Done" : "To-Do",
+    });
+  };
+
   /* ---------------- Render ---------------- */
 
   if (loading) {
@@ -75,6 +83,7 @@ export function MyTasksPage() {
       <div className="p-6 space-y-4">
         <p className="text-red-500">{error}</p>
         <button
+          type="button"
           onClick={refetch}
           className="px-4 py-2 rounded bg-primary text-white"
         >
@@ -115,7 +124,7 @@ export function MyTasksPage() {
       <TasksList
         tasks={tasksForView}
         onOpenTask={handleOpenTask}
-        onToggleStatus={() => {}}
+        onToggleStatus={handleToggleTaskStatus}
       />
 
       {/* Details */}

@@ -382,11 +382,11 @@ export function ProjectDetail() {
                           <div className="flex items-start gap-3">
                             <Checkbox
                               checked={isDone}
-                              onCheckedChange={(checked) =>
-                                updateTask(task.id, {
+                              onCheckedChange={async (checked) => {
+                                await updateTask(task.id, {
                                   status: checked ? "Done" : "To-Do",
-                                })
-                              }
+                                });
+                              }}
                               onClick={(e) => e.stopPropagation()}
                               className="mt-1"
                             />
@@ -403,9 +403,11 @@ export function ProjectDetail() {
                                   >
                                     {task.title}
                                   </h3>
-                                  <p className="text-sm text-muted-foreground line-clamp-2">
-                                    {task.description}
-                                  </p>
+                                  {task.description && (
+                                    <p className="text-sm text-muted-foreground line-clamp-2">
+                                      {task.description}
+                                    </p>
+                                  )}
                                 </div>
 
                                 <div className="flex items-center gap-2 mr-9">
