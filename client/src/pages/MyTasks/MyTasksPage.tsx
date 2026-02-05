@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { TaskWithAssigneesDTO } from "@/Types/types";
 import { useMyTasksContext } from "@/context/MyTaskContext";
@@ -8,14 +8,13 @@ import { MyTasksStats } from "./components/TasksStats";
 import { TasksList } from "./components/TasksList";
 import { TaskDetailsSheet } from "./components/TaskDetailsSheet";
 import { MyTasksToolbar } from "./components/MyTasksToolbar";
-import { useTaskContext } from "@/context/TaskContext";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
 
 export function MyTasksPage() {
   /* ---------------- Context ---------------- */
-  const { tasks, loading, error, refetch } = useMyTasksContext();
-  const { updateTask } = useTaskContext();
+  const { tasks, loading, error, refetch, updateTaskOptimistic } =
+    useMyTasksContext();
 
   /* ---------------- UI State ---------------- */
   const [selectedTask, setSelectedTask] = useState<TaskWithAssigneesDTO | null>(
@@ -67,10 +66,14 @@ export function MyTasksPage() {
   };
 
   const handleToggleTaskStatus = async (taskId: string, checked: boolean) => {
-    await updateTask(taskId, {
+    updateTaskOptimistic(taskId, {
       status: checked ? "Done" : "To-Do",
     });
   };
+
+  useEffect(() => {
+    refetch();
+  }, []);
 
   /* ---------------- Render ---------------- */
 

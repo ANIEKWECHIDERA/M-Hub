@@ -17,25 +17,25 @@ export const AppContextProvider = ({
 }) => {
   return (
     <AuthProvider>
-      <MyTasksProvider>
-        <SettingsProvider>
-          <NotificationProvider>
-            <TeamContextProvider>
-              <ClientProvider>
-                <ProjectContextProvider>
-                  <SubTasksContextProvider>
-                    <TaskContextProvider>
+      <SettingsProvider>
+        <NotificationProvider>
+          <TeamContextProvider>
+            <ClientProvider>
+              <ProjectContextProvider>
+                <SubTasksContextProvider>
+                  <TaskContextProvider>
+                    <MyTasksProvider>
                       <NoteContextProvider>
                         <AssetContextProvider>{children}</AssetContextProvider>
                       </NoteContextProvider>
-                    </TaskContextProvider>
-                  </SubTasksContextProvider>
-                </ProjectContextProvider>
-              </ClientProvider>
-            </TeamContextProvider>
-          </NotificationProvider>
-        </SettingsProvider>
-      </MyTasksProvider>
+                    </MyTasksProvider>
+                  </TaskContextProvider>
+                </SubTasksContextProvider>
+              </ProjectContextProvider>
+            </ClientProvider>
+          </TeamContextProvider>
+        </NotificationProvider>
+      </SettingsProvider>
     </AuthProvider>
   );
 };

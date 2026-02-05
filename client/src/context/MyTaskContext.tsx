@@ -2,9 +2,9 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { MyTasksContextType, TaskWithAssigneesDTO } from "@/Types/types";
 import { tasksAPI } from "@/api/tasks.api";
 import { useAuthContext } from "./AuthContext";
+import { useTaskContext } from "./TaskContext";
 
 const MyTasksContext = createContext<MyTasksContextType | null>(null);
-
 export const useMyTasksContext = () => {
   const context = useContext(MyTasksContext);
   if (!context) {
@@ -19,6 +19,7 @@ export const MyTasksProvider = ({
   children: React.ReactNode;
 }) => {
   const { idToken } = useAuthContext();
+  const { tasks: allTasks, updateTask } = useTaskContext();
 
   const [tasks, setTasks] = useState<TaskWithAssigneesDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +54,34 @@ export const MyTasksProvider = ({
   };
 
   useEffect(() => {
+  setTasks(prev =>
+    prev.map(myTask => {
+      const globalMatch = allTasks.find(t => t.id === myTask.id);
+      return globalMatch ?? myTask;
+    })
+  );
+}, [allTasks]);
+
+  const updateTaskOptimistic = async (
+    taskId: string,
+    updates: Partial<TaskWithAssigneesDTO>,
+  ) => {
+    // Snapshot (for rollback)
+    const previousTasks = tasks;
+
+    // Optimistic update
+    setTasks((prev) =>
+      prev.map((task) => (task.id === taskId ? { ...task, ...updates } : task)),
+    );
+    try {
+      await updateTask(taskId, updates);
+    } catch (error) {
+      // Rollback if failed
+      setTasks(previousTasks);
+    }
+  };
+
+  useEffect(() => {
     fetchMyTasks();
   }, [idToken]);
 
@@ -63,6 +92,7 @@ export const MyTasksProvider = ({
         loading,
         error,
         refetch: fetchMyTasks,
+        updateTaskOptimistic,
       }}
     >
       {children}

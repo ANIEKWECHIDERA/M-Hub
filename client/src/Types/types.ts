@@ -303,6 +303,10 @@ export interface MyTasksContextType {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  updateTaskOptimistic: (
+    taskId: string,
+    updates: Partial<TaskWithAssigneesDTO>,
+  ) => Promise<void>;
 }
 
 export interface MyTaskCardProps {
