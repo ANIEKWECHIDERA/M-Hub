@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { TaskWithAssigneesDTO } from "@/Types/types";
+import type { TaskStatus, TaskWithAssigneesDTO } from "@/Types/types";
 import { useMyTasksContext } from "@/context/MyTaskContext";
 import { useMyTasksFilters } from "./hooks/useMyTasksFilters";
 import { useMyTasksStats } from "./hooks/useMyTaskStats";
@@ -8,6 +8,7 @@ import { MyTasksStats } from "./components/TasksStats";
 import { TasksList } from "./components/TasksList";
 import { TaskDetailsSheet } from "./components/TaskDetailsSheet";
 import { MyTasksToolbar } from "./components/MyTasksToolbar";
+import { Loader } from "lucide-react";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
 
@@ -71,6 +72,12 @@ export function MyTasksPage() {
     });
   };
 
+  const handleOnStatusChange = async (taskId: string, status: string) => {
+    updateTaskOptimistic(taskId, {
+      status: status as TaskStatus,
+    });
+  };
+
   useEffect(() => {
     refetch();
   }, []);
@@ -78,7 +85,11 @@ export function MyTasksPage() {
   /* ---------------- Render ---------------- */
 
   if (loading) {
-    return <div className="p-6">Loading tasks...</div>;
+    return (
+      <div className="p-6">
+        <Loader className="animate-spin" />
+      </div>
+    );
   }
 
   if (error) {
@@ -132,10 +143,10 @@ export function MyTasksPage() {
 
       {/* Details */}
       <TaskDetailsSheet
-        task={selectedTask}
+        taskId={selectedTask?.id ?? null}
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
-        onStatusChange={async () => {}}
+        onStatusChange={handleOnStatusChange}
       />
     </div>
   );

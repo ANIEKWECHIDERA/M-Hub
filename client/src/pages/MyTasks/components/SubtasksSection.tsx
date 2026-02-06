@@ -18,6 +18,7 @@ interface SubtasksSectionProps {
 
 export function SubtasksSection({ taskId }: SubtasksSectionProps) {
   const {
+    subtasks: allSubtasks,
     getSubtasksByTaskId,
     addSubtask,
     updateSubtask,
@@ -32,8 +33,8 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
   const [editingTitle, setEditingTitle] = useState("");
 
   const subtasks = useMemo<Subtask[]>(() => {
-    return getSubtasksByTaskId(taskId);
-  }, [getSubtasksByTaskId, taskId]);
+    return allSubtasks.filter((s) => s.task_id === taskId);
+  }, [allSubtasks, taskId]);
 
   const completedCount = subtasks.filter((s) => s.completed).length;
   const progress =
@@ -61,6 +62,8 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
     });
 
     setNewSubtask("");
+
+    console.log("Added subtask:", newSubtask.trim());
   };
 
   const handleEditSave = async (subtaskId: string) => {
@@ -200,7 +203,10 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
           />
           <Button
             size="sm"
-            onClick={handleAdd}
+            onClick={() => {
+              handleAdd();
+              console.log("Adding subtask");
+            }}
             disabled={!newSubtask.trim() || loading}
           >
             <Plus className="h-4 w-4" />

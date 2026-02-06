@@ -12,25 +12,36 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import type { TaskWithAssigneesDTO, TaskStatus } from "@/Types/types";
+import type { TaskWithAssigneesDTO as string, TaskStatus } from "@/Types/types";
 import { statusConfig } from "@/config/status.config";
 import { priorityConfig } from "@/config/priority.config";
 
 import { SubtasksSection } from "./SubtasksSection";
+import { useEffect, useMemo } from "react";
+import { useMyTasksContext } from "@/context/MyTaskContext";
 
 interface TaskDetailsSheetProps {
-  task: TaskWithAssigneesDTO | null;
+  taskId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStatusChange: (taskId: string, status: TaskStatus) => Promise<void>;
 }
 
 export function TaskDetailsSheet({
-  task,
+  taskId,
   open,
   onOpenChange,
   onStatusChange,
 }: TaskDetailsSheetProps) {
+  if (!taskId) return null;
+
+  const { tasks } = useMyTasksContext();
+
+  const task = useMemo(() => {
+    if (!taskId) return null;
+    return tasks.find((t) => t.id === taskId) ?? null;
+  }, [tasks, taskId]);
+
   if (!task) return null;
 
   const StatusIcon = statusConfig[task.status].icon;
@@ -40,7 +51,10 @@ export function TaskDetailsSheet({
     new Date(task.due_date) < new Date() &&
     task.status !== "Done";
 
-  console.log("Rendering TaskDetailsSheet for task:", task);
+  const isDone = task.status === "Done";
+  useEffect(() => {}, [task]);
+
+  // console.log("Rendering TaskDetailsSheet for task:", task);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -48,7 +62,7 @@ export function TaskDetailsSheet({
         <SheetHeader>
           <div className="flex items-start gap-3">
             <Checkbox
-              checked={task.status === "Done"}
+              checked={isDone}
               onCheckedChange={(checked) =>
                 onStatusChange(task.id, checked ? "Done" : "To-Do")
               }
