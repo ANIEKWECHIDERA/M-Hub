@@ -49,21 +49,25 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
   };
 
   const handleAdd = async () => {
-    if (!newSubtask.trim() || !currentMember) return;
+    try {
+      if (!newSubtask.trim() || !currentMember)
+        throw new Error("Invalid subtask or No member detected");
 
-    await addSubtask({
-      task_id: taskId,
-      title: newSubtask.trim(),
-      team_member_id: currentMember.id,
-      completed: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      company_id: currentMember.company_id,
-    });
+      await addSubtask({
+        task_id: taskId,
+        title: newSubtask.trim(),
+        team_member_id: currentMember.id,
+        completed: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        company_id: currentMember.company_id,
+      });
 
-    setNewSubtask("");
-
-    console.log("Added subtask:", newSubtask.trim());
+      console.log("Added subtask:", newSubtask.trim());
+      setNewSubtask("");
+    } catch (err) {
+      console.error("Failed to add subtask:", err);
+    }
   };
 
   const handleEditSave = async (subtaskId: string) => {
@@ -207,7 +211,7 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
               handleAdd();
               console.log("Adding subtask");
             }}
-            disabled={!newSubtask.trim() || loading}
+            disabled={!newSubtask.trim() || loading || !currentMember}
           >
             <Plus className="h-4 w-4" />
           </Button>

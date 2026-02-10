@@ -22,7 +22,19 @@ export const TeamContextProvider = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { idToken } = useAuthContext();
+  const { idToken, currentUser } = useAuthContext();
+
+  const currentMember =
+    teamMembers.find((member) => member.user_id === currentUser?.uid) ?? null;
+
+  console.log(
+    "CurrentUser:",
+    currentUser,
+    "TeamMembers:",
+    teamMembers,
+    "Current Member:",
+    currentMember,
+  );
 
   const fetchTeamMembers = async () => {
     if (!idToken) {
@@ -97,13 +109,15 @@ export const TeamContextProvider = ({
   };
 
   useEffect(() => {
+    if (!idToken) return;
     fetchTeamMembers();
-  }, []);
+  }, [idToken]);
 
   return (
     <TeamContext.Provider
       value={{
         teamMembers,
+        currentMember,
         fetchTeamMembers,
         inviteMember,
         updateTeamMember,
