@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import admin from "../config/firebaseAdmin";
 import { logger } from "../utils/logger";
 import { AppUser } from "../types/types";
+import { supabaseAdmin } from "../config/supabaseClient";
 
 export default async function authenticate(
   req: Request,
@@ -24,6 +25,17 @@ export default async function authenticate(
     // 🔐 Verify token + revocation in one call
     const decoded = await admin.auth().verifyIdToken(token, true);
 
+    const { data: user, error } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("firebase_uid", decoded.uid)
+      .single();
+
+    if (error || !user) {
+      logger.warn("User not found in database", { uid: decoded.uid });
+      return res.status(401).json({ error: error?.message || "Unauthorized" });
+    }
+
     // TEMP TEST VALUES (replace later)
     const appUser: AppUser = {
       ...decoded,
@@ -32,6 +44,13 @@ export default async function authenticate(
       // user_id: "f1052280-a2b1-46f7-ab37-f1a83659c3f7",
       user_id: "5e563f43-a627-4e54-a216-5ab607b16a31",
     };
+
+    // const appUser: AppUser = {
+    //   ...decoded,
+    //   company_id: user.company_id,
+    //   role: user.role,
+    //   user_id: user.user_id,
+    // };
 
     req.user = appUser;
 
