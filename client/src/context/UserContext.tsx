@@ -50,7 +50,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         if (!res.ok) {
           if (res.status === 404) {
             console.log(
-              "fetchUserProfile: 404 - Profile not found. Consider creating one."
+              "fetchUserProfile: 404 - Profile not found. Consider creating one.",
             );
             // Optional: Auto-create profile if 404 (uncomment if desired)
             // await createProfileIfMissing();
@@ -59,7 +59,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         const { profile: data } = await res.json();
-        // console.log("Fetched user profile:", data);
+        console.log("Fetched user profile:", data);
 
         return {
           id: data.id,
@@ -80,7 +80,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
     },
-    [idToken, currentUser]
+    [idToken, currentUser],
   );
 
   // Optional auto-create function (if you uncomment above)
@@ -174,7 +174,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         return false;
       }
     },
-    [idToken]
+    [idToken],
   );
 
   const deleteAccount = useCallback(async (): Promise<boolean> => {

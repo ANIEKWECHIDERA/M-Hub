@@ -19,7 +19,6 @@ interface SubtasksSectionProps {
 export function SubtasksSection({ taskId }: SubtasksSectionProps) {
   const {
     subtasks: allSubtasks,
-    getSubtasksByTaskId,
     addSubtask,
     updateSubtask,
     deleteSubtask,
@@ -56,11 +55,9 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
       await addSubtask({
         task_id: taskId,
         title: newSubtask.trim(),
-        team_member_id: currentMember.id,
         completed: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        company_id: currentMember.company_id,
       });
 
       console.log("Added subtask:", newSubtask.trim());

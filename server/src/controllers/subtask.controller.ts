@@ -57,7 +57,7 @@ export const SubtaskController = {
       const subtask = await SubtaskService.create({
         ...req.body,
         company_id: companyId,
-        created_by: teamMemberId,
+        team_member_id: teamMemberId,
       });
 
       return res.status(201).json(subtask);

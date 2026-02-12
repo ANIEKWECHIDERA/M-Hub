@@ -134,7 +134,9 @@ export interface SubtaskContextType {
   subtasks: Subtask[];
   setSubtasks: React.Dispatch<React.SetStateAction<Subtask[]>>;
   fetchSubtasks: () => Promise<void>;
-  addSubtask: (data: Omit<Subtask, "id">) => Promise<Subtask>;
+  addSubtask: (
+    data: Omit<Subtask, "id" | "team_member_id" | "company_id">,
+  ) => Promise<Subtask>;
   updateSubtask: (id: string, data: Partial<Subtask>) => Promise<Subtask>;
   deleteSubtask: (id: string) => Promise<void>;
   getSubtasksByIds: (ids: string[]) => Subtask[];

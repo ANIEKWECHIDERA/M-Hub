@@ -27,16 +27,16 @@ export default function Dashboard() {
   const filteredProjects = useFilteredProjects(
     projects,
     statusFilter,
-    clientFilter
+    clientFilter,
   );
 
   const { totalProjects, activeProjects, completedProjects, overdueProjects } =
     useProjectStats(projects, tasks);
-  console.log("tasks:", tasks, "projects:", projects);
+  // console.log("tasks:", tasks, "projects:", projects);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
-  console.log(`fetched projects: ${JSON.stringify(projects)}`);
+  // console.log(`fetched projects: ${JSON.stringify(projects)}`);
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -140,7 +140,7 @@ export default function Dashboard() {
       {/* Project Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProjects.map((project) => {
-          console.log("DASHBOARD tasks length:", tasks.length);
+          // console.log("DASHBOARD tasks length:", tasks.length);
 
           return (
             <Link to={`/projectdetails/${project.id}`}>
@@ -161,8 +161,8 @@ export default function Dashboard() {
                         project.status === "Completed"
                           ? "default"
                           : project.status === "In Progress"
-                          ? "secondary"
-                          : "outline"
+                            ? "secondary"
+                            : "outline"
                       }
                     >
                       {project.status}

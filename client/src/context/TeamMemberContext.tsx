@@ -3,6 +3,7 @@ import type { TeamMember } from "@/Types/types";
 import { createContext, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAuthContext } from "./AuthContext";
+import { useUser } from "./UserContext";
 
 const TeamContext = createContext<any>(null);
 
@@ -22,14 +23,15 @@ export const TeamContextProvider = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { idToken, currentUser } = useAuthContext();
+  const { idToken } = useAuthContext();
+  const { profile } = useUser();
 
   const currentMember =
-    teamMembers.find((member) => member.user_id === currentUser?.uid) ?? null;
+    teamMembers.find((member) => member.user_id === profile?.id) ?? null;
 
   console.log(
     "CurrentUser:",
-    currentUser,
+    profile,
     "TeamMembers:",
     teamMembers,
     "Current Member:",
