@@ -12,10 +12,14 @@ export default async function authenticate(
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith("Bearer ")) {
-    logger.warn("Missing or malformed Authorization header", {
-      path: req.path,
-      method: req.method,
-    });
+    logger.warn(
+      "authenticate.warning",
+      "Missing or malformed Authorization header",
+      {
+        path: req.path,
+        method: req.method,
+      },
+    );
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -43,6 +47,7 @@ export default async function authenticate(
       role: "superAdmin",
       // user_id: "f1052280-a2b1-46f7-ab37-f1a83659c3f7",
       user_id: "5e563f43-a627-4e54-a216-5ab607b16a31",
+      email: user.email,
     };
 
     // const appUser: AppUser = {

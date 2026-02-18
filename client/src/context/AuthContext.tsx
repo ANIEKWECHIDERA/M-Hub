@@ -220,33 +220,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       // Check if profile is incomplete → trigger popup
-      const profileRes = await fetch(`${API_CONFIG.backend}/api/user`, {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
+      // const profileRes = await fetch(`${API_CONFIG.backend}/api/user`, {
+      //   headers: { Authorization: `Bearer ${idToken}` },
+      // });
 
-      if (profileRes.ok) {
-        const { profile } = await profileRes.json();
-        const isIncomplete = !profile.first_name || !profile.last_name;
+      // if (profileRes.ok) {
+      //   const { profile } = await profileRes.json();
+      //   const isIncomplete = !profile.first_name || !profile.last_name;
 
-        if (isIncomplete) {
-          setTimeout(() => {
-            const opened = window.open(
-              `/complete-profile?token=${idToken}`,
-              "completeProfile",
-              "width=500,height=600",
-            );
+      //   if (isIncomplete) {
+      //     setTimeout(() => {
+      //       const opened = window.open(
+      //         `/complete-profile?token=${idToken}`,
+      //         "completeProfile",
+      //         "width=500,height=600",
+      //       );
 
-            if (!opened || opened.closed) {
-              toast.error("Please allow popups to complete your profile", {
-                action: {
-                  label: "Open Form",
-                  onClick: () => (window.location.href = "/complete-profile"),
-                },
-              });
-            }
-          }, 2000);
-        }
-      }
+      //       if (!opened || opened.closed) {
+      //         toast.error("Please allow popups to complete your profile", {
+      //           action: {
+      //             label: "Open Form",
+      //             onClick: () => (window.location.href = "/complete-profile"),
+      //           },
+      //         });
+      //       }
+      //     }, 2000);
+      //   }
+      // }
 
       return result;
     } catch (err: any) {

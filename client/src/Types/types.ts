@@ -577,6 +577,8 @@ export interface UserProfile {
   lastLogin?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+  has_company?: boolean;
+  profile_complete?: boolean;
 }
 
 export interface UserProfileUpdate {
@@ -586,6 +588,15 @@ export interface UserProfileUpdate {
   bio?: string;
   department?: string;
   access_level?: string;
+}
+// src/dtos/user.dto.ts
+
+export interface UpdateUserDTO {
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
+  photo_url?: string;
+  profile_complete: boolean;
 }
 
 export interface UserContextType {

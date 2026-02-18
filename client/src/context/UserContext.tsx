@@ -74,6 +74,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
           lastLogin: data.last_login ? new Date(data.last_login) : undefined,
           createdAt: data.created_at ? new Date(data.created_at) : undefined,
           updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+          has_company: data.has_company,
+          profile_complete: data.profile_complete,
         };
       } catch (err) {
         console.error("fetchProfile error:", err);

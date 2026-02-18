@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import Layout from "./Layout";
 import Dashboard from "./pages/DashBoard";
@@ -15,9 +15,10 @@ import SignUpPage from "./pages/SignupPage";
 import { AuthProvider } from "./context/AuthContext";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import CompleteProfile from "./pages/CompleteProfile";
-import { UserProvider } from "./context/UserContext";
+import { UserProvider, useUser } from "./context/UserContext";
 import { Toaster } from "./components/ui/sonner";
 import { MyTasksPage } from "./pages/MyTasks/MyTasksPage";
+import CreateCompany from "./pages/CreateCompany";
 
 // Protected Route: Only authenticated users
 function useRedirectPath() {
@@ -26,8 +27,10 @@ function useRedirectPath() {
 }
 function ProtectedRoute() {
   const { currentUser, loading } = useAuthContext();
+  const { profile, loading: profileLoading } = useUser();
+  const location = useLocation();
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -35,7 +38,24 @@ function ProtectedRoute() {
     );
   }
 
-  return currentUser ? <Outlet /> : <Navigate to="/login" replace />;
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const onCompleteProfile = location.pathname === "/complete-profile";
+  const onCreateCompany = location.pathname === "/create-company";
+
+  console.log("ProtectedRoute - currentUser:", profile);
+
+  if (!profile?.profile_complete && !onCompleteProfile) {
+    return <Navigate to="/complete-profile" replace />;
+  }
+
+  if (profile?.profile_complete && !profile?.has_company && !onCreateCompany) {
+    return <Navigate to="/create-company" replace />;
+  }
+
+  return <Outlet />;
 }
 
 // Public Route: Only unauthenticated users (blocks logged-in users)
@@ -101,6 +121,7 @@ function AppWithAuth() {
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/complete-profile" element={<CompleteProfile />} />
+          <Route path="/create-company" element={<CreateCompany />} />
           <Route element={<Layout />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="projects" element={<Projects />} />

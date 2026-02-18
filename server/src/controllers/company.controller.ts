@@ -23,7 +23,10 @@ export const CompanyController = {
 
   async createCompany(req: Request, res: Response) {
     try {
-      const company = await CompanyService.create(req.body);
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const company = await CompanyService.create(req.body, req.user);
       return res.status(201).json(company);
     } catch (error) {
       logger.error("createCompany failed", { error });

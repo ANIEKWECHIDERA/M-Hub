@@ -10,28 +10,28 @@ router.get(
   "/company",
   authenticate,
   authorize(["superAdmin"]),
-  CompanyController.getCompany
+  CompanyController.getCompany,
 );
 
 router.post(
   "/company",
   authenticate,
-  authorize(["superAdmin"]),
-  CompanyController.createCompany
+  // authorize(["superAdmin"]),
+  CompanyController.createCompany,
 );
 
 router.patch(
   "/company",
   authenticate,
   authorize(["superAdmin"]),
-  CompanyController.updateCompany
+  CompanyController.updateCompany,
 );
 
 router.delete(
   "/company",
   authenticate,
   authorize(["superAdmin"]),
-  CompanyController.deleteCompany
+  CompanyController.deleteCompany,
 );
 
 export default router;

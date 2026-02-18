@@ -34,26 +34,76 @@ export const CompanyService = {
     return data ? toCompanyResponseDTO(data) : null;
   },
 
-  async create(payload: CreateCompanyDTO): Promise<CompanyResponseDTO> {
-    logger.info("CompanyService.create: start", { payload });
+  async create(
+    payload: CreateCompanyDTO,
+    user: { user_id: string; email: string },
+  ): Promise<CompanyResponseDTO> {
+    logger.info("CompanyService.create: start", { payload, user });
 
-    const { data, error } = await supabaseAdmin
+    // 1️⃣ Create company
+    const { data: company, error: companyError } = await supabaseAdmin
       .from("companies")
-      .insert(payload)
+      .insert({
+        name: payload.name,
+        description: payload.description || null,
+      })
       .select("id, name, description, created_at")
       .single();
 
-    if (error) {
-      logger.error("CompanyService.create: supabase error", { error });
-      throw error;
+    if (companyError) {
+      logger.error("CompanyService.create: company insert error", {
+        companyError,
+      });
+      throw companyError;
     }
 
-    return toCompanyResponseDTO(data);
-  },
+    // 2️⃣ Check if team member exists
+    const { data: existingMember } = await supabaseAdmin
+      .from("team_members")
+      .select("id")
+      .eq("user_id", user.user_id)
+      .maybeSingle();
 
+    if (existingMember) {
+      // Set has_company true anyway
+      await supabaseAdmin
+        .from("users")
+        .update({ has_company: true })
+        .eq("id", user.user_id);
+
+      throw new Error("User already exists");
+    }
+
+    // 3️⃣ Insert team member
+    const { error: memberError } = await supabaseAdmin
+      .from("team_members")
+      .insert({
+        user_id: user.user_id,
+        company_id: company.id,
+        email: user.email,
+        role: "Owner",
+        access: "superAdmin",
+        status: "active",
+      });
+
+    if (memberError) {
+      logger.error("CompanyService.create: team member insert error", {
+        memberError,
+      });
+      throw memberError;
+    }
+
+    // 4️⃣ LAST STEP → update has_company
+    await supabaseAdmin
+      .from("users")
+      .update({ has_company: true })
+      .eq("id", user.user_id);
+
+    return toCompanyResponseDTO(company);
+  },
   async update(
     companyId: string,
-    payload: UpdateCompanyDTO
+    payload: UpdateCompanyDTO,
   ): Promise<CompanyResponseDTO | null> {
     logger.info("CompanyService.update: start", { companyId });
 

@@ -21,5 +21,6 @@ export const UpdateUserDTO = z
     last_name: z.string().min(1).max(50).optional(),
     display_name: z.string().min(1).max(100).optional(),
     photo_url: z.string().url().optional(),
+    profile_complete: z.boolean(),
   })
   .strict();

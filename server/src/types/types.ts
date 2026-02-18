@@ -24,4 +24,6 @@ export interface AppUser extends auth.DecodedIdToken {
   company_id: string;
   role?: string;
   team_member_id?: string;
+  user_id: string;
+  email: string;
 }

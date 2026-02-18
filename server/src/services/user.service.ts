@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../config/supabaseClient";
 import { prisma } from "../lib/prisma";
 import { CreateUserFromAuthDTO } from "../types/user.types";
+import { logger } from "../utils/logger";
 
 export const UserService = {
   async findByFirebaseUid(firebaseUid: string) {
@@ -89,8 +90,13 @@ export const UserService = {
       last_name: string;
       display_name: string;
       photo_url: string;
-    }>
+      profile_complete: boolean;
+    }>,
   ) {
+    logger.info("UserService.updateByFirebaseUid: start", {
+      firebaseUid,
+      updates,
+    });
     const { data, error } = await supabaseAdmin
       .from("users")
       .update({
@@ -101,6 +107,10 @@ export const UserService = {
       .select()
       .single();
 
+    logger.info("UserService.updateByFirebaseUid: success", {
+      firebaseUid,
+      updates,
+    });
     if (error) throw error;
     return data;
   },
