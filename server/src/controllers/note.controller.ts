@@ -16,7 +16,7 @@ export const NoteController = {
 
       const notes = await NoteService.findByAuthor(companyId, authorId);
 
-      return res.json(notes);
+      return res.json(notes || []);
     } catch (error) {
       logger.error("getMyNotes: failed", {
         companyId,
@@ -77,7 +77,7 @@ export const NoteController = {
         id,
         companyId,
         authorId,
-        payload
+        payload,
       );
 
       if (!updatedNote) {

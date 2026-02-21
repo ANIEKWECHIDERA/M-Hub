@@ -30,7 +30,9 @@ export const TaskController = {
     });
 
     if (!taskId || taskId.trim() === "") {
-      return res.status(400).json({ error: "Invalid task ID" });
+      return res
+        .status(400)
+        .json({ error: "Invalid task ID or task does not exist" });
     }
 
     try {

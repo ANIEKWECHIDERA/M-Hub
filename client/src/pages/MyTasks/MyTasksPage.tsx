@@ -79,9 +79,9 @@ export function MyTasksPage() {
     });
   };
 
-  // useEffect(() => {
-  //   refetch();
-  // }, []);
+  useEffect(() => {
+    refetch();
+  }, []);
 
   /* ---------------- Render ---------------- */
 

@@ -1,6 +1,4 @@
-import { ca } from "zod/v4/locales";
 import { supabaseAdmin } from "../config/supabaseClient";
-import { prisma } from "../lib/prisma";
 import { CreateUserFromAuthDTO } from "../types/user.types";
 import { logger } from "../utils/logger";
 
@@ -111,6 +109,7 @@ export const UserService = {
       throw error;
     }
   },
+
   async updateByFirebaseUid(
     firebaseUid: string,
     updates: Partial<{
@@ -118,7 +117,7 @@ export const UserService = {
       last_name: string;
       display_name: string;
       photo_url: string;
-      profile_complete: boolean;
+      profile_complete?: boolean;
     }>,
   ) {
     if (!firebaseUid) {
@@ -129,15 +128,21 @@ export const UserService = {
       throw new Error("Firebase UID is required for updating user");
     }
 
+    const display_name = updates.display_name
+      ? updates.display_name
+      : `${updates.first_name ?? ""} ${updates.last_name ?? ""}`.trim();
+
     logger.info("UserService.updateByFirebaseUid: start", {
       firebaseUid,
       updates,
+      display_name,
     });
 
     const { data, error } = await supabaseAdmin
       .from("users")
       .update({
         ...updates,
+        display_name: display_name,
         updated_at: new Date().toISOString(),
       })
       .eq("firebase_uid", firebaseUid)

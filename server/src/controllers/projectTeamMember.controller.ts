@@ -16,7 +16,7 @@ export const ProjectTeamMemberController = {
         count: records.length,
       });
 
-      return res.json(records);
+      return res.json(records || []);
     } catch (error) {
       logger.error("PTM.getAll:error", { companyId, error });
       return res.status(500).json({ error: "Failed to fetch project members" });

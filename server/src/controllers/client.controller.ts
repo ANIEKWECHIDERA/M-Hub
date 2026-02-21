@@ -8,9 +8,9 @@ export const ClientController = {
 
     try {
       const clients = await ClientService.findAll(companyId);
-      return res.json(clients);
+      return res.json(clients || []);
     } catch (error) {
-      logger.error("getClients failed", { error });
+      logger.error("ClientController: getClients failed", { error });
       return res.status(500).json({ error: "Failed to fetch clients" });
     }
   },

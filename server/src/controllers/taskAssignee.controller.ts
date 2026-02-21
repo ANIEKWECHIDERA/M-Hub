@@ -16,7 +16,7 @@ export const TaskAssigneeController = {
         count: data.length,
       });
 
-      return res.json(data);
+      return res.json(data || []);
     } catch (error) {
       logger.error("TaskAssignee.getAll:error", { companyId, error });
       return res.status(500).json({ error: "Failed to fetch task assignees" });

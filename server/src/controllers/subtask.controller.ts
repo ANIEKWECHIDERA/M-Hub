@@ -15,13 +15,9 @@ export const SubtaskController = {
         task_id,
       );
 
-      if (!subtasks.length) {
-        return res.status(404).json({ error: "Subtasks not found" });
-      }
-
-      return res.json(subtasks);
+      return res.json(subtasks || []);
     } catch (error) {
-      logger.error("getSubtasks failed", { error });
+      logger.error("SubtaskController: getSubtasks failed", { error });
       return res.status(500).json({ error: "Failed to fetch subtasks" });
     }
   },
@@ -30,6 +26,10 @@ export const SubtaskController = {
     const { id } = req.params;
     const companyId = req.user.company_id;
     const teamMemberId = req.user.team_member_id;
+
+    if (!id || id.trim() === "") {
+      return res.status(400).json({ error: "Invalid subtask ID" });
+    }
 
     try {
       const subtask = await SubtaskService.findById(
@@ -42,9 +42,9 @@ export const SubtaskController = {
         return res.status(404).json({ error: "Subtask not found" });
       }
 
-      return res.json(subtask);
+      return res.json(subtask || null);
     } catch (error) {
-      logger.error("getSubtask failed", { error });
+      logger.error("SubtaskController: getSubtask failed", { error });
       return res.status(500).json({ error: "Failed to fetch subtask" });
     }
   },
@@ -62,7 +62,7 @@ export const SubtaskController = {
 
       return res.status(201).json(subtask);
     } catch (error) {
-      logger.error("createSubtask failed", { error });
+      logger.error("SubtaskController: createSubtask failed", { error });
       return res.status(500).json({ error: "Failed to create subtask" });
     }
   },
@@ -86,7 +86,7 @@ export const SubtaskController = {
 
       return res.json(updatedSubtask);
     } catch (error) {
-      logger.error("updateSubtask failed", { error });
+      logger.error("SubtaskController: updateSubtask failed", { error });
       return res.status(500).json({ error: "Failed to update subtask" });
     }
   },
