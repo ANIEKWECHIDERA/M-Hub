@@ -11,7 +11,7 @@ export interface UserResponseDTO {
 
 export interface CreateUserFromAuthDTO {
   firebase_uid: string;
-  email: string;
+  email?: string | null;
   display_name?: string | null;
   photo_url?: string | null;
 }

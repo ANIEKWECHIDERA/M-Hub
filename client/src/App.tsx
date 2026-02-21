@@ -18,24 +18,13 @@ import CompleteProfile from "./pages/CompleteProfile";
 import { UserProvider } from "./context/UserContext";
 import { Toaster } from "./components/ui/sonner";
 import { MyTasksPage } from "./pages/MyTasks/MyTasksPage";
+import { AuthGuard } from "./components/auth/AuthGuard";
+import CreateCompany from "./pages/CreateCompany";
 
 // Protected Route: Only authenticated users
 function useRedirectPath() {
   const { currentUser } = useAuthContext();
   return currentUser ? "/dashboard" : "/signup";
-}
-function ProtectedRoute() {
-  const { currentUser, loading } = useAuthContext();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  return currentUser ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 // Public Route: Only unauthenticated users (blocks logged-in users)
@@ -99,8 +88,13 @@ function AppWithAuth() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
         {/* Protected Routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/complete-profile" element={<CompleteProfile />} />
+        <Route element={<AuthGuard />}>
+          {/* Onboarding Routes */}
+          <Route path="/onboarding/profile" element={<CompleteProfile />} />
+          <Route path="/onboarding/company" element={<CreateCompany />} />
+
+          {/* <Route path="/complete-profile" element={<CompleteProfile />} /> */}
+
           <Route element={<Layout />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="projects" element={<Projects />} />
@@ -108,7 +102,6 @@ function AppWithAuth() {
             <Route path="notepad" element={<Notepad />} />
             <Route path="tools" element={<Tools />} />
             <Route path="settings" element={<Settings />} />
-            {/* <Route path="mytasks" element={<MyTasksPage />} /> */}
             <Route path="mytasks" element={<MyTasksPage />} />
             <Route
               path="projectdetails/:id"

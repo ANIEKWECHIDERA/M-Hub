@@ -1,18 +1,24 @@
-import { createContext, useState, useContext, useEffect } from "react";
+import {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+} from "react";
 import {
   auth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged,
+  // onAuthStateChanged,
   signInWithPopup,
   googleProvider,
 } from "../firebase/firebase";
-import type { AuthContextType } from "@/Types/types";
+import type { AuthContextType, AuthStatus } from "@/Types/types";
 import type { User } from "firebase/auth";
 import { API_CONFIG } from "@/lib/api";
-import { toast } from "sonner";
-import { useLocation, useNavigate } from "react-router-dom";
+// import { toast } from "sonner";
+import { authAPI } from "@/api/auth.api";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -30,17 +36,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   // Clear error utility
   const clearError = () => setError(null);
 
-  const location = useLocation();
+  const isAppReady =
+    !!currentUser && !!authStatus && authStatus.onboardingState === "ACTIVE";
+
+  const fetchToken = useCallback(async (firebaseUser: User) => {
+    const token = await firebaseUser.getIdToken();
+    setIdToken(token);
+    return token;
+  }, []);
+
+  const syncUser = useCallback(async (user: User | null) => {
+    if (!user) {
+      setCurrentUser(null);
+      setIdToken(null);
+      setAuthStatus(null);
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      setIdToken(token);
+      setCurrentUser(user);
+
+      const status = await authAPI.getStatus(token);
+      setAuthStatus(status);
+    } catch (err) {
+      console.error("Auth sync failed:", err);
+      setAuthStatus(null);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!authLoading && !currentUser && location.pathname !== "/signup") {
-      navigate("/login");
-    }
-  }, [currentUser, authLoading, location.pathname]);
+    const unsubscribe = auth.onIdTokenChanged(async (user) => {
+      await syncUser(user);
+      setInitialLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [syncUser]);
+
+  const refreshStatus = async () => {
+    if (!idToken) return;
+
+    const res = await fetch(`${API_CONFIG.backend}/api/status`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+      method: "GET",
+    });
+
+    if (!res.ok) return;
+
+    const data = await res.json();
+    setAuthStatus(data);
+  };
 
   console.log("ID Token:", idToken);
 
@@ -48,53 +99,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     email: string,
     password: string,
     firstName: string,
-    lastName: String,
+    lastName: string,
     termsAccepted: boolean,
   ) => {
-    let userCredential;
+    // let userCredential;
     let uidToDelete: string | null = null;
     try {
       clearError();
       setAuthLoading(true);
 
-      userCredential = await createUserWithEmailAndPassword(
+      const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
         password,
       );
 
-      const idToken = await userCredential.user.getIdToken();
+      const idToken = await fetchToken(userCredential.user);
+
       uidToDelete = userCredential.user.uid;
 
-      // console.log(
-      //   "ID Token after signup:",
-      //   idToken,
-      //   "Firebase userID:",
-      //   uidToDelete
-      // );
+      const res = await authAPI.createProfile(
+        { firstName, lastName, email, termsAccepted },
+        idToken,
+      );
 
-      // const firebase_uid = userCredential.user.uid;
-
-      const res = await fetch(`${API_CONFIG.backend}/api/user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
-          termsAccepted,
-        }),
-      });
-
-      // console.log("Create user response:", firebase_uid);
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        uidToDelete = userCredential.user.uid;
-        throw new Error(err.error || "Failed to create user profile");
+      // res might be null
+      if (!res || !res.success) {
+        throw new Error("Failed to create user profile");
       }
 
       console.log(
@@ -107,8 +138,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         uidToDeleteOnError: null,
       };
     } catch (err: any) {
-      // console.error("Firebase signup error:", err.code);
-
       // Normalize Firebase error → human readable
       let message = err.message;
 
@@ -135,13 +164,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       clearError();
       setAuthLoading(true);
+
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
         password,
       );
-      const idToken = await userCredential.user.getIdToken();
-      return { user: userCredential.user, idToken, error: null };
+      // const idToken = await fetchToken(userCredential.user);
+
+      // const status = await authAPI.sync(idToken);
+
+      // setAuthStatus(status);
+
+      return { user: userCredential.user, idToken: null, error: null };
     } catch (err: any) {
       // console.error("Firebase signup error:", err.code);
       let message = err.message;
@@ -160,93 +195,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         message = "Incorrect password or email. Please try again.";
       }
 
-      setError(err.message);
+      setError(message);
       return { user: null, idToken: null, error: message };
     } finally {
       setAuthLoading(false);
     }
   };
 
-  // Google Sign-In (popup)
+  // Google Sign-Up (same function as sign-in, but you may rename it)
   const signInWithGoogle = async () => {
     try {
+      clearError();
+
       const result = await signInWithPopup(auth, googleProvider);
+
       const user = result.user;
 
-      const name =
-        user.displayName ?? user.providerData?.[0]?.displayName ?? null;
-      const email = user.email ?? user.providerData?.[0]?.email ?? null;
-
-      // fetch ID token
-      const idToken = await user.getIdToken();
-      setIdToken(idToken);
-      // console.log("ID Token:", idToken);
-
-      // send to backend to sync
-      await fetch(`${API_CONFIG.backend}/api/sync`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ name, email, avatar: user.photoURL ?? null }),
-      });
-
-      return result;
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  // Google Sign-Up (same function as sign-in, but you may rename it)
-  const signUpWithGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      const idToken = await user.getIdToken();
+      const idToken = await fetchToken(user);
 
       // Sync basic data
-      await fetch(`${API_CONFIG.backend}/api/sync`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          name: user.displayName,
-          email: user.email,
-          avatar: user.photoURL,
-        }),
-      });
+      const syncResult = await authAPI.sync(idToken);
+      console.log("Google sign-in sync result:", syncResult);
 
-      // Check if profile is incomplete → trigger popup
-      const profileRes = await fetch(`${API_CONFIG.backend}/api/user`, {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-
-      if (profileRes.ok) {
-        const { profile } = await profileRes.json();
-        const isIncomplete = !profile.first_name || !profile.last_name;
-
-        if (isIncomplete) {
-          setTimeout(() => {
-            const opened = window.open(
-              `/complete-profile?token=${idToken}`,
-              "completeProfile",
-              "width=500,height=600",
-            );
-
-            if (!opened || opened.closed) {
-              toast.error("Please allow popups to complete your profile", {
-                action: {
-                  label: "Open Form",
-                  onClick: () => (window.location.href = "/complete-profile"),
-                },
-              });
-            }
-          }, 2000);
-        }
-      }
+      // const status = await authAPI.getStatus(idToken);
+      // setAuthStatus(status);
+      // console.log("Google sign-in successful", { uid: user.uid, status });
 
       return result;
     } catch (err: any) {
@@ -256,60 +229,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
-      clearError();
       setAuthLoading(true);
-      if (idToken) {
-        await fetch(`${API_CONFIG.backend}/api/logout`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${idToken}` },
-        });
-      }
+
+      if (idToken) await authAPI.logout(idToken);
 
       await signOut(auth);
+
+      setCurrentUser(null);
+      setAuthStatus(null);
       setIdToken(null);
+    } finally {
       setAuthLoading(false);
-    } catch (err: any) {
-      setError(err.message);
     }
   };
 
-  // Listen for login/logout/auth changes
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setInitialLoading(false);
-      if (user) {
-        user.getIdToken().then((token) => {
-          setIdToken(token); // Get the ID token on initial load
-        });
-      } else {
-        setIdToken(null);
-      }
-    });
-
-    const unsubscribeToken = auth.onIdTokenChanged(async (user) => {
-      if (user) {
-        const newToken = await user.getIdToken();
-        setIdToken(newToken); // Update the ID token if it changes
-      } else {
-        setIdToken(null); // Clear ID token when user is logged out
-      }
-    });
-
-    return () => {
-      unsubscribeAuth();
-      unsubscribeToken(); // Clean up both listeners on component unmount
-    };
-  }, []);
-
   const value: AuthContextType = {
+    isAppReady,
+    authStatus,
+    refreshStatus,
     currentUser,
     loading: authLoading,
     error,
     signUp,
     signIn,
     signInWithGoogle,
-    signUpWithGoogle,
+    // signUpWithGoogle,
     logout,
     clearError,
     idToken,

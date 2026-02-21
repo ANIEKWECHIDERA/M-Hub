@@ -3,7 +3,7 @@ import { API_CONFIG } from "@/lib/api";
 export async function apiFetch<T>(
   url: string,
   options: RequestInit = {},
-  idToken: string
+  idToken: string,
 ): Promise<T> {
   const isFormData = options.body instanceof FormData;
 

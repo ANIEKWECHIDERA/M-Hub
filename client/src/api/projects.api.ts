@@ -24,7 +24,7 @@ export const ProjectAPI = {
         method: "POST",
         body: JSON.stringify(payload),
       },
-      idToken
+      idToken,
     );
   },
 
@@ -38,7 +38,7 @@ export const ProjectAPI = {
         method: "PATCH",
         body: JSON.stringify(payload),
       },
-      idToken
+      idToken,
     );
   },
 
@@ -51,7 +51,7 @@ export const ProjectAPI = {
       {
         method: "DELETE",
       },
-      idToken
+      idToken,
     );
   },
 };

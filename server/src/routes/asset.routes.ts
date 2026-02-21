@@ -11,20 +11,20 @@ router.post(
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   upload.array("files", 5),
-  AssetController.upload
+  AssetController.upload,
 );
 
 router.get(
   "/assets/:projectId",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  AssetController.getByProject
+  AssetController.getByProject,
 );
 
 router.delete(
   "/assets/:id",
   authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  AssetController.delete
+  AssetController.delete,
 );
 export default router;

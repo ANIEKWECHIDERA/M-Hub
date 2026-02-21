@@ -10,6 +10,7 @@ export interface CompanyResponseDTO {
 export interface CreateCompanyDTO {
   name: string;
   description?: string | null;
+  logoUrl?: string | null;
 }
 
 export interface UpdateCompanyDTO {

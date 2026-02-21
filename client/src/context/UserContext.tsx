@@ -4,6 +4,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import { useAuthContext } from "./AuthContext";
 import type { UserContextType, UserProfile } from "@/Types/types";
@@ -22,44 +23,43 @@ export const useUser = () => useContext(UserContext);
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const { currentUser, idToken } = useAuthContext();
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // console.log("UserProvider: currentUser:", currentUser); // Log Firebase user data
-  // console.log("UserProvider: idToken present?", !!idToken); // Check if token is available
+  // Helps prevent stale async overwrites
+  const requestIdRef = useRef(0);
+
+  const buildFallbackProfile = useCallback((): UserProfile | null => {
+    if (!currentUser) return null;
+
+    return {
+      id: currentUser.uid,
+      firebaseUid: currentUser.uid,
+      displayName: currentUser.displayName || "User",
+      email: currentUser.email || "",
+      photoURL: currentUser.photoURL ?? undefined,
+      first_name: currentUser.displayName?.split(" ")[0],
+      last_name: currentUser.displayName?.split(" ")[1],
+      role: undefined,
+      company_id: undefined,
+    } as UserProfile;
+  }, [currentUser]);
 
   const fetchUserProfile = useCallback(
-    async (idToken: string): Promise<UserProfile | null> => {
-      // console.log(
-      //   "fetchUserProfile() CALLED - idToken:",
-      //   idToken ? "YES" : "NO"
-      // );
-      // if (!idToken) {
-      //   console.log("fetchUserProfile: No idToken, skipping fetch");
-      //   return null;
-      // }
-
+    async (token: string): Promise<UserProfile | null> => {
       try {
         const res = await fetch(`${API_CONFIG.backend}/api/user`, {
           method: "GET",
-          headers: { Authorization: `Bearer ${idToken}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
-        // console.log("Making GET request to:", `${API_CONFIG.backend}/api/user`);
-        // console.log("fetchUserProfile: Response status:", res.status); // Log status
 
         if (!res.ok) {
-          if (res.status === 404) {
-            console.log(
-              "fetchUserProfile: 404 - Profile not found. Consider creating one.",
-            );
-            // Optional: Auto-create profile if 404 (uncomment if desired)
-            // await createProfileIfMissing();
-          }
-          throw new Error(`Failed to fetch: ${res.statusText}`);
+          if (res.status === 404) return null;
+          throw new Error(`Fetch failed: ${res.statusText}`);
         }
 
         const { profile: data } = await res.json();
-        console.log("Fetched user profile:", data);
 
         return {
           id: data.id,
@@ -70,82 +70,50 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
           first_name: data.first_name,
           last_name: data.last_name,
           role: data.role,
-          companyId: data.company_id,
+          company_id: data.company_id,
           lastLogin: data.last_login ? new Date(data.last_login) : undefined,
           createdAt: data.created_at ? new Date(data.created_at) : undefined,
           updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
         };
       } catch (err) {
-        console.error("fetchProfile error:", err);
+        console.error("fetchUserProfile error:", err);
         return null;
       }
     },
-    [idToken, currentUser],
+    [currentUser],
   );
 
-  // Optional auto-create function (if you uncomment above)
-  // const createProfileIfMissing = async () => {
-  //   if (!currentUser) return;
-  //   try {
-  //     const res = await fetch(`${API_CONFIG.backend}/api/user`, {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         Authorization: `Bearer ${idToken}`,
-  //       },
-  //       body: JSON.stringify({
-  //         firstName: currentUser.displayName?.split(" ")[0] || "",
-  //         lastName: currentUser.displayName?.split(" ")[1] || "",
-  //         email: currentUser.email,
-  //         firebase_uid: currentUser.uid,
-  //       }),
-  //     });
-  //     if (res.ok) {
-  //       console.log("createProfileIfMissing: Profile created successfully");
-  //     }
-  //   } catch (err) {
-  //     console.error("createProfileIfMissing error:", err);
-  //   }
-  // };
-
   const loadProfile = useCallback(async () => {
+    if (!currentUser || !idToken) return;
+
     setLoading(true);
-    const data = await fetchUserProfile(idToken ?? "");
 
-    const newProfile = data || {
-      id: currentUser?.uid ?? "",
-      firebaseUid: currentUser?.uid ?? "",
-      displayName: currentUser?.displayName || "User",
-      email: currentUser?.email || "",
-      photoURL: currentUser?.photoURL ?? undefined,
-      firstName: currentUser?.displayName?.split(" ")[0] ?? undefined,
-      lastName: currentUser?.displayName?.split(" ")[1] ?? undefined,
-    };
-    setProfile(newProfile);
-    // console.log("loadProfile: Set profile to:", newProfile); // Log final profile
+    const requestId = ++requestIdRef.current;
 
+    const data = await fetchUserProfile(idToken);
+
+    // Ignore stale responses
+    if (requestId !== requestIdRef.current) return;
+
+    setProfile(data ?? buildFallbackProfile());
     setLoading(false);
-  }, [fetchUserProfile, currentUser]);
+  }, [currentUser, idToken, fetchUserProfile, buildFallbackProfile]);
 
   useEffect(() => {
-    // console.log("useEffect: currentUser changed:", currentUser); // Log on user change
-    // console.log("UserProvider useEffect - currentUser:", !!currentUser);
-    // console.log("UserProvider useEffect - idToken ready:", !!idToken);
     if (!currentUser) {
-      // console.log("No Firebase user → clearing profile");
+      requestIdRef.current++;
       setProfile(null);
       setLoading(false);
       return;
     }
 
     if (!idToken) {
-      // console.log("Firebase user exists but idToken missing → waiting...");
       setLoading(true);
       return;
     }
-    // console.log("Both user + token ready → fetching profile from backend");
+
     loadProfile();
-  }, [currentUser, loadProfile, idToken]); // Added loadProfile to deps for safety
+  }, [currentUser, idToken, loadProfile]);
 
   const updateProfile = useCallback(
     async (updates: Partial<UserProfile>): Promise<boolean> => {
@@ -161,13 +129,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
           body: JSON.stringify(updates),
         });
 
-        // console.log("updateProfile: Response status:", res.status);
-
         if (!res.ok) throw new Error("Update failed");
 
         const { profile: updated } = await res.json();
-        setProfile((prev) => ({ ...prev!, ...updated }));
-        console.log("updateProfile: Updated profile:", updated);
+
+        setProfile((prev) => (prev ? { ...prev, ...updated } : prev));
+
         return true;
       } catch (err) {
         console.error("updateProfile error:", err);
@@ -187,8 +154,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         headers: { Authorization: `Bearer ${idToken}` },
       });
 
-      // console.log("deleteAccount: Response status:", res.status);
-
       if (!res.ok) throw new Error("Delete failed");
 
       setProfile(null);
@@ -203,7 +168,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     profile,
     loading,
     updateProfile,
-    deleteAccount /*, refreshProfile */,
+    deleteAccount,
     fetchUserProfile,
     setProfile,
   };

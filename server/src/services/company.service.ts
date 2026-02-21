@@ -1,4 +1,5 @@
 // src/services/company.service.ts
+import { log } from "console";
 import { supabaseAdmin } from "../config/supabaseClient";
 import {
   CompanyResponseDTO,
@@ -6,6 +7,7 @@ import {
   UpdateCompanyDTO,
 } from "../types/company.types";
 import { logger } from "../utils/logger";
+import { AppUser } from "../types/types";
 
 function toCompanyResponseDTO(row: any): CompanyResponseDTO {
   return {
@@ -34,26 +36,88 @@ export const CompanyService = {
     return data ? toCompanyResponseDTO(data) : null;
   },
 
-  async create(payload: CreateCompanyDTO): Promise<CompanyResponseDTO> {
-    logger.info("CompanyService.create: start", { payload });
+  async create(
+    user: AppUser,
+    payload: CreateCompanyDTO,
+  ): Promise<CompanyResponseDTO> {
+    logger.info("CompanyService.create: start", {
+      userId: user.id,
+      companyId: user.company_id,
+    });
 
-    const { data, error } = await supabaseAdmin
+    const userId = user.id;
+
+    // 🚀 If user already has company → return existing
+    if (user.company_id) {
+      logger.info("User already has company, returning existing", {
+        companyId: user.company_id,
+      });
+
+      const { data: company, error } = await supabaseAdmin
+        .from("companies")
+        .select("id, name, description, created_at")
+        .eq("id", user.company_id)
+        .maybeSingle();
+
+      if (error || !company) {
+        logger.error("Failed to fetch existing company", { error });
+        throw new Error("Failed to fetch existing company");
+      }
+
+      return toCompanyResponseDTO(company);
+    }
+
+    // 🚀 Create company
+    const { data: company, error: companyError } = await supabaseAdmin
       .from("companies")
-      .insert(payload)
+      .insert({
+        name: payload.name,
+        description: payload.description ?? null,
+        logo_url: payload.logoUrl ?? null,
+      })
       .select("id, name, description, created_at")
       .single();
 
-    if (error) {
-      logger.error("CompanyService.create: supabase error", { error });
-      throw error;
+    if (companyError || !company) {
+      logger.error("Company creation failed", { companyError });
+      throw new Error("Failed to create company");
     }
 
-    return toCompanyResponseDTO(data);
-  },
+    // 🚀 Create team member (owner)
+    const { error: teamError } = await supabaseAdmin
+      .from("team_members")
+      .insert({
+        user_id: userId,
+        company_id: company.id,
+        email: user.email,
+        role: "owner",
+        access: "superAdmin",
+        status: "active",
+      });
 
+    if (teamError) {
+      logger.error("Team member creation failed", { teamError });
+      throw new Error("Failed to assign owner role");
+    }
+
+    // 🚀 Update user
+    const { error: userUpdateError } = await supabaseAdmin
+      .from("users")
+      .update({ has_company: true })
+      .eq("id", userId);
+
+    if (userUpdateError) {
+      logger.error("User update failed", { userUpdateError });
+      throw new Error("Failed to finalize company setup");
+    }
+
+    logger.info("Company created successfully", { companyId: company.id });
+
+    return toCompanyResponseDTO(company);
+  },
   async update(
     companyId: string,
-    payload: UpdateCompanyDTO
+    payload: UpdateCompanyDTO,
   ): Promise<CompanyResponseDTO | null> {
     logger.info("CompanyService.update: start", { companyId });
 

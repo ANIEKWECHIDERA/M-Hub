@@ -23,11 +23,31 @@ export const CompanyController = {
 
   async createCompany(req: Request, res: Response) {
     try {
-      const company = await CompanyService.create(req.body);
+      logger.info("CompanyController.createCompany: start", {
+        user: req.user,
+        body: req.body,
+        file: req.file,
+      });
+
+      logger.info("Incoming request headers", {
+        contentType: req.headers["content-type"],
+      });
+
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const company = await CompanyService.create(req.user, req.body);
+
       return res.status(201).json(company);
     } catch (error) {
-      logger.error("createCompany failed", { error });
-      return res.status(500).json({ error: "Failed to create company" });
+      logger.error("CompanyController.createCompany failed", {
+        error: error instanceof Error ? error.message : error,
+      });
+      return res.status(500).json({
+        error: "Failed to create company",
+        details: error instanceof Error ? error.message : error,
+      });
     }
   },
 
@@ -43,7 +63,9 @@ export const CompanyController = {
 
       return res.json(company);
     } catch (error) {
-      logger.error("updateCompany failed", { error });
+      logger.error("updateCompany failed", {
+        error: error instanceof Error ? error.message : error,
+      });
       return res.status(500).json({ error: "Failed to update company" });
     }
   },

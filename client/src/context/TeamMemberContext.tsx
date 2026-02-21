@@ -29,14 +29,14 @@ export const TeamContextProvider = ({
   const currentMember =
     teamMembers.find((member) => member.user_id === profile?.id) ?? null;
 
-  console.log(
-    "CurrentUser:",
-    profile,
-    "TeamMembers:",
-    teamMembers,
-    "Current Member:",
-    currentMember,
-  );
+  // console.log(
+  //   "CurrentUser:",
+  //   profile,
+  //   "TeamMembers:",
+  //   teamMembers,
+  //   "Current Member:",
+  //   currentMember,
+  // );
 
   const fetchTeamMembers = async () => {
     if (!idToken) {
@@ -47,7 +47,7 @@ export const TeamContextProvider = ({
     setLoading(true);
     try {
       const data = await teamMembersAPI.getAll(idToken);
-      setTeamMembers(data);
+      setTeamMembers(data || []);
     } catch {
       setError("Failed to fetch team members");
     } finally {

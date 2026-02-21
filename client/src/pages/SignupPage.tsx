@@ -35,7 +35,7 @@ export default function SignUpPage() {
   const navigate = useNavigate();
   const {
     signUp,
-    signUpWithGoogle,
+    signInWithGoogle,
     error: authError,
     loading: authLoading,
     clearError,
@@ -117,7 +117,7 @@ export default function SignUpPage() {
         formData.password,
         formData.firstName,
         formData.lastName,
-        formData.agreeToTerms
+        formData.agreeToTerms,
       );
       console.log("SignUp Response:", { user, error, errorUidToDelete });
 
@@ -128,7 +128,7 @@ export default function SignUpPage() {
           try {
             console.log(
               "Attempting to delete Firebase user with UID:",
-              errorUidToDelete
+              errorUidToDelete,
             );
 
             // Make a request to the backend to delete the Firebase user
@@ -140,24 +140,24 @@ export default function SignUpPage() {
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify({ uid: errorUidToDelete }), // Pass the Firebase UID to the backend
-              }
+              },
             );
 
             const data = await response.json();
             if (response.ok) {
               console.log(
-                "Orphaned Firebase user deleted successfully via backend"
+                "Orphaned Firebase user deleted successfully via backend",
               );
             } else {
               console.error(
                 "Error deleting Firebase user via backend:",
-                data.error || data.message
+                data.error || data.message,
               );
             }
           } catch (deleteErr: any) {
             console.error(
               "Failed to delete Firebase user via backend:",
-              deleteErr
+              deleteErr,
             );
           }
         }
@@ -187,7 +187,7 @@ export default function SignUpPage() {
     } catch (err: any) {
       toast.error(
         err.message || "Failed to complete signup. Please try again.",
-        { id: "profile-create" }
+        { id: "profile-create" },
       );
 
       await signOut(auth); // Always sign out to remove token and force redirect to signup/login
@@ -215,7 +215,7 @@ export default function SignUpPage() {
     clearError();
     setIsGoogleLoading(true);
 
-    const result = await signUpWithGoogle();
+    const result = await signInWithGoogle();
 
     if (result) {
       navigate("/dashboard", { replace: true });
@@ -229,12 +229,12 @@ export default function SignUpPage() {
       authError.includes("user-not-found")
       ? "Invalid email or password."
       : authError.includes("too-many-requests")
-      ? "Too many failed attempts. Please try again later."
-      : authError.includes("popup-closed-by-user")
-      ? "Sign-in cancelled."
-      : authError.includes("popup-blocked")
-      ? "Popup blocked. Please allow popups and try again."
-      : "Authentication failed. Please try again."
+        ? "Too many failed attempts. Please try again later."
+        : authError.includes("popup-closed-by-user")
+          ? "Sign-in cancelled."
+          : authError.includes("popup-blocked")
+            ? "Popup blocked. Please allow popups and try again."
+            : "Authentication failed. Please try again."
     : errors.general;
 
   return (

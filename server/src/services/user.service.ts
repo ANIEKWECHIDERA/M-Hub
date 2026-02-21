@@ -1,6 +1,8 @@
+import { ca } from "zod/v4/locales";
 import { supabaseAdmin } from "../config/supabaseClient";
 import { prisma } from "../lib/prisma";
 import { CreateUserFromAuthDTO } from "../types/user.types";
+import { logger } from "../utils/logger";
 
 export const UserService = {
   async findByFirebaseUid(firebaseUid: string) {
@@ -26,27 +28,37 @@ export const UserService = {
   },
 
   async createFromAuth(dto: CreateUserFromAuthDTO) {
-    const { data, error } = await supabaseAdmin
-      .from("users")
-      .insert({
-        firebase_uid: dto.firebase_uid,
-        email: dto.email,
-        display_name: dto.display_name ?? null,
-        photo_url: dto.photo_url ?? null,
-        terms_accepted: false,
-        terms_accepted_at: null,
-        last_login: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    logger.info("createFromAuth: Starting to insert user", dto);
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("users")
+        .insert({
+          firebase_uid: dto.firebase_uid,
+          email: dto.email,
+          display_name: dto.display_name ?? null,
+          photo_url: dto.photo_url ?? null,
+          terms_accepted: false,
+          terms_accepted_at: null,
+          last_login: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
-    if (error) {
+      if (error) {
+        logger.info(
+          "createFromAuth: Error inserting user into Supabase",
+          error,
+        );
+        throw error;
+      }
+      logger.info("createFromAuth: User inserted successfully", data);
+      return data;
+    } catch (error) {
+      logger.error("createFromAuth: Unexpected error", { error });
       throw error;
     }
-
-    return data;
   },
 
   async create(userData: {
@@ -60,28 +72,45 @@ export const UserService = {
     terms_accepted: boolean;
     terms_accepted_at: Date;
   }) {
-    const { data, error } = await supabaseAdmin
-      .from("users")
-      .insert({
-        firebase_uid: userData.firebase_uid,
-        email: userData.email,
-        display_name: userData.display_name ?? null,
-        photo_url: userData.photo_url ?? null,
-        first_name: userData.first_name ?? null,
-        last_name: userData.last_name ?? null,
-        company_id: userData.company_id ?? null,
-        terms_accepted: userData.terms_accepted,
-        terms_accepted_at: userData.terms_accepted_at,
-        last_login: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    try {
+      logger.info("create: Starting to insert user", userData);
 
-    if (error) throw error;
-    return data;
+      const { data, error } = await supabaseAdmin
+        .from("users")
+        .insert({
+          firebase_uid: userData.firebase_uid,
+          email: userData.email,
+          display_name: userData.display_name ?? null,
+          photo_url: userData.photo_url ?? null,
+          first_name: userData.first_name ?? null,
+          last_name: userData.last_name ?? null,
+          company_id: userData.company_id ?? null,
+          terms_accepted: userData.terms_accepted,
+          terms_accepted_at: userData.terms_accepted_at,
+          last_login: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        logger.error("create: Error inserting user into Supabase", error);
+        throw error;
+      }
+
+      logger.info(
+        "create: User inserted successfully",
+        data.id,
+        data.display_name,
+        data.email,
+        data.firebase_uid,
+      );
+      return data;
+    } catch (error) {
+      logger.error("create: Unexpected error", { error });
+      throw error;
+    }
   },
-
   async updateByFirebaseUid(
     firebaseUid: string,
     updates: Partial<{
@@ -89,8 +118,22 @@ export const UserService = {
       last_name: string;
       display_name: string;
       photo_url: string;
-    }>
+      profile_complete: boolean;
+    }>,
   ) {
+    if (!firebaseUid) {
+      logger.warn("UserService.updateByFirebaseUid: Missing firebaseUid", {
+        firebaseUid,
+        updates,
+      });
+      throw new Error("Firebase UID is required for updating user");
+    }
+
+    logger.info("UserService.updateByFirebaseUid: start", {
+      firebaseUid,
+      updates,
+    });
+
     const { data, error } = await supabaseAdmin
       .from("users")
       .update({
@@ -99,7 +142,12 @@ export const UserService = {
       })
       .eq("firebase_uid", firebaseUid)
       .select()
-      .single();
+      .maybeSingle();
+
+    logger.info("UserService.updateByFirebaseUid: success", {
+      firebaseUid,
+      updates,
+    });
 
     if (error) throw error;
     return data;

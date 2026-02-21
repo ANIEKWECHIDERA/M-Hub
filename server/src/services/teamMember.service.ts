@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../config/supabaseClient";
+import { PROFILE_STATUS_DATA } from "../dbSelect/profileStatus.select";
 import { TEAM_MEMBER_SELECT } from "../dbSelect/teamMember.select";
 import { toTeamMemberResponseDTO } from "../mapper/teamMemberRespose.DTO";
 import {
@@ -9,6 +10,52 @@ import {
 import { logger } from "../utils/logger";
 
 export const TeamMemberService = {
+  async getOnboardingState(firebaseUid: string) {
+    logger.info("TeamMemberService.getOnboardingState: start", {
+      firebaseUid,
+    });
+
+    // Fetch user with team member relation
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select(PROFILE_STATUS_DATA)
+      .eq("firebase_uid", firebaseUid)
+      .maybeSingle();
+
+    logger.info("Supabase query result", { data, error });
+
+    if (error) throw error;
+
+    if (!data) {
+      throw new Error("USER_NOT_FOUND");
+    }
+
+    const profileComplete = data.profile_complete;
+    const hasCompany = data.has_company;
+
+    // Compute onboarding state
+    let onboardingState: string;
+
+    if (!profileComplete) {
+      onboardingState = "AUTHENTICATED_NO_PROFILE";
+    } else if (profileComplete && !hasCompany) {
+      onboardingState = "PROFILE_COMPLETE_NO_COMPANY";
+    } else {
+      onboardingState = "ACTIVE";
+    }
+
+    // Extract team member data (if exists)
+    const teamMember = data.team_members?.[0] ?? null;
+
+    return {
+      onboardingState,
+      profileComplete,
+      hasCompany,
+      access: teamMember?.access ?? null,
+      companyId: teamMember?.company_id ?? null,
+    };
+  },
+
   async findAll(companyId: string): Promise<TeamMemberResponseDTO[]> {
     logger.info("TeamMemberService.findAll: start", { companyId });
 
@@ -25,7 +72,7 @@ export const TeamMemberService = {
 
   async findById(
     companyId: string,
-    id: string
+    id: string,
   ): Promise<TeamMemberResponseDTO | null> {
     logger.info("TeamMemberService.findById: start", { companyId, id });
 
@@ -65,7 +112,7 @@ export const TeamMemberService = {
   async update(
     companyId: string,
     id: string,
-    payload: UpdateTeamMemberDTO
+    payload: UpdateTeamMemberDTO,
   ): Promise<TeamMemberResponseDTO | null> {
     logger.info("TeamMemberService.update: start", { companyId, id });
 

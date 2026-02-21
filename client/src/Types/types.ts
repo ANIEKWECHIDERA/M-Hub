@@ -76,6 +76,27 @@ export interface ProjectFormProps {
   onCancel: () => void;
 }
 
+//////////////// CompanyContextTypes ////////////////
+// src/Types/types.ts
+export type CreateCompanyDTO = {
+  name: string;
+  description?: string;
+  logo?: File | null; // Can be File or null depending on your backend handling
+};
+
+export type UpdateCompanyDTO = {
+  name?: string;
+  description?: string;
+  logo?: File | null;
+};
+
+export type Company = {
+  id: string;
+  name: string;
+  description?: string;
+  logoUrl?: string; // URL to the logo, if available
+};
+
 //////////////// TeamContextTypes ////////////////
 export interface TeamMember {
   id: string;
@@ -123,12 +144,12 @@ export interface TeamMemberFormProps {
 }
 
 ///////////////////////subtask//////////////
-export interface Subtask {
-  id: string;
-  title: string;
-  completed: boolean;
-  created_at: string;
-}
+// export interface Subtask {
+//   id: string;
+//   title: string;
+//   completed: boolean;
+//   created_at: string;
+// }
 
 export interface SubtaskContextType {
   subtasks: Subtask[];
@@ -537,25 +558,41 @@ export interface AuthContextType {
     email: string,
     password: string,
     firstName: string,
-    lastName: String,
+    lastName: string,
     termsAccepted: boolean,
   ) => Promise<{
     user: User | null;
     error: string | null;
-    uidToDeleteOnError: String | null;
+    uidToDeleteOnError: string | null;
   }>;
   signIn: (
     email: string,
     password: string,
   ) => Promise<{
     user: User | null;
-    error: String | null;
+    error: string | null;
   }>;
   logout: () => Promise<void>;
   clearError: () => void;
   signInWithGoogle: () => Promise<any>;
-  signUpWithGoogle: () => Promise<any>;
+  // signUpWithGoogle: () => Promise<any>;
   idToken: string | null;
+  authStatus: AuthStatus | null;
+  refreshStatus: () => Promise<void>;
+  isAppReady: boolean;
+}
+
+export type OnboardingState =
+  | "AUTHENTICATED_NO_PROFILE"
+  | "PROFILE_COMPLETE_NO_COMPANY"
+  | "ACTIVE";
+
+export interface AuthStatus {
+  onboardingState: OnboardingState;
+  profileComplete: boolean;
+  hasCompany: boolean;
+  access: string | null;
+  companyId: string | null;
 }
 
 /////////// user profile type //////////////////////////
@@ -568,7 +605,7 @@ export interface UserProfile {
   first_name?: string;
   last_name?: string;
   role?: string;
-  companyId?: string[];
+  company_id?: string;
   // Add any other fields you plan to store in Supabase
   phone?: string;
   bio?: string;
@@ -586,6 +623,14 @@ export interface UserProfileUpdate {
   bio?: string;
   department?: string;
   access_level?: string;
+}
+
+export interface UpdateUserDTO {
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
+  photo_url?: string;
+  profile_complete?: boolean;
 }
 
 export interface UserContextType {

@@ -14,6 +14,8 @@ import type {
   UpdateSubtaskDTO,
 } from "@/Types/types";
 import { subtasksAPI } from "@/api/subtask.api";
+import { useUser } from "./UserContext";
+import { useTeamContext } from "./TeamMemberContext";
 
 const SubTasksContext = createContext<SubtaskContextType | null>(null);
 
@@ -33,6 +35,8 @@ export const SubTasksContextProvider = ({
   children: React.ReactNode;
 }) => {
   const { idToken } = useAuthContext();
+  const { profile } = useUser();
+  const { currentMember } = useTeamContext();
 
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,22 +74,41 @@ export const SubTasksContextProvider = ({
       throw new Error("No auth token");
     }
 
-    const promise = subtasksAPI.create(data, idToken);
-
-    toast.promise(promise, {
-      loading: "Creating subtask...",
-      success: "Subtask created",
-      error: "Failed to create subtask",
-    });
-
-    const subtask = await promise;
-    const subtaskWithCreatedAt: Subtask = {
-      ...subtask,
-      created_at: subtask.created_at || new Date().toISOString(),
+    // insert temporary optimistic subtask to UI
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const optimisticSubtask: Subtask = {
+      id: tempId,
+      ...data,
+      company_id: profile?.company_id || "", // placeholder, backend will ignore this
+      team_member_id: currentMember?.id || "temp-member", // placeholder, backend will ignore this
+      completed: data.completed ?? false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
-    setSubtasks((prev) => [subtaskWithCreatedAt, ...prev]);
 
-    return subtaskWithCreatedAt;
+    // Immediately update UI
+    setSubtasks((prev) => [optimisticSubtask, ...prev]);
+
+    try {
+      // try to call backend
+      const createdSubtask = await subtasksAPI.create(data, idToken);
+
+      // replace optimistic subtask with real one from backend
+      setSubtasks((prev) =>
+        prev.map((subtask) =>
+          subtask.id === tempId ? createdSubtask : subtask,
+        ),
+      );
+
+      return createdSubtask;
+    } catch (err) {
+      // if backend call fails, remove optimistic subtask and show error
+      setSubtasks((prev) => prev.filter((subtask) => subtask.id !== tempId));
+      const msg = err instanceof Error ? err.message : "Failed to add subtask";
+      setError(msg);
+      toast.error(msg);
+      throw err;
+    }
   };
 
   const updateSubtask = async (
@@ -97,20 +120,31 @@ export const SubTasksContextProvider = ({
       throw new Error("No auth token");
     }
 
-    const promise = subtasksAPI.update(id, data, idToken);
+    // save prvious state for roll back in case update fails
+    const previousSubstasks = subtasks;
 
-    toast.promise(promise, {
-      loading: "Updating subtask...",
-      success: "Subtask updated",
-      error: "Failed to update subtask",
-    });
+    // Optimistically update UI
+    setSubtasks((prev) =>
+      prev.map((subtask) =>
+        subtask.id === id
+          ? { ...subtask, ...data, updated_at: new Date().toISOString() }
+          : subtask,
+      ),
+    );
+    try {
+      const updated = await subtasksAPI.update(id, data, idToken);
+      if (!updated) throw new Error("Update failed");
 
-    const updated = await promise;
-    if (!updated) throw new Error("Update failed");
-
-    setSubtasks((prev) => prev.map((s) => (s.id === id ? updated : s)));
-
-    return updated;
+      return updated;
+    } catch (err) {
+      // Rollback to previous state if update fails
+      setSubtasks(previousSubstasks);
+      const msg =
+        err instanceof Error ? err.message : "Failed to update subtask";
+      setError(msg);
+      toast.error(msg);
+      throw err;
+    }
   };
 
   const deleteSubtask = async (id: string): Promise<void> => {
@@ -119,17 +153,25 @@ export const SubTasksContextProvider = ({
       throw new Error("No auth token");
     }
 
-    const promise = subtasksAPI.delete(id, idToken);
+    // save previous state for rollback in case delete fails
+    const previousSubtasks = subtasks;
 
-    toast.promise(promise, {
-      loading: "Deleting subtask...",
-      success: "Subtask deleted",
-      error: "Failed to delete subtask",
-    });
+    // Optimistically update UI
+    setSubtasks((prev) => prev.filter((subtask) => subtask.id !== id));
 
-    await promise;
-
-    setSubtasks((prev) => prev.filter((s) => s.id !== id));
+    try {
+      const deletedSubtask = await subtasksAPI.delete(id, idToken);
+      if (!deletedSubtask) throw new Error("Delete failed");
+      toast.success("Subtask deleted");
+    } catch (err) {
+      // Rollback to previous state if delete fails
+      setSubtasks(previousSubtasks);
+      const msg =
+        err instanceof Error ? err.message : "Failed to delete subtask";
+      setError(msg);
+      toast.error(msg);
+      throw err;
+    }
   };
 
   const getSubtasksByIds = (ids: string[]) => {

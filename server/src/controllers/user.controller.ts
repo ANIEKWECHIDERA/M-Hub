@@ -17,6 +17,10 @@ export const UserController = {
   },
 
   async updateUser(req: AuthenticatedRequest, res: Response) {
+    logger.info("UserController.updateUser start", {
+      firebaseUid: req.user.uid,
+      body: req.body,
+    });
     const parsed = UpdateUserDTO.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -24,12 +28,18 @@ export const UserController = {
         issues: parsed.error.flatten(),
       });
     }
-
+    logger.info("UserController.updateUser parsed", {
+      firebaseUid: req.user.uid,
+      parsedData: parsed.data,
+    });
     const updated = await UserService.updateByFirebaseUid(
       req.user.uid,
-      parsed.data
+      parsed.data,
     );
-
+    logger.info("UserController.updateUser end", {
+      firebaseUid: req.user.uid,
+      updatedUser: updated,
+    });
     return res.json({ profile: updated });
   },
 
@@ -99,7 +109,9 @@ export const UserController = {
         error: error.message,
       });
 
-      return res.status(500).json({ error: "User creation failed" });
+      return res
+        .status(500)
+        .json({ error: "User creation failed", details: error.message });
     }
   },
 };
