@@ -20,6 +20,7 @@ import { Toaster } from "./components/ui/sonner";
 import { MyTasksPage } from "./pages/MyTasks/MyTasksPage";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import CreateCompany from "./pages/CreateCompany";
+import { Loader } from "lucide-react";
 
 // Protected Route: Only authenticated users
 function useRedirectPath() {
@@ -34,7 +35,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <Loader className="animate-spin" />
       </div>
     );
   }

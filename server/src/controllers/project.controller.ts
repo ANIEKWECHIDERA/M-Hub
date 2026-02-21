@@ -5,29 +5,39 @@ import { logger } from "../utils/logger";
 
 export const ProjectController = {
   async getProjects(req: Request, res: Response) {
-    logger.info("REQ.USER:", req.user);
+    logger.info(
+      "REQ.USER:",
+      req.user?.uid,
+      req.user?.company_id,
+      req.user?.email,
+    );
 
     if (!req.user?.company_id) {
-      logger.error("Missing company_id on request", { user: req.user });
+      logger.error("ProjectController: Missing company_id on request", {
+        user: req.user,
+      });
       return res.status(401).json({ error: "Unauthorized" });
     }
 
     const companyId = req.user.company_id;
-    logger.info(`CompanyId: ${companyId}`);
+    logger.info(`ProjectController: CompanyId: ${companyId}`);
 
     try {
-      logger.info("getProjects: fetching projects", { companyId });
+      logger.info("ProjectController: getProjects: fetching projects", {
+        companyId,
+      });
 
       const projects = await ProjectService.findAll(companyId);
 
       if (!projects.length) {
-        logger.warn("getProjects: no projects found", { companyId });
-        return res.status(404).json({ error: "Projects not found" });
+        logger.info("ProjectController: getProjects: no projects yet", {
+          companyId,
+        });
       }
 
       return res.json(projects);
     } catch (error) {
-      logger.error("getProjects: failed to fetch projects", {
+      logger.error("ProjectController: getProjects: failed to fetch projects", {
         companyId,
         error,
       });
@@ -40,7 +50,10 @@ export const ProjectController = {
     const companyId = req.user.company_id;
 
     try {
-      logger.info("getProject: fetching project", { id, companyId });
+      logger.info("ProjectController: getProject: fetching project", {
+        id,
+        companyId,
+      });
 
       const project = await ProjectService.findById(id, companyId);
 
@@ -49,15 +62,18 @@ export const ProjectController = {
         return res.status(404).json({ error: "Project not found" });
       }
 
-      logger.info("getProject: project fetched successfully", {
-        id,
-        companyId,
-        project,
-      });
+      logger.info(
+        "ProjectController: getProject: project fetched successfully",
+        {
+          id,
+          companyId,
+          project,
+        },
+      );
 
       return res.json(project);
     } catch (error) {
-      logger.error("getProject: failed to fetch project", {
+      logger.error("ProjectController: getProject: failed to fetch project", {
         id,
         companyId,
         error,
@@ -76,25 +92,31 @@ export const ProjectController = {
     };
 
     try {
-      logger.info("createProject: creating project", {
+      logger.info("ProjectController: createProject: creating project", {
         companyId,
         payload,
       });
 
       const project = await ProjectService.create(payload);
 
-      logger.info("createProject: project created successfully", {
-        companyId,
-        projectId: project?.id,
-      });
+      logger.info(
+        "ProjectController: createProject: project created successfully",
+        {
+          companyId,
+          projectId: project?.id,
+        },
+      );
 
       return res.status(201).json(project);
     } catch (error) {
-      logger.error("createProject: failed to create project", {
-        companyId,
-        payload,
-        error,
-      });
+      logger.error(
+        "ProjectController: createProject: failed to create project",
+        {
+          companyId,
+          payload,
+          error,
+        },
+      );
 
       return res.status(500).json({ error: "Failed to create project" });
     }
@@ -107,7 +129,7 @@ export const ProjectController = {
     const payload: UpdateProjectDTO = req.body;
 
     try {
-      logger.info("updateProject: updating project", {
+      logger.info("ProjectController: updateProject: updating project", {
         id,
         companyId,
         payload,
@@ -120,7 +142,10 @@ export const ProjectController = {
       );
 
       if (!updatedProject) {
-        logger.warn("updateProject: project not found", { id, companyId });
+        logger.warn("ProjectController: updateProject: project not found", {
+          id,
+          companyId,
+        });
         return res.status(404).json({ error: "Project not found" });
       }
 
@@ -131,12 +156,15 @@ export const ProjectController = {
 
       return res.json(updatedProject);
     } catch (error) {
-      logger.error("updateProject: failed to update project", {
-        id,
-        companyId,
-        payload,
-        error,
-      });
+      logger.error(
+        "ProjectController: updateProject: failed to update project",
+        {
+          id,
+          companyId,
+          payload,
+          error,
+        },
+      );
 
       return res.status(500).json({ error: "Failed to update project" });
     }
@@ -147,7 +175,10 @@ export const ProjectController = {
     const companyId = req.user.company_id;
 
     try {
-      logger.info("deleteProject: deleting project", { id, companyId });
+      logger.info("ProjectController: deleteProject: deleting project", {
+        id,
+        companyId,
+      });
 
       await ProjectService.deleteProjectById(id, companyId);
 
@@ -158,11 +189,14 @@ export const ProjectController = {
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error("deleteProject: failed to delete project", {
-        id,
-        companyId,
-        error,
-      });
+      logger.error(
+        "ProjectController: deleteProject: failed to delete project",
+        {
+          id,
+          companyId,
+          error,
+        },
+      );
 
       return res.status(500).json({ error: "Failed to delete project" });
     }

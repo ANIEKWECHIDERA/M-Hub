@@ -13,13 +13,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Users, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  Calendar,
+  Users,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Loader,
+  Plus,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTaskContext } from "@/context/TaskContext";
 import { useClientContext } from "@/context/ClientContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import ProjectForm from "@/components/ProjectForm";
+import type { CreateProjectDTO } from "@/Types/types";
+import { DashboardSkeleton } from "@/components/DashBoardSkeleton";
 
 export default function Dashboard() {
-  const { projects, loading, error } = useProjectContext();
+  const { addProject, projects, loading, error } = useProjectContext();
   const { tasks } = useTaskContext();
   const { clients } = useClientContext();
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -29,14 +48,73 @@ export default function Dashboard() {
     statusFilter,
     clientFilter,
   );
-
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const { totalProjects, activeProjects, completedProjects, overdueProjects } =
     useProjectStats(projects, tasks);
   // console.log("tasks:", tasks, "projects:", projects);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading)
+    return (
+      <div className="min-h-[60vh]">
+        <DashboardSkeleton />
+      </div>
+    );
   if (error) return <div>Error: {error}</div>;
-  // console.log(`fetched projects: ${JSON.stringify(projects)}`);
+
+  if (projects.length === 0) {
+    return (
+      <div className="min-h-full border-2 border-dashed grid grid-rows-4 grid-cols-[1fr_2fr_1fr] rounded-lg overflow-hidden  items-center justify-center bg-background">
+        <div className="col-start-2 row-start-2 flex justify-center">
+          <Card className="p-10 text-center">
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">No projects yet</h2>
+              <p className="text-muted-foreground">
+                Get started by creating your first project.
+              </p>
+
+              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Project
+                  </Button>
+                </DialogTrigger>
+
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Create New Project</DialogTitle>
+                    <DialogDescription>
+                      Input project details.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <ProjectForm
+                    onSave={async (data) => {
+                      const newProject: CreateProjectDTO = {
+                        title: data.title || "",
+                        client_id: data.client_id || undefined,
+                        status: data.status || "Planning",
+                        deadline: data.deadline || undefined,
+                        description: data.description || undefined,
+                        team_member_ids: Array.isArray(data.team_member_ids)
+                          ? (data.team_member_ids as string[])
+                          : [],
+                      };
+
+                      await addProject(newProject);
+                      setIsCreateOpen(false);
+                    }}
+                    onCancel={() => setIsCreateOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

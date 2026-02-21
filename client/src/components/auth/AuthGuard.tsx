@@ -1,11 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
-
-const Loader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-  </div>
-);
+import { Loader } from "lucide-react";
 
 export const AuthGuard = () => {
   const { currentUser, authStatus, loading } = useAuthContext();
@@ -13,7 +8,11 @@ export const AuthGuard = () => {
 
   // 1️⃣ Still resolving Firebase + backend sync
   if (loading || authStatus === null) {
-    return <Loader />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader className="animate-spin" />
+      </div>
+    );
   }
 
   // 2️⃣ Not authenticated → go to login

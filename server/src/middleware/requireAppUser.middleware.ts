@@ -40,7 +40,7 @@ export async function requireAppUser(
     team_member_id: teamMember.id,
     access: teamMember.access,
     company_id: teamMember.company_id,
-    role: teamMember.access,
+    role: teamMember.role,
     user_id: userId,
     email: req.user?.email,
   };
@@ -50,7 +50,7 @@ export async function requireAppUser(
   logger.info("requireAppUser: User fully authenticated", {
     user_id: userId,
     company_id: teamMember.company_id,
-    role: teamMember.access,
+    access: teamMember.access,
   });
 
   next();

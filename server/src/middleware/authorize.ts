@@ -2,9 +2,9 @@ import { Response, NextFunction, Request } from "express";
 // import { AuthRequest } from "./authenticate";
 
 export const authorize =
-  (roles: string[]) => (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.role || "")) {
-      return res.status(403).json({ error: "Forbidden" });
+  (access: string[]) => (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || !access.includes(req.user.access || "")) {
+      return res.status(403).json({ error: "authorize: Unauthorized access" });
     }
 
     next();
