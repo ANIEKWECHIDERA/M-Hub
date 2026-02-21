@@ -1,43 +1,43 @@
 import { Router } from "express";
 import { ClientController } from "../controllers/client.controller";
-import authenticate from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
+import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
+import { profileSync } from "../middleware/profileSync.middleware";
+import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
+router.use(verifyFirebaseToken);
+router.use(profileSync);
+router.use(requireAppUser);
 
 router.get(
   "/clients",
-  authenticate,
   authorize(["team_member", "admin", "superAdmin"]),
-  ClientController.getClients
+  ClientController.getClients,
 );
 
 router.get(
   "/clients/:id",
-  authenticate,
   authorize(["team_member", "admin", "superAdmin"]),
-  ClientController.getClientById
+  ClientController.getClientById,
 );
 
 router.post(
   "/clients",
-  authenticate,
   authorize(["admin", "superAdmin"]),
-  ClientController.createClient
+  ClientController.createClient,
 );
 
 router.patch(
   "/clients/:id",
-  authenticate,
   authorize(["admin", "superAdmin"]),
-  ClientController.updateClient
+  ClientController.updateClient,
 );
 
 router.delete(
   "/clients/:id",
-  authenticate,
   authorize(["admin", "superAdmin"]),
-  ClientController.deleteClient
+  ClientController.deleteClient,
 );
 
 export default router;

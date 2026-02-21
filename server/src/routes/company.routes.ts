@@ -1,7 +1,6 @@
 // src/routes/company.routes.ts
 import { Router } from "express";
 import { CompanyController } from "../controllers/company.controller";
-import authenticate from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
 import { profileSync } from "../middleware/profileSync.middleware";
@@ -25,7 +24,6 @@ router.post(
   verifyFirebaseToken,
   profileSync,
   upload.single("logo"),
-  // authorize(["superAdmin"]),
   CompanyController.createCompany,
 );
 

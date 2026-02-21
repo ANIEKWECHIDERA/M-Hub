@@ -1,40 +1,41 @@
 import { Router } from "express";
 import { NoteController } from "../controllers/note.controller";
-import authenticate from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
+import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
+import { profileSync } from "../middleware/profileSync.middleware";
+import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
+router.use(verifyFirebaseToken);
+router.use(profileSync);
+router.use(requireAppUser);
 
 // READ (company scoped, private/public logic handled in service)
 router.get(
   "/notes",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  NoteController.getMyNotes
+  NoteController.getMyNotes,
 );
 
 // CREATE (any authenticated user)
 router.post(
   "/notes",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  NoteController.createNote
+  NoteController.createNote,
 );
 
 // UPDATE (author only)
 router.patch(
   "/notes/:id",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  NoteController.updateNote
+  NoteController.updateNote,
 );
 
 // DELETE (author only)
 router.delete(
   "/notes/:id",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
-  NoteController.deleteNote
+  NoteController.deleteNote,
 );
 
 export default router;

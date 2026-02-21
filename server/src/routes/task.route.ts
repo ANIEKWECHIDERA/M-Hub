@@ -1,30 +1,31 @@
 import { Router } from "express";
 import { TaskController } from "../controllers/task.controller";
-import authenticate from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
-import { resolve } from "path";
 import { resolveTeamMember } from "../middleware/resolveTeamMember";
+import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
+import { profileSync } from "../middleware/profileSync.middleware";
+import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
+router.use(verifyFirebaseToken);
+router.use(profileSync);
+router.use(requireAppUser);
 
 // READ (admins + team members)
 router.get(
   "/projects/:projectId/tasks",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   TaskController.getTasksByProject,
 );
 
 router.get(
   "/task/:taskId",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   TaskController.getTaskById,
 );
 
 router.get(
   "/projects/:projectId/task-stats",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   TaskController.getProjectTaskStats,
 );
@@ -32,7 +33,6 @@ router.get(
 // CREATE (admins only)
 router.post(
   "/projects/:projectId/tasks",
-  authenticate,
   authorize(["admin", "superAdmin"]),
   TaskController.createTask,
 );
@@ -40,7 +40,6 @@ router.post(
 // UPDATE (admins + team members)
 router.patch(
   "/task/:taskId",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   TaskController.updateTask,
 );
@@ -48,7 +47,6 @@ router.patch(
 // DELETE (admins only)
 router.delete(
   "/task/:taskId",
-  authenticate,
   authorize(["admin", "superAdmin"]),
   TaskController.deleteTask,
 );
@@ -57,7 +55,6 @@ router.delete(
 
 router.get(
   "/my-tasks",
-  authenticate,
   authorize(["team_member", "admin", "superAdmin"]),
   resolveTeamMember,
   TaskController.getMyTasks,

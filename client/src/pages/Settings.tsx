@@ -131,8 +131,14 @@ export default function Settings() {
         loading: "Updating profile...",
         success: (data) => `${data.name} has been updated!`,
         error: "Something went wrong, please try again.",
-      }
+      },
     );
+  };
+
+  const roleLabels = {
+    superAdmin: "Super Admin",
+    admin: "Admin",
+    member: "Team Member",
   };
 
   // console.log("TEAM MEMBERS:", teamMembers);
@@ -451,13 +457,11 @@ export default function Settings() {
                             team_members.access === "Admin"
                               ? "default"
                               : team_members.role === "Team"
-                              ? "secondary"
-                              : "outline"
+                                ? "secondary"
+                                : "outline"
                           }
                         >
-                          {team_members.access === "admin"
-                            ? "Admin"
-                            : "Team Member"}
+                          {roleLabels[team_members.access as keyof typeof roleLabels] || "Team Member"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">

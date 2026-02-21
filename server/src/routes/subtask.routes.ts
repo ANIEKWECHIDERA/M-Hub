@@ -1,15 +1,19 @@
 import { Router } from "express";
 import { SubtaskController } from "../controllers/subtask.controller";
-import authenticate from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { resolveTeamMember } from "../middleware/resolveTeamMember";
+import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
+import { profileSync } from "../middleware/profileSync.middleware";
+import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
+router.use(verifyFirebaseToken);
+router.use(profileSync);
+router.use(requireAppUser);
 
 // READ
 router.get(
   "/subtask",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.getSubtasks,
@@ -17,7 +21,6 @@ router.get(
 
 router.get(
   "/subtask/:id",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.getSubtask,
@@ -26,7 +29,6 @@ router.get(
 // CREATE
 router.post(
   "/subtask",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.createSubtask,
@@ -35,7 +37,6 @@ router.post(
 // UPDATE
 router.patch(
   "/subtask/:id",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.updateSubtask,
@@ -44,7 +45,6 @@ router.patch(
 // DELETE
 router.delete(
   "/subtask/:id",
-  authenticate,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.deleteSubtask,

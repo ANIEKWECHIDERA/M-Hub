@@ -1,50 +1,51 @@
 import { Router } from "express";
-import authenticate from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { ProjectTeamMemberController } from "../controllers/projectTeamMember.controller";
 
+import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
+import { profileSync } from "../middleware/profileSync.middleware";
+import { requireAppUser } from "../middleware/requireAppUser.middleware";
+
 const router = Router();
+router.use(verifyFirebaseToken);
+router.use(profileSync);
+router.use(requireAppUser);
 
 router.get(
   "/project-team-members",
-  authenticate,
   authorize(["team_member", "admin", "superAdmin"]),
-  ProjectTeamMemberController.getAll
+  ProjectTeamMemberController.getAll,
 );
 
 router.get(
   "/project-team-members/:id",
-  authenticate,
   authorize(["team_member", "admin", "superAdmin"]),
-  ProjectTeamMemberController.getById
+  ProjectTeamMemberController.getById,
 );
 
 router.post(
   "/project-team-members",
-  authenticate,
   authorize(["admin", "superAdmin"]),
-  ProjectTeamMemberController.create
+  ProjectTeamMemberController.create,
 );
 
 // router.patch(
 //   "/project-team-members/:id",
-//   authenticate,
+//
 //   authorize(["admin", "superAdmin"]),
 //   ProjectTeamMemberController.update
 // );
 
 router.delete(
   "/project-team-members/:id",
-  authenticate,
   authorize(["admin", "superAdmin"]),
-  ProjectTeamMemberController.delete
+  ProjectTeamMemberController.delete,
 );
 
 router.post(
   "/project-team-members/bulk",
-  authenticate,
   authorize(["admin", "superAdmin"]),
-  ProjectTeamMemberController.bulkAssign
+  ProjectTeamMemberController.bulkAssign,
 );
 
 export default router;

@@ -19,7 +19,7 @@ router.get(
   AuthController.checkProfileComplete,
 );
 
-router.post("/logout", authenticate, AuthController.logout);
+router.post("/logout", verifyFirebaseToken, profileSync, AuthController.logout);
 
 router.post("/deleteFirebaseUserId", AuthController.deleteFirebaseUser);
 
