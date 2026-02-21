@@ -8,7 +8,8 @@ import { MyTasksStats } from "./components/TasksStats";
 import { TasksList } from "./components/TasksList";
 import { TaskDetailsSheet } from "./components/TaskDetailsSheet";
 import { MyTasksToolbar } from "./components/MyTasksToolbar";
-import { Loader } from "lucide-react";
+import { ClipboardList, Loader } from "lucide-react";
+import { MyTasksSkeleton } from "@/components/MyTasksSkeleton";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
 
@@ -78,18 +79,14 @@ export function MyTasksPage() {
     });
   };
 
-  useEffect(() => {
-    refetch();
-  }, []);
+  // useEffect(() => {
+  //   refetch();
+  // }, []);
 
   /* ---------------- Render ---------------- */
 
   if (loading) {
-    return (
-      <div className="p-6">
-        <Loader className="animate-spin" />
-      </div>
-    );
+    return <MyTasksSkeleton tasks={6} />;
   }
 
   if (error) {
@@ -110,36 +107,74 @@ export function MyTasksPage() {
   return (
     <div className="space-y-6">
       {/* Toolbar */}
-      <MyTasksToolbar
-        search={filters.search}
-        status={filters.status}
-        priority={filters.priority}
-        onSearchChange={filters.setSearch}
-        onStatusChange={filters.setStatus}
-        onPriorityChange={filters.setPriority}
-        onClearFilters={filters.clearFilters}
-        hasActiveFilters={filters.hasActiveFilters}
-      />
+      {tasks.length > 0 && (
+        <MyTasksToolbar
+          search={filters.search}
+          status={filters.status}
+          priority={filters.priority}
+          onSearchChange={filters.setSearch}
+          onStatusChange={filters.setStatus}
+          onPriorityChange={filters.setPriority}
+          onClearFilters={filters.clearFilters}
+          hasActiveFilters={filters.hasActiveFilters}
+        />
+      )}
 
       {/* Stats */}
-      <MyTasksStats
-        stats={{
-          total: stats.total,
-          completed: stats.completed,
-          inProgress: stats.inProgress,
-          overdue: stats.overdue,
-          dueToday: stats.dueToday,
-        }}
-        viewMode={viewMode}
-        onViewChange={setViewMode}
-      />
+      {tasks.length > 0 && (
+        <MyTasksStats
+          stats={{
+            total: stats.total,
+            completed: stats.completed,
+            inProgress: stats.inProgress,
+            overdue: stats.overdue,
+            dueToday: stats.dueToday,
+          }}
+          viewMode={viewMode}
+          onViewChange={setViewMode}
+        />
+      )}
 
       {/* Tasks */}
-      <TasksList
-        tasks={tasksForView}
-        onOpenTask={handleOpenTask}
-        onToggleStatus={handleToggleTaskStatus}
-      />
+      {tasks.length === 0 ? (
+        // First-time user (no assigned tasks at all)
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <ClipboardList className="h-10 w-10 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No tasks assigned yet</h3>
+          <p className="text-muted-foreground">
+            When someone assigns you a task, it will appear here.
+          </p>
+        </div>
+      ) : tasksForView.length === 0 ? (
+        // Filters or view mode returned no results
+        <div className="border rounded-lg p-12 text-center bg-muted/20">
+          {filters.hasActiveFilters ? (
+            <>
+              <h3 className="text-lg font-semibold mb-2">
+                No tasks match your filters
+              </h3>
+              <p className="text-muted-foreground">
+                Try adjusting or clearing your filters.
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold mb-2">
+                No tasks in this view
+              </h3>
+              <p className="text-muted-foreground">
+                Switch view mode to see other tasks.
+              </p>
+            </>
+          )}
+        </div>
+      ) : (
+        <TasksList
+          tasks={tasksForView}
+          onOpenTask={handleOpenTask}
+          onToggleStatus={handleToggleTaskStatus}
+        />
+      )}
 
       {/* Details */}
       <TaskDetailsSheet

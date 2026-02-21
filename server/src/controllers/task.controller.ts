@@ -12,10 +12,10 @@ export const TaskController = {
         companyId,
         projectId,
       );
-
-      return res.json(tasks);
+      // Return empty array if no tasks
+      return res.json(tasks || []);
     } catch (error) {
-      logger.error("getTasksByProject failed", { error });
+      logger.error("TaskController: getTasksByProject failed", { error });
       return res.status(500).json({ error: "Failed to fetch tasks" });
     }
   },
@@ -24,25 +24,21 @@ export const TaskController = {
     const { taskId } = req.params;
     const companyId = req.user.company_id;
 
-    logger.info("getCommentsByProject: fetching tasks", {
+    logger.info("TaskController: getTaskById: fetching task", {
       taskId,
       companyId,
     });
 
-    if (!taskId || "" === taskId) {
+    if (!taskId || taskId.trim() === "") {
       return res.status(400).json({ error: "Invalid task ID" });
     }
 
     try {
       const task = await TaskService.findByIdEnriched(taskId, companyId);
 
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-
-      return res.json(task);
+      return res.json(task || null);
     } catch (error) {
-      logger.error("getTaskById failed", { error });
+      logger.error("TaskController: getTaskById failed", { error });
       return res.status(500).json({ error: "Failed to fetch task" });
     }
   },
@@ -58,7 +54,7 @@ export const TaskController = {
     try {
       const stats = await TaskService.getProjectTaskStats(companyId, projectId);
 
-      return res.json(stats);
+      return res.json(stats || []);
     } catch (error) {
       logger.error("getProjectTaskStats failed", { error });
       return res
@@ -92,13 +88,9 @@ export const TaskController = {
     try {
       const updatedTask = await TaskService.update(taskId, companyId, req.body);
 
-      if (!updatedTask) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-
-      return res.json(updatedTask);
+      return res.json(updatedTask || null);
     } catch (error) {
-      logger.error("updateTask failed", { error });
+      logger.error("TaskController: updateTask failed", { error });
       return res.status(500).json({ error: "Failed to update task" });
     }
   },
@@ -128,10 +120,6 @@ export const TaskController = {
         companyId,
       );
       logger.info("fetched my tasks:", myTasks);
-
-      if (!myTasks || myTasks.length === 0) {
-        return res.status(404).json({ error: "No assigned Tasks found" });
-      }
 
       return res.status(200).json(myTasks);
     } catch (error) {

@@ -1,41 +1,38 @@
-
 interface TableSkeletonProps {
   rows?: number;
 }
 
 export function TableSkeleton({ rows = 5 }: TableSkeletonProps) {
   return (
-    <div className="w-full animate-pulse">
-      <div className="rounded-md border">
-        <div className="divide-y">
-          {/* Header */}
-          <div className="grid grid-cols-5 gap-4 p-4">
-            <div className="h-4 bg-muted rounded w-24" />
-            <div className="h-4 bg-muted rounded w-20" />
-            <div className="h-4 bg-muted rounded w-16" />
-            <div className="h-4 bg-muted rounded w-24" />
-            <div className="h-4 bg-muted rounded w-12 ml-auto" />
-          </div>
-
-          {/* Rows */}
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr>
+            {["Project", "Client", "Status", "Deadline", "Actions"].map(
+              (col) => (
+                <th key={col} className="text-left p-2">
+                  <div className="h-4 w-24 rounded bg-gray-200 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 transform -translate-x-full animate-shimmer"></div>
+                  </div>
+                </th>
+              ),
+            )}
+          </tr>
+        </thead>
+        <tbody>
           {Array.from({ length: rows }).map((_, i) => (
-            <div
-              key={i}
-              className="grid grid-cols-5 gap-4 p-4 items-center"
-            >
-              <div className="h-4 bg-muted rounded w-32" />
-              <div className="h-4 bg-muted rounded w-24" />
-              <div className="h-4 bg-muted rounded w-20" />
-              <div className="h-4 bg-muted rounded w-28" />
-              <div className="flex justify-end gap-2">
-                <div className="h-8 w-8 bg-muted rounded" />
-                <div className="h-8 w-8 bg-muted rounded" />
-                <div className="h-8 w-8 bg-muted rounded" />
-              </div>
-            </div>
+            <tr key={i} className="border-t">
+              {Array.from({ length: 5 }).map((_, j) => (
+                <td key={j} className="p-2">
+                  <div className="h-4 w-full rounded bg-gray-200 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 transform -translate-x-full animate-shimmer"></div>
+                  </div>
+                </td>
+              ))}
+            </tr>
           ))}
-        </div>
-      </div>
+        </tbody>
+      </table>
     </div>
   );
 }

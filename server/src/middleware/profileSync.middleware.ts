@@ -32,7 +32,7 @@ export async function profileSync(
 
   if (error && error.code !== "PGRST116") {
     logger.error("profileSync: DB lookup error", { error });
-    return res.status(500).json({ error: "Database error" });
+    return res.status(500).json({ error: "Network error" });
   }
 
   if (!user) {

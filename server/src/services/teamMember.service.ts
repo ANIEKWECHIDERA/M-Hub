@@ -22,7 +22,7 @@ export const TeamMemberService = {
       .eq("firebase_uid", firebaseUid)
       .maybeSingle();
 
-    logger.info("Supabase query result", { data, error });
+    logger.info("TeamMemberService: Supabase query result", { data, error });
 
     if (error) throw error;
 

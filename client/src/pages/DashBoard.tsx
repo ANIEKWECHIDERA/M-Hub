@@ -19,7 +19,6 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Loader,
   Plus,
 } from "lucide-react";
 import { Link } from "react-router-dom";

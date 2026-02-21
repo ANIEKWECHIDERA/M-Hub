@@ -1,16 +1,9 @@
 export function DashboardSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="space-y-6 p-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-2">
-          <div className="h-8 w-48 bg-muted rounded"></div>
-          <div className="h-4 w-64 bg-muted rounded"></div>
-        </div>
-        <div className="flex gap-2">
-          <div className="h-10 w-32 bg-muted rounded"></div>
-          <div className="h-10 w-32 bg-muted rounded"></div>
-        </div>
+      <div className="h-10 w-64 bg-gray-200 relative overflow-hidden rounded mb-4">
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 transform -translate-x-full animate-shimmer"></div>
       </div>
 
       {/* Stats Cards */}
@@ -18,39 +11,29 @@ export function DashboardSkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-24 bg-muted rounded-lg p-4 flex flex-col justify-between"
+            className="h-20 bg-gray-200 relative overflow-hidden rounded-lg p-4"
           >
-            <div className="h-4 w-24 bg-muted rounded mb-2"></div>
-            <div className="h-6 w-16 bg-muted rounded"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 transform -translate-x-full animate-shimmer"></div>
+            <div className="space-y-2 relative z-10">
+              <div className="h-4 w-16 bg-gray-300 rounded mb-2"></div>
+              <div className="h-6 w-12 bg-gray-300 rounded"></div>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-10 w-full sm:w-[180px] bg-muted rounded"
-          ></div>
-        ))}
-        <div className="h-10 w-full sm:w-[120px] bg-muted rounded"></div>
-      </div>
-
       {/* Project Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="h-48 bg-muted rounded-lg p-4 flex flex-col justify-between"
+            className="h-40 bg-gray-200 rounded-lg relative overflow-hidden p-4"
           >
-            <div className="space-y-2">
-              <div className="h-6 w-3/4 bg-muted rounded"></div>
-              <div className="h-4 w-1/2 bg-muted rounded"></div>
-            </div>
-            <div className="flex justify-between items-center mt-4">
-              <div className="h-4 w-16 bg-muted rounded"></div>
-              <div className="h-6 w-20 bg-muted rounded"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 transform -translate-x-full animate-shimmer"></div>
+            <div className="space-y-2 relative z-10">
+              <div className="h-4 w-3/4 bg-gray-300 rounded"></div>
+              <div className="h-3 w-1/2 bg-gray-300 rounded"></div>
+              <div className="h-4 w-1/4 bg-gray-300 rounded mt-2"></div>
             </div>
           </div>
         ))}

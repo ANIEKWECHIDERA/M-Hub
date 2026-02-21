@@ -54,13 +54,13 @@ export const MyTasksProvider = ({
   };
 
   useEffect(() => {
-  setTasks(prev =>
-    prev.map(myTask => {
-      const globalMatch = allTasks.find(t => t.id === myTask.id);
-      return globalMatch ?? myTask;
-    })
-  );
-}, [allTasks]);
+    setTasks((prev) =>
+      prev.map((myTask) => {
+        const globalMatch = allTasks.find((t) => t.id === myTask.id);
+        return globalMatch ?? myTask;
+      }),
+    );
+  }, [allTasks]);
 
   const updateTaskOptimistic = async (
     taskId: string,
