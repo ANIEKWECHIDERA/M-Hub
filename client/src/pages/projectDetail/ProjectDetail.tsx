@@ -356,8 +356,6 @@ export function ProjectDetail() {
                               team_members: teamMembers,
                             };
 
-                            console.log("updated Task Shape:", updatedTask);
-
                             setTasks((prev) =>
                               prev.map((t) =>
                                 t.id === created.id
