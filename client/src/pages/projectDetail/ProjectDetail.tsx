@@ -22,6 +22,7 @@ import {
   Download,
   Trash2,
   Edit,
+  Loader,
 } from "lucide-react";
 import { useParams, Link as RouterLink } from "react-router-dom";
 import { CommentsSystem } from "@/components/CommentsSystem";
@@ -55,7 +56,10 @@ import {
   BreadcrumbSeparator,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
-import Loader from "@/components/Loader";
+// import Loader from "@/components/Loader";
+import { TaskListSkeleton } from "@/components/TaskListSkeleton";
+import { useMyTasksContext } from "@/context/MyTaskContext";
+import { useTeamContext } from "@/context/TeamMemberContext";
 
 export function ProjectDetail() {
   const { id } = useParams();
@@ -94,6 +98,9 @@ export function ProjectDetail() {
     updateComment,
     deleteComment,
   } = useCommentContext();
+
+  const { refetch } = useMyTasksContext();
+  const { currentMember } = useTeamContext();
 
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithAssigneesDTO | null>(
@@ -134,7 +141,12 @@ export function ProjectDetail() {
     await uploadFiles(project.id, files);
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading)
+    return (
+      <div>
+        <Loader className="animate-spin" />
+      </div>
+    );
   if (error) return <div>Error: {error}</div>;
   if (!project) return <div>No project data available</div>;
 
@@ -277,7 +289,7 @@ export function ProjectDetail() {
 
         <TabsContent value="tasks" className="space-y-4">
           {taskLoading ? (
-            <Loader />
+            <TaskListSkeleton />
           ) : (
             <>
               <div className="flex justify-between items-center">
@@ -314,9 +326,14 @@ export function ProjectDetail() {
                       defaultValues={editingTask ?? undefined}
                       onSave={async (data) => {
                         try {
+                          let updatedTask;
+
                           if (editingTask) {
                             // Update existing task
-                            await updateTask(editingTask.id, data);
+                            updatedTask = await updateTask(
+                              editingTask.id,
+                              data,
+                            );
                           } else {
                             // Create new task
                             const created = await addTask(data);
@@ -334,6 +351,13 @@ export function ProjectDetail() {
                                   role: m.role ?? "member",
                                 })) ?? [];
 
+                            updatedTask = {
+                              ...created,
+                              team_members: teamMembers,
+                            };
+
+                            console.log("updated Task Shape:", updatedTask);
+
                             setTasks((prev) =>
                               prev.map((t) =>
                                 t.id === created.id
@@ -341,6 +365,15 @@ export function ProjectDetail() {
                                   : t,
                               ),
                             );
+                          }
+
+                          // --- REFRESH MY TASKS IF CURRENT USER IS ASSIGNED ---
+                          if (
+                            updatedTask?.team_members?.some(
+                              (m) => m.id === currentMember?.id,
+                            )
+                          ) {
+                            await refetch();
                           }
 
                           setIsTaskDialogOpen(false);

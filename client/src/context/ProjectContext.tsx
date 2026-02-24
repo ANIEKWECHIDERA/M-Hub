@@ -105,8 +105,10 @@ export const ProjectContextProvider = ({
     const updated = await promise;
     if (!updated) throw new Error("Update failed");
 
-    setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
-    setCurrentProject((p) => (p?.id === id ? updated : p));
+    setProjects((prev) =>
+      prev.map((proj) => (proj.id === id ? updated : proj)),
+    );
+    setCurrentProject((proj) => (proj?.id === id ? updated : proj));
 
     return updated;
   };
@@ -126,7 +128,7 @@ export const ProjectContextProvider = ({
 
     await promise;
 
-    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setProjects((prev) => prev.filter((proj) => proj.id !== id));
   };
 
   const confirmDelete = () => {

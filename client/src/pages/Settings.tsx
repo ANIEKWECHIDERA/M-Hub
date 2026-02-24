@@ -32,7 +32,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { User, Bell, Shield, Users, Plus, Edit, Trash2 } from "lucide-react";
+import {
+  User,
+  Bell,
+  Shield,
+  Users,
+  Plus,
+  Edit,
+  Trash2,
+  Loader,
+} from "lucide-react";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { toast } from "sonner";
 import TeamMemberForm from "@/components/TeamMemberForm";
@@ -76,16 +85,17 @@ export default function Settings() {
 
     return initials || "User";
   })();
-  const photoURL = profile?.photoURL;
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
+  const photoURL = profile?.photoURL;
 
   const [formData, setFormData] = useState({
     firstName: profile?.first_name ?? "",
     lastName: profile?.last_name ?? "",
     email: profile?.email ?? "",
   });
+
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
 
   // Sync form when profile loads/changes
   useEffect(() => {
@@ -98,8 +108,13 @@ export default function Settings() {
     }
   }, [profile]);
 
-  const firstNameRef = useRef<HTMLInputElement>(null);
-  const lastNameRef = useRef<HTMLInputElement>(null);
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader className="animate-spin" />
+      </div>
+    );
+  if (error) return <div>Error: {error}</div>;
 
   const validate = () => {
     const first = firstNameRef.current?.value.trim();
@@ -461,7 +476,9 @@ export default function Settings() {
                                 : "outline"
                           }
                         >
-                          {roleLabels[team_members.access as keyof typeof roleLabels] || "Team Member"}
+                          {roleLabels[
+                            team_members.access as keyof typeof roleLabels
+                          ] || "Team Member"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">

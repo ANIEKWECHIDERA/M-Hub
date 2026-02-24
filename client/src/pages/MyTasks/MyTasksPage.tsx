@@ -8,7 +8,7 @@ import { MyTasksStats } from "./components/TasksStats";
 import { TasksList } from "./components/TasksList";
 import { TaskDetailsSheet } from "./components/TaskDetailsSheet";
 import { MyTasksToolbar } from "./components/MyTasksToolbar";
-import { ClipboardList, Loader } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { MyTasksSkeleton } from "@/components/MyTasksSkeleton";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
@@ -79,9 +79,9 @@ export function MyTasksPage() {
     });
   };
 
-  useEffect(() => {
-    refetch();
-  }, []);
+  // useEffect(() => {
+  //   refetch();
+  // }, []);
 
   /* ---------------- Render ---------------- */
 
