@@ -86,7 +86,7 @@ function AppWithAuth() {
         />
 
         {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to={redirectPath} replace />} />
 
         {/* Protected Routes */}
         <Route element={<AuthGuard />}>

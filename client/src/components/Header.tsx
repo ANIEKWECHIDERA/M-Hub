@@ -1,4 +1,3 @@
-// import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +37,10 @@ export function Header() {
   };
   // console.log("Header profile:", profile);
 
-  const displayName = profile?.displayName || "User";
+  const displayName =
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
+    profile?.displayName ||
+    "User";
   const email = profile?.email || "user@example.com";
   const photoURL = profile?.photoURL;
 

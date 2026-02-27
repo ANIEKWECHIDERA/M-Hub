@@ -103,12 +103,12 @@ export default function LoginPage() {
       authError.includes("user-not-found")
       ? "Invalid email or password."
       : authError.includes("too-many-requests")
-      ? "Too many failed attempts. Please try again later."
-      : authError.includes("popup-closed-by-user")
-      ? "Sign-in cancelled."
-      : authError.includes("popup-blocked")
-      ? "Popup blocked. Please allow popups and try again."
-      : "Authentication failed. Please try again."
+        ? "Too many failed attempts. Please try again later."
+        : authError.includes("popup-closed-by-user")
+          ? "Sign-in cancelled."
+          : authError.includes("popup-blocked")
+            ? "Popup blocked. Please allow popups and try again."
+            : "Authentication failed. Please try again."
     : errors.general;
 
   return (

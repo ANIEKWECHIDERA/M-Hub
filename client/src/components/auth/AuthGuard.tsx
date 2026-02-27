@@ -7,7 +7,7 @@ export const AuthGuard = () => {
   const location = useLocation();
 
   // 1️⃣ Still resolving Firebase + backend sync
-  if (loading || authStatus === null) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader className="animate-spin" />
@@ -18,6 +18,15 @@ export const AuthGuard = () => {
   // 2️⃣ Not authenticated → go to login
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  // If user exists but backend authStatus still resolving
+  if (!authStatus) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader className="animate-spin" />
+      </div>
+    );
   }
 
   const state = authStatus.onboardingState;

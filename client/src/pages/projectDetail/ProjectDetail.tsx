@@ -114,6 +114,7 @@ export function ProjectDetail() {
 
   const { total, completed, progress } = useProjectTaskStats(id ?? "");
   const team = currentProject ? (currentProject.team_members ?? []) : [];
+  console.log("Teammembers:", team);
 
   const filteredfiles = useMemo(
     () => files.filter((file) => file.project_id === (id ?? "")),

@@ -48,6 +48,7 @@ import TeamMemberForm from "@/components/TeamMemberForm";
 import InviteForm from "@/components/InviteForm";
 import { useUser } from "@/context/UserContext";
 import type { UserProfileUpdate } from "@/Types/types";
+// import { useAuthContext } from "@/context/AuthContext";
 
 export default function Settings() {
   const {
@@ -66,7 +67,7 @@ export default function Settings() {
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<any>(null);
   const [isValid, setIsValid] = useState(false);
-
+  // const { idToken } = useAuthContext();
   const initials = (() => {
     if (!profile) return "User";
 
@@ -136,18 +137,15 @@ export default function Settings() {
       last_name: lastName,
     };
 
-    toast.promise(
-      async () => {
-        const success = await updateProfile(updates);
-        if (!success) throw new Error("Failed to update profile");
-        return { name: "Profile" };
-      },
-      {
-        loading: "Updating profile...",
-        success: (data) => `${data.name} has been updated!`,
-        error: "Something went wrong, please try again.",
-      },
-    );
+    const promise = updateProfile(updates);
+
+    toast.promise(promise, {
+      loading: "Updating profile...",
+      success: "Profile has been updated!",
+      error: "Something went wrong, please try again.",
+    });
+
+    await promise; // nothing else needed
   };
 
   const roleLabels = {
