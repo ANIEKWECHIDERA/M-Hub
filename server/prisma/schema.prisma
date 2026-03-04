@@ -70,6 +70,7 @@ model companies {
   notes       notes[]      @relation("company_notes")
   clients     clients[]    @relation("company_clients")
   project_team_members project_team_members[] @relation("company_project_team_members")
+  invites     company_invite[]  
 
   @@map("companies")
   @@index([name])
@@ -382,4 +383,22 @@ model user_settings {
 
   @@map("user_settings")
   @@index([user_id])
+}
+
+// ============================================
+// COMPANY INVITE TABLE
+// ============================================
+model company_invite {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String @db.Uuid
+  email       String
+  token       String   @unique
+  status      String @default("PENDING")
+  expires_at  DateTime
+  accepted_at DateTime?
+  created_by  String  @db.Uuid
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  company    companies  @relation(fields: [company_id], references: [id])
 }
