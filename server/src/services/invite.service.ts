@@ -2,14 +2,6 @@ import { supabaseAdmin } from "../config/supabaseClient";
 import { generateInviteToken } from "../utils/token";
 import { logger } from "../utils/logger";
 
-const INVITE_EXPIRATION_DURATION = 24;
-//Generate invite token
-const token = generateInviteToken();
-
-const expiresAt = new Date(
-  Date.now() + INVITE_EXPIRATION_DURATION * 60 * 60 * 1000,
-).toISOString(); // 24h expiry
-
 export const InviteService = {
   /**
    * Create a new company invite
@@ -51,8 +43,8 @@ export const InviteService = {
 
       const companyId = membership.company_id;
 
-      // Permission check (only admins invite)
-      if (membership.access !== "admin") {
+      // Permission check (only admins or superAdmins can invite)
+      if (membership.access !== "admin" && membership.access !== "superAdmin") {
         logger.warn(
           "InviteService.createInvite:User attempted invite without permission",
           {
@@ -119,7 +111,7 @@ export const InviteService = {
           .select("*")
           .eq("email", email)
           .eq("company_id", companyId)
-          .eq("status", "PENDING")
+          // .eq("status", "PENDING")
           .maybeSingle();
 
       if (existingInviteError) {
@@ -131,6 +123,15 @@ export const InviteService = {
       }
 
       const now = new Date();
+
+      const INVITE_EXPIRATION_DURATION = 24;
+
+      const expiresAt = new Date(
+        Date.now() + INVITE_EXPIRATION_DURATION * 60 * 60 * 1000,
+      ).toISOString(); // 24h expiry
+
+      //Generate invite token
+      const token = generateInviteToken();
 
       if (existingInvite) {
         logger.info("InviteService.createInvite: Invite already exists");
@@ -160,6 +161,7 @@ export const InviteService = {
               .update({
                 token: token,
                 expires_at: expiresAt,
+                status: "PENDING",
               })
               .eq("id", existingInvite.id)
               .select()
@@ -172,6 +174,8 @@ export const InviteService = {
           return updatedInvite;
         }
       }
+
+      logger.info("InviteService.createInvite: inserting invite into database");
 
       // Insert invite into database
       const { data: invite, error: inviteError } = await supabaseAdmin
@@ -190,6 +194,12 @@ export const InviteService = {
         .maybeSingle();
 
       if (inviteError) {
+        if (inviteError.code === "23505") {
+          logger.warn("Duplicate invite prevented by DB constraint", { email });
+
+          throw new Error("An invite already exists for this email");
+        }
+
         logger.error("InviteService.createInvite: failed to create invite", {
           inviteError,
         });
@@ -315,6 +325,216 @@ export const InviteService = {
       return { companyId: invite.company_id };
     } catch (error) {
       logger.error("InviteService.acceptInvite: unexpected error", { error });
+      throw error;
+    }
+  },
+
+  async getInvites(userId: string) {
+    logger.info("InviteService.getInvites: start for company", {
+      userId,
+    });
+
+    try {
+      // verify membership
+      const { data: membership, error: membershipError } = await supabaseAdmin
+        .from("team_members")
+        .select("company_id, access")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (membershipError) {
+        logger.error("InviteService.getInvites:Failed fetching membership", {
+          membershipError,
+        });
+        throw new Error("InviteService.getInvites:Failed to verify membership");
+      }
+
+      if (!membership) {
+        logger.warn("InviteService.getInvites:User not part of a company", {
+          userId,
+        });
+        throw new Error(
+          "InviteService.getInvites:You are not part of any company",
+        );
+      }
+
+      const companyId = membership.company_id;
+
+      const { data: invites, error: inviteError } = await supabaseAdmin
+        .from("company_invite")
+        .select(
+          "company_id, email, status, accepted_at, created_by, role, access",
+        )
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+
+      if (inviteError) {
+        logger.error("InviteService.getInvites:Failed fetching invites", {
+          inviteError,
+        });
+        throw new Error("InviteService.getInvites:Failed to fetch invites");
+      }
+
+      logger.info("InviteService.getInvites: success", {
+        count: invites?.length,
+      });
+
+      return invites;
+    } catch (error) {
+      logger.error("InviteService.getInvites: unexpected error", { error });
+      throw error;
+    }
+  },
+
+  async cancelInvite(inviteId: string, userId: string) {
+    logger.info("InviteService.cancelInvite: start", { inviteId, userId });
+
+    try {
+      // verify membership
+      const { data: membership, error: membershipError } = await supabaseAdmin
+        .from("team_members")
+        .select("company_id, access")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (membershipError || !membership) {
+        logger.error("InviteService.cancelInvite:Failed verifying membership", {
+          membershipError,
+        });
+        throw new Error(
+          "InviteService.cancelInvite:Failed to verify membership",
+        );
+      }
+
+      // membership check
+
+      if (membership.access !== "admin" && membership.access !== "superAdmin") {
+        logger.warn(
+          "InviteService.cancelInvite:User attempted cancel invite without permission",
+          {
+            userId,
+          },
+        );
+        throw new Error(
+          "InviteService.cancelInvite:You do not have permission to cancel invites",
+        );
+      }
+
+      const companyId = membership.company_id;
+
+      const { data: invite, error: inviteError } = await supabaseAdmin
+        .from("company_invite")
+        .select("*")
+        .eq("id", inviteId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+
+      if (inviteError || !invite) {
+        logger.error("InviteService.cancelInvite:Invite not found", {
+          inviteError,
+        });
+        throw new Error("InviteService.cancelInvite:Invite not found");
+      }
+
+      if (invite.status !== "PENDING") {
+        logger.warn(
+          "InviteService.cancelInvite:Attempted cancel of non-pending invite",
+          {
+            inviteId,
+            status: invite.status,
+          },
+        );
+        throw new Error(
+          "InviteService.cancelInvite:Invite cannot be cancelled",
+        );
+      }
+
+      const { error: updateError } = await supabaseAdmin
+        .from("company_invite")
+        .update({
+          status: "CANCELLED",
+        })
+        .eq("id", inviteId);
+
+      if (updateError) {
+        logger.error("InviteService.cancelInvite:Failed cancelling invite", {
+          updateError,
+        });
+        throw new Error("InviteService.cancelInvite:Failed to cancel invite");
+      }
+
+      logger.info("InviteService.cancelInvite: Invite cancelled successfully", {
+        inviteId,
+      });
+
+      return { success: true };
+    } catch (error) {
+      logger.error("InviteService.cancelInvite: unexpected error", { error });
+      throw error;
+    }
+  },
+
+  async cancelInvites(inviteIds: string[], userId: string) {
+    logger.info("InviteService.cancelInvites: start", {
+      inviteIds,
+      userId,
+    });
+
+    try {
+      const { data: membership, error: membershipError } = await supabaseAdmin
+        .from("team_members")
+        .select("company_id, access")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (membershipError || !membership) {
+        logger.error(
+          "InviteService.cancelInvites: Failed verifying membership",
+          { membershipError },
+        );
+        throw new Error(
+          "InviteService.cancelInvites:Failed to verify membership",
+        );
+      }
+
+      if (membership.access !== "admin") {
+        logger.warn(
+          "InviteService.cancelInvites:User attempted bulk cancel without permission",
+          {
+            userId,
+          },
+        );
+        throw new Error(
+          "InviteService.cancelInvites:You do not have permission to cancel invites",
+        );
+      }
+
+      const companyId = membership.company_id;
+
+      const { error: updateError } = await supabaseAdmin
+        .from("company_invite")
+        .update({ status: "CANCELLED" })
+        .in("id", inviteIds)
+        .eq("company_id", companyId);
+
+      if (updateError) {
+        logger.error(
+          "InviteService.cancelInvites:Failed bulk cancelling invites",
+          { updateError },
+        );
+        throw new Error("InviteService.cancelInvites:Failed to cancel invites");
+      }
+
+      logger.info(
+        "InviteService.cancelInvites:Bulk invite cancellation success",
+        {
+          count: inviteIds.length,
+        },
+      );
+
+      return { success: true, cancelled: inviteIds.length };
+    } catch (error) {
+      logger.error("InviteService.cancelInvites: unexpected error", { error });
       throw error;
     }
   },

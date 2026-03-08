@@ -8,13 +8,41 @@ import { requireAppUser } from "../middleware/requireAppUser.middleware";
 const router = Router();
 
 router.post(
-  "/send-invite",
+  "/invite",
   verifyFirebaseToken,
   profileSync,
   requireAppUser,
   authorize(["admin", "superAdmin"]),
   InviteController.sendInvite,
 );
-router.post("/accept-invite", InviteController.acceptInvite);
+
+router.post("/invite/accept", InviteController.acceptInvite);
+
+router.get(
+  "/invites",
+  verifyFirebaseToken,
+  profileSync,
+  requireAppUser,
+  authorize(["superAdmin"]),
+  InviteController.getInvites,
+);
+
+router.delete(
+  "/invite/:inviteId",
+  verifyFirebaseToken,
+  profileSync,
+  requireAppUser,
+  authorize(["admin", "superAdmin"]),
+  InviteController.cancelInvite,
+);
+
+router.delete(
+  "/invites",
+  verifyFirebaseToken,
+  profileSync,
+  requireAppUser,
+  authorize(["admin", "superAdmin"]),
+  InviteController.cancelInvites,
+);
 
 export default router;

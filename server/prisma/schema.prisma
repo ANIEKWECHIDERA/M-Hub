@@ -389,18 +389,22 @@ model user_settings {
 // COMPANY INVITE TABLE
 // ============================================
 model company_invite {
-  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  company_id  String    @db.Uuid @unique
-  email       String    @unique
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String   @db.Uuid
+  email       String
   role        String
   access      String
-  token       String    @unique
-  status      String    @default("PENDING")
+  token       String   @unique
+  status      String   @default("PENDING")
   expires_at  DateTime
   accepted_at DateTime?
-  created_by  String    @db.Uuid
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @default(now()) @updatedAt
+  created_by  String   @db.Uuid
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
 
-  company    companies  @relation(fields: [company_id], references: [id])
+  company companies @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, email])
+  @@index([company_id])
+  @@index([email])
 }
