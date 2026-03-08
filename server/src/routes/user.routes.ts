@@ -3,7 +3,6 @@ import { UserController } from "../controllers/user.controller";
 import { withAuth } from "../utils/withAuth";
 import { createUserLimiter } from "../middleware/rateLimiter";
 import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
-import { requireAppUser } from "../middleware/requireAppUser.middleware";
 import { profileSync } from "../middleware/profileSync.middleware";
 
 const router = Router();

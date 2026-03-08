@@ -3,6 +3,12 @@ import { generateInviteToken } from "../utils/token";
 import { logger } from "../utils/logger";
 
 const INVITE_EXPIRATION_DURATION = 24;
+//Generate invite token
+const token = generateInviteToken();
+
+const expiresAt = new Date(
+  Date.now() + INVITE_EXPIRATION_DURATION * 60 * 60 * 1000,
+).toISOString(); // 24h expiry
 
 export const InviteService = {
   /**
@@ -11,10 +17,17 @@ export const InviteService = {
    * @param email Email to invite
    * @param createdBy User ID who is creating the invite
    */
-  async createInvite(email: string, createdBy: string) {
+  async createInvite(
+    email: string,
+    createdBy: string,
+    role: string,
+    access: string,
+  ) {
     logger.info("InviteService.createInvite: start", {
       email,
       createdBy,
+      role,
+      access,
     });
 
     try {
@@ -37,6 +50,19 @@ export const InviteService = {
       }
 
       const companyId = membership.company_id;
+
+      // Permission check (only admins invite)
+      if (membership.access !== "admin") {
+        logger.warn(
+          "InviteService.createInvite:User attempted invite without permission",
+          {
+            createdBy,
+          },
+        );
+        throw new Error(
+          "InviteService.createInvite:You do not have permission to invite users",
+        );
+      }
 
       //Check if the email is already a team member
       const { data: existingMember, error: memberError } = await supabaseAdmin
@@ -83,12 +109,69 @@ export const InviteService = {
         throw new Error("User already belongs to another company");
       }
 
-      //Generate invite token
-      const token = generateInviteToken();
+      // Check existing invite
+      logger.info(
+        "InviteService.createInvite: Checking if invite already exists",
+      );
+      const { data: existingInvite, error: existingInviteError } =
+        await supabaseAdmin
+          .from("company_invite")
+          .select("*")
+          .eq("email", email)
+          .eq("company_id", companyId)
+          .eq("status", "PENDING")
+          .maybeSingle();
 
-      const expiresAt = new Date(
-        Date.now() + INVITE_EXPIRATION_DURATION * 60 * 60 * 1000,
-      ).toISOString(); // 24h expiry
+      if (existingInviteError) {
+        logger.error(
+          "InviteService.createOrUpdateInvite: Failed to fetch existing invite",
+          existingInviteError,
+        );
+        throw new Error("Failed to check existing invite");
+      }
+
+      const now = new Date();
+
+      if (existingInvite) {
+        logger.info("InviteService.createInvite: Invite already exists");
+
+        // check if invite has expired
+        logger.info(
+          "InviteService.createInvite: Checking if invite has expired",
+        );
+        if (new Date(existingInvite.expires_at) > now) {
+          // Invite is still valid, option to resend email
+          logger.info(
+            "InviteService.createInvite: Invite not expired, resending email",
+            {
+              email,
+            },
+          );
+
+          return existingInvite;
+        } else {
+          // if invite expired, update token and expiry
+          logger.info(
+            "InviteService.createInvite: invite has expired, updating invite",
+          );
+          const { data: updatedInvite, error: updateError } =
+            await supabaseAdmin
+              .from("company_invite")
+              .update({
+                token: token,
+                expires_at: expiresAt,
+              })
+              .eq("id", existingInvite.id)
+              .select()
+              .maybeSingle();
+
+          if (updateError) throw new Error("Failed to update expired invite");
+          logger.info("InviteService.createInvite: Expired invite updated", {
+            inviteId: updatedInvite.id,
+          });
+          return updatedInvite;
+        }
+      }
 
       // Insert invite into database
       const { data: invite, error: inviteError } = await supabaseAdmin
@@ -96,6 +179,8 @@ export const InviteService = {
         .insert({
           company_id: companyId,
           email,
+          role,
+          access,
           token,
           status: "PENDING",
           expires_at: expiresAt,
@@ -130,7 +215,7 @@ export const InviteService = {
     try {
       // fetch the invite
       const { data: invite, error: inviteError } = await supabaseAdmin
-        .from("company_invites")
+        .from("company_invite")
         .select("*")
         .eq("token", token)
         .maybeSingle();
@@ -190,7 +275,7 @@ export const InviteService = {
         throw new Error("User already a team member");
       }
 
-      // 4️⃣ Create team member
+      // Create team member
       const { error: memberError } = await supabaseAdmin
         .from("team_members")
         .insert({
@@ -207,7 +292,7 @@ export const InviteService = {
         throw new Error("Failed to join company");
       }
 
-      // 5️⃣ Update invite
+      //Update invite
       const { error: updateError } = await supabaseAdmin
         .from("company_invite")
         .update({

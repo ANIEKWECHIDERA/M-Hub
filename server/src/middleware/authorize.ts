@@ -3,7 +3,7 @@ import { Response, NextFunction, Request } from "express";
 
 export const authorize =
   (access: string[]) => (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user || !access.includes(req.user.access || "")) {
+    if (!req.user?.access || !access.includes(req.user.access || "")) {
       return res.status(403).json({ error: "authorize: Unauthorized access" });
     }
 

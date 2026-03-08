@@ -35,7 +35,7 @@ export async function verifyFirebaseToken(
     };
 
     logger.info("verifyFirebaseToken: Firebase user attached to request", {
-      firebase_uid: appUser.firebase_uid,
+      firebase_uid: appUser.uid,
       email: appUser.email,
     });
 

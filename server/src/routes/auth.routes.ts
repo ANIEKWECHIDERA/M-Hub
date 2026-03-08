@@ -1,8 +1,5 @@
 // routes/auth.routes.ts
 import express from "express";
-
-import authenticate from "../middleware/authenticate";
-
 import { AuthController } from "../controllers/auth.controller";
 import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
 import { profileSync } from "../middleware/profileSync.middleware";

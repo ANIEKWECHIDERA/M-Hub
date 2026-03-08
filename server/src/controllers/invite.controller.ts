@@ -6,7 +6,7 @@ import { logger } from "../utils/logger";
 export const InviteController = {
   async sendInvite(req: Request, res: Response) {
     const userId = req.user?.id;
-    const { email } = req.body;
+    const { email, access, role } = req.body;
 
     logger.info("InviteController.sendInvite: start", { userId, email });
 
@@ -24,7 +24,12 @@ export const InviteController = {
 
     try {
       // Create the invite
-      const invite = await InviteService.createInvite(email, userId);
+      const invite = await InviteService.createInvite(
+        email,
+        userId,
+        role,
+        access ?? "team_member",
+      );
 
       logger.info("InviteController.sendInvite: invite sent successfully", {
         inviteId: invite.id,
@@ -32,11 +37,12 @@ export const InviteController = {
       });
 
       // TODO: send email notification here
-      const inviteLink = `www.M-Hub.com/accept-invite?token=${invite.token}`;
+      const inviteLink = `www.M-Hub.com/accept-invite/${invite.token}`;
 
       logger.info(
-        "Simulated Mail",
-        `You have been invited to join a Company on M-Hub, Please use the attached link to accept invitation. The link expires in the next 24Hrs
+        `Simulated Mail:
+        
+        You have been invited to join a Company on M-Hub, Please use the attached link to accept invitation. The link expires in the next 24Hrs
       
       ${inviteLink}`,
       );

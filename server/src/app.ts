@@ -11,6 +11,7 @@ import clientRoutes from "./routes/client.routes";
 import teamMemberRoutes from "./routes/teamMember.routes";
 import projectTeamMemberRoutes from "./routes/projectTeamMembers.routes";
 import assetRoutes from "./routes/asset.routes";
+import inviteRoutes from "./routes/invite.routes";
 import morgan from "morgan";
 import { logger } from "./utils/logger";
 import commentRoutes from "./routes/comment.routes";
@@ -29,7 +30,7 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -41,9 +42,10 @@ app.use(
     stream: {
       write: (message) => logger.info(message.trim()),
     },
-  })
+  }),
 );
 // Mount routes
+app.use("/api/", inviteRoutes);
 app.use("/api/", authRoutes);
 app.use("/api/", userRoutes);
 app.use("/api/", projectRoutes);
@@ -72,7 +74,7 @@ app.use(
     err: any,
     req: express.Request,
     res: express.Response,
-    next: express.NextFunction
+    next: express.NextFunction,
   ) => {
     logger.error("Unhandled error", {
       message: err.message,
@@ -89,7 +91,7 @@ app.use(
     return res.status(err.status || 500).json({
       error: err.message || "Internal server error",
     });
-  }
+  },
 );
 
 export default app;

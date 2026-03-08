@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { TaskStatus, TaskWithAssigneesDTO } from "@/Types/types";
 import { useMyTasksContext } from "@/context/MyTaskContext";
