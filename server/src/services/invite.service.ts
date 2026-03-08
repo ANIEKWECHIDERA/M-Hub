@@ -122,6 +122,7 @@ export const InviteService = {
         throw new Error("Failed to check existing invite");
       }
 
+      ////////////////////////////////////////////////////////////////////////////////
       const now = new Date();
 
       const INVITE_EXPIRATION_DURATION = 24;
@@ -132,9 +133,35 @@ export const InviteService = {
 
       //Generate invite token
       const token = generateInviteToken();
+      ////////////////////////////////////////////////////////////////////////////////
 
       if (existingInvite) {
         logger.info("InviteService.createInvite: Invite already exists");
+
+        logger.info("InviteService.createInvite: Checking Invite status");
+
+        // Check invite status
+        if (existingInvite.status === "CANCELLED") {
+          logger.info(
+            "InviteService.createInvite:Reactivating cancelled invite",
+          );
+
+          const { data: updatedInvite, error: updateError } =
+            await supabaseAdmin
+              .from("company_invite")
+              .update({
+                token,
+                expires_at: expiresAt,
+                status: "PENDING",
+              })
+              .eq("id", existingInvite.id)
+              .select()
+              .maybeSingle();
+
+          if (updateError) throw new Error("Failed to reactivate invite");
+
+          return updatedInvite;
+        }
 
         // check if invite has expired
         logger.info(

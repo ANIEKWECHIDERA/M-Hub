@@ -23,7 +23,7 @@ router.get(
   verifyFirebaseToken,
   profileSync,
   requireAppUser,
-  authorize(["superAdmin"]),
+  authorize(["admin", "superAdmin"]),
   InviteController.getInvites,
 );
 

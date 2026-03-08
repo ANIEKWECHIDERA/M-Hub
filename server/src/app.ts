@@ -32,7 +32,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
-app.use(bodyParser.json());
+// app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json({}));
 app.use(express.urlencoded({ extended: true }));
@@ -45,7 +45,6 @@ app.use(
   }),
 );
 // Mount routes
-app.use("/api/", inviteRoutes);
 app.use("/api/", authRoutes);
 app.use("/api/", userRoutes);
 app.use("/api/", projectRoutes);
@@ -62,6 +61,7 @@ app.use("/api/", noteRoutes);
 app.use("/api/", noteTagRoutes);
 app.use("/api/", notificationRoutes);
 app.use("/api/", userSettingsRoutes);
+app.use("/api/", inviteRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {
