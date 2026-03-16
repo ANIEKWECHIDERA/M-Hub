@@ -32,6 +32,7 @@ router.delete(
 router.post(
   "/user",
   verifyFirebaseToken,
+  profileSync,
   createUserLimiter,
   withAuth(UserController.createUser),
 );

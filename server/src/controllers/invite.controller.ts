@@ -24,7 +24,7 @@ export const InviteController = {
 
     try {
       // Create the invite
-      const invite = await InviteService.createInvite(
+      const { invite, token } = await InviteService.createInvite(
         email,
         userId,
         role,
@@ -38,15 +38,21 @@ export const InviteController = {
 
       // TODO: send email notification here
 
-      const inviteLink = `www.M-Hub.com/accept-invite/${invite.token}`;
+      let inviteLink = `https://m-hub.com/invite/accept/${token}`;
 
-      logger.info(
-        `Simulated Mail:
-        
-        You have been invited to join a Company on M-Hub, Please use the attached link to accept invitation. The link expires in the next 24Hrs
-      
-      ${inviteLink}`,
-      );
+      if (token) {
+        inviteLink = `https://m-hub.com/invite/accept/${token}`;
+      }
+
+      logger.info(`Simulated Mail:
+
+You have been invited to join a company on M-Hub.
+
+Please use the link below to accept the invitation.
+The link expires in 24 hours.
+
+${inviteLink}
+`);
 
       return res.status(200).json({
         message: "invite sent successfully",
@@ -65,7 +71,7 @@ export const InviteController = {
 
   async acceptInvite(req: Request, res: Response) {
     const userId = req.user?.id;
-    const { token, accessLevel } = req.body;
+    const { token, access } = req.body;
 
     logger.info("InviteController.acceptInvite: start", {
       userId,
@@ -81,11 +87,7 @@ export const InviteController = {
     }
 
     try {
-      const result = await InviteService.acceptInvite(
-        token,
-        userId,
-        accessLevel,
-      );
+      const result = await InviteService.acceptInvite(token, userId, access);
 
       return res.status(200).json({
         message: "Invite accepted successfully",

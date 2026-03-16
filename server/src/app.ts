@@ -44,6 +44,7 @@ app.use(
     },
   }),
 );
+
 // Mount routes
 app.use("/api/", authRoutes);
 app.use("/api/", userRoutes);

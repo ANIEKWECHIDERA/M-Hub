@@ -1,26 +1,26 @@
-# 📌 M-HUB – Project Management Portal
+# M-Hub Client
 
-> An all-in-one internal platform for digital marketing teams to manage **projects, tasks, and collaboration** in one place.  
-> Built to replace scattered tools (Notion, Trello, Google Drive) with a **centralized, scalable, and secure** solution.
+This folder contains the Vite-based frontend for M-Hub.
 
----
+## Stack
 
-## ✨ Features
+- React 19
+- React Router 7
+- Vite 7
+- Tailwind CSS
+- Radix UI
+- Firebase client auth
 
-- 📂 **Project Tracking** – Organize projects with timelines, milestones, and progress updates.
-- ✅ **Task Management** – Assign, track, and complete tasks with deadlines and statuses.
-- 💬 **Team Collaboration** – Comment, mention teammates, and keep communication in context.
-- 📎 **File Uploads** – Share deliverables, creatives, and docs inside projects.
-- 📊 **Analytics & Reporting** – Monitor workload, deadlines, and overall productivity.
-- 🔔 **Notifications** – Stay on top of assigned tasks and client updates.
+## Scripts
 
----
+```bash
+npm run dev
+npm run build
+npm run preview
+```
 
-## 🛠 Tech Stack
+## Notes
 
-- **Frontend**: React + TailwindCSS (clean, responsive UI)
-- **Backend**: Node.js (Express)
-- **Database**: PostgreSQL (relational, scalable)
-- **Caching/Realtime**: Redis (notifications, live updates)
-- **Authentication**: Firebase Auth
-- **File Storage**: Cloudinary
+- The backend base URL is currently hardcoded in `src/lib/api.ts` as `http://localhost:5000`.
+- Firebase web config is currently defined in `src/firebase/firebase.ts`.
+- For full repository setup and architecture, see the root `README.md`.

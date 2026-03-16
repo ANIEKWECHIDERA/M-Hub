@@ -132,7 +132,7 @@ export const InviteService = {
       ).toISOString(); // 24h expiry
 
       //Generate invite token
-      const token = generateInviteToken();
+      const { token, hashedToken } = generateInviteToken();
       ////////////////////////////////////////////////////////////////////////////////
 
       if (existingInvite) {
@@ -150,7 +150,7 @@ export const InviteService = {
             await supabaseAdmin
               .from("company_invite")
               .update({
-                token,
+                token: hashedToken,
                 expires_at: expiresAt,
                 status: "PENDING",
               })
@@ -160,7 +160,7 @@ export const InviteService = {
 
           if (updateError) throw new Error("Failed to reactivate invite");
 
-          return updatedInvite;
+          return { invite: updatedInvite, token };
         }
 
         // check if invite has expired
@@ -176,7 +176,18 @@ export const InviteService = {
             },
           );
 
-          return existingInvite;
+          const { data: sameInvite } = await supabaseAdmin
+            .from("company_invite")
+            .update({
+              token: hashedToken,
+              expires_at: expiresAt,
+              status: "PENDING",
+            })
+            .eq("id", existingInvite.id)
+            .select()
+            .maybeSingle();
+
+          return { invite: sameInvite, token };
         } else {
           // if invite expired, update token and expiry
           logger.info(
@@ -186,7 +197,7 @@ export const InviteService = {
             await supabaseAdmin
               .from("company_invite")
               .update({
-                token: token,
+                token: hashedToken,
                 expires_at: expiresAt,
                 status: "PENDING",
               })
@@ -198,7 +209,7 @@ export const InviteService = {
           logger.info("InviteService.createInvite: Expired invite updated", {
             inviteId: updatedInvite.id,
           });
-          return updatedInvite;
+          return { invite: updatedInvite, token };
         }
       }
 
@@ -212,7 +223,7 @@ export const InviteService = {
           email,
           role,
           access,
-          token,
+          token: hashedToken,
           status: "PENDING",
           expires_at: expiresAt,
           created_by: createdBy,
@@ -238,7 +249,7 @@ export const InviteService = {
         email,
       });
 
-      return invite;
+      return { invite, token };
     } catch (err) {
       logger.error("InviteService.createInvite: unexpected error", {
         error: err,

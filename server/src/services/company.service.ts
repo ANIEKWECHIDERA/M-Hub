@@ -1,4 +1,3 @@
-// src/services/company.service.ts
 import { supabaseAdmin } from "../config/supabaseClient";
 import {
   CompanyResponseDTO,

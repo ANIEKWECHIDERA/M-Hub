@@ -60,15 +60,15 @@ model companies {
   created_at  DateTime     @default(now()) @map("created_at")
   updated_at  DateTime     @default(now()) @updatedAt @map("updated_at")
 
-  users       users[]      @relation("user_company")
-  team_members team_members[] @relation("company_team_members")
-  projects    projects[]   @relation("company_projects")
-  tasks       tasks[]      @relation("company_tasks")
-  subtasks    subtasks[]   @relation("company_subtasks")
-  assets      assets[]     @relation("company_assets")
-  comments    comments[]   @relation("company_comments")
-  notes       notes[]      @relation("company_notes")
-  clients     clients[]    @relation("company_clients")
+  users         users[]      @relation("user_company")
+  team_members  team_members[] @relation("company_team_members")
+  projects      projects[]   @relation("company_projects")
+  tasks         tasks[]      @relation("company_tasks")
+  subtasks      subtasks[]   @relation("company_subtasks")
+  assets        assets[]     @relation("company_assets")
+  comments      comments[]   @relation("company_comments")
+  notes         notes[]      @relation("company_notes")
+  clients       clients[]    @relation("company_clients")
   project_team_members project_team_members[] @relation("company_project_team_members")
   invites     company_invite[]  
 
@@ -394,7 +394,7 @@ model company_invite {
   email       String
   role        String
   access      String
-  token       String   @unique
+  token_hash  String?   @unique
   status      String   @default("PENDING")
   expires_at  DateTime
   accepted_at DateTime?
@@ -407,4 +407,20 @@ model company_invite {
   @@unique([company_id, email])
   @@index([company_id])
   @@index([email])
+}
+
+// ============================================
+// EMAIL VERIFICATIONS TABLE
+// ============================================
+model invite_otps {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String   @db.Uuid
+  invite_id   String
+  email       String
+  otp_hash    String
+  expires_at  String
+  verified_at DateTime?
+  status      String
+  attempts    Int
+  created_at  DateTime  @default(now())
 }

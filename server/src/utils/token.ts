@@ -3,5 +3,8 @@ import { nanoid } from "nanoid";
 
 export function generateInviteToken() {
   // return crypto.randomBytes(10).toString("hex");
-  return nanoid(10);
+  const token = nanoid(10);
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+  return { token, hashedToken };
 }
