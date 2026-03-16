@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useAuthContext } from "@/context/AuthContext";
 import { CompanyAPI } from "@/api/company.api";
 import { useUploadStatus } from "@/context/UploadStatusContext";
+import { prepareImageUpload } from "@/lib/image-upload";
 
 export default function CreateCompany() {
   const [loading, setLoading] = useState(false);
@@ -18,12 +19,11 @@ export default function CreateCompany() {
   const [logo, setLogo] = useState<File | null>(null);
 
   const navigate = useNavigate();
-  const { idToken, refreshStatus, authStatus, logout } = useAuthContext();
-  const { startUpload, finishUpload } = useUploadStatus();
+  const { idToken, refreshStatus, logout } = useAuthContext();
+  const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Submitting company creation", { name, description, logo });
     if (!name.trim()) {
       toast.error("Company name is required");
       return;
@@ -34,34 +34,45 @@ export default function CreateCompany() {
 
     try {
       const formData = new FormData();
+      setUploadProgress(20);
       formData.append("name", name.trim());
       if (description.trim()) {
         formData.append("description", description.trim());
       }
       if (logo) {
-        formData.append("logo", logo);
+        setUploadProgress(40);
+        const optimizedLogo = await prepareImageUpload(logo, {
+          maxSizeMB: 5,
+          maxWidth: 1400,
+          maxHeight: 1400,
+        });
+        formData.append("logo", optimizedLogo);
       }
 
+      setUploadProgress(75);
       await CompanyAPI.create(formData, idToken);
+      setUploadProgress(100);
+      finishUpload({ success: true, message: "Company setup completed" });
 
       toast.success("Company created successfully!");
 
       setTimeout(() => {
         refreshStatus().then(() => {
-          console.log("Auth status after refresh:", authStatus);
           navigate("/dashboard");
         });
       }, 1000);
     } catch (err: any) {
+      finishUpload({
+        success: false,
+        message: err.message || "Company setup failed",
+      });
       toast.error(err.message || "Something went wrong");
       setLoading(false);
-    } finally {
-      finishUpload();
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center p-6 relative">
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-6 relative">
       <Button
         type="button"
         variant="outline"
@@ -72,10 +83,10 @@ export default function CreateCompany() {
         <LogOut className="mr-2 h-4 w-4" />
         Logout
       </Button>
-      <Card className="w-full max-w-lg shadow-2xl">
+      <Card className="w-full max-w-lg">
         <CardHeader className="text-center pb-8">
-          <div className="mx-auto w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
-            <Building2 className="w-10 h-10 text-indigo-600" />
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full border bg-muted">
+            <Building2 className="h-10 w-10 text-foreground" />
           </div>
           <CardTitle className="text-2xl font-bold">
             Create Your Company

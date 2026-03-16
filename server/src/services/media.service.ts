@@ -34,6 +34,16 @@ export const MediaService = {
         (error, result) => {
           if (error) {
             logger.error("MediaService.uploadImage:error", { error });
+
+            if (
+              (error as any)?.name === "TimeoutError" ||
+              (error as any)?.http_code === 499
+            ) {
+              return reject(
+                new Error("Image upload timed out. Please try a smaller image."),
+              );
+            }
+
             return reject(error);
           }
 

@@ -21,11 +21,13 @@ export const UserAPI = {
       throw new Error("Missing ID token");
     }
 
+    const isFormData = payload instanceof FormData;
+
     return apiFetch<{ profile: UserProfile }>(
       "/api/user",
       {
         method: "PATCH",
-        body: JSON.stringify(payload),
+        body: isFormData ? payload : JSON.stringify(payload),
       },
       idToken,
     );

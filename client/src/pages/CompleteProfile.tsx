@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { UserAPI } from "@/api/user.api";
 import { useAuthContext } from "@/context/AuthContext";
 import { useUploadStatus } from "@/context/UploadStatusContext";
+import { prepareImageUpload } from "@/lib/image-upload";
 
 export default function CompleteProfile() {
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ export default function CompleteProfile() {
 
   const navigate = useNavigate();
   const { idToken, currentUser, refreshStatus, logout } = useAuthContext();
-  const { startUpload, finishUpload } = useUploadStatus();
+  const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +47,7 @@ export default function CompleteProfile() {
     startUpload("Uploading profile...");
 
     try {
+      setUploadProgress(18);
       const formData = new FormData();
       formData.append("first_name", firstName.trim());
       formData.append("last_name", lastName.trim());
@@ -53,24 +55,36 @@ export default function CompleteProfile() {
       formData.append("terms_accepted", "true");
       formData.append("profile_complete", "true");
       if (avatarFile) {
-        formData.append("avatar", avatarFile);
+        setUploadProgress(36);
+        const optimizedAvatar = await prepareImageUpload(avatarFile, {
+          maxSizeMB: 5,
+          maxWidth: 1200,
+          maxHeight: 1200,
+        });
+        formData.append("avatar", optimizedAvatar);
       }
 
+      setUploadProgress(72);
       await UserAPI.update(formData, idToken);
+      setUploadProgress(100);
 
       toast.success("Profile completed!");
+      finishUpload({ success: true, message: "Profile uploaded successfully" });
       await refreshStatus();
       navigate("/onboarding/company");
     } catch (err: any) {
+      finishUpload({
+        success: false,
+        message: err.message || "Profile upload failed",
+      });
       toast.error(err.message || "Something went wrong");
     } finally {
-      finishUpload();
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-6 relative">
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-6 relative">
       <Button
         type="button"
         variant="outline"
@@ -81,10 +95,10 @@ export default function CompleteProfile() {
         <LogOut className="mr-2 h-4 w-4" />
         Logout
       </Button>
-      <Card className="w-full max-w-md shadow-2xl">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center pb-8">
-          <div className="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <User className="w-10 h-10 text-blue-600" />
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full border bg-muted">
+            <User className="h-10 w-10 text-foreground" />
           </div>
           <CardTitle className="text-2xl font-bold">Welcome!</CardTitle>
           <p className="text-muted-foreground mt-2">
@@ -94,7 +108,7 @@ export default function CompleteProfile() {
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex items-center gap-4 rounded-xl border p-4">
+            <div className="flex items-center gap-4 rounded-xl border bg-muted/20 p-4">
               <Avatar className="h-16 w-16">
                 <AvatarImage
                   src={avatarFile ? URL.createObjectURL(avatarFile) : undefined}

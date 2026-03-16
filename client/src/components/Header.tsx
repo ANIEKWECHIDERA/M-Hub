@@ -20,6 +20,7 @@ import { useAuthContext } from "@/context/AuthContext";
 import { useUser } from "@/context/UserContext";
 import { Bell, Sun, Moon, Settings, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
@@ -79,13 +80,19 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center justify-end px-4 lg:px-6">
-        {/* Optional Search */}
-        {/* <div className="flex-1 max-w-md">...</div> */}
+    <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
+        <div className="flex items-center gap-3">
+          <SidebarTrigger className="lg:flex" />
+          <div className="hidden lg:block">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Workspace
+            </p>
+            <p className="text-sm font-semibold text-foreground">M-Hub</p>
+          </div>
+        </div>
 
         <div className="flex items-center gap-2">
-          {/* Theme Toggle */}
           <Button
             variant="ghost"
             size="sm"
@@ -97,7 +104,6 @@ export function Header() {
             <span className="sr-only">Toggle theme</span>
           </Button>
 
-          {/* Notifications */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className="relative">
@@ -134,7 +140,7 @@ export function Header() {
                     notifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors ${
+                        className={`cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50 ${
                           notification.unread ? "bg-muted/30" : ""
                         }`}
                         onClick={() => markAsRead(notification.id)}
@@ -163,7 +169,6 @@ export function Header() {
             </PopoverContent>
           </Popover>
 
-          {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">

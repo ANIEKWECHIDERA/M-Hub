@@ -21,6 +21,12 @@ export interface UpdateProjectDTO {
   status?: "Active" | "Planning" | "In Progress" | "On Hold" | "Completed";
   deadline?: string;
   client_id?: string;
+  client?: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
   team_member_ids?: string[];
 }
 

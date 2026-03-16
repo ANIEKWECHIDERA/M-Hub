@@ -1,29 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Bell,
+  KeyRound,
+  Loader,
+  Mail,
+  Plus,
+  Shield,
+  Upload,
+  User,
+  Users,
+} from "lucide-react";
+
+import { inviteAPI, type InviteRecord } from "@/api/invite.api";
+import InviteForm from "@/components/InviteForm";
+import TeamMemberForm from "@/components/TeamMemberForm";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogCancel,
-  AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -33,25 +37,42 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  User,
-  Bell,
-  Shield,
-  Users,
-  Plus,
-  Edit,
-  Trash2,
-  Loader,
-  Mail,
-  Upload,
-} from "lucide-react";
-import { useTeamContext } from "@/context/TeamMemberContext";
-import { toast } from "sonner";
-import TeamMemberForm from "@/components/TeamMemberForm";
-import InviteForm from "@/components/InviteForm";
-import { useUser } from "@/context/UserContext";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthContext } from "@/context/AuthContext";
-import { inviteAPI, type InviteRecord } from "@/api/invite.api";
+import { useTeamContext } from "@/context/TeamMemberContext";
 import { useUploadStatus } from "@/context/UploadStatusContext";
+import { useUser } from "@/context/UserContext";
+import { prepareImageUpload } from "@/lib/image-upload";
+
+const roleLabels = {
+  superAdmin: "Super Admin",
+  admin: "Admin",
+  team_member: "Team Member",
+  member: "Team Member",
+};
+
+type SecurityFormState = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
 
 export default function Settings() {
   const {
@@ -68,32 +89,47 @@ export default function Settings() {
   } = useTeamContext();
   const { profile, updateProfile } = useUser();
   const { idToken, authStatus } = useAuthContext();
-  const { startUpload, finishUpload } = useUploadStatus();
+  const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [isValid, setIsValid] = useState(false);
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [securityForm, setSecurityForm] = useState<SecurityFormState>({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
 
-  const firstNameRef = useRef<HTMLInputElement>(null);
-  const lastNameRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    setFirstName(profile?.first_name ?? "");
+    setLastName(profile?.last_name ?? "");
+  }, [profile?.first_name, profile?.last_name]);
 
   const initials = useMemo(() => {
     if (!profile) return "U";
 
     const parts =
-      [profile.first_name, profile.last_name].filter(Boolean) ||
-      profile.displayName?.split(" ");
+      [firstName, lastName].filter(Boolean) || profile.displayName?.split(" ");
 
-    const joined = (parts || [])
-      .filter(Boolean)
-      .map((part) => part![0].toUpperCase())
-      .join("");
+    return (
+      parts
+        .filter(Boolean)
+        .map((part) => part[0]?.toUpperCase())
+        .join("")
+        .slice(0, 2) || "U"
+    );
+  }, [firstName, lastName, profile]);
 
-    return joined || "U";
-  }, [profile]);
+  const profileDirty =
+    firstName.trim() !== (profile?.first_name ?? "") ||
+    lastName.trim() !== (profile?.last_name ?? "") ||
+    Boolean(avatarFile);
+
+  const passwordDirty = Object.values(securityForm).some(Boolean);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -130,17 +166,9 @@ export default function Settings() {
     loadInvites();
   }, [idToken, authStatus?.companyId]);
 
-  useEffect(() => {
-    setIsValid(
-      Boolean(
-        (profile?.first_name?.trim() && profile?.last_name?.trim()) || avatarFile,
-      ),
-    );
-  }, [profile?.first_name, profile?.last_name, avatarFile]);
-
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <Loader className="animate-spin" />
       </div>
     );
@@ -150,44 +178,51 @@ export default function Settings() {
     return <div>Error: {error}</div>;
   }
 
-  const validate = () => {
-    const first = firstNameRef.current?.value.trim();
-    const last = lastNameRef.current?.value.trim();
-    setIsValid(Boolean((first && last) || avatarFile));
-  };
-
   const handleUpdateProfile = async () => {
-    const firstName = firstNameRef.current?.value.trim() || "";
-    const lastName = lastNameRef.current?.value.trim() || "";
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
 
-    if (!firstName || !lastName) {
+    if (!trimmedFirstName || !trimmedLastName) {
       toast.error("First name and last name cannot be empty.");
       return;
     }
 
     const formData = new FormData();
-    formData.append("first_name", firstName);
-    formData.append("last_name", lastName);
-    formData.append("display_name", `${firstName} ${lastName}`);
-
-    if (avatarFile) {
-      formData.append("avatar", avatarFile);
-    }
+    formData.append("first_name", trimmedFirstName);
+    formData.append("last_name", trimmedLastName);
+    formData.append("display_name", `${trimmedFirstName} ${trimmedLastName}`);
 
     startUpload("Uploading profile update...");
+
     try {
-      const promise = updateProfile(formData);
+      setUploadProgress(18);
 
-      toast.promise(promise, {
-        loading: "Updating profile...",
-        success: "Profile updated",
-        error: "Something went wrong, please try again.",
-      });
+      if (avatarFile) {
+        const optimizedAvatar = await prepareImageUpload(avatarFile, {
+          maxSizeMB: 5,
+          maxWidth: 1200,
+          maxHeight: 1200,
+        });
+        formData.append("avatar", optimizedAvatar);
+        setUploadProgress(45);
+      }
 
-      await promise;
+      const success = await updateProfile(formData);
+
+      if (!success) {
+        throw new Error("Something went wrong, please try again.");
+      }
+
+      setUploadProgress(100);
+      finishUpload({ success: true, message: "Profile updated successfully" });
       setAvatarFile(null);
-    } finally {
-      finishUpload();
+      toast.success("Profile updated");
+    } catch (profileError: any) {
+      finishUpload({
+        success: false,
+        message: profileError.message || "Profile update failed",
+      });
+      toast.error(profileError.message || "Something went wrong.");
     }
   };
 
@@ -216,40 +251,45 @@ export default function Settings() {
     await loadInvites();
   };
 
-  const roleLabels = {
-    superAdmin: "Super Admin",
-    admin: "Admin",
-    team_member: "Team Member",
-    member: "Team Member",
+  const handleSecurityPlaceholder = () => {
+    toast.info("Password and 2FA management UI is ready. Backend actions come next.");
   };
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Manage your profile, invitations, and workspace members.
+          Manage your profile, security preferences, and workspace members.
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="users">Team</TabsTrigger>
+      <Tabs defaultValue="profile" className="space-y-5">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border bg-muted/40 p-1 md:grid-cols-4">
+          <TabsTrigger value="profile" className="rounded-lg">
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="rounded-lg">
+            Notifications
+          </TabsTrigger>
+          <TabsTrigger value="security" className="rounded-lg">
+            Security
+          </TabsTrigger>
+          <TabsTrigger value="users" className="rounded-lg">
+            Team
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
-          <Card>
+          <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
                 Profile Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center">
+            <CardContent className="space-y-6">
+              <div className="flex flex-col gap-4 rounded-xl border bg-muted/20 p-4 md:flex-row md:items-center">
                 <Avatar className="h-20 w-20">
                   <AvatarImage
                     src={
@@ -263,18 +303,17 @@ export default function Settings() {
                   </AvatarFallback>
                 </Avatar>
 
-                <div className="space-y-2">
+                <div className="flex-1 space-y-2">
                   <Label htmlFor="avatar">Profile Photo</Label>
                   <Input
                     id="avatar"
                     type="file"
-                    accept="image/*"
-                    onChange={(e) =>
-                      setAvatarFile(e.target.files?.[0] ?? null)
-                    }
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
                   />
                   <p className="text-sm text-muted-foreground">
-                    Optional. Upload a profile picture for your workspace.
+                    Optional. Images are optimized before upload to make profile
+                    updates faster and more reliable.
                   </p>
                 </div>
               </div>
@@ -284,9 +323,8 @@ export default function Settings() {
                   <Label htmlFor="firstName">First Name</Label>
                   <Input
                     id="firstName"
-                    ref={firstNameRef}
-                    defaultValue={profile?.first_name ?? ""}
-                    onInput={validate}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     placeholder="First name"
                   />
                 </div>
@@ -295,9 +333,8 @@ export default function Settings() {
                   <Label htmlFor="lastName">Last Name</Label>
                   <Input
                     id="lastName"
-                    ref={lastNameRef}
-                    defaultValue={profile?.last_name ?? ""}
-                    onInput={validate}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
                     placeholder="Last name"
                   />
                 </div>
@@ -313,23 +350,29 @@ export default function Settings() {
                 </div>
               </div>
 
-              <Button onClick={handleUpdateProfile} disabled={!isValid}>
-                <Upload className="mr-2 h-4 w-4" />
-                Save Changes
-              </Button>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleUpdateProfile}
+                  disabled={!profileDirty}
+                  className={profileDirty ? "" : "opacity-70"}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Save Changes
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
-          <Card>
+          <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5" />
                 Notification Preferences
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-5">
               {[
                 "Task Assignments",
                 "Project Updates",
@@ -338,7 +381,7 @@ export default function Settings() {
               ].map((label, index) => (
                 <div
                   key={label}
-                  className="flex items-center justify-between border-b pb-4 last:border-b-0"
+                  className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3"
                 >
                   <div className="space-y-0.5">
                     <Label>{label}</Label>
@@ -354,34 +397,101 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4">
-          <Card>
+          <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Security
+                Security Settings
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Password and provider security controls can be expanded here as
-                you wire more account-management endpoints.
-              </p>
+            <CardContent className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
-                <Input type="password" placeholder="Current password" />
-                <Input type="password" placeholder="New password" />
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Current Password</Label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    value={securityForm.currentPassword}
+                    onChange={(e) =>
+                      setSecurityForm((prev) => ({
+                        ...prev,
+                        currentPassword: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={securityForm.newPassword}
+                    onChange={(e) =>
+                      setSecurityForm((prev) => ({
+                        ...prev,
+                        newPassword: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={securityForm.confirmPassword}
+                  onChange={(e) =>
+                    setSecurityForm((prev) => ({
+                      ...prev,
+                      confirmPassword: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="flex items-start justify-between rounded-xl border bg-muted/20 px-4 py-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 font-medium">
+                    <KeyRound className="h-4 w-4" />
+                    Two-Factor Authentication
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Add an extra layer of security to your account.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={handleSecurityPlaceholder}>
+                  Enable 2FA
+                </Button>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSecurityPlaceholder}
+                  disabled={!passwordDirty}
+                  className={passwordDirty ? "" : "opacity-70"}
+                >
+                  Update Password
+                </Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
-          <Card>
+          <Card className="app-surface">
             <CardHeader>
-              <div className="flex items-center justify-between gap-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Team Management
-                </CardTitle>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Team Management
+                  </CardTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Invite teammates and manage access for this workspace.
+                  </p>
+                </div>
                 <Dialog
                   open={isUserDialogOpen}
                   onOpenChange={setIsUserDialogOpen}
@@ -408,95 +518,134 @@ export default function Settings() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Member</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Last Login</TableHead>
-                      <TableHead>Access</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {teamMembers.map((member: any) => (
-                      <TableRow key={member.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={member.avatar} />
-                              <AvatarFallback>
-                                {member.name
-                                  ?.split(" ")
-                                  .map((n: string) => n[0])
-                                  .slice(0, 2)
-                                  .join("")
-                                  .toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{member.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {member.email}
+              {teamMembers.length === 0 ? (
+                <Empty className="border-dashed py-10">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Users className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>No team members yet</EmptyTitle>
+                    <EmptyDescription>
+                      Invite teammates to start collaborating in this workspace.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <div className="rounded-xl border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Member</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Last Login</TableHead>
+                        <TableHead>Access</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {teamMembers.map((member: any) => (
+                        <TableRow key={member.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-9 w-9">
+                                <AvatarImage src={member.avatar} />
+                                <AvatarFallback>
+                                  {member.name
+                                    ?.split(" ")
+                                    .map((n: string) => n[0])
+                                    .slice(0, 2)
+                                    .join("")
+                                    .toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium">{member.name}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {member.email}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{member.role}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-green-600">
-                            {member.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {member.last_login ? formatTime(member.last_login) : "Never"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {roleLabels[
-                              member.access as keyof typeof roleLabels
-                            ] || "Team Member"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingUserId(member.id)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700"
-                              onClick={() => {
-                                setMemberToDelete(member);
-                                setIsDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <h3 className="font-semibold">Sent Invites</h3>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{member.role}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-emerald-600">
+                              {member.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {member.last_login
+                              ? formatTime(member.last_login)
+                              : "Never"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {roleLabels[
+                                member.access as keyof typeof roleLabels
+                              ] || "Team Member"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingUserId(member.id)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700"
+                                onClick={() => {
+                                  setMemberToDelete(member);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
+              )}
+            </CardContent>
+          </Card>
 
-                <div className="rounded-lg border">
+          <Card className="app-surface">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Sent Invites
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {invitesLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Loading invites...
+                </div>
+              ) : invites.length === 0 ? (
+                <Empty className="border-dashed py-10">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Mail className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>No invites sent yet</EmptyTitle>
+                    <EmptyDescription>
+                      New invites will appear here with their current status and
+                      expiration date.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <div className="rounded-xl border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -509,47 +658,33 @@ export default function Settings() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {invitesLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center">
-                            Loading invites...
+                      {invites.map((invite) => (
+                        <TableRow key={invite.id}>
+                          <TableCell>{invite.email}</TableCell>
+                          <TableCell>{invite.role}</TableCell>
+                          <TableCell>{invite.access}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{invite.status}</Badge>
+                          </TableCell>
+                          <TableCell>{formatTime(invite.expires_at)}</TableCell>
+                          <TableCell className="text-right">
+                            {invite.status === "PENDING" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500"
+                                onClick={() => handleCancelInvite(invite.id)}
+                              >
+                                Cancel
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
-                      ) : invites.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center">
-                            No invites sent yet.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        invites.map((invite) => (
-                          <TableRow key={invite.id}>
-                            <TableCell>{invite.email}</TableCell>
-                            <TableCell>{invite.role}</TableCell>
-                            <TableCell>{invite.access}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{invite.status}</Badge>
-                            </TableCell>
-                            <TableCell>{formatTime(invite.expires_at)}</TableCell>
-                            <TableCell className="text-right">
-                              {invite.status === "PENDING" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-500"
-                                  onClick={() => handleCancelInvite(invite.id)}
-                                >
-                                  Cancel
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

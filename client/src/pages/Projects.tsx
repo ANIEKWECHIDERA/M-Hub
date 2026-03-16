@@ -27,6 +27,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -37,7 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 // import { Toaster } from "@/components/ui/sonner";
 import ProjectForm from "@/components/ProjectForm";
-import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, FolderOpen } from "lucide-react";
 import { useProjectContext } from "@/context/ProjectContext";
 import { Link } from "react-router-dom";
 import type { CreateProjectDTO } from "../Types/types";
@@ -140,6 +148,7 @@ export default function Projects() {
                   status: data.status || "Planning",
                   deadline: data.deadline || undefined,
                   description: data.description || undefined,
+                  client: data.client,
                   team_member_ids: Array.isArray(data.team_member_ids)
                     ? (data.team_member_ids as string[])
                     : [],
@@ -218,11 +227,21 @@ export default function Projects() {
           <TableSkeleton rows={5} />
         </div>
       ) : projects.length === 0 ? (
-        <div className="p-8 text-center text-muted-foreground">
-          No projects yet. Create your first project to get started.
+        <Empty className="app-surface border-dashed py-12">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FolderOpen className="size-5" />
+            </EmptyMedia>
+            <EmptyTitle>No projects yet</EmptyTitle>
+            <EmptyDescription>
+              Create your first project to start tracking work, clients, and
+              assignments.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button className="mt-4">
+              <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Your First Project
               </Button>
@@ -237,6 +256,7 @@ export default function Projects() {
                   const newProject: CreateProjectDTO = {
                     title: data.title || "",
                     client_id: data.client_id || undefined,
+                    client: data.client,
                     status: data.status || "Planning",
                     deadline: data.deadline || undefined,
                     description: data.description || undefined,
@@ -251,11 +271,17 @@ export default function Projects() {
               />
             </DialogContent>
           </Dialog>
-        </div>
+          </EmptyContent>
+        </Empty>
       ) : filteredProjects.length === 0 ? (
-        <div className="p-8 text-center text-muted-foreground">
-          No projects match your filters. Try adjusting your filters.
-        </div>
+        <Empty className="app-surface py-10">
+          <EmptyHeader>
+            <EmptyTitle>No matching projects</EmptyTitle>
+            <EmptyDescription>
+              Try adjusting your search or filter combination.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <Card>
           <CardHeader>
