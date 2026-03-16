@@ -4,11 +4,13 @@ import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddlewa
 import { profileSync } from "../middleware/profileSync.middleware";
 import { authorize } from "../middleware/authorize";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
+import { inviteLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
 
 router.post(
   "/invite",
+  inviteLimiter,
   verifyFirebaseToken,
   profileSync,
   requireAppUser,
@@ -16,7 +18,15 @@ router.post(
   InviteController.sendInvite,
 );
 
-router.post("/invite/accept", InviteController.acceptInvite);
+router.post(
+  "/invite/accept",
+  inviteLimiter,
+  verifyFirebaseToken,
+  profileSync,
+  InviteController.acceptInvite,
+);
+
+router.post("/invite/decline", inviteLimiter, InviteController.declineInvite);
 
 router.get(
   "/invites",

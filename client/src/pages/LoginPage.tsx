@@ -41,7 +41,13 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (currentUser) {
-      navigate("/dashboard", { replace: true });
+      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      navigate(
+        pendingInviteToken
+          ? `/invite/accept/${pendingInviteToken}`
+          : "/dashboard",
+        { replace: true },
+      );
     }
   }, [currentUser, navigate]);
 
@@ -80,7 +86,13 @@ export default function LoginPage() {
       return;
     }
     if (user) {
-      navigate("/dashboard", { replace: true });
+      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      navigate(
+        pendingInviteToken
+          ? `/invite/accept/${pendingInviteToken}`
+          : "/dashboard",
+        { replace: true },
+      );
     }
   };
 
@@ -91,7 +103,13 @@ export default function LoginPage() {
     const result = await signInWithGoogle();
 
     if (result) {
-      navigate("/dashboard", { replace: true });
+      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      navigate(
+        pendingInviteToken
+          ? `/invite/accept/${pendingInviteToken}`
+          : "/dashboard",
+        { replace: true },
+      );
     }
     setIsGoogleLoading(false);
     // Error is already set in context → will show below

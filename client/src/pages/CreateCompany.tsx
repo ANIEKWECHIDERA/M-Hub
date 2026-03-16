@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Building2 } from "lucide-react";
+import { Loader2, Building2, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/context/AuthContext";
 import { CompanyAPI } from "@/api/company.api";
+import { useUploadStatus } from "@/context/UploadStatusContext";
 
 export default function CreateCompany() {
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,8 @@ export default function CreateCompany() {
   const [logo, setLogo] = useState<File | null>(null);
 
   const navigate = useNavigate();
-  const { idToken, refreshStatus, authStatus } = useAuthContext();
+  const { idToken, refreshStatus, authStatus, logout } = useAuthContext();
+  const { startUpload, finishUpload } = useUploadStatus();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +30,7 @@ export default function CreateCompany() {
     }
 
     setLoading(true);
+    startUpload("Uploading company setup...");
 
     try {
       const formData = new FormData();
@@ -52,11 +55,23 @@ export default function CreateCompany() {
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
       setLoading(false);
+    } finally {
+      finishUpload();
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center p-6 relative">
+      <Button
+        type="button"
+        variant="outline"
+        className="absolute right-6 top-6"
+        onClick={logout}
+        disabled={loading}
+      >
+        <LogOut className="mr-2 h-4 w-4" />
+        Logout
+      </Button>
       <Card className="w-full max-w-lg shadow-2xl">
         <CardHeader className="text-center pb-8">
           <div className="mx-auto w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-4">

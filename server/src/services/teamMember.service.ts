@@ -31,7 +31,12 @@ export const TeamMemberService = {
     }
 
     const profileComplete = data.profile_complete;
-    const hasCompany = data.has_company;
+    const memberships = data.team_members ?? [];
+    const hasCompany = Boolean(data.has_company || memberships.length > 0);
+    const activeMembership =
+      memberships.find((member: any) => member.company_id === data.company_id) ??
+      memberships[0] ??
+      null;
 
     // Compute onboarding state
     let onboardingState: string;
@@ -45,14 +50,12 @@ export const TeamMemberService = {
     }
 
     // Extract team member data (if exists)
-    const teamMember = data.team_members?.[0] ?? null;
-
     return {
       onboardingState,
       profileComplete,
       hasCompany,
-      access: teamMember?.access ?? null,
-      companyId: teamMember?.company_id ?? null,
+      access: activeMembership?.access ?? null,
+      companyId: activeMembership?.company_id ?? data.company_id ?? null,
     };
   },
 

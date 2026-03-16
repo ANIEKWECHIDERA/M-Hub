@@ -1,6 +1,7 @@
 // src/controllers/company.controller.ts
 import { Request, Response } from "express";
 import { CompanyService } from "../services/company.service";
+import { MediaService } from "../services/media.service";
 import { logger } from "../utils/logger";
 
 export const CompanyController = {
@@ -37,7 +38,20 @@ export const CompanyController = {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const company = await CompanyService.create(req.user, req.body);
+      const payload = {
+        ...req.body,
+      };
+
+      if (req.file) {
+        const upload = await MediaService.uploadImage(
+          req.file,
+          `companies/${req.user.id ?? "new-company"}`,
+          "logo",
+        );
+        payload.logoUrl = upload.secure_url;
+      }
+
+      const company = await CompanyService.create(req.user, payload);
 
       return res.status(201).json(company);
     } catch (error) {
@@ -55,7 +69,20 @@ export const CompanyController = {
     const companyId = req.user.company_id;
 
     try {
-      const company = await CompanyService.update(companyId, req.body);
+      const payload = {
+        ...req.body,
+      };
+
+      if (req.file) {
+        const upload = await MediaService.uploadImage(
+          req.file,
+          `companies/${companyId}`,
+          "logo",
+        );
+        payload.logoUrl = upload.secure_url;
+      }
+
+      const company = await CompanyService.update(companyId, payload);
 
       if (!company) {
         return res.status(404).json({ error: "Company not found" });

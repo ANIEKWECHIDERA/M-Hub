@@ -33,6 +33,7 @@ router.patch(
   profileSync,
   requireAppUser,
   authorize(["superAdmin"]),
+  upload.single("logo"),
   CompanyController.updateCompany,
 );
 

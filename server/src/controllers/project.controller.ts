@@ -85,10 +85,23 @@ export const ProjectController = {
 
   async createProject(req: any, res: Response) {
     const companyId = req.user.company_id;
+    const rawClientId = String(req.body?.client_id ?? "").trim();
+    const isUuid =
+      !rawClientId ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        rawClientId,
+      );
 
     const payload: CreateProjectDTO = {
       ...req.body,
       company_id: companyId,
+      client_id: isUuid ? rawClientId || undefined : undefined,
+      client:
+        !isUuid && rawClientId
+          ? {
+              name: rawClientId,
+            }
+          : req.body?.client,
     };
 
     try {
@@ -125,8 +138,25 @@ export const ProjectController = {
   async updateProject(req: any, res: Response) {
     const { id } = req.params;
     const companyId = req.user.company_id;
+    const rawClientId = String(req.body?.client_id ?? "").trim();
+    const isUuid =
+      !rawClientId ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        rawClientId,
+      );
 
-    const payload: UpdateProjectDTO = req.body;
+    const payload: UpdateProjectDTO & {
+      client?: { name: string };
+    } = {
+      ...req.body,
+      client_id: isUuid ? rawClientId || undefined : undefined,
+      client:
+        !isUuid && rawClientId
+          ? {
+              name: rawClientId,
+            }
+          : req.body?.client,
+    };
 
     try {
       logger.info("ProjectController: updateProject: updating project", {

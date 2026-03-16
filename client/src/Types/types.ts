@@ -6,6 +6,12 @@ export interface CreateProjectDTO {
   status?: "Active" | "Planning" | "In Progress" | "On Hold" | "Completed";
   deadline?: string; // ISO string
   client_id?: string;
+  client?: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
   team_member_ids?: string[];
 }
 
@@ -631,12 +637,23 @@ export interface UpdateUserDTO {
   display_name?: string;
   photo_url?: string;
   profile_complete?: boolean;
+  terms_accepted?: true;
+}
+
+export interface WorkspaceSummary {
+  companyId: string;
+  name: string;
+  logoUrl: string | null;
+  role: string;
+  access: string;
+  status: string;
+  isActive: boolean;
 }
 
 export interface UserContextType {
   profile: UserProfile | null;
   loading: boolean;
-  updateProfile: (data: Partial<UserProfile>) => Promise<boolean>;
+  updateProfile: (data: Partial<UserProfile> | FormData) => Promise<boolean>;
   deleteAccount?: () => Promise<boolean>;
   fetchUserProfile: (idToken: string) => Promise<UserProfile | null>;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;

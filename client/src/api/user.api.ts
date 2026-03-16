@@ -16,7 +16,7 @@ export const UserAPI = {
     return apiFetch<{ profile: UserProfile }>("/api/user", undefined, idToken);
   },
 
-  update(payload: UpdateUserDTO, idToken: string | null) {
+  update(payload: UpdateUserDTO | FormData, idToken: string | null) {
     if (!idToken) {
       throw new Error("Missing ID token");
     }

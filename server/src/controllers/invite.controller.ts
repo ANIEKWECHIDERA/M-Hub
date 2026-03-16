@@ -6,7 +6,9 @@ import { logger } from "../utils/logger";
 export const InviteController = {
   async sendInvite(req: Request, res: Response) {
     const userId = req.user?.id;
-    const { email, access, role } = req.body;
+    const email = String(req.body?.email ?? "").trim().toLowerCase();
+    const role = String(req.body?.role ?? "").trim();
+    const access = String(req.body?.access ?? "team_member").trim();
 
     logger.info("InviteController.sendInvite: start", { userId, email });
 
@@ -38,11 +40,8 @@ export const InviteController = {
 
       // TODO: send email notification here
 
-      let inviteLink = `https://m-hub.com/invite/accept/${token}`;
-
-      if (token) {
-        inviteLink = `https://m-hub.com/invite/accept/${token}`;
-      }
+      const frontendBaseUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+      const inviteLink = `${frontendBaseUrl}/invite/accept/${token}`;
 
       logger.info(`Simulated Mail:
 
@@ -63,15 +62,13 @@ ${inviteLink}
         error: err.message,
         stack: err.stack,
       });
-      return res
-        .status(500)
-        .json({ error: "Failed to send invite", details: err.message });
+      return res.status(400).json({ error: err.message });
     }
   },
 
   async acceptInvite(req: Request, res: Response) {
     const userId = req.user?.id;
-    const { token, access } = req.body;
+    const token = String(req.body?.token ?? "").trim();
 
     logger.info("InviteController.acceptInvite: start", {
       userId,
@@ -87,7 +84,7 @@ ${inviteLink}
     }
 
     try {
-      const result = await InviteService.acceptInvite(token, userId, access);
+      const result = await InviteService.acceptInvite(token, userId);
 
       return res.status(200).json({
         message: "Invite accepted successfully",
@@ -101,6 +98,25 @@ ${inviteLink}
       return res.status(400).json({
         error: error.message,
       });
+    }
+  },
+
+  async declineInvite(req: Request, res: Response) {
+    const token = String(req.body?.token ?? "").trim();
+
+    if (!token) {
+      return res.status(400).json({ error: "Invite token is required" });
+    }
+
+    try {
+      await InviteService.declineInvite(token);
+      return res.status(200).json({ message: "Invite declined successfully" });
+    } catch (error: any) {
+      logger.error("InviteController.declineInvite: error", {
+        error: error.message,
+      });
+
+      return res.status(400).json({ error: error.message });
     }
   },
 

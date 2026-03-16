@@ -3,6 +3,7 @@ export interface CompanyResponseDTO {
   id: string;
   name: string;
   description?: string | null;
+  logo_url?: string | null;
   created_at: string;
 }
 
@@ -16,4 +17,5 @@ export interface CreateCompanyDTO {
 export interface UpdateCompanyDTO {
   name?: string;
   description?: string | null;
+  logoUrl?: string | null;
 }

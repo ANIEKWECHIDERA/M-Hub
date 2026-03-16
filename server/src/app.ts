@@ -20,6 +20,8 @@ import noteTagRoutes from "./routes/noteTag.routes";
 import notificationRoutes from "./routes/notification.routes";
 import userSettingsRoutes from "./routes/userSettings.routes";
 import bodyParser from "body-parser";
+import workspaceRoutes from "./routes/workspace.routes";
+import { apiLimiter } from "./middleware/rateLimiter";
 
 const app = express();
 
@@ -36,6 +38,7 @@ app.use(
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json({}));
 app.use(express.urlencoded({ extended: true }));
+app.use("/api", apiLimiter);
 
 app.use(
   morgan("combined", {
@@ -63,6 +66,7 @@ app.use("/api/", noteTagRoutes);
 app.use("/api/", notificationRoutes);
 app.use("/api/", userSettingsRoutes);
 app.use("/api/", inviteRoutes);
+app.use("/api/", workspaceRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {

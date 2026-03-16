@@ -116,17 +116,18 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   }, [currentUser, idToken, loadProfile]);
 
   const updateProfile = useCallback(
-    async (updates: Partial<UserProfile>): Promise<boolean> => {
+    async (updates: Partial<UserProfile> | FormData): Promise<boolean> => {
       if (!idToken) return false;
 
       try {
+        const isFormData = updates instanceof FormData;
         const res = await fetch(`${API_CONFIG.backend}/api/user`, {
           method: "PATCH",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
+            ...(isFormData ? {} : { "Content-Type": "application/json" }),
           },
-          body: JSON.stringify(updates),
+          body: isFormData ? updates : JSON.stringify(updates),
         });
 
         if (!res.ok) throw new Error("Update failed");

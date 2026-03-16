@@ -32,7 +32,7 @@ export const ProjectContextProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const { idToken } = useAuthContext();
+  const { idToken, authStatus } = useAuthContext();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
@@ -65,8 +65,12 @@ export const ProjectContextProvider = ({
   }, [idToken]);
 
   useEffect(() => {
+    if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
+      setProjects([]);
+      return;
+    }
     fetchProjects();
-  }, [fetchProjects]);
+  }, [fetchProjects, idToken, authStatus?.companyId, authStatus?.onboardingState]);
 
   const addProject = async (data: CreateProjectDTO) => {
     if (!idToken) {

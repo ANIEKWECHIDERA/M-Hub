@@ -182,8 +182,15 @@ export default function SignUpPage() {
       // Clear saved form data from localStorage
       localStorage.removeItem("signUpFormData");
 
+      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+
       // Redirect to dashboard ONLY on full success
-      navigate("/dashboard", { replace: true });
+      navigate(
+        pendingInviteToken
+          ? `/invite/accept/${pendingInviteToken}`
+          : "/dashboard",
+        { replace: true },
+      );
     } catch (err: any) {
       toast.error(
         err.message || "Failed to complete signup. Please try again.",
@@ -218,7 +225,13 @@ export default function SignUpPage() {
     const result = await signInWithGoogle();
 
     if (result) {
-      navigate("/dashboard", { replace: true });
+      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      navigate(
+        pendingInviteToken
+          ? `/invite/accept/${pendingInviteToken}`
+          : "/dashboard",
+        { replace: true },
+      );
     }
 
     setIsGoogleLoading(false);
