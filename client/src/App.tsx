@@ -42,6 +42,24 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return currentUser ? <Navigate to="/dashboard" replace /> : <>{children}</>;
 }
 
+function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { loading, authStatus } = useAuthContext();
+
+  if (loading || !authStatus) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (authStatus.access === "team_member") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -105,7 +123,14 @@ function AppWithAuth() {
           <Route path="projects" element={<Projects />} />
           <Route path="chat" element={<Chat />} />
           <Route path="notepad" element={<Notepad />} />
-          <Route path="tools" element={<Tools />} />
+          <Route
+            path="tools"
+            element={
+              <AdminOnlyRoute>
+                <Tools />
+              </AdminOnlyRoute>
+            }
+          />
           <Route path="settings" element={<Settings />} />
           <Route path="mytasks" element={<MyTasksPage />} />
           <Route path="projectdetails/:id" element={<ProjectDetailWrapper />} />

@@ -78,14 +78,10 @@ export const AssetContextProvider = ({
       );
 
       setFiles((prev) => [...uploaded, ...prev]);
-      finishUpload({ success: true, message: "Upload completed" });
-      toast.success("Files uploaded successfully");
+      finishUpload();
     } catch (err: any) {
-      finishUpload({
-        success: false,
-        message: err.message || "Upload failed",
-      });
-      toast.error(err.message || "Upload failed");
+      finishUpload();
+      setError(err.message || "Upload failed");
     }
   };
 

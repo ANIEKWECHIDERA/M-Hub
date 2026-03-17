@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -17,13 +16,17 @@ import {
   Settings,
   Target,
   Building2,
-  ChevronsUpDown,
   Loader2,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/context/AuthContext";
 import { workspaceAPI, type Workspace } from "@/api/workspace.api";
 import { toast } from "sonner";
+import {
+  getAllowedSettingsSections,
+  type SettingsSection,
+} from "@/config/settings-nav";
 import {
   Sidebar as AppSidebar,
   SidebarContent as SidebarBody,
@@ -44,12 +47,15 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const navigation: NavItem[] = [
+const baseNavigation: NavItem[] = [
   { name: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", to: "/projects", icon: FolderOpen },
   { name: "My Tasks", to: "/mytasks", icon: Target },
   { name: "Chat", to: "/chat", icon: MessageSquare },
-  { name: "Notepad", to: "/notepad", icon: FileText },
+  { name: "Notes", to: "/notepad", icon: FileText },
+];
+
+const adminNavigation: NavItem[] = [
   { name: "Settings", to: "/settings", icon: Settings },
 ];
 
@@ -59,8 +65,8 @@ interface SidebarPanelProps {
   currentWorkspace: Workspace | null;
   loadingWorkspaces: boolean;
   onSwitchWorkspace: (companyId: string) => Promise<void>;
-  onToggleCollapse: () => void;
   pathname: string;
+  search: string;
 }
 
 function SidebarPanel({
@@ -69,11 +75,33 @@ function SidebarPanel({
   currentWorkspace,
   loadingWorkspaces,
   onSwitchWorkspace,
-  onToggleCollapse,
   pathname,
+  search,
 }: SidebarPanelProps) {
   const isExpanded = !collapsed;
   const { isMobile, setOpenMobile } = useSidebar();
+  const { authStatus } = useAuthContext();
+  const isTeamMember = authStatus?.access === "team_member";
+  const navigation = baseNavigation;
+  const settingsSections = getAllowedSettingsSections(isTeamMember);
+  const activeSettingsSection = useMemo(() => {
+    const params = new URLSearchParams(search);
+    const section = params.get("section") as SettingsSection | null;
+
+    return (
+      settingsSections.find((item) => item.id === section)?.id ??
+      settingsSections[0]?.id ??
+      "profile"
+    );
+  }, [search, settingsSections]);
+  const settingsOpenByDefault = pathname === "/settings";
+  const [settingsOpen, setSettingsOpen] = useState(settingsOpenByDefault);
+
+  useEffect(() => {
+    if (pathname === "/settings") {
+      setSettingsOpen(true);
+    }
+  }, [pathname]);
 
   const handleNavClick = () => {
     if (isMobile) {
@@ -84,36 +112,23 @@ function SidebarPanel({
   return (
     <>
       <SidebarHeader className={cn("space-y-3", !isExpanded && "px-2")}>
-        <div className="flex items-center justify-between gap-2">
-          <div
-            className={cn(
-              "flex items-center gap-3",
-              !isExpanded && "justify-center",
-            )}
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground">
-              <span className="text-lg font-bold">M</span>
-            </div>
-            {isExpanded && (
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  M-Hub
-                </p>
-                <p className="text-base font-semibold">Workspace Hub</p>
-              </div>
-            )}
+        <div
+          className={cn(
+            "flex items-center gap-3",
+            !isExpanded && "justify-center",
+          )}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground">
+            <span className="text-lg font-bold">M</span>
           </div>
-
-          {/* {!isMobile && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleCollapse}
-              className="shrink-0 rounded-lg"
-            >
-              <ChevronsUpDown className="h-4 w-4" />
-            </Button>
-          )} */}
+          {isExpanded && (
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                M-Hub
+              </p>
+              <p className="text-base font-semibold">Workspace Hub</p>
+            </div>
+          )}
         </div>
 
         <div
@@ -204,7 +219,8 @@ function SidebarPanel({
                       tooltip={!isExpanded ? item.name : undefined}
                       aria-label={item.name}
                       className={cn(
-                        !isExpanded && "mx-auto h-10 w-10 justify-center px-0",
+                        !isExpanded &&
+                          "mx-auto h-10 w-10 justify-center px-0",
                       )}
                     >
                       <Link to={item.to} onClick={handleNavClick}>
@@ -215,6 +231,92 @@ function SidebarPanel({
                   </SidebarMenuItem>
                 );
               })}
+
+              {!isTeamMember &&
+                adminNavigation.map((item) => {
+                  const isSettingsRoute = pathname === item.to;
+                  const isActive = isSettingsRoute;
+                  const settingsLink = `/settings?section=${activeSettingsSection}`;
+
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <div className="relative">
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={!isExpanded ? item.name : undefined}
+                          aria-label={item.name}
+                          className={cn(
+                            !isExpanded && "mx-auto h-10 w-10 justify-center px-0",
+                            isExpanded && settingsOpen && "pr-10",
+                          )}
+                        >
+                          <Link
+                            to={settingsLink}
+                            onClick={() => {
+                              if (isExpanded) {
+                                setSettingsOpen(true);
+                              }
+                              handleNavClick();
+                            }}
+                          >
+                            <item.icon className="h-5 w-5" />
+                            {isExpanded && <span>{item.name}</span>}
+                          </Link>
+                        </SidebarMenuButton>
+
+                        {isExpanded && (
+                          <button
+                            type="button"
+                            aria-label={
+                              settingsOpen ? "Collapse settings menu" : "Expand settings menu"
+                            }
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setSettingsOpen((value) => !value);
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                          >
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 transition-transform",
+                                settingsOpen && "rotate-180",
+                              )}
+                            />
+                          </button>
+                        )}
+                      </div>
+
+                      {isExpanded && settingsOpen && (
+                        <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                          {settingsSections.map((section) => {
+                            const Icon = section.icon;
+                            const isSectionActive =
+                              isSettingsRoute && activeSettingsSection === section.id;
+
+                            return (
+                              <Link
+                                key={section.id}
+                                to={`/settings?section=${section.id}`}
+                                onClick={handleNavClick}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
+                                  isSectionActive
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                                <span>{section.label}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -225,19 +327,15 @@ function SidebarPanel({
           <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
             <p className="text-sm font-medium">Workspace controls</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Switch teams, manage members, and keep your workspaces separate.
+              Switch teams and keep each company workspace isolated.
             </p>
           </div>
         ) : (
-          <Button
-            variant="outline"
-            size="icon"
-            className="mx-auto rounded-lg"
-            title="Expand sidebar"
-            onClick={onToggleCollapse}
-          >
-            <ChevronsUpDown className="h-4 w-4" />
-          </Button>
+          <div className="flex justify-center">
+            <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </div>
         )}
       </SidebarFooter>
     </>
@@ -245,10 +343,17 @@ function SidebarPanel({
 }
 
 export function Sidebar() {
-  const pathname = useLocation().pathname;
+  const location = useLocation();
+  const pathname = location.pathname;
   const navigate = useNavigate();
-  const { idToken, refreshStatus, authStatus } = useAuthContext();
-  const { open, setOpen } = useSidebar();
+  const {
+    idToken,
+    refreshStatus,
+    authStatus,
+    startWorkspaceSwitch,
+    finishWorkspaceSwitch,
+  } = useAuthContext();
+  const { open } = useSidebar();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
 
@@ -262,10 +367,6 @@ export function Sidebar() {
       null,
     [workspaces, authStatus?.companyId],
   );
-
-  const toggleCollapse = () => {
-    setOpen((value) => !value);
-  };
 
   const loadWorkspaces = async () => {
     if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
@@ -293,12 +394,14 @@ export function Sidebar() {
     }
 
     try {
+      startWorkspaceSwitch(companyId);
       await workspaceAPI.switch(companyId, idToken);
       await refreshStatus();
       await loadWorkspaces();
       navigate("/dashboard");
       toast.success("Workspace switched");
     } catch (error: any) {
+      finishWorkspaceSwitch();
       toast.error(error.message || "Failed to switch workspace");
     }
   };
@@ -311,8 +414,8 @@ export function Sidebar() {
         currentWorkspace={currentWorkspace}
         loadingWorkspaces={loadingWorkspaces}
         onSwitchWorkspace={handleSwitchWorkspace}
-        onToggleCollapse={toggleCollapse}
         pathname={pathname}
+        search={location.search}
       />
     </AppSidebar>
   );

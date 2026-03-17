@@ -128,6 +128,27 @@ export const TeamContextProvider = ({
     fetchTeamMembers();
   }, [idToken, authStatus?.companyId, authStatus?.onboardingState]);
 
+  useEffect(() => {
+    if (!profile?.id) {
+      return;
+    }
+
+    setTeamMembers((prev) =>
+      prev.map((member) =>
+        member.user_id === profile.id
+          ? {
+              ...member,
+              name:
+                [profile.first_name, profile.last_name]
+                  .filter(Boolean)
+                  .join(" ") || member.name,
+              avatar: profile.photoURL ?? member.avatar,
+            }
+          : member,
+      ),
+    );
+  }, [profile?.first_name, profile?.id, profile?.last_name, profile?.photoURL]);
+
   return (
     <TeamContext.Provider
       value={{

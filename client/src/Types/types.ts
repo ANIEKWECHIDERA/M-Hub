@@ -592,6 +592,10 @@ export interface AuthContextType {
   authStatus: AuthStatus | null;
   refreshStatus: () => Promise<void>;
   isAppReady: boolean;
+  isWorkspaceSwitching: boolean;
+  workspaceSwitchCompanyId: string | null;
+  startWorkspaceSwitch: (companyId: string) => void;
+  finishWorkspaceSwitch: () => void;
 }
 
 export type OnboardingState =

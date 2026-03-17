@@ -35,8 +35,10 @@ import {
 import ProjectForm from "@/components/ProjectForm";
 import type { CreateProjectDTO } from "@/Types/types";
 import { DashboardSkeleton } from "@/components/DashBoardSkeleton";
+import { useAuthContext } from "@/context/AuthContext";
 
 export default function Dashboard() {
+  const { authStatus } = useAuthContext();
   const { addProject, projects, loading, error } = useProjectContext();
   const { tasks } = useTaskContext();
   const { clients } = useClientContext();
@@ -48,6 +50,7 @@ export default function Dashboard() {
     clientFilter,
   );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const isTeamMember = authStatus?.access === "team_member";
   const { totalProjects, activeProjects, completedProjects, overdueProjects } =
     useProjectStats(projects, tasks);
   // console.log("tasks:", tasks, "projects:", projects);
@@ -71,42 +74,45 @@ export default function Dashboard() {
                 Get started by creating your first project.
               </p>
 
-              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Your First Project
-                  </Button>
-                </DialogTrigger>
+              {!isTeamMember && (
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Your First Project
+                    </Button>
+                  </DialogTrigger>
 
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New Project</DialogTitle>
-                    <DialogDescription>
-                      Input project details.
-                    </DialogDescription>
-                  </DialogHeader>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Create New Project</DialogTitle>
+                      <DialogDescription>
+                        Input project details.
+                      </DialogDescription>
+                    </DialogHeader>
 
-                  <ProjectForm
-                    onSave={async (data) => {
-                      const newProject: CreateProjectDTO = {
-                        title: data.title || "",
-                        client_id: data.client_id || undefined,
-                        status: data.status || "Planning",
-                        deadline: data.deadline || undefined,
-                        description: data.description || undefined,
-                        team_member_ids: Array.isArray(data.team_member_ids)
-                          ? (data.team_member_ids as string[])
-                          : [],
-                      };
+                    <ProjectForm
+                      onSave={async (data) => {
+                        const newProject: CreateProjectDTO = {
+                          title: data.title || "",
+                          client_id: data.client_id || undefined,
+                          client: data.client,
+                          status: data.status || "Planning",
+                          deadline: data.deadline || undefined,
+                          description: data.description || undefined,
+                          team_member_ids: Array.isArray(data.team_member_ids)
+                            ? (data.team_member_ids as string[])
+                            : [],
+                        };
 
-                      await addProject(newProject);
-                      setIsCreateOpen(false);
-                    }}
-                    onCancel={() => setIsCreateOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
+                        await addProject(newProject);
+                        setIsCreateOpen(false);
+                      }}
+                      onCancel={() => setIsCreateOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
           </Card>
         </div>

@@ -50,8 +50,10 @@ import { useProjectContext } from "@/context/ProjectContext";
 import { Link } from "react-router-dom";
 import type { CreateProjectDTO } from "../Types/types";
 import { TableSkeleton } from "@/components/TableSkeleton";
+import { useAuthContext } from "@/context/AuthContext";
 
 export default function Projects() {
+  const { authStatus } = useAuthContext();
   const {
     projects,
     loading,
@@ -72,6 +74,7 @@ export default function Projects() {
   const [dateTo, setDateTo] = useState<string>("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const isTeamMember = authStatus?.access === "team_member";
 
   const clients = useMemo(
     () => Array.from(new Set(projects.map((p) => p.client?.name ?? "Unknown"))),
@@ -127,7 +130,7 @@ export default function Projects() {
         </div>
 
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          {projects.length === 0 ? null : (
+          {projects.length === 0 || isTeamMember ? null : (
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -238,40 +241,42 @@ export default function Projects() {
               assignments.
             </EmptyDescription>
           </EmptyHeader>
-          <EmptyContent>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Your First Project
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Create New Project</DialogTitle>
-                <DialogDescription>Input project details.</DialogDescription>
-              </DialogHeader>
-              <ProjectForm
-                onSave={async (data) => {
-                  const newProject: CreateProjectDTO = {
-                    title: data.title || "",
-                    client_id: data.client_id || undefined,
-                    client: data.client,
-                    status: data.status || "Planning",
-                    deadline: data.deadline || undefined,
-                    description: data.description || undefined,
-                    team_member_ids: Array.isArray(data.team_member_ids)
-                      ? (data.team_member_ids as string[])
-                      : [],
-                  };
-                  await addProject(newProject);
-                  setIsCreateOpen(false);
-                }}
-                onCancel={() => setIsCreateOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
-          </EmptyContent>
+          {!isTeamMember && (
+            <EmptyContent>
+              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Project
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Create New Project</DialogTitle>
+                    <DialogDescription>Input project details.</DialogDescription>
+                  </DialogHeader>
+                  <ProjectForm
+                    onSave={async (data) => {
+                      const newProject: CreateProjectDTO = {
+                        title: data.title || "",
+                        client_id: data.client_id || undefined,
+                        client: data.client,
+                        status: data.status || "Planning",
+                        deadline: data.deadline || undefined,
+                        description: data.description || undefined,
+                        team_member_ids: Array.isArray(data.team_member_ids)
+                          ? (data.team_member_ids as string[])
+                          : [],
+                      };
+                      await addProject(newProject);
+                      setIsCreateOpen(false);
+                    }}
+                    onCancel={() => setIsCreateOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            </EmptyContent>
+          )}
         </Empty>
       ) : filteredProjects.length === 0 ? (
         <Empty className="app-surface py-10">
@@ -340,26 +345,30 @@ export default function Projects() {
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label={`Edit ${project.title}`}
-                          onClick={() => setEditingProjectId(project.id)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-500 hover:text-red-700"
-                          aria-label={`Delete ${project.title}`}
-                          onClick={() => {
-                            setProjectToDelete(project);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {!isTeamMember && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Edit ${project.title}`}
+                            onClick={() => setEditingProjectId(project.id)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {!isTeamMember && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700"
+                            aria-label={`Delete ${project.title}`}
+                            onClick={() => {
+                              setProjectToDelete(project);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -371,57 +380,61 @@ export default function Projects() {
       )}
 
       {/* Single Edit Dialog */}
-      <Dialog
-        open={!!editingProjectId}
-        onOpenChange={() => setEditingProjectId(null)}
-      >
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
-            <DialogDescription>
-              Update the task details and save your changes.
-            </DialogDescription>
-          </DialogHeader>
-          <ProjectForm
-            project={projects.find((p) => p.id === editingProjectId)}
-            onSave={async (data) => {
-              if (editingProjectId) {
-                await updateProject(editingProjectId, data as any);
-                setEditingProjectId(null);
-              }
-            }}
-            onCancel={() => setEditingProjectId(null)}
-          />
-        </DialogContent>
-      </Dialog>
+      {!isTeamMember && (
+        <Dialog
+          open={!!editingProjectId}
+          onOpenChange={() => setEditingProjectId(null)}
+        >
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit Project</DialogTitle>
+              <DialogDescription>
+                Update the task details and save your changes.
+              </DialogDescription>
+            </DialogHeader>
+            <ProjectForm
+              project={projects.find((p) => p.id === editingProjectId)}
+              onSave={async (data) => {
+                if (editingProjectId) {
+                  await updateProject(editingProjectId, data as any);
+                  setEditingProjectId(null);
+                }
+              }}
+              onCancel={() => setEditingProjectId(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete{" "}
-              <strong>{projectToDelete?.title}</strong>? This action cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex justify-end gap-2 pt-4">
-            <AlertDialogCancel onClick={() => setProjectToDelete(null)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
+      {!isTeamMember && (
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Project</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete{" "}
+                <strong>{projectToDelete?.title}</strong>? This action cannot be
+                undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex justify-end gap-2 pt-4">
+              <AlertDialogCancel onClick={() => setProjectToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </AlertDialogAction>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
       {/* Sonner toaster */}
       {/* <Toaster position="top-right" /> */}

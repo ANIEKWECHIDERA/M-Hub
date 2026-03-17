@@ -35,6 +35,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [isWorkspaceSwitching, setIsWorkspaceSwitching] = useState(false);
+  const [workspaceSwitchCompanyId, setWorkspaceSwitchCompanyId] = useState<
+    string | null
+  >(null);
 
   const clearError = () => setError(null);
 
@@ -52,6 +56,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setCurrentUser(null);
       setIdToken(null);
       setAuthStatus(null);
+      setIsWorkspaceSwitching(false);
+      setWorkspaceSwitchCompanyId(null);
       return;
     }
 
@@ -232,9 +238,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setCurrentUser(null);
       setAuthStatus(null);
       setIdToken(null);
+      setIsWorkspaceSwitching(false);
+      setWorkspaceSwitchCompanyId(null);
     } finally {
       setAuthLoading(false);
     }
+  };
+
+  const startWorkspaceSwitch = (companyId: string) => {
+    setWorkspaceSwitchCompanyId(companyId);
+    setIsWorkspaceSwitching(true);
+  };
+
+  const finishWorkspaceSwitch = () => {
+    setIsWorkspaceSwitching(false);
+    setWorkspaceSwitchCompanyId(null);
   };
 
   const value: AuthContextType = {
@@ -250,6 +268,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     logout,
     clearError,
     idToken,
+    isWorkspaceSwitching,
+    workspaceSwitchCompanyId,
+    startWorkspaceSwitch,
+    finishWorkspaceSwitch,
   };
 
   return (

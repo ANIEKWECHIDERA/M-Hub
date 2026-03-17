@@ -1,8 +1,14 @@
 import * as React from "react";
-import { PanelLeft } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type SidebarContextValue = {
@@ -64,7 +70,9 @@ export function SidebarProvider({
   );
 
   return (
-    <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>
+    <SidebarContext.Provider value={value}>
+      <TooltipProvider delayDuration={120}>{children}</TooltipProvider>
+    </SidebarContext.Provider>
   );
 }
 
@@ -82,7 +90,7 @@ export function SidebarTrigger({
   className,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, open } = useSidebar();
 
   return (
     <Button
@@ -93,7 +101,11 @@ export function SidebarTrigger({
       onClick={toggleSidebar}
       {...props}
     >
-      <PanelLeft className="h-4 w-4" />
+      {open ? (
+        <PanelLeftClose className="h-4 w-4" />
+      ) : (
+        <PanelLeftOpen className="h-4 w-4" />
+      )}
       <span className="sr-only">Toggle sidebar</span>
     </Button>
   );
@@ -235,10 +247,9 @@ export function SidebarMenuButton({
   isActive?: boolean;
   tooltip?: string;
 }) {
-  return (
+  const button = (
     <Button
       variant={isActive ? "secondary" : "ghost"}
-      title={tooltip}
       className={cn(
         "h-10 w-full justify-start gap-3 rounded-lg border border-transparent px-3 text-sm font-medium shadow-none",
         isActive &&
@@ -247,5 +258,16 @@ export function SidebarMenuButton({
       )}
       {...props}
     />
+  );
+
+  if (!tooltip) {
+    return button;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="right">{tooltip}</TooltipContent>
+    </Tooltip>
   );
 }

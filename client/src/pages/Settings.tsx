@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Bell,
@@ -54,7 +55,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  getAllowedSettingsSections,
+  type SettingsSection,
+} from "@/config/settings-nav";
 import { useAuthContext } from "@/context/AuthContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useUploadStatus } from "@/context/UploadStatusContext";
@@ -90,6 +94,8 @@ export default function Settings() {
   const { profile, updateProfile } = useUser();
   const { idToken, authStatus } = useAuthContext();
   const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
+  const isTeamMember = authStatus?.access === "team_member";
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -130,6 +136,24 @@ export default function Settings() {
     Boolean(avatarFile);
 
   const passwordDirty = Object.values(securityForm).some(Boolean);
+  const sections = useMemo(() => getAllowedSettingsSections(isTeamMember), [isTeamMember]);
+  const activeSection = useMemo(() => {
+    const section = searchParams.get("section") as SettingsSection | null;
+
+    return (
+      sections.find((item) => item.id === section)?.id ??
+      sections[0]?.id ??
+      "profile"
+    );
+  }, [searchParams, sections]);
+
+  useEffect(() => {
+    const currentSection = searchParams.get("section") as SettingsSection | null;
+
+    if (!sections.some((section) => section.id === currentSection)) {
+      setSearchParams({ section: sections[0]?.id ?? "profile" }, { replace: true });
+    }
+  }, [searchParams, sections, setSearchParams]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -257,30 +281,19 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your profile, security preferences, and workspace members.
-        </p>
+      <div className="sticky top-0 z-10 -mx-1 rounded-xl bg-background/95 px-1 pb-3 backdrop-blur">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="text-muted-foreground">
+            {isTeamMember
+              ? "Manage your profile, notifications, and team visibility."
+              : "Manage your profile, workspace, and invite operations from one place."}
+          </p>
+        </div>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-5">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border bg-muted/40 p-1 md:grid-cols-4">
-          <TabsTrigger value="profile" className="rounded-lg">
-            Profile
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="rounded-lg">
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="security" className="rounded-lg">
-            Security
-          </TabsTrigger>
-          <TabsTrigger value="users" className="rounded-lg">
-            Team
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="profile" className="space-y-4">
+      <div className="space-y-4">
+        {activeSection === "profile" && (
           <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -362,9 +375,9 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
-        <TabsContent value="notifications" className="space-y-4">
+        {activeSection === "notifications" && (
           <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -394,9 +407,9 @@ export default function Settings() {
               ))}
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
-        <TabsContent value="security" className="space-y-4">
+        {!isTeamMember && activeSection === "security" && (
           <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -477,44 +490,21 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
-        <TabsContent value="users" className="space-y-4">
+        {activeSection === "team" && (
           <Card className="app-surface">
             <CardHeader>
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Team Management
-                  </CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Invite teammates and manage access for this workspace.
-                  </p>
-                </div>
-                <Dialog
-                  open={isUserDialogOpen}
-                  onOpenChange={setIsUserDialogOpen}
-                >
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Invite Team Member
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>Invite Team Member</DialogTitle>
-                      <DialogDescription>
-                        Invite a teammate into your current workspace.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <InviteForm
-                      onSave={handleInviteSave}
-                      onCancel={() => setIsUserDialogOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Team Management
+                </CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isTeamMember
+                    ? "See who belongs to your current workspace."
+                    : "Manage the teammates already active in this workspace."}
+                </p>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -531,16 +521,18 @@ export default function Settings() {
                   </EmptyHeader>
                 </Empty>
               ) : (
-                <div className="rounded-xl border">
+                <div className="overflow-x-auto rounded-xl border">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Member</TableHead>
                         <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Last Login</TableHead>
-                        <TableHead>Access</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        {!isTeamMember && <TableHead>Status</TableHead>}
+                        {!isTeamMember && <TableHead>Last Login</TableHead>}
+                        {!isTeamMember && <TableHead>Access</TableHead>}
+                        {!isTeamMember && (
+                          <TableHead className="text-right">Actions</TableHead>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -570,45 +562,53 @@ export default function Settings() {
                           <TableCell>
                             <Badge variant="outline">{member.role}</Badge>
                           </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-emerald-600">
-                              {member.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {member.last_login
-                              ? formatTime(member.last_login)
-                              : "Never"}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">
-                              {roleLabels[
-                                member.access as keyof typeof roleLabels
-                              ] || "Team Member"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingUserId(member.id)}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-500 hover:text-red-700"
-                                onClick={() => {
-                                  setMemberToDelete(member);
-                                  setIsDeleteDialogOpen(true);
-                                }}
-                              >
-                                Remove
-                              </Button>
-                            </div>
-                          </TableCell>
+                          {!isTeamMember && (
+                            <TableCell>
+                              <Badge variant="outline" className="text-emerald-600">
+                                {member.status}
+                              </Badge>
+                            </TableCell>
+                          )}
+                          {!isTeamMember && (
+                            <TableCell>
+                              {member.last_login
+                                ? formatTime(member.last_login)
+                                : "Never"}
+                            </TableCell>
+                          )}
+                          {!isTeamMember && (
+                            <TableCell>
+                              <Badge variant="secondary">
+                                {roleLabels[
+                                  member.access as keyof typeof roleLabels
+                                ] || "Team Member"}
+                              </Badge>
+                            </TableCell>
+                          )}
+                          {!isTeamMember && (
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setEditingUserId(member.id)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-700"
+                                  onClick={() => {
+                                    setMemberToDelete(member);
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -617,127 +617,181 @@ export default function Settings() {
               )}
             </CardContent>
           </Card>
+        )}
 
-          <Card className="app-surface">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                Sent Invites
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {invitesLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader className="h-4 w-4 animate-spin" />
-                  Loading invites...
+        {!isTeamMember && activeSection === "invites" && (
+          <>
+            <Card className="app-surface">
+              <CardHeader>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Mail className="h-5 w-5" />
+                      Invite Management
+                    </CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Send invites, track status, and cancel pending access requests.
+                    </p>
+                  </div>
+                  <Dialog
+                    open={isUserDialogOpen}
+                    onOpenChange={setIsUserDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Invite Team Member
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                      <DialogHeader>
+                        <DialogTitle>Invite Team Member</DialogTitle>
+                        <DialogDescription>
+                          Invite a teammate into your current workspace.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <InviteForm
+                        onSave={handleInviteSave}
+                        onCancel={() => setIsUserDialogOpen(false)}
+                      />
+                    </DialogContent>
+                  </Dialog>
                 </div>
-              ) : invites.length === 0 ? (
-                <Empty className="border-dashed py-10">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <Mail className="size-5" />
-                    </EmptyMedia>
-                    <EmptyTitle>No invites sent yet</EmptyTitle>
-                    <EmptyDescription>
-                      New invites will appear here with their current status and
-                      expiration date.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              ) : (
-                <div className="rounded-xl border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Access</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Expires</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {invites.map((invite) => (
-                        <TableRow key={invite.id}>
-                          <TableCell>{invite.email}</TableCell>
-                          <TableCell>{invite.role}</TableCell>
-                          <TableCell>{invite.access}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{invite.status}</Badge>
-                          </TableCell>
-                          <TableCell>{formatTime(invite.expires_at)}</TableCell>
-                          <TableCell className="text-right">
-                            {invite.status === "PENDING" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-500"
-                                onClick={() => handleCancelInvite(invite.id)}
-                              >
-                                Cancel
-                              </Button>
-                            )}
-                          </TableCell>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                  Pending and historical invites for this workspace are managed below.
+                  Use invite roles carefully because accepted invites affect workspace access
+                  immediately.
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="app-surface">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Sent Invites
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {invitesLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader className="h-4 w-4 animate-spin" />
+                    Loading invites...
+                  </div>
+                ) : invites.length === 0 ? (
+                  <Empty className="border-dashed py-10">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <Mail className="size-5" />
+                      </EmptyMedia>
+                      <EmptyTitle>No invites sent yet</EmptyTitle>
+                      <EmptyDescription>
+                        New invites will appear here with their current status and
+                        expiration date.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Access</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Expires</TableHead>
+                          <TableHead className="text-right">Action</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                      </TableHeader>
+                      <TableBody>
+                        {invites.map((invite) => (
+                          <TableRow key={invite.id}>
+                            <TableCell>{invite.email}</TableCell>
+                            <TableCell>{invite.role}</TableCell>
+                            <TableCell>{invite.access}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{invite.status}</Badge>
+                            </TableCell>
+                            <TableCell>{formatTime(invite.expires_at)}</TableCell>
+                            <TableCell className="text-right">
+                              {invite.status === "PENDING" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500"
+                                  onClick={() => handleCancelInvite(invite.id)}
+                                >
+                                  Cancel
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
 
-      <Dialog
-        open={Boolean(editingUserId)}
-        onOpenChange={() => setEditingUserId(null)}
-      >
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Edit Team Member</DialogTitle>
-            <DialogDescription>
-              Update the team member details and save your changes.
-            </DialogDescription>
-          </DialogHeader>
-          <TeamMemberForm
-            member={teamMembers.find((member: any) => member.id === editingUserId)}
-            onSave={async (data) => {
-              if (!editingUserId) return;
-              await updateTeamMember(editingUserId, data);
-              setEditingUserId(null);
-            }}
-            onCancel={() => setEditingUserId(null)}
-          />
-        </DialogContent>
-      </Dialog>
+      {!isTeamMember && (
+        <Dialog
+          open={Boolean(editingUserId)}
+          onOpenChange={() => setEditingUserId(null)}
+        >
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit Team Member</DialogTitle>
+              <DialogDescription>
+                Update the team member details and save your changes.
+              </DialogDescription>
+            </DialogHeader>
+            <TeamMemberForm
+              member={teamMembers.find((member: any) => member.id === editingUserId)}
+              onSave={async (data) => {
+                if (!editingUserId) return;
+                await updateTeamMember(editingUserId, data);
+                setEditingUserId(null);
+              }}
+              onCancel={() => setEditingUserId(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
 
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove{" "}
-              <strong>{memberToDelete?.name}</strong> from this workspace?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex justify-end gap-2 pt-4">
-            <AlertDialogCancel onClick={() => setMemberToDelete(null)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => confirmDelete()}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Remove
-            </AlertDialogAction>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
+      {!isTeamMember && (
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove{" "}
+                <strong>{memberToDelete?.name}</strong> from this workspace?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex justify-end gap-2 pt-4">
+              <AlertDialogCancel onClick={() => setMemberToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => confirmDelete()}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Remove
+              </AlertDialogAction>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

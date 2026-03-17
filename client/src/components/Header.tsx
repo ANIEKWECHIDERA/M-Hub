@@ -26,9 +26,10 @@ export function Header() {
   const { theme, setTheme } = useTheme();
   const { notifications, markAsRead, markAllAsRead, unreadCount } =
     useNotificationContext();
-  const { logout } = useAuthContext();
+  const { logout, authStatus } = useAuthContext();
   const { profile, loading: userLoading } = useUser();
   const navigate = useNavigate();
+  const isTeamMember = authStatus?.access === "team_member";
 
   // const [searchQuery, setSearchQuery] = useState("");
 
@@ -190,10 +191,10 @@ export function Header() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <Link to="/settings">
+              <Link to="/settings?section=profile">
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
+                  <span>{isTeamMember ? "Profile" : "Settings"}</span>
                 </DropdownMenuItem>
               </Link>
               <DropdownMenuSeparator />

@@ -18,7 +18,7 @@ export const MyTasksProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const { idToken } = useAuthContext();
+  const { idToken, authStatus } = useAuthContext();
   const { tasks: allTasks, updateTask } = useTaskContext();
 
   const [tasks, setTasks] = useState<TaskWithAssigneesDTO[]>([]);
@@ -82,8 +82,14 @@ export const MyTasksProvider = ({
   };
 
   useEffect(() => {
+    if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
     fetchMyTasks();
-  }, [idToken]);
+  }, [idToken, authStatus?.companyId, authStatus?.onboardingState]);
 
   return (
     <MyTasksContext.Provider

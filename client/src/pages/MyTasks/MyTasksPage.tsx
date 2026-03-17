@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { TaskStatus, TaskWithAssigneesDTO } from "@/Types/types";
 import { useMyTasksContext } from "@/context/MyTaskContext";
@@ -10,11 +10,14 @@ import { TaskDetailsSheet } from "./components/TaskDetailsSheet";
 import { MyTasksToolbar } from "./components/MyTasksToolbar";
 import { ClipboardList } from "lucide-react";
 import { MyTasksSkeleton } from "@/components/MyTasksSkeleton";
+import { MyTasksHeader } from "./components/MyTaskHeader";
+import { useAuthContext } from "@/context/AuthContext";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
 
 export function MyTasksPage() {
   /* ---------------- Context ---------------- */
+  const { authStatus } = useAuthContext();
   const { tasks, loading, error, refetch, updateTaskOptimistic } =
     useMyTasksContext();
 
@@ -25,6 +28,13 @@ export function MyTasksPage() {
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const workspaceKey = authStatus?.companyId ?? "default";
+
+  useEffect(() => {
+    setSelectedTask(null);
+    setDetailsOpen(false);
+    setViewMode("all");
+  }, [workspaceKey]);
 
   /* ---------------- Filters ---------------- */
   const filters = useMyTasksFilters(tasks);
@@ -105,19 +115,22 @@ export function MyTasksPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div key={workspaceKey} className="space-y-6">
+      <MyTasksHeader />
       {/* Toolbar */}
       {tasks.length > 0 && (
-        <MyTasksToolbar
-          search={filters.search}
-          status={filters.status}
-          priority={filters.priority}
-          onSearchChange={filters.setSearch}
-          onStatusChange={filters.setStatus}
-          onPriorityChange={filters.setPriority}
-          onClearFilters={filters.clearFilters}
-          hasActiveFilters={filters.hasActiveFilters}
-        />
+        <div className="sticky top-0 z-10 -mx-1 rounded-xl bg-background/95 px-1 pb-3 backdrop-blur">
+          <MyTasksToolbar
+            search={filters.search}
+            status={filters.status}
+            priority={filters.priority}
+            onSearchChange={filters.setSearch}
+            onStatusChange={filters.setStatus}
+            onPriorityChange={filters.setPriority}
+            onClearFilters={filters.clearFilters}
+            hasActiveFilters={filters.hasActiveFilters}
+          />
+        </div>
       )}
 
       {/* Stats */}
