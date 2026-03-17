@@ -37,7 +37,8 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
 
   const [formData, setFormData] = useState(initialForm);
 
-  const isDirty = !isEqual(formData, initialForm);
+  const isDirty =
+    !isEqual(formData, initialForm) || (showNewClientInput && !!newClient.trim());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,10 +104,12 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
             value={formData.client_id ?? ""}
             onValueChange={(value) => {
               if (value === "NewClient") {
+                setFormData((prev) => ({ ...prev, client_id: undefined }));
                 setShowNewClientInput(true);
               } else {
                 setFormData({ ...formData, client_id: value });
                 setShowNewClientInput(false);
+                setNewClient("");
               }
             }}
           >

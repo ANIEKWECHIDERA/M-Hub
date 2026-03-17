@@ -1,10 +1,7 @@
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { Outlet } from "react-router-dom";
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default function Layout() {
   return (

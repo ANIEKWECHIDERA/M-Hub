@@ -162,7 +162,10 @@ export function SidebarContent({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("flex flex-1 flex-col gap-4 overflow-y-auto p-3", className)}
+      className={cn(
+        "flex flex-1 flex-col gap-4 overflow-y-auto p-3",
+        className,
+      )}
       {...props}
     />
   );

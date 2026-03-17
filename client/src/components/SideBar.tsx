@@ -104,7 +104,7 @@ function SidebarPanel({
             )}
           </div>
 
-          {!isMobile && (
+          {/* {!isMobile && (
             <Button
               variant="ghost"
               size="icon"
@@ -113,7 +113,7 @@ function SidebarPanel({
             >
               <ChevronsUpDown className="h-4 w-4" />
             </Button>
-          )}
+          )} */}
         </div>
 
         <div
@@ -204,8 +204,7 @@ function SidebarPanel({
                       tooltip={!isExpanded ? item.name : undefined}
                       aria-label={item.name}
                       className={cn(
-                        !isExpanded &&
-                          "mx-auto h-10 w-10 justify-center px-0",
+                        !isExpanded && "mx-auto h-10 w-10 justify-center px-0",
                       )}
                     >
                       <Link to={item.to} onClick={handleNavClick}>
@@ -256,7 +255,9 @@ export function Sidebar() {
   const currentWorkspace = useMemo(
     () =>
       workspaces.find((workspace) => workspace.isActive) ??
-      workspaces.find((workspace) => workspace.companyId === authStatus?.companyId) ??
+      workspaces.find(
+        (workspace) => workspace.companyId === authStatus?.companyId,
+      ) ??
       workspaces[0] ??
       null,
     [workspaces, authStatus?.companyId],

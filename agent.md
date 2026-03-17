@@ -19,6 +19,7 @@ There is no root workspace package script. Treat `client` and `server` as separa
 ## Tech Stack
 
 - Frontend: React 19, React Router 7, Vite 7, Tailwind CSS, Radix UI
+- UI system: shadcn/ui primitives with a sidebar-based authenticated shell
 - Backend: Express 5, TypeScript
 - Auth: Firebase client auth + Firebase Admin token verification
 - Data: PostgreSQL, Prisma schema and migrations, Supabase JS runtime queries
@@ -75,6 +76,27 @@ The client uses multiple React context providers for project, task, note, asset,
 
 Before introducing new global state, check whether an existing context already owns it.
 
+### 5. Workspace-aware UI shell
+
+The authenticated app now uses a shadcn-style provider-based sidebar shell rather than a fixed custom sidebar.
+
+- Shell primitives live in `client/src/components/ui/sidebar.tsx`
+- The app sidebar implementation lives in `client/src/components/Sidebar.tsx`
+- Workspace switching depends on backend workspace routes and `authStatus.companyId`
+
+If you change workspace logic, check both the sidebar UI and the context providers that refetch when the active company changes.
+
+### 6. Upload UX is progress-aware
+
+Uploads now go through a shared progress-aware upload context instead of a generic loading strip.
+
+- Shared upload UI: `client/src/context/UploadStatusContext.tsx`
+- Image preprocessing helper: `client/src/lib/image-upload.ts`
+- Profile/company images are optimized client-side before upload
+- Asset uploads use explicit progress reporting
+
+If uploads break, inspect both the frontend upload helper/context and `server/src/services/media.service.ts`.
+
 ## Important Paths
 
 ### Backend
@@ -96,6 +118,7 @@ Before introducing new global state, check whether an existing context already o
 - Context providers: `client/src/context/`
 - Pages: `client/src/pages/`
 - Shared UI: `client/src/components/`
+- Image upload helper: `client/src/lib/image-upload.ts`
 
 ## Local Development
 
@@ -176,6 +199,17 @@ Frontend note:
 - API wrappers live under `client/src/api`
 - Cross-feature state is generally kept in context providers
 - Reusable UI primitives live under `client/src/components/ui`
+- Empty states should prefer the shadcn `Empty` component
+- Upload feedback should prefer the shared `Progress`-based upload status UX
+- The authenticated shell should stay visually flat: minimal shadows, stronger borders, quieter surfaces
+
+### Client quick-create convention
+
+Projects support quick-creating a client by name directly in the project form.
+
+- New client names should be sent as `client: { name }`, not as `client_id`
+- Backend project create/update logic resolves that into a `clients` row
+- `ClientContext` should be refreshed after quick-create so dropdowns, tables, and filters stay in sync
 
 ## Things to Double-Check Before Editing
 
@@ -184,6 +218,7 @@ Frontend note:
 - If a frontend page depends on onboarding state, test redirect behavior
 - If changing uploads, inspect both multer middleware and Cloudinary service usage
 - If changing invites, inspect route, controller, service, and `company_invite` schema together
+- If changing workspace-scoped pages, verify they refetch correctly when `authStatus.companyId` changes
 
 ## Known Sharp Edges
 
@@ -191,6 +226,8 @@ Frontend note:
 - There is no meaningful backend test suite configured yet
 - The frontend has a dense provider tree, so duplicated or misplaced providers can create confusing state behavior
 - Some config is hardcoded and not yet fully environment-driven on the client
+- Cloudinary image uploads can fail on oversized or slow files; this repo now expects client-side image optimization plus friendly timeout messaging
+- Context7 MCP has been unreliable in this environment, so verify local repo truth before assuming external docs are available
 
 ## Good Default Workflow for Agents
 
@@ -199,6 +236,7 @@ Frontend note:
 3. Search for schema usage before renaming fields
 4. Prefer small, scoped changes over broad refactors unless explicitly requested
 5. Update docs when architecture, setup, or developer workflow changes
+6. Remove generated `dist` folders after build/test runs if they were created during your work
 
 ## Recommended First Checks for Any Task
 
