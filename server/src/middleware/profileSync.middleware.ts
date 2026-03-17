@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { supabaseAdmin } from "../config/supabaseClient";
+import { RequestCacheService } from "../services/requestCache.service";
 import { logger } from "../utils/logger";
 import { UserService } from "../services/user.service";
 
@@ -20,9 +21,27 @@ export async function profileSync(
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  logger.info("profileSync: Checking user in DB", {
-    firebaseUid,
-  });
+  const cachedUser = RequestCacheService.getUser(firebaseUid);
+
+  if (cachedUser) {
+    void UserService.touchLastLoginIfNeeded({
+      firebaseUid,
+      userId: cachedUser.id,
+      lastLogin: cachedUser.last_login,
+    }).catch((touchError: any) => {
+      logger.warn("profileSync: Failed to update last login", {
+        firebaseUid,
+        error: touchError?.message ?? touchError,
+      });
+    });
+
+    req.user = {
+      ...req.user,
+      ...cachedUser,
+    };
+
+    return next();
+  }
 
   let { data: user, error } = await supabaseAdmin
     .from("users")
@@ -36,11 +55,6 @@ export async function profileSync(
   }
 
   if (!user) {
-    logger.info("profileSync: Creating new user", {
-      firebaseUid,
-      email: req.user.email,
-    });
-
     try {
       user = await UserService.createFromAuth({
         firebase_uid: firebaseUid,
@@ -61,15 +75,6 @@ export async function profileSync(
       return res.status(500).json({ error: "User creation failed" });
     }
 
-    logger.info("profileSync: User created", {
-      firebaseUid,
-      userId: user.id,
-    });
-  } else {
-    logger.info("profileSync: User found in DB", {
-      firebaseUid,
-      userId: user.id,
-    });
   }
 
   // Attach DB user to request
@@ -77,9 +82,17 @@ export async function profileSync(
     ...req.user,
     ...user,
   };
+  RequestCacheService.setUser(firebaseUid, user);
 
-  logger.info("profileSync: User ready", {
-    user_id: user.id,
+  void UserService.touchLastLoginIfNeeded({
+    firebaseUid,
+    userId: user.id,
+    lastLogin: user.last_login,
+  }).catch((touchError: any) => {
+    logger.warn("profileSync: Failed to update last login", {
+      firebaseUid,
+      error: touchError?.message ?? touchError,
+    });
   });
 
   next();

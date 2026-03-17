@@ -6,13 +6,12 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 
 // READ tags for a note (author only)
 router.get(
   "/notes/:noteId/tags",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   NoteTagController.getNoteTags,
 );
@@ -20,6 +19,7 @@ router.get(
 // ADD / UPDATE / REMOVE tags (replace-all strategy)
 router.put(
   "/notes/:noteId/tags",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   NoteTagController.upsertNoteTags,
 );

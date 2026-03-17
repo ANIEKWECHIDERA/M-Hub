@@ -85,6 +85,31 @@
     display: none;
   }
 
+  .table-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+    -ms-overflow-style: auto;
+  }
+
+  .table-scrollbar::-webkit-scrollbar {
+    display: block;
+    height: 7px;
+    width: 7px;
+  }
+
+  .table-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .table-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+  }
+
+  .table-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.45);
+  }
+
   body {
     @apply bg-background text-foreground;
   }

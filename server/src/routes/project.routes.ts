@@ -7,18 +7,18 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 // READ (admins + team members)
 router.get(
   "/project",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   ProjectController.getProjects,
 );
 
 router.get(
   "/project/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   ProjectController.getProject,
 );
@@ -26,6 +26,7 @@ router.get(
 // CREATE (admins only)
 router.post(
   "/project",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   ProjectController.createProject,
 );
@@ -33,6 +34,7 @@ router.post(
 // UPDATE (admins + team members)
 router.patch(
   "/project/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   ProjectController.updateProject,
 );
@@ -40,6 +42,7 @@ router.patch(
 // DELETE (admins only)
 router.delete(
   "/project/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   ProjectController.deleteProject,
 );

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import admin from "../config/firebaseAdmin";
+import { RequestCacheService } from "../services/requestCache.service";
 import { logger } from "../utils/logger";
 
 export async function verifyFirebaseToken(
@@ -21,23 +22,19 @@ export async function verifyFirebaseToken(
   const token = authHeader.replace("Bearer ", "");
 
   try {
-    const decoded = await admin.auth().verifyIdToken(token, true);
+    const decoded =
+      RequestCacheService.getVerifiedToken(token) ??
+      (await admin.auth().verifyIdToken(token, true));
 
-    logger.info("verifyFirebaseToken: Token verified", {
-      uid: decoded.uid,
-    });
+    RequestCacheService.setVerifiedToken(token, decoded);
 
     // Attach only Firebase
     const appUser: any = {
       uid: decoded.uid,
       email: decoded.email,
       name: decoded.name,
+      picture: decoded.picture,
     };
-
-    logger.info("verifyFirebaseToken: Firebase user attached to request", {
-      firebase_uid: appUser.uid,
-      email: appUser.email,
-    });
 
     req.user = appUser;
 

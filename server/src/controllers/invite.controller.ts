@@ -1,6 +1,7 @@
 // src/controllers/invite.controller.ts
 import { Request, Response } from "express";
 import { InviteService } from "../services/invite.service";
+import { NotificationService } from "../services/notification.service";
 import { logger } from "../utils/logger";
 
 export const InviteController = {
@@ -85,6 +86,12 @@ ${inviteLink}
 
     try {
       const result = await InviteService.acceptInvite(token, userId);
+
+      await NotificationService.createInviteAcceptedNotifications({
+        companyId: result.companyId,
+        acceptedUserId: userId,
+        acceptedEmail: req.user?.email ?? "A user",
+      });
 
       return res.status(200).json({
         message: "Invite accepted successfully",

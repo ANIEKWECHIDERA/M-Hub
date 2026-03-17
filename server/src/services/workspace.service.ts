@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../config/supabaseClient";
 import { logger } from "../utils/logger";
+import { RequestCacheService } from "./requestCache.service";
 
 type WorkspaceSummary = {
   companyId: string;
@@ -88,6 +89,8 @@ export const WorkspaceService = {
       userId,
       companyId,
     });
+
+    RequestCacheService.invalidateUserContext({ userId });
 
     return { companyId };
   },

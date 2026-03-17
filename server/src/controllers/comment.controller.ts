@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { CommentService } from "../services/comment.service";
+import { NotificationService } from "../services/notification.service";
 import { CreateCommentDTO, UpdateCommentDTO } from "../types/comment.types";
 import { logger } from "../utils/logger";
 
@@ -46,6 +47,14 @@ export const CommentController = {
       });
 
       const comment = await CommentService.create(payload);
+
+      await NotificationService.createCommentNotifications({
+        companyId,
+        projectId: comment.project_id,
+        taskId: comment.task_id,
+        commentText: comment.content,
+        authorUserId: authorId,
+      });
 
       return res.status(201).json(comment);
     } catch (error) {

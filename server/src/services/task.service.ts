@@ -503,26 +503,44 @@ export const TaskService = {
   ///////// MY TASKS /////////
 
   async getAssignedTasks(
-    teamMemberId: string,
+    userId: string,
     companyId: string,
   ): Promise<MyTaskResponseDTO[]> {
-    logger.info("Services: Fetching tasks for team member", {
-      teamMemberId,
+    logger.info("Services: Fetching tasks for user", {
+      userId,
       companyId,
     });
 
     try {
+      const { data: memberships, error: membershipError } = await supabaseAdmin
+        .from("team_members")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("user_id", userId);
+
+      if (membershipError) {
+        throw membershipError;
+      }
+
+      const teamMemberIds = (memberships ?? [])
+        .map((membership) => membership.id)
+        .filter(Boolean);
+
+      if (teamMemberIds.length === 0) {
+        return [];
+      }
+
       const { data: assignments, error: error } = await supabaseAdmin
         .from("task_team_member_assignees")
         .select(MY_TASKS_SELECT)
         .eq("company_id", companyId)
-        .eq("team_member_id", teamMemberId);
+        .in("team_member_id", teamMemberIds);
 
       if (error) {
         throw error;
       }
 
-      return assignments.map((assignment: any) => ({
+      return (assignments ?? []).map((assignment: any) => ({
         id: assignment.task.id,
         title: assignment.task.title,
         description: assignment.task.description,
@@ -537,7 +555,7 @@ export const TaskService = {
       }));
     } catch (error) {
       logger.error("Failed to fetch my tasks", {
-        teamMemberId,
+        userId,
         companyId,
         error,
       });

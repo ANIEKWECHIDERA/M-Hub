@@ -7,6 +7,7 @@ import {
 } from "../types/company.types";
 import { logger } from "../utils/logger";
 import { AppUser } from "../types/types";
+import { RequestCacheService } from "./requestCache.service";
 
 function toCompanyResponseDTO(row: any): CompanyResponseDTO {
   return {
@@ -128,6 +129,10 @@ export const CompanyService = {
     });
 
     logger.info("Company created successfully", { companyId: company.id });
+    RequestCacheService.invalidateUserContext({
+      userId,
+      firebaseUid: user.firebase_uid,
+    });
 
     return toCompanyResponseDTO(company);
   },

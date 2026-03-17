@@ -8,6 +8,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useAuthContext } from "@/context/AuthContext";
 import { useProjectContext } from "@/context/ProjectContext";
 import { useClientContext } from "@/context/ClientContext";
+import { useNotificationContext } from "@/context/NotificationContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useMyTasksContext } from "@/context/MyTaskContext";
 import { useUser } from "@/context/UserContext";
@@ -21,12 +22,18 @@ function WorkspaceSwitchOverlay() {
   } = useAuthContext();
   const { loading: projectLoading } = useProjectContext();
   const { loading: clientLoading } = useClientContext();
+  const { loading: notificationLoading } = useNotificationContext();
   const { loading: teamLoading } = useTeamContext();
   const { loading: myTasksLoading } = useMyTasksContext();
   const { loading: userLoading } = useUser();
 
   const waitingForData =
-    projectLoading || clientLoading || teamLoading || myTasksLoading || userLoading;
+    projectLoading ||
+    clientLoading ||
+    notificationLoading ||
+    teamLoading ||
+    myTasksLoading ||
+    userLoading;
 
   useEffect(() => {
     if (

@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../config/supabaseClient";
 import { prisma } from "../lib/prisma";
 import { CreateUserFromAuthDTO } from "../types/user.types";
 import { logger } from "../utils/logger";
+import { RequestCacheService } from "./requestCache.service";
 
 export const UserService = {
   async findByFirebaseUid(firebaseUid: string) {
@@ -69,6 +70,11 @@ export const UserService = {
       const data = rows[0];
 
       logger.info("createFromAuth: User synced successfully", data);
+      RequestCacheService.invalidateUserContext({
+        userId: data?.id,
+        firebaseUid: dto.firebase_uid,
+      });
+      RequestCacheService.setUser(dto.firebase_uid, data);
       return data;
     } catch (error) {
       logger.error("createFromAuth: Unexpected error", { error });
@@ -120,6 +126,10 @@ export const UserService = {
         data.email,
         data.firebase_uid,
       );
+      RequestCacheService.invalidateUserContext({
+        userId: data?.id,
+        firebaseUid: userData.firebase_uid,
+      });
       return data;
     } catch (error) {
       logger.error("create: Unexpected error", { error });
@@ -190,6 +200,11 @@ export const UserService = {
       userId: user?.id,
     });
 
+    RequestCacheService.invalidateUserContext({
+      userId: user?.id,
+      firebaseUid: userData.firebase_uid,
+    });
+
     return user;
   },
 
@@ -242,7 +257,67 @@ export const UserService = {
     });
 
     if (error) throw error;
+    RequestCacheService.invalidateUserContext({
+      userId: data?.id,
+      firebaseUid,
+    });
     return data;
+  },
+
+  async touchLastLoginIfNeeded(params: {
+    firebaseUid: string;
+    userId?: string | null;
+    lastLogin?: string | Date | null;
+  }) {
+    const { firebaseUid, userId, lastLogin } = params;
+
+    if (!firebaseUid) {
+      return false;
+    }
+
+    const lastLoginDate = lastLogin ? new Date(lastLogin) : null;
+    const now = Date.now();
+    const shouldSkip =
+      lastLoginDate && now - lastLoginDate.getTime() < 15 * 60 * 1000;
+
+    if (shouldSkip) {
+      return false;
+    }
+
+    const timestamp = new Date(now).toISOString();
+
+    const { error: userError } = await supabaseAdmin
+      .from("users")
+      .update({
+        last_login: timestamp,
+        updated_at: timestamp,
+      })
+      .eq("firebase_uid", firebaseUid);
+
+    if (userError) {
+      throw userError;
+    }
+
+    if (userId) {
+      const { error: membershipError } = await supabaseAdmin
+        .from("team_members")
+        .update({
+          last_login: timestamp,
+          updated_at: timestamp,
+        })
+        .eq("user_id", userId);
+
+      if (membershipError) {
+        throw membershipError;
+      }
+    }
+
+    RequestCacheService.invalidateUserContext({
+      userId,
+      firebaseUid,
+    });
+
+    return true;
   },
 
   async deleteByFirebaseUid(firebaseUid: string) {
@@ -252,5 +327,6 @@ export const UserService = {
       .eq("firebase_uid", firebaseUid);
 
     if (error) throw error;
+    RequestCacheService.invalidateUserContext({ firebaseUid });
   },
 };

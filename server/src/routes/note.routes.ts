@@ -6,13 +6,12 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 
 // READ (company scoped, private/public logic handled in service)
 router.get(
   "/notes",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   NoteController.getMyNotes,
 );
@@ -20,6 +19,7 @@ router.get(
 // CREATE (any authenticated user)
 router.post(
   "/notes",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   NoteController.createNote,
 );
@@ -27,6 +27,7 @@ router.post(
 // UPDATE (author only)
 router.patch(
   "/notes/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   NoteController.updateNote,
 );
@@ -34,6 +35,7 @@ router.patch(
 // DELETE (author only)
 router.delete(
   "/notes/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   NoteController.deleteNote,
 );

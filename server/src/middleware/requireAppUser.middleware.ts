@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { supabaseAdmin } from "../config/supabaseClient";
+import { RequestCacheService } from "../services/requestCache.service";
 import { logger } from "../utils/logger";
 import { AppUser } from "../types/types";
 
@@ -18,6 +19,27 @@ export async function requireAppUser(
   if (!userId) {
     logger.warn("requireAppUser: Missing DB user");
     return res.status(401).json({ error: "requireAppUser: Unauthorized" });
+  }
+
+  const cachedTeamMember = RequestCacheService.getTeamMember(
+    userId,
+    req.user.company_id,
+  );
+
+  if (cachedTeamMember) {
+    const appUser: AppUser = {
+      ...req.user,
+      id: userId,
+      team_member_id: cachedTeamMember.id,
+      access: cachedTeamMember.access,
+      company_id: cachedTeamMember.company_id,
+      role: cachedTeamMember.role,
+      user_id: userId,
+      email: req.user.email,
+    };
+
+    req.user = appUser;
+    return next();
   }
 
   let teamMember = null as any;
@@ -63,6 +85,7 @@ export async function requireAppUser(
         });
       } else {
         req.user.company_id = teamMember.company_id;
+        RequestCacheService.invalidateUserContext({ userId });
       }
     }
   }
@@ -75,10 +98,7 @@ export async function requireAppUser(
     !teamMember &&
     !error
   ) {
-    logger.info("requireAppUser: Allowing onboarding company creation", {
-      user_id: userId,
-      path: req.path,
-    });
+    RequestCacheService.setTeamMember(userId, req.user.company_id, null);
     return next();
   }
 
@@ -105,12 +125,7 @@ export async function requireAppUser(
   };
 
   req.user = appUser;
-
-  logger.info("requireAppUser: User fully authenticated", {
-    user_id: userId,
-    company_id: teamMember.company_id,
-    access: teamMember.access,
-  });
+  RequestCacheService.setTeamMember(userId, req.user.company_id, teamMember);
 
   next();
 }

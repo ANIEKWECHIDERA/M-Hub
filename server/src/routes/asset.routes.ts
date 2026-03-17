@@ -7,12 +7,11 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 
 router.post(
   "/assets/upload",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   upload.array("files", 5),
   AssetController.upload,
@@ -20,12 +19,14 @@ router.post(
 
 router.get(
   "/assets/:projectId",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   AssetController.getByProject,
 );
 
 router.delete(
   "/assets/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   AssetController.delete,
 );

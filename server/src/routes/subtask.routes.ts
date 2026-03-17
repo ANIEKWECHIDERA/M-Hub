@@ -7,13 +7,12 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 
 // READ
 router.get(
   "/subtask",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.getSubtasks,
@@ -21,6 +20,7 @@ router.get(
 
 router.get(
   "/subtask/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.getSubtask,
@@ -29,6 +29,7 @@ router.get(
 // CREATE
 router.post(
   "/subtask",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.createSubtask,
@@ -37,6 +38,7 @@ router.post(
 // UPDATE
 router.patch(
   "/subtask/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.updateSubtask,
@@ -45,6 +47,7 @@ router.patch(
 // DELETE
 router.delete(
   "/subtask/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   resolveTeamMember,
   SubtaskController.deleteSubtask,

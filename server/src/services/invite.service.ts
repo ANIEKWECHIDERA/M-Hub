@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prisma } from "../lib/prisma";
 import { supabaseAdmin } from "../config/supabaseClient";
+import { RequestCacheService } from "./requestCache.service";
 import { generateInviteToken } from "../utils/token";
 import { logger } from "../utils/logger";
 
@@ -251,6 +252,8 @@ export const InviteService = {
         companyId: invite.company_id,
       };
     });
+
+    RequestCacheService.invalidateUserContext({ userId });
 
     logger.info("InviteService.acceptInvite:success", result);
     return result;

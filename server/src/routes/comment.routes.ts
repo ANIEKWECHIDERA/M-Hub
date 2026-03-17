@@ -6,12 +6,11 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 // READ – everyone
 router.get(
   "/project/:projectId/comments",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   CommentController.getCommentsByProject,
 );
@@ -19,6 +18,7 @@ router.get(
 // CREATE – everyone
 router.post(
   "/comments",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   CommentController.createComment,
 );
@@ -26,6 +26,7 @@ router.post(
 // UPDATE – author only
 router.patch(
   "/comments/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   CommentController.updateComment,
 );
@@ -33,6 +34,7 @@ router.patch(
 // DELETE – admins only
 router.delete(
   "/comments/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   CommentController.deleteComment,
 );

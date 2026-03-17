@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../config/supabaseClient";
 import { PROFILE_STATUS_DATA } from "../dbSelect/profileStatus.select";
 import { TEAM_MEMBER_SELECT } from "../dbSelect/teamMember.select";
 import { toTeamMemberResponseDTO } from "../mapper/teamMemberRespose.DTO";
+import { RequestCacheService } from "./requestCache.service";
 import {
   CreateTeamMemberDTO,
   UpdateTeamMemberDTO,
@@ -11,9 +12,11 @@ import { logger } from "../utils/logger";
 
 export const TeamMemberService = {
   async getOnboardingState(firebaseUid: string) {
-    logger.info("TeamMemberService.getOnboardingState: start", {
-      firebaseUid,
-    });
+    const cachedState = RequestCacheService.getOnboardingState(firebaseUid);
+
+    if (cachedState) {
+      return cachedState;
+    }
 
     // Fetch user with team member relation
     const { data, error } = await supabaseAdmin
@@ -21,8 +24,6 @@ export const TeamMemberService = {
       .select(PROFILE_STATUS_DATA)
       .eq("firebase_uid", firebaseUid)
       .maybeSingle();
-
-    logger.info("TeamMemberService: Supabase query result", { data, error });
 
     if (error) throw error;
 
@@ -50,13 +51,17 @@ export const TeamMemberService = {
     }
 
     // Extract team member data (if exists)
-    return {
+    const result = {
       onboardingState,
       profileComplete,
       hasCompany,
       access: activeMembership?.access ?? null,
       companyId: activeMembership?.company_id ?? data.company_id ?? null,
     };
+
+    RequestCacheService.setOnboardingState(firebaseUid, result);
+
+    return result;
   },
 
   async findAll(companyId: string): Promise<TeamMemberResponseDTO[]> {
@@ -109,6 +114,10 @@ export const TeamMemberService = {
 
     if (error) throw error;
 
+    RequestCacheService.invalidateUserContext({
+      userId: data?.user_id,
+    });
+
     return toTeamMemberResponseDTO(data);
   },
 
@@ -129,11 +138,24 @@ export const TeamMemberService = {
 
     if (error) throw error;
 
+    RequestCacheService.invalidateUserContext({
+      userId: data?.user_id,
+    });
+
     return data ? toTeamMemberResponseDTO(data) : null;
   },
 
   async deleteById(companyId: string, id: string): Promise<void> {
     logger.info("TeamMemberService.deleteById: start", { companyId, id });
+
+    const { data, error: lookupError } = await supabaseAdmin
+      .from("team_members")
+      .select("user_id")
+      .eq("company_id", companyId)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
 
     const { error } = await supabaseAdmin
       .from("team_members")
@@ -142,5 +164,9 @@ export const TeamMemberService = {
       .eq("id", id);
 
     if (error) throw error;
+
+    RequestCacheService.invalidateUserContext({
+      userId: data?.user_id,
+    });
   },
 };

@@ -57,6 +57,13 @@ Relevant backend middleware:
 - `server/src/middleware/authorize.ts`
 - `server/src/middleware/requireAppUser.middleware.ts`
 
+Performance note:
+
+- The auth pipeline now uses short-lived in-memory caching for verified Firebase tokens, DB user records, onboarding state, and resolved team membership
+- Cache invalidation is wired through user/profile updates, workspace switches, company creation, invite acceptance, and team-member mutations
+- The shared cache implementation lives in `server/src/services/requestCache.service.ts`
+- This is an in-process optimization, not a distributed cache; if the backend is scaled to multiple instances later, move these entries to Redis or another shared cache
+
 ### 3. Frontend routing depends on onboarding state
 
 The frontend does not only check whether a user is signed in. It also checks backend onboarding state and can redirect users into:
@@ -107,6 +114,24 @@ The authenticated UI is now partially role-aware for `team_member`.
 
 When changing permissions, update both route access and visible UI actions.
 
+### 8. Notifications are now backend-backed and workspace-aware
+
+The app no longer uses mock notifications in the shell.
+
+- Backend routes live in `server/src/routes/notification.routes.ts`
+- Backend logic lives in `server/src/controllers/notification.controller.ts` and `server/src/services/notification.service.ts`
+- Frontend state lives in `client/src/context/NotificationContext.tsx`
+- Header UI lives in `client/src/components/Header.tsx`
+
+Notification state is scoped to the authenticated user and active workspace.
+The frontend resets notification state on workspace change, refetches the latest list, and subscribes to a lightweight SSE stream for live updates.
+
+Realtime behavior:
+
+- Primary realtime path is SSE via `/api/notifications/stream?token=...`
+- The frontend does not continuously poll while the stream is healthy; it only falls back to light periodic refresh if the SSE connection becomes unhealthy
+- Notification list and unread count should always be updated from the same shared context, not recomputed separately in the header
+
 ## Important Paths
 
 ### Backend
@@ -129,6 +154,7 @@ When changing permissions, update both route access and visible UI actions.
 - Pages: `client/src/pages/`
 - Shared UI: `client/src/components/`
 - Image upload helper: `client/src/lib/image-upload.ts`
+- Notification helpers: `client/src/lib/notifications.ts`
 
 ## Local Development
 
@@ -241,6 +267,7 @@ If a page keeps local modal or selected-item state, consider a `key` tied to `au
 - If changing uploads, inspect both multer middleware and Cloudinary service usage
 - If changing invites, inspect route, controller, service, and `company_invite` schema together
 - If changing workspace-scoped pages, verify they refetch correctly when `authStatus.companyId` changes
+- If changing notifications, verify list fetch, unread count, mark-one, mark-all, stream cleanup, and workspace reset behavior together
 
 ## Known Sharp Edges
 
@@ -261,7 +288,9 @@ Summary of recent changes:
 - Workspace switches can show a blocking loading overlay until core contexts settle
 - The workspace-switch loading overlay should cover the entire shell, including the sidebar, so clicks cannot leak through during company changes
 - `team_member` users have a reduced navigation/admin surface
+- `My Tasks` is intended to be a team-member-only surface, not a shared admin task inbox
 - Team tables are read-only for `team_member`
+- Last-login state is refreshed on authenticated activity through a throttled backend touch that updates both the `users` row and related `team_members` rows
 - Upload progress bars now appear only while uploads are active
 - Profile photo updates now map API fields into shared user state immediately
 - Settings navigation now uses sidebar-driven subgroups instead of in-page tabs, and invite operations live in a dedicated Invites section
@@ -269,6 +298,8 @@ Summary of recent changes:
 - Chat subsection state is also URL-driven via `?section=...`, with the main app sidebar as the primary navigator for `All`, `Projects`, and `Direct`
 - Project and task CRUD now prefer optimistic UI updates with rollback on failure, and create/edit dialogs close immediately on submit attempt instead of waiting for the network round-trip
 - Shared project progress should be treated as backend-canonical. Use project response fields like `progress`, `task_count`, and `completed_task_count` for project-level progress UI instead of recomputing from whatever task slice a client currently has loaded
+- Notifications are now fetched from the backend, rendered from shared context in the header popover, and updated live through SSE plus periodic reconciliation polling
+- Backend notification list responses now use a short-lived user-scoped response cache with explicit ETag handling so repeated identical reads can return cached `304`/JSON responses without recomputing the payload
 
 New patterns introduced:
 
@@ -280,6 +311,8 @@ New patterns introduced:
 - Reuse the same URL-driven sidebar submenu pattern for other multi-view surfaces like Chat when they need persistent navigation context
 - For project/task create and edit dialogs, close the modal as soon as submit is attempted and rely on optimistic context updates plus rollback if the request fails
 - Clamp progress UI values to `0..100` at the shared `Progress` component so bars render consistently even during optimistic updates
+- For notifications, keep unread count and list in a single shared context, and merge incoming realtime events by notification `id` to avoid duplicates
+- For request-heavy authenticated endpoints, prefer cache-aware middleware/service changes over adding more frontend polling
 
 Assumptions currently in use:
 
@@ -287,6 +320,8 @@ Assumptions currently in use:
 - `tools` is treated as an admin-only route
 - Team-member users may view team rosters but not management metadata or actions
 - Invite creation, invite status, and invite cancellation should all live under the dedicated Settings > Invites section for non-team-members
+- Notification navigation is derived from structured notification `type` strings like `task_assigned:taskId:projectId` instead of extra DB metadata columns
+- Realtime notifications currently use SSE on a single app server process; the silent polling fallback helps reconcile state if the stream disconnects
 
 ## Good Default Workflow for Agents
 

@@ -18,18 +18,40 @@ import { useTheme } from "../hooks/useTheme";
 import { useNotificationContext } from "@/context/NotificationContext";
 import { useAuthContext } from "@/context/AuthContext";
 import { useUser } from "@/context/UserContext";
-import { Bell, Sun, Moon, Settings, LogOut } from "lucide-react";
+import {
+  Bell,
+  Moon,
+  RefreshCw,
+  Settings,
+  Sun,
+  LogOut,
+} from "lucide-react";
+import {
+  formatNotificationTime,
+  getNotificationIcon,
+  getNotificationRoute,
+} from "@/lib/notifications";
 import { Link, useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useState } from "react";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
-  const { notifications, markAsRead, markAllAsRead, unreadCount } =
-    useNotificationContext();
+  const {
+    notifications,
+    markAsRead,
+    markAllAsRead,
+    unreadCount,
+    loading: notificationsLoading,
+    error: notificationsError,
+    refreshNotifications,
+  } = useNotificationContext();
   const { logout, authStatus } = useAuthContext();
   const { profile, loading: userLoading } = useUser();
   const navigate = useNavigate();
-  const isTeamMember = authStatus?.access === "team_member";
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const isTeamMember =
+    authStatus?.access === "team_member" || authStatus?.access === "member";
 
   // const [searchQuery, setSearchQuery] = useState("");
 
@@ -105,9 +127,22 @@ export function Header() {
             <span className="sr-only">Toggle theme</span>
           </Button>
 
-          <Popover>
+          <Popover
+            open={notificationsOpen}
+            onOpenChange={(open) => {
+              setNotificationsOpen(open);
+              if (open) {
+                refreshNotifications({ silent: true });
+              }
+            }}
+          >
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative"
+                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+              >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
                   <Badge
@@ -123,17 +158,49 @@ export function Header() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-semibold">Notifications</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                    onClick={markAllAsRead}
-                  >
-                    Mark all read
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => refreshNotifications()}
+                      aria-label="Refresh notifications"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={markAllAsRead}
+                      disabled={unreadCount === 0}
+                    >
+                      Mark all read
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2 max-h-80 overflow-y-auto">
-                  {notifications.length === 0 ? (
+                  {notificationsLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="rounded-lg border p-3 animate-pulse"
+                        >
+                          <div className="h-4 w-2/3 rounded bg-muted" />
+                          <div className="mt-2 h-3 w-full rounded bg-muted" />
+                          <div className="mt-2 h-3 w-1/3 rounded bg-muted" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : notificationsError ? (
+                    <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                      <p className="font-medium text-foreground">
+                        Couldn&apos;t load notifications
+                      </p>
+                      <p className="mt-1">{notificationsError}</p>
+                    </div>
+                  ) : notifications.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       No notifications
                     </p>
@@ -142,23 +209,33 @@ export function Header() {
                       <div
                         key={notification.id}
                         className={`cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50 ${
-                          notification.unread ? "bg-muted/30" : ""
+                          !notification.read ? "bg-muted/30" : ""
                         }`}
-                        onClick={() => markAsRead(notification.id)}
+                        onClick={async () => {
+                          await markAsRead(notification.id);
+                          setNotificationsOpen(false);
+                          navigate(getNotificationRoute(notification));
+                        }}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="mt-0.5 rounded-md border bg-background p-2">
+                            {(() => {
+                              const Icon = getNotificationIcon(notification.type);
+                              return <Icon className="h-4 w-4 text-muted-foreground" />;
+                            })()}
+                          </div>
+                          <div className="space-y-1 flex-1 min-w-0">
                             <p className="text-sm font-medium">
                               {notification.title}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground line-clamp-2">
                               {notification.message}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {notification.time}
+                              {formatNotificationTime(notification.created_at)}
                             </p>
                           </div>
-                          {notification.unread && (
+                          {!notification.read && (
                             <div className="w-2 h-2 bg-primary rounded-full mt-1" />
                           )}
                         </div>
