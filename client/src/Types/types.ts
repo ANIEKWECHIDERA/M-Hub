@@ -52,6 +52,7 @@ export interface Project {
   }[];
 
   task_count: number;
+  completed_task_count: number;
   progress: number;
 }
 

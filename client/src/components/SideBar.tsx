@@ -82,8 +82,15 @@ function SidebarPanel({
   const isExpanded = !collapsed;
   const { isMobile, setOpenMobile } = useSidebar();
   const { authStatus } = useAuthContext();
-  const isTeamMember = authStatus?.access === "team_member";
-  const navigation = baseNavigation;
+  const isTeamMember =
+    authStatus?.access === "team_member" || authStatus?.access === "member";
+  const navigation = useMemo(
+    () =>
+      isTeamMember
+        ? baseNavigation.filter((item) => item.to !== "/dashboard")
+        : baseNavigation,
+    [isTeamMember],
+  );
   const activeChatSection = useMemo(() => {
     const params = new URLSearchParams(search);
     const section = params.get("section") as ChatSection | null;
@@ -328,8 +335,7 @@ function SidebarPanel({
                 );
               })}
 
-              {!isTeamMember &&
-                adminNavigation.map((item) => {
+              {adminNavigation.map((item) => {
                   const isSettingsRoute = pathname === item.to;
                   const isActive = isSettingsRoute;
                   const settingsLink = `/settings?section=${activeSettingsSection}`;
@@ -494,7 +500,11 @@ export function Sidebar() {
       await workspaceAPI.switch(companyId, idToken);
       await refreshStatus();
       await loadWorkspaces();
-      navigate("/dashboard");
+      navigate(
+        authStatus?.access === "team_member" || authStatus?.access === "member"
+          ? "/mytasks"
+          : "/dashboard",
+      );
       toast.success("Workspace switched");
     } catch (error: any) {
       finishWorkspaceSwitch();

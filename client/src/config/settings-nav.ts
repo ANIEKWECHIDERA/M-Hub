@@ -19,7 +19,7 @@ export type SettingsSectionItem = {
   label: string;
   description: string;
   icon: LucideIcon;
-  adminOnly?: boolean;
+  teamMemberHidden?: boolean;
 };
 
 export const settingsSections: SettingsSectionItem[] = [
@@ -40,23 +40,25 @@ export const settingsSections: SettingsSectionItem[] = [
     label: "Security",
     description: "Password and account protection",
     icon: Shield,
-    adminOnly: true,
   },
   {
     id: "team",
     label: "Team",
     description: "Workspace teammates",
     icon: Users,
+    teamMemberHidden: true,
   },
   {
     id: "invites",
     label: "Invites",
     description: "Send and manage invites",
     icon: Mail,
-    adminOnly: true,
+    teamMemberHidden: true,
   },
 ];
 
 export function getAllowedSettingsSections(isTeamMember: boolean) {
-  return settingsSections.filter((section) => !isTeamMember || !section.adminOnly);
+  return settingsSections.filter(
+    (section) => !isTeamMember || !section.teamMemberHidden,
+  );
 }

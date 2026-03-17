@@ -24,12 +24,20 @@ import AcceptInvitePage from "./pages/AcceptInvitePage";
 import { UploadStatusProvider } from "./context/UploadStatusContext";
 
 function useRedirectPath() {
-  const { currentUser } = useAuthContext();
-  return currentUser ? "/dashboard" : "/signup";
+  const { currentUser, authStatus } = useAuthContext();
+
+  if (!currentUser) {
+    return "/signup";
+  }
+
+  return authStatus?.access === "team_member" ||
+    authStatus?.access === "member"
+    ? "/mytasks"
+    : "/dashboard";
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { currentUser, loading } = useAuthContext();
+  const { currentUser, loading, authStatus } = useAuthContext();
 
   if (loading) {
     return (
@@ -39,7 +47,18 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return currentUser ? <Navigate to="/dashboard" replace /> : <>{children}</>;
+  return currentUser ? (
+    <Navigate
+      to={
+        authStatus?.access === "team_member" || authStatus?.access === "member"
+          ? "/mytasks"
+          : "/dashboard"
+      }
+      replace
+    />
+  ) : (
+    <>{children}</>
+  );
 }
 
 function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
@@ -53,8 +72,26 @@ function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (authStatus.access === "team_member") {
-    return <Navigate to="/dashboard" replace />;
+  if (authStatus.access === "team_member" || authStatus.access === "member") {
+    return <Navigate to="/mytasks" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function DashboardRoute({ children }: { children: React.ReactNode }) {
+  const { loading, authStatus } = useAuthContext();
+
+  if (loading || !authStatus) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (authStatus.access === "team_member" || authStatus.access === "member") {
+    return <Navigate to="/mytasks" replace />;
   }
 
   return <>{children}</>;
@@ -119,7 +156,14 @@ function AppWithAuth() {
         <Route path="/onboarding/company" element={<CreateCompany />} />
 
         <Route element={<AppProvidersLayout />}>
-          <Route path="dashboard" element={<Dashboard />} />
+          <Route
+            path="dashboard"
+            element={
+              <DashboardRoute>
+                <Dashboard />
+              </DashboardRoute>
+            }
+          />
           <Route path="projects" element={<Projects />} />
           <Route path="chat" element={<Chat />} />
           <Route path="notepad" element={<Notepad />} />

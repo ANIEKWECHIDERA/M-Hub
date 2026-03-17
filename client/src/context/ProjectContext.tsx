@@ -39,6 +39,7 @@ const buildOptimisticProject = (
         : existing?.client ?? null,
   team_members: existing?.team_members ?? [],
   task_count: existing?.task_count ?? 0,
+  completed_task_count: existing?.completed_task_count ?? 0,
   progress: existing?.progress ?? 0,
 });
 
@@ -80,6 +81,11 @@ export const ProjectContextProvider = ({
     try {
       const fetchedProjects = await ProjectAPI.getAll(idToken);
       setProjects(fetchedProjects);
+      setCurrentProject((prev) =>
+        prev
+          ? fetchedProjects.find((project) => project.id === prev.id) ?? prev
+          : prev,
+      );
     } catch (err: any) {
       const msg = err.message || "Failed to load projects";
       setError(msg);

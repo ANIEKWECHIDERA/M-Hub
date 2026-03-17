@@ -94,7 +94,8 @@ export default function Settings() {
   const { profile, updateProfile } = useUser();
   const { idToken, authStatus } = useAuthContext();
   const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
-  const isTeamMember = authStatus?.access === "team_member";
+  const isTeamMember =
+    authStatus?.access === "team_member" || authStatus?.access === "member";
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -102,6 +103,8 @@ export default function Settings() {
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [securityForm, setSecurityForm] = useState<SecurityFormState>({
@@ -114,6 +117,18 @@ export default function Settings() {
     setFirstName(profile?.first_name ?? "");
     setLastName(profile?.last_name ?? "");
   }, [profile?.first_name, profile?.last_name]);
+
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(avatarFile);
+    setAvatarPreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [avatarFile]);
 
   const initials = useMemo(() => {
     if (!profile) return "U";
@@ -134,6 +149,7 @@ export default function Settings() {
     firstName.trim() !== (profile?.first_name ?? "") ||
     lastName.trim() !== (profile?.last_name ?? "") ||
     Boolean(avatarFile);
+  const avatarPreviewSrc = avatarPreviewUrl || profile?.photoURL || null;
 
   const passwordDirty = Object.values(securityForm).some(Boolean);
   const sections = useMemo(() => getAllowedSettingsSections(isTeamMember), [isTeamMember]);
@@ -173,7 +189,14 @@ export default function Settings() {
   };
 
   const loadInvites = async () => {
-    if (!idToken || authStatus?.onboardingState !== "ACTIVE") return;
+    if (
+      isTeamMember ||
+      activeSection !== "invites" ||
+      !idToken ||
+      authStatus?.onboardingState !== "ACTIVE"
+    ) {
+      return;
+    }
 
     setInvitesLoading(true);
     try {
@@ -187,8 +210,14 @@ export default function Settings() {
   };
 
   useEffect(() => {
+    if (isTeamMember) {
+      setInvites([]);
+      setInvitesLoading(false);
+      return;
+    }
+
     loadInvites();
-  }, [idToken, authStatus?.companyId]);
+  }, [activeSection, authStatus?.companyId, idToken, isTeamMember]);
 
   if (loading) {
     return (
@@ -286,7 +315,7 @@ export default function Settings() {
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
           <p className="text-muted-foreground">
             {isTeamMember
-              ? "Manage your profile, notifications, and team visibility."
+              ? "Manage your profile, notifications, and account security."
               : "Manage your profile, workspace, and invite operations from one place."}
           </p>
         </div>
@@ -303,27 +332,75 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col gap-4 rounded-xl border bg-muted/20 p-4 md:flex-row md:items-center">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage
-                    src={
-                      avatarFile
-                        ? URL.createObjectURL(avatarFile)
-                        : profile?.photoURL || undefined
-                    }
-                  />
-                  <AvatarFallback className="text-lg">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
+                <Dialog
+                  open={isAvatarPreviewOpen}
+                  onOpenChange={setIsAvatarPreviewOpen}
+                >
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={!avatarPreviewSrc}
+                      className="rounded-full transition-transform hover:scale-[1.02] disabled:cursor-default disabled:hover:scale-100"
+                      aria-label={
+                        avatarPreviewSrc
+                          ? "Preview profile photo"
+                          : "No profile photo to preview"
+                      }
+                    >
+                      <Avatar className="h-20 w-20 border">
+                        <AvatarImage src={avatarPreviewSrc || undefined} />
+                        <AvatarFallback className="text-lg">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-xl overflow-hidden p-0">
+                    <DialogHeader className="px-6 pt-6">
+                      <DialogTitle>Profile Photo Preview</DialogTitle>
+                      <DialogDescription>
+                        Preview your current profile image before saving changes.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="px-6 pb-6 pt-2">
+                      {avatarPreviewSrc ? (
+                        <div className="overflow-hidden rounded-xl border bg-muted/20">
+                          <img
+                            src={avatarPreviewSrc}
+                            alt="Profile preview"
+                            className="max-h-[70vh] w-full object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex min-h-[240px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+                          No profile photo available to preview.
+                        </div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
 
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="avatar">Profile Photo</Label>
-                  <Input
-                    id="avatar"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
-                  />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      id="avatar"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="sr-only"
+                      onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      onClick={() => document.getElementById("avatar")?.click()}
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload photo
+                    </Button>
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     Optional. Images are optimized before upload to make profile
                     updates faster and more reliable.
@@ -409,7 +486,7 @@ export default function Settings() {
           </Card>
         )}
 
-        {!isTeamMember && activeSection === "security" && (
+        {activeSection === "security" && (
           <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

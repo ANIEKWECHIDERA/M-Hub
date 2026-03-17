@@ -29,6 +29,8 @@ export const TeamContextProvider = ({
 
   const { idToken, authStatus } = useAuthContext();
   const { profile } = useUser();
+  const isRestrictedMember =
+    authStatus?.access === "team_member" || authStatus?.access === "member";
 
   const currentMember =
     teamMembers.find((member) => member.user_id === profile?.id) ?? null;
@@ -125,8 +127,20 @@ export const TeamContextProvider = ({
       return;
     }
 
+    if (isRestrictedMember) {
+      setTeamMembers([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     fetchTeamMembers();
-  }, [idToken, authStatus?.companyId, authStatus?.onboardingState]);
+  }, [
+    idToken,
+    authStatus?.companyId,
+    authStatus?.onboardingState,
+    isRestrictedMember,
+  ]);
 
   useEffect(() => {
     if (!profile?.id) {

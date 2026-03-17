@@ -268,6 +268,7 @@ Summary of recent changes:
 - Settings subsection state is URL-driven via `?section=...`, and the main app sidebar is the primary navigator for those subsections
 - Chat subsection state is also URL-driven via `?section=...`, with the main app sidebar as the primary navigator for `All`, `Projects`, and `Direct`
 - Project and task CRUD now prefer optimistic UI updates with rollback on failure, and create/edit dialogs close immediately on submit attempt instead of waiting for the network round-trip
+- Shared project progress should be treated as backend-canonical. Use project response fields like `progress`, `task_count`, and `completed_task_count` for project-level progress UI instead of recomputing from whatever task slice a client currently has loaded
 
 New patterns introduced:
 
@@ -278,6 +279,7 @@ New patterns introduced:
 - For settings-like areas, prefer sidebar submenus tied to URL state over in-page tabs when users need deep linking and persistent navigation context
 - Reuse the same URL-driven sidebar submenu pattern for other multi-view surfaces like Chat when they need persistent navigation context
 - For project/task create and edit dialogs, close the modal as soon as submit is attempted and rely on optimistic context updates plus rollback if the request fails
+- Clamp progress UI values to `0..100` at the shared `Progress` component so bars render consistently even during optimistic updates
 
 Assumptions currently in use:
 

@@ -50,10 +50,10 @@ export default function Dashboard() {
     clientFilter,
   );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const isTeamMember = authStatus?.access === "team_member";
+  const isTeamMember =
+    authStatus?.access === "team_member" || authStatus?.access === "member";
   const { totalProjects, activeProjects, completedProjects, overdueProjects } =
     useProjectStats(projects, tasks);
-  // console.log("tasks:", tasks, "projects:", projects);
 
   if (loading)
     return (
@@ -231,14 +231,12 @@ export default function Dashboard() {
               to={`/projectdetails/${project.id}`}
               className="block h-full"
             >
-              <Card
-                className="flex h-full min-h-[265px] flex-col transition-colors hover:border-foreground/20"
-              >
+              <Card className="flex h-full min-h-[265px] flex-col transition-colors hover:border-foreground/20">
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
-                    <div className="min-w-0 space-y-1">
+                    <div className="min-w-0 flex-1 pr-3 space-y-1">
                       <CardTitle
-                        className="truncate pr-2 text-lg"
+                        className="truncate text-lg"
                         title={project.title}
                       >
                         {project.title}
@@ -251,6 +249,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <Badge
+                      className="inline-flex h-6 min-w-[100px] shrink-0 items-center justify-center whitespace-nowrap px-2 text-center"
                       variant={
                         project.status === "Completed"
                           ? "default"

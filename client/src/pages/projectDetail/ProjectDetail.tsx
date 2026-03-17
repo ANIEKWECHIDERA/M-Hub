@@ -42,7 +42,6 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import type { TaskWithAssigneesDTO, TeamMemberSummary } from "@/Types/types";
-import { useProjectTaskStats } from "@/hooks/useProjectTaskStats";
 import {
   CommentContextProvider,
   useCommentContext,
@@ -60,9 +59,11 @@ import {
 import { TaskListSkeleton } from "@/components/TaskListSkeleton";
 import { useMyTasksContext } from "@/context/MyTaskContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
+import { useAuthContext } from "@/context/AuthContext";
 
 export function ProjectDetail() {
   const { id } = useParams();
+  const { authStatus } = useAuthContext();
   const { projects, loading, error, currentProject, setCurrentProject } =
     useProjectContext();
   const project = projects.find((project) => project.id === id);
@@ -111,10 +112,13 @@ export function ProjectDetail() {
     () => tasks.filter((task) => task.projectId === id),
     [tasks, id],
   );
-
-  const { total, completed, progress } = useProjectTaskStats(id ?? "");
+  const projectSnapshot = currentProject ?? project;
+  const total = projectSnapshot.task_count ?? 0;
+  const completed = projectSnapshot.completed_task_count ?? 0;
+  const progress = projectSnapshot.progress ?? 0;
   const team = currentProject ? (currentProject.team_members ?? []) : [];
-  console.log("Teammembers:", team);
+  const isTeamMember =
+    authStatus?.access === "team_member" || authStatus?.access === "member";
 
   const filteredfiles = useMemo(
     () => files.filter((file) => file.project_id === (id ?? "")),
@@ -239,10 +243,14 @@ export function ProjectDetail() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList
+          className={`grid w-full ${
+            isTeamMember ? "grid-cols-3" : "grid-cols-5"
+          }`}
+        >
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
+          {!isTeamMember && <TabsTrigger value="tasks">Tasks</TabsTrigger>}
+          {!isTeamMember && <TabsTrigger value="team">Team</TabsTrigger>}
           <TabsTrigger value="assets">Assets</TabsTrigger>
           <TabsTrigger value="comments">Comments</TabsTrigger>
         </TabsList>
@@ -288,289 +296,290 @@ export function ProjectDetail() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="tasks" className="space-y-4">
-          {taskLoading ? (
-            <TaskListSkeleton />
-          ) : (
-            <>
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Project Tasks</h2>
-                <Dialog
-                  open={isTaskDialogOpen}
-                  onOpenChange={(open) => {
-                    setIsTaskDialogOpen(open);
-                    if (!open) setEditingTask(null);
-                  }}
-                >
-                  <DialogTrigger asChild>
-                    {filteredTasks.length !== 0 && (
-                      <Button onClick={() => setEditingTask(null)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Task
-                      </Button>
-                    )}
-                  </DialogTrigger>
+        {!isTeamMember && (
+          <TabsContent value="tasks" className="space-y-4">
+            {taskLoading ? (
+              <TaskListSkeleton />
+            ) : (
+              <>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-semibold">Project Tasks</h2>
+                  <Dialog
+                    open={isTaskDialogOpen}
+                    onOpenChange={(open) => {
+                      setIsTaskDialogOpen(open);
+                      if (!open) setEditingTask(null);
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      {filteredTasks.length !== 0 && (
+                        <Button onClick={() => setEditingTask(null)}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Task
+                        </Button>
+                      )}
+                    </DialogTrigger>
 
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>
-                        {editingTask ? "Update Task" : "Create New Task"}
-                      </DialogTitle>
-                      <DialogDescription>
-                        {editingTask
-                          ? "Update the task details and save your changes."
-                          : "Create New Task"}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <TaskForm
-                      key={editingTask?.id ?? "new"}
-                      defaultValues={editingTask ?? undefined}
-                      onSave={async (data) => {
-                        setIsTaskDialogOpen(false);
-                        setEditingTask(null);
+                    <DialogContent className="sm:max-w-[500px]">
+                      <DialogHeader>
+                        <DialogTitle>
+                          {editingTask ? "Update Task" : "Create New Task"}
+                        </DialogTitle>
+                        <DialogDescription>
+                          {editingTask
+                            ? "Update the task details and save your changes."
+                            : "Create New Task"}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <TaskForm
+                        key={editingTask?.id ?? "new"}
+                        defaultValues={editingTask ?? undefined}
+                        onSave={async (data) => {
+                          setIsTaskDialogOpen(false);
+                          setEditingTask(null);
 
-                        try {
-                          let updatedTask;
+                          try {
+                            let updatedTask;
 
-                          if (editingTask) {
-                            // Update existing task
-                            updatedTask = await updateTask(
-                              editingTask.id,
-                              data,
-                            );
-                          } else {
-                            // Create new task
-                            const created = await addTask(data);
-                            if (!created) return;
+                            if (editingTask) {
+                              updatedTask = await updateTask(
+                                editingTask.id,
+                                data,
+                              );
+                            } else {
+                              const created = await addTask(data);
+                              if (!created) return;
 
-                            const teamMembers: TeamMemberSummary[] =
-                              project.team_members
-                                ?.filter((m) =>
-                                  data.team_member_ids.includes(m.id),
-                                )
-                                .map((m) => ({
-                                  id: m.id,
-                                  name: m.name,
-                                  avatar: m.avatar ?? null,
-                                  role: m.role ?? "member",
-                                })) ?? [];
+                              const teamMembers: TeamMemberSummary[] =
+                                project.team_members
+                                  ?.filter((m) =>
+                                    data.team_member_ids.includes(m.id),
+                                  )
+                                  .map((m) => ({
+                                    id: m.id,
+                                    name: m.name,
+                                    avatar: m.avatar ?? null,
+                                    role: m.role ?? "member",
+                                  })) ?? [];
 
-                            updatedTask = {
-                              ...created,
-                              team_members: teamMembers,
-                            };
+                              updatedTask = {
+                                ...created,
+                                team_members: teamMembers,
+                              };
 
-                            setTasks((prev) =>
-                              prev.map((t) =>
-                                t.id === created.id
-                                  ? { ...created, team_members: teamMembers }
-                                  : t,
-                              ),
-                            );
+                              setTasks((prev) =>
+                                prev.map((t) =>
+                                  t.id === created.id
+                                    ? { ...created, team_members: teamMembers }
+                                    : t,
+                                ),
+                              );
+                            }
+
+                            if (
+                              updatedTask?.team_members?.some(
+                                (m) => m.id === currentMember?.id,
+                              )
+                            ) {
+                              await refetch();
+                            }
+                          } catch (error) {
+                            console.error("Failed to save task:", error);
                           }
-
-                          // --- REFRESH MY TASKS IF CURRENT USER IS ASSIGNED ---
-                          if (
-                            updatedTask?.team_members?.some(
-                              (m) => m.id === currentMember?.id,
-                            )
-                          ) {
-                            await refetch();
-                          }
-                        } catch (error) {
-                          console.error("Failed to save task:", error);
-                        }
-                      }}
-                      onCancel={() => {
-                        setIsTaskDialogOpen(false);
-                        setEditingTask(null);
-                      }}
-                    />
-                  </DialogContent>
-                </Dialog>
-              </div>
-
-              {filteredTasks.length === 0 ? (
-                <div className="text-center space-y-4">
-                  <p className="text-muted-foreground">
-                    No tasks yet for this project.
-                  </p>
-                  <Button onClick={() => setIsTaskDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Task
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredTasks.map((task) => {
-                    const isDone = task.status === "Done";
-                    return (
-                      <Card
-                        key={task.id}
-                        className="hover:shadow-md transition-all cursor-pointer group"
-                        onClick={() => setSelectedTask(task)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <Checkbox
-                              checked={isDone}
-                              onCheckedChange={async (checked) => {
-                                await updateTask(task.id, {
-                                  status: checked ? "Done" : "To-Do",
-                                });
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mt-1"
-                            />
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2 mb-2">
-                                <div className="flex-1 min-w-0">
-                                  <h3
-                                    className={`font-medium text-base mb-1 ${
-                                      isDone
-                                        ? "line-through text-muted-foreground"
-                                        : ""
-                                    }`}
-                                  >
-                                    {task.title}
-                                  </h3>
-                                  {task.description && (
-                                    <p className="text-sm text-muted-foreground line-clamp-2">
-                                      {task.description}
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-2 mr-9">
-                                  <Badge
-                                    variant="outline"
-                                    className={
-                                      task.priority === "high"
-                                        ? "text-red-600"
-                                        : task.priority === "medium"
-                                          ? "text-yellow-600"
-                                          : "text-green-600"
-                                    }
-                                  >
-                                    {task.priority?.[0]?.toUpperCase()}
-                                    {task.priority?.slice(1)}
-                                  </Badge>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                  <span className="truncate max-w-[200px]">
-                                    Assigned to:{" "}
-                                    {task.team_members &&
-                                    task.team_members.length > 0
-                                      ? task.team_members
-                                          .map((m) => m.name)
-                                          .join(", ")
-                                      : "Unassigned"}
-                                  </span>
-                                </div>
-                                {task.due_date && (
-                                  <span>
-                                    Due:{" "}
-                                    {new Date(
-                                      task.due_date,
-                                    ).toLocaleDateString()}
-                                  </span>
-                                )}
-                                <Badge variant="outline">{task.status}</Badge>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingTask(task);
-                                  setIsTaskDialogOpen(true);
-                                }}
-                                aria-label={`Edit task ${task.title}`}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-500 hover:text-red-700"
-                                aria-label={`Delete task ${task.title}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setTaskToDelete(task);
-                                  setIsDeleteDialogOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-
-              {selectedTask && (
-                <TaskDetailDialog
-                  task={selectedTask}
-                  onClose={() => setSelectedTask(null)}
-                  assignee={selectedTask.team_members ?? []}
-                />
-              )}
-            </>
-          )}
-        </TabsContent>
-
-        <TabsContent value="team" className="space-y-4">
-          <h2 className="text-xl font-semibold">Team Members</h2>
-
-          {team && team.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {team.map((team_members) => (
-                <Card key={team_members.id}>
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage
-                        src={team_members.avatar || "/placeholder.svg"}
+                        }}
+                        onCancel={() => {
+                          setIsTaskDialogOpen(false);
+                          setEditingTask(null);
+                        }}
                       />
-                      <AvatarFallback>
-                        {team_members.name
-                          ?.split(" ")
-                          .map((n) => n[0])
-                          .slice(0, 2)
-                          .join("")
-                          .toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">{team_members.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {team_members.role}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-              <p className="text-sm">
-                No team members have been added to this project yet.
-              </p>
-              <p className="text-xs mt-1">
-                Add team members from the Projects Page.
-              </p>
-            </div>
-          )}
-        </TabsContent>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                {filteredTasks.length === 0 ? (
+                  <div className="text-center space-y-4">
+                    <p className="text-muted-foreground">
+                      No tasks yet for this project.
+                    </p>
+                    <Button onClick={() => setIsTaskDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Task
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredTasks.map((task) => {
+                      const isDone = task.status === "Done";
+                      return (
+                        <Card
+                          key={task.id}
+                          className="hover:shadow-md transition-all cursor-pointer group"
+                          onClick={() => setSelectedTask(task)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                checked={isDone}
+                                onCheckedChange={async (checked) => {
+                                  await updateTask(task.id, {
+                                    status: checked ? "Done" : "To-Do",
+                                  });
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-1"
+                              />
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex-1 min-w-0">
+                                    <h3
+                                      className={`font-medium text-base mb-1 ${
+                                        isDone
+                                          ? "line-through text-muted-foreground"
+                                          : ""
+                                      }`}
+                                    >
+                                      {task.title}
+                                    </h3>
+                                    {task.description && (
+                                      <p className="text-sm text-muted-foreground line-clamp-2">
+                                        {task.description}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2 mr-9">
+                                    <Badge
+                                      variant="outline"
+                                      className={
+                                        task.priority === "high"
+                                          ? "text-red-600"
+                                          : task.priority === "medium"
+                                            ? "text-yellow-600"
+                                            : "text-green-600"
+                                      }
+                                    >
+                                      {task.priority?.[0]?.toUpperCase()}
+                                      {task.priority?.slice(1)}
+                                    </Badge>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <span className="truncate max-w-[200px]">
+                                      Assigned to:{" "}
+                                      {task.team_members &&
+                                      task.team_members.length > 0
+                                        ? task.team_members
+                                            .map((m) => m.name)
+                                            .join(", ")
+                                        : "Unassigned"}
+                                    </span>
+                                  </div>
+                                  {task.due_date && (
+                                    <span>
+                                      Due:{" "}
+                                      {new Date(
+                                        task.due_date,
+                                      ).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                  <Badge variant="outline">{task.status}</Badge>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingTask(task);
+                                    setIsTaskDialogOpen(true);
+                                  }}
+                                  aria-label={`Edit task ${task.title}`}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-700"
+                                  aria-label={`Delete task ${task.title}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTaskToDelete(task);
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {selectedTask && (
+                  <TaskDetailDialog
+                    task={selectedTask}
+                    onClose={() => setSelectedTask(null)}
+                    assignee={selectedTask.team_members ?? []}
+                  />
+                )}
+              </>
+            )}
+          </TabsContent>
+        )}
+
+        {!isTeamMember && (
+          <TabsContent value="team" className="space-y-4">
+            <h2 className="text-xl font-semibold">Team Members</h2>
+
+            {team && team.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {team.map((team_members) => (
+                  <Card key={team_members.id}>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage
+                          src={team_members.avatar || "/placeholder.svg"}
+                        />
+                        <AvatarFallback>
+                          {team_members.name
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .slice(0, 2)
+                            .join("")
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{team_members.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {team_members.role}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+                <p className="text-sm">
+                  No team members have been added to this project yet.
+                </p>
+                <p className="text-xs mt-1">
+                  Add team members from the Projects Page.
+                </p>
+              </div>
+            )}
+          </TabsContent>
+        )}
 
         <TabsContent value="assets" className="space-y-4">
           <div className="flex justify-between items-center">

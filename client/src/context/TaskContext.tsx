@@ -5,6 +5,7 @@ import type { TaskContextType, TaskWithAssigneesDTO } from "@/Types/types";
 import { tasksAPI } from "@/api/tasks.api";
 import { useAuthContext } from "./AuthContext";
 import { normalizeTask } from "@/mapper/task.mapper";
+import { useProjectContext } from "./ProjectContext";
 
 const TaskContext = createContext<TaskContextType | null>(null);
 
@@ -35,8 +36,68 @@ export const TaskContextProvider = ({
     null,
   );
   const { idToken } = useAuthContext();
+  const { projects, setProjects, currentProject, setCurrentProject } =
+    useProjectContext();
 
   const ids = projectIds?.length ? projectIds : projectId ? [projectId] : [];
+
+  const calculateProgress = (taskCount: number, completedTaskCount: number) =>
+    taskCount > 0 ? Math.round((completedTaskCount / taskCount) * 100) : 0;
+
+  const updateProjectTaskStats = (
+    targetProjectId: string,
+    updater: (current: {
+      task_count: number;
+      completed_task_count: number;
+    }) => {
+      task_count: number;
+      completed_task_count: number;
+    },
+  ) => {
+    setProjects((prev) =>
+      prev.map((project) => {
+        if (project.id !== targetProjectId) {
+          return project;
+        }
+
+        const nextCounts = updater({
+          task_count: project.task_count ?? 0,
+          completed_task_count: project.completed_task_count ?? 0,
+        });
+
+        return {
+          ...project,
+          task_count: Math.max(0, nextCounts.task_count),
+          completed_task_count: Math.max(0, nextCounts.completed_task_count),
+          progress: calculateProgress(
+            Math.max(0, nextCounts.task_count),
+            Math.max(0, nextCounts.completed_task_count),
+          ),
+        };
+      }),
+    );
+
+    setCurrentProject((prev) => {
+      if (!prev || prev.id !== targetProjectId) {
+        return prev;
+      }
+
+      const nextCounts = updater({
+        task_count: prev.task_count ?? 0,
+        completed_task_count: prev.completed_task_count ?? 0,
+      });
+
+      return {
+        ...prev,
+        task_count: Math.max(0, nextCounts.task_count),
+        completed_task_count: Math.max(0, nextCounts.completed_task_count),
+        progress: calculateProgress(
+          Math.max(0, nextCounts.task_count),
+          Math.max(0, nextCounts.completed_task_count),
+        ),
+      };
+    });
+  };
 
   // Fetch tasks from API
   const fetchTasks = async () => {
@@ -102,6 +163,11 @@ export const TaskContextProvider = ({
     };
 
     setTasks((prev) => [optimisticTask, ...prev]);
+    updateProjectTaskStats(projectId, (current) => ({
+      task_count: current.task_count + 1,
+      completed_task_count:
+        current.completed_task_count + (optimisticTask.status === "Done" ? 1 : 0),
+    }));
 
     const promise = tasksAPI.create(projectId, data, idToken);
 
@@ -121,6 +187,11 @@ export const TaskContextProvider = ({
       return normalizeTask(savedTask);
     } catch (err) {
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      updateProjectTaskStats(projectId, (current) => ({
+        task_count: current.task_count - 1,
+        completed_task_count:
+          current.completed_task_count - (optimisticTask.status === "Done" ? 1 : 0),
+      }));
       throw err;
     }
   };
@@ -136,7 +207,9 @@ export const TaskContextProvider = ({
     }
 
     const previousTasks = tasks;
+    const previousProjects = projects;
     const previousSelectedTask = selectedTask;
+    const previousCurrentProject = currentProject;
     const optimisticTask =
       tasks.find((task) => task.id === id) ?? selectedTask ?? null;
 
@@ -149,6 +222,32 @@ export const TaskContextProvider = ({
 
       setTasks((prev) => prev.map((t) => (t.id === id ? mergedTask : t)));
       setSelectedTask((task) => (task?.id === id ? mergedTask : task));
+
+      const previousProjectId = optimisticTask.projectId;
+      const nextProjectId = mergedTask.projectId ?? previousProjectId;
+      const wasCompleted = optimisticTask.status === "Done";
+      const isCompleted = mergedTask.status === "Done";
+
+      if (previousProjectId === nextProjectId) {
+        if (wasCompleted !== isCompleted) {
+          updateProjectTaskStats(previousProjectId, (current) => ({
+            task_count: current.task_count,
+            completed_task_count:
+              current.completed_task_count + (isCompleted ? 1 : -1),
+          }));
+        }
+      } else {
+        updateProjectTaskStats(previousProjectId, (current) => ({
+          task_count: current.task_count - 1,
+          completed_task_count:
+            current.completed_task_count - (wasCompleted ? 1 : 0),
+        }));
+        updateProjectTaskStats(nextProjectId, (current) => ({
+          task_count: current.task_count + 1,
+          completed_task_count:
+            current.completed_task_count + (isCompleted ? 1 : 0),
+        }));
+      }
     }
 
     const promise = tasksAPI.update(id, data, idToken);
@@ -171,7 +270,9 @@ export const TaskContextProvider = ({
       return normalizedTask;
     } catch (err) {
       setTasks(previousTasks);
+      setProjects(previousProjects);
       setSelectedTask(previousSelectedTask);
+      setCurrentProject(previousCurrentProject);
       throw err;
     }
   };
@@ -184,8 +285,18 @@ export const TaskContextProvider = ({
     }
 
     const prevTasks = tasks;
+    const previousProjects = projects;
+    const previousCurrentProject = currentProject;
+    const taskToRemove = tasks.find((task) => task.id === id) ?? null;
 
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    if (taskToRemove) {
+      updateProjectTaskStats(taskToRemove.projectId, (current) => ({
+        task_count: current.task_count - 1,
+        completed_task_count:
+          current.completed_task_count - (taskToRemove.status === "Done" ? 1 : 0),
+      }));
+    }
 
     const promise = tasksAPI.delete(id, idToken);
 
@@ -199,6 +310,8 @@ export const TaskContextProvider = ({
       await promise;
     } catch (err) {
       setTasks(prevTasks); // rollback
+      setProjects(previousProjects);
+      setCurrentProject(previousCurrentProject);
       throw err;
     }
   };
