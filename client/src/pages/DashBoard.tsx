@@ -105,8 +105,8 @@ export default function Dashboard() {
                             : [],
                         };
 
-                        await addProject(newProject);
                         setIsCreateOpen(false);
+                        await addProject(newProject);
                       }}
                       onCancel={() => setIsCreateOpen(false)}
                     />
@@ -221,21 +221,32 @@ export default function Dashboard() {
       </div>
 
       {/* Project Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredProjects.map((project) => {
           // console.log("DASHBOARD tasks length:", tasks.length);
 
           return (
-            <Link to={`/projectdetails/${project.id}`}>
+            <Link
+              key={project.id}
+              to={`/projectdetails/${project.id}`}
+              className="block h-full"
+            >
               <Card
-                key={project.id}
-                className="hover:shadow-lg transition-shadow"
+                className="flex h-full min-h-[265px] flex-col transition-colors hover:border-foreground/20"
               >
-                <CardHeader>
+                <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="text-lg">{project.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="min-w-0 space-y-1">
+                      <CardTitle
+                        className="truncate pr-2 text-lg"
+                        title={project.title}
+                      >
+                        {project.title}
+                      </CardTitle>
+                      <p
+                        className="truncate text-sm text-muted-foreground"
+                        title={project.client?.name}
+                      >
                         {project.client?.name}
                       </p>
                     </div>
@@ -252,7 +263,7 @@ export default function Dashboard() {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-1 flex-col justify-between gap-4">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Progress</span>

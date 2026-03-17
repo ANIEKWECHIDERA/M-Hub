@@ -266,6 +266,8 @@ Summary of recent changes:
 - Profile photo updates now map API fields into shared user state immediately
 - Settings navigation now uses sidebar-driven subgroups instead of in-page tabs, and invite operations live in a dedicated Invites section
 - Settings subsection state is URL-driven via `?section=...`, and the main app sidebar is the primary navigator for those subsections
+- Chat subsection state is also URL-driven via `?section=...`, with the main app sidebar as the primary navigator for `All`, `Projects`, and `Direct`
+- Project and task CRUD now prefer optimistic UI updates with rollback on failure, and create/edit dialogs close immediately on submit attempt instead of waiting for the network round-trip
 
 New patterns introduced:
 
@@ -274,6 +276,8 @@ New patterns introduced:
 - For profile image updates, normalize backend snake_case fields before merging into frontend user state
 - Use shadcn tooltips for collapsed icon-only navigation
 - For settings-like areas, prefer sidebar submenus tied to URL state over in-page tabs when users need deep linking and persistent navigation context
+- Reuse the same URL-driven sidebar submenu pattern for other multi-view surfaces like Chat when they need persistent navigation context
+- For project/task create and edit dialogs, close the modal as soon as submit is attempted and rely on optimistic context updates plus rollback if the request fails
 
 Assumptions currently in use:
 

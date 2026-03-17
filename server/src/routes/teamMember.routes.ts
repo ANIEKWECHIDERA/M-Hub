@@ -13,7 +13,7 @@ router.use(requireAppUser);
 
 router.get(
   "/team-members",
-  authorize(["admin", "superAdmin"]),
+  authorize(["team_member", "admin", "superAdmin"]),
   TeamMemberController.getTeamMembers,
 );
 

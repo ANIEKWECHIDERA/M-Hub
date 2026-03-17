@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/context/AuthContext";
 import { workspaceAPI, type Workspace } from "@/api/workspace.api";
 import { toast } from "sonner";
+import { chatSections, type ChatSection } from "@/config/chat-nav";
 import {
   getAllowedSettingsSections,
   type SettingsSection,
@@ -83,6 +84,12 @@ function SidebarPanel({
   const { authStatus } = useAuthContext();
   const isTeamMember = authStatus?.access === "team_member";
   const navigation = baseNavigation;
+  const activeChatSection = useMemo(() => {
+    const params = new URLSearchParams(search);
+    const section = params.get("section") as ChatSection | null;
+
+    return chatSections.find((item) => item.id === section)?.id ?? "all";
+  }, [search]);
   const settingsSections = getAllowedSettingsSections(isTeamMember);
   const activeSettingsSection = useMemo(() => {
     const params = new URLSearchParams(search);
@@ -94,10 +101,16 @@ function SidebarPanel({
       "profile"
     );
   }, [search, settingsSections]);
+  const chatOpenByDefault = pathname === "/chat";
   const settingsOpenByDefault = pathname === "/settings";
+  const [chatOpen, setChatOpen] = useState(chatOpenByDefault);
   const [settingsOpen, setSettingsOpen] = useState(settingsOpenByDefault);
 
   useEffect(() => {
+    if (pathname === "/chat") {
+      setChatOpen(true);
+    }
+
     if (pathname === "/settings") {
       setSettingsOpen(true);
     }
@@ -210,6 +223,89 @@ function SidebarPanel({
                   pathname === item.to ||
                   (item.to !== "/dashboard" &&
                     pathname.startsWith(item.to + "/"));
+
+                if (item.to === "/chat") {
+                  const chatLink = `/chat?section=${activeChatSection}`;
+
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <div className="relative">
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={!isExpanded ? item.name : undefined}
+                          aria-label={item.name}
+                          className={cn(
+                            !isExpanded && "mx-auto h-10 w-10 justify-center px-0",
+                            isExpanded && chatOpen && "pr-10",
+                          )}
+                        >
+                          <Link
+                            to={chatLink}
+                            onClick={() => {
+                              if (isExpanded) {
+                                setChatOpen(true);
+                              }
+                              handleNavClick();
+                            }}
+                          >
+                            <item.icon className="h-5 w-5" />
+                            {isExpanded && <span>{item.name}</span>}
+                          </Link>
+                        </SidebarMenuButton>
+
+                        {isExpanded && (
+                          <button
+                            type="button"
+                            aria-label={
+                              chatOpen ? "Collapse chat menu" : "Expand chat menu"
+                            }
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setChatOpen((value) => !value);
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                          >
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 transition-transform",
+                                chatOpen && "rotate-180",
+                              )}
+                            />
+                          </button>
+                        )}
+                      </div>
+
+                      {isExpanded && chatOpen && (
+                        <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                          {chatSections.map((section) => {
+                            const Icon = section.icon;
+                            const isSectionActive =
+                              pathname === "/chat" && activeChatSection === section.id;
+
+                            return (
+                              <Link
+                                key={section.id}
+                                to={`/chat?section=${section.id}`}
+                                onClick={handleNavClick}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
+                                  isSectionActive
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                                <span>{section.label}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                }
 
                 return (
                   <SidebarMenuItem key={item.name}>

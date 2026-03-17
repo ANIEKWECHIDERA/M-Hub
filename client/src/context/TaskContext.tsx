@@ -135,6 +135,22 @@ export const TaskContextProvider = ({
       throw new Error("No auth token");
     }
 
+    const previousTasks = tasks;
+    const previousSelectedTask = selectedTask;
+    const optimisticTask =
+      tasks.find((task) => task.id === id) ?? selectedTask ?? null;
+
+    if (optimisticTask) {
+      const mergedTask = {
+        ...optimisticTask,
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setTasks((prev) => prev.map((t) => (t.id === id ? mergedTask : t)));
+      setSelectedTask((task) => (task?.id === id ? mergedTask : task));
+    }
+
     const promise = tasksAPI.update(id, data, idToken);
 
     toast.promise(promise, {
@@ -143,13 +159,21 @@ export const TaskContextProvider = ({
       error: "Failed to update task",
     });
 
-    const updatedTask = await promise;
+    try {
+      const updatedTask = await promise;
+      const normalizedTask = normalizeTask(updatedTask);
 
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? normalizeTask(updatedTask) : t)),
-    );
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? normalizedTask : t)),
+      );
+      setSelectedTask((task) => (task?.id === id ? normalizedTask : task));
 
-    return normalizeTask(updatedTask);
+      return normalizedTask;
+    } catch (err) {
+      setTasks(previousTasks);
+      setSelectedTask(previousSelectedTask);
+      throw err;
+    }
   };
 
   // Optimistic delete

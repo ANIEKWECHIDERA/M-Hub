@@ -17,6 +17,31 @@ import { ProjectAPI } from "@/api/projects.api";
 
 const ProjectContext = createContext<ProjectContextType | null>(null);
 
+const buildOptimisticProject = (
+  data: CreateProjectDTO | UpdateProjectDTO,
+  existing?: Project | null,
+): Project => ({
+  id: existing?.id ?? `temp-project-${Date.now()}`,
+  company_id: existing?.company_id ?? "",
+  title: data.title ?? existing?.title ?? "Untitled project",
+  description: data.description ?? existing?.description ?? null,
+  status: data.status ?? existing?.status ?? "Planning",
+  deadline: data.deadline ?? existing?.deadline ?? null,
+  created_at: existing?.created_at ?? new Date().toISOString(),
+  client:
+    data.client?.name !== undefined
+      ? {
+          id: existing?.client?.id ?? `temp-client-${Date.now()}`,
+          name: data.client.name,
+        }
+      : data.client_id
+        ? existing?.client ?? null
+        : existing?.client ?? null,
+  team_members: existing?.team_members ?? [],
+  task_count: existing?.task_count ?? 0,
+  progress: existing?.progress ?? 0,
+});
+
 export const useProjectContext = () => {
   const context = useContext(ProjectContext);
   if (!context) {
@@ -77,6 +102,10 @@ export const ProjectContextProvider = ({
       setError("Authentication required");
       throw new Error("No auth token");
     }
+
+    const tempProject = buildOptimisticProject(data);
+    setProjects((prev) => [tempProject, ...prev]);
+
     const promise = ProjectAPI.create(data, idToken);
     toast.promise(promise, {
       loading: "Creating project...",
@@ -84,10 +113,17 @@ export const ProjectContextProvider = ({
       error: "Failed to create project",
     });
 
-    const project = await promise;
-    setProjects((prev) => [project, ...prev]);
+    try {
+      const project = await promise;
+      setProjects((prev) =>
+        prev.map((item) => (item.id === tempProject.id ? project : item)),
+      );
 
-    return project;
+      return project;
+    } catch (error) {
+      setProjects((prev) => prev.filter((item) => item.id !== tempProject.id));
+      throw error;
+    }
   };
 
   const updateProject = async (
@@ -98,6 +134,16 @@ export const ProjectContextProvider = ({
       setError("Authentication required");
       throw new Error("No auth token");
     }
+    const previousProjects = projects;
+    const previousCurrentProject = currentProject;
+    const existingProject = projects.find((proj) => proj.id === id) ?? null;
+    const optimisticProject = buildOptimisticProject(data, existingProject);
+
+    setProjects((prev) =>
+      prev.map((proj) => (proj.id === id ? optimisticProject : proj)),
+    );
+    setCurrentProject((proj) => (proj?.id === id ? optimisticProject : proj));
+
     const promise = ProjectAPI.update(id, data, idToken);
 
     toast.promise(promise, {
@@ -106,15 +152,21 @@ export const ProjectContextProvider = ({
       error: "Failed to update project",
     });
 
-    const updated = await promise;
-    if (!updated) throw new Error("Update failed");
+    try {
+      const updated = await promise;
+      if (!updated) throw new Error("Update failed");
 
-    setProjects((prev) =>
-      prev.map((proj) => (proj.id === id ? updated : proj)),
-    );
-    setCurrentProject((proj) => (proj?.id === id ? updated : proj));
+      setProjects((prev) =>
+        prev.map((proj) => (proj.id === id ? updated : proj)),
+      );
+      setCurrentProject((proj) => (proj?.id === id ? updated : proj));
 
-    return updated;
+      return updated;
+    } catch (error) {
+      setProjects(previousProjects);
+      setCurrentProject(previousCurrentProject);
+      throw error;
+    }
   };
 
   const deleteProject = async (id: string): Promise<void> => {
@@ -122,6 +174,11 @@ export const ProjectContextProvider = ({
       setError("Authentication required");
       throw new Error("No auth token");
     }
+    const previousProjects = projects;
+    const previousCurrentProject = currentProject;
+    setProjects((prev) => prev.filter((proj) => proj.id !== id));
+    setCurrentProject((proj) => (proj?.id === id ? null : proj));
+
     const promise = ProjectAPI.delete(id, idToken);
 
     toast.promise(promise, {
@@ -130,9 +187,13 @@ export const ProjectContextProvider = ({
       error: "Failed to delete project",
     });
 
-    await promise;
-
-    setProjects((prev) => prev.filter((proj) => proj.id !== id));
+    try {
+      await promise;
+    } catch (error) {
+      setProjects(previousProjects);
+      setCurrentProject(previousCurrentProject);
+      throw error;
+    }
   };
 
   const confirmDelete = () => {

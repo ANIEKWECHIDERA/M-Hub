@@ -156,8 +156,8 @@ export default function Projects() {
                     ? (data.team_member_ids as string[])
                     : [],
                 };
-                await addProject(newProject);
                 setIsCreateOpen(false);
+                await addProject(newProject);
               }}
               onCancel={() => setIsCreateOpen(false)}
             />
@@ -268,8 +268,8 @@ export default function Projects() {
                           ? (data.team_member_ids as string[])
                           : [],
                       };
-                      await addProject(newProject);
                       setIsCreateOpen(false);
+                      await addProject(newProject);
                     }}
                     onCancel={() => setIsCreateOpen(false)}
                   />
@@ -396,8 +396,8 @@ export default function Projects() {
               project={projects.find((p) => p.id === editingProjectId)}
               onSave={async (data) => {
                 if (editingProjectId) {
-                  await updateProject(editingProjectId, data as any);
                   setEditingProjectId(null);
+                  await updateProject(editingProjectId, data as any);
                 }
               }}
               onCancel={() => setEditingProjectId(null)}

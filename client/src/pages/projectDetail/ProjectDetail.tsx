@@ -326,6 +326,9 @@ export function ProjectDetail() {
                       key={editingTask?.id ?? "new"}
                       defaultValues={editingTask ?? undefined}
                       onSave={async (data) => {
+                        setIsTaskDialogOpen(false);
+                        setEditingTask(null);
+
                         try {
                           let updatedTask;
 
@@ -374,9 +377,6 @@ export function ProjectDetail() {
                           ) {
                             await refetch();
                           }
-
-                          setIsTaskDialogOpen(false);
-                          setEditingTask(null);
                         } catch (error) {
                           console.error("Failed to save task:", error);
                         }
