@@ -6,6 +6,7 @@ import {
   ChatConversationMemberSummary,
   ChatConversationPermissions,
   ChatConversationRecord,
+  ChatMessageListItem,
   ChatMessageRecord,
   ChatMessageSummary,
   ChatMessageType,
@@ -28,6 +29,8 @@ type ActiveMemberRow = {
   name: string | null;
   avatar: string | null;
 };
+
+const CHAT_MESSAGE_EDIT_WINDOW_MINUTES = 15;
 
 function mapConversation(row: Record<string, any>): ChatConversationRecord {
   return {
@@ -108,12 +111,29 @@ function mapMessageSummary(row: Record<string, any> | null | undefined): ChatMes
     message_type: row.message_type,
     created_at: row.created_at,
     edited_at: row.edited_at ?? null,
+    deleted_at: row.deleted_at ?? null,
     sender: {
       team_member_id: row.sender_team_member_id ?? null,
       user_id: row.sender_user_id ?? null,
       name: row.sender_name ?? null,
       avatar: row.sender_avatar ?? null,
     },
+  };
+}
+
+function mapMessageListItem(row: Record<string, any>): ChatMessageListItem {
+  return {
+    ...mapMessage(row),
+    sender: {
+      team_member_id: row.sender_team_member_id ?? null,
+      user_id: row.sender_user_id ?? null,
+      name: row.sender_name ?? null,
+      avatar: row.sender_avatar ?? null,
+    },
+    tags: parseJsonArray<string>(row.tags),
+    reply_to: mapMessageSummary(row.reply_to_message ?? null),
+    is_edited: Boolean(row.edited_at),
+    is_deleted: Boolean(row.deleted_at),
   };
 }
 
@@ -300,6 +320,47 @@ async function getLastMessageSummary(conversationId: string) {
     LIMIT 1`;
 
   return mapMessageSummary(rows[0]);
+}
+
+async function getMessageListItemById(messageId: string) {
+  const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+    SELECT
+      m.*,
+      tm.user_id AS sender_user_id,
+      COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email) AS sender_name,
+      COALESCE(u.avatar, u.photo_url) AS sender_avatar,
+      COALESCE(tags.tags, '[]'::json) AS tags,
+      COALESCE(reply.reply_to_message, 'null'::json) AS reply_to_message
+    FROM chat_messages m
+    LEFT JOIN team_members tm ON tm.id = m.sender_team_member_id
+    LEFT JOIN users u ON u.id = tm.user_id
+    LEFT JOIN LATERAL (
+      SELECT json_agg(t.tag ORDER BY t.tag ASC) AS tags
+      FROM chat_message_tags t
+      WHERE t.message_id = m.id
+    ) tags ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT json_build_object(
+        'id', rm.id,
+        'body', rm.body,
+        'message_type', rm.message_type,
+        'created_at', rm.created_at,
+        'edited_at', rm.edited_at,
+        'deleted_at', rm.deleted_at,
+        'sender_team_member_id', rm.sender_team_member_id,
+        'sender_user_id', rtm.user_id,
+        'sender_name', COALESCE(NULLIF(TRIM(CONCAT(COALESCE(ru.first_name, ''), ' ', COALESCE(ru.last_name, ''))), ''), ru.display_name, rtm.email),
+        'sender_avatar', COALESCE(ru.avatar, ru.photo_url)
+      ) AS reply_to_message
+      FROM chat_messages rm
+      LEFT JOIN team_members rtm ON rtm.id = rm.sender_team_member_id
+      LEFT JOIN users ru ON ru.id = rtm.user_id
+      WHERE rm.id = m.reply_to_message_id
+    ) reply ON TRUE
+    WHERE m.id = ${messageId}::uuid
+    LIMIT 1`;
+
+  return rows[0] ? mapMessageListItem(rows[0]) : null;
 }
 
 function mapConversationListItem(row: Record<string, any>): ChatConversationListItem {
@@ -587,28 +648,90 @@ export const ChatService = {
 
     const rows = cursorCreatedAt
       ? await prisma.$queryRaw<Array<Record<string, any>>>`
-          SELECT *
-          FROM chat_messages
-          WHERE conversation_id = ${params.conversationId}::uuid
-            AND company_id = ${params.companyId}::uuid
+          SELECT
+            m.*,
+            tm.user_id AS sender_user_id,
+            COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email) AS sender_name,
+            COALESCE(u.avatar, u.photo_url) AS sender_avatar,
+            COALESCE(tags.tags, '[]'::json) AS tags,
+            COALESCE(reply.reply_to_message, 'null'::json) AS reply_to_message
+          FROM chat_messages m
+          LEFT JOIN team_members tm ON tm.id = m.sender_team_member_id
+          LEFT JOIN users u ON u.id = tm.user_id
+          LEFT JOIN LATERAL (
+            SELECT json_agg(t.tag ORDER BY t.tag ASC) AS tags
+            FROM chat_message_tags t
+            WHERE t.message_id = m.id
+          ) tags ON TRUE
+          LEFT JOIN LATERAL (
+            SELECT json_build_object(
+              'id', rm.id,
+              'body', rm.body,
+              'message_type', rm.message_type,
+              'created_at', rm.created_at,
+              'edited_at', rm.edited_at,
+              'deleted_at', rm.deleted_at,
+              'sender_team_member_id', rm.sender_team_member_id,
+              'sender_user_id', rtm.user_id,
+              'sender_name', COALESCE(NULLIF(TRIM(CONCAT(COALESCE(ru.first_name, ''), ' ', COALESCE(ru.last_name, ''))), ''), ru.display_name, rtm.email),
+              'sender_avatar', COALESCE(ru.avatar, ru.photo_url)
+            ) AS reply_to_message
+            FROM chat_messages rm
+            LEFT JOIN team_members rtm ON rtm.id = rm.sender_team_member_id
+            LEFT JOIN users ru ON ru.id = rtm.user_id
+            WHERE rm.id = m.reply_to_message_id
+          ) reply ON TRUE
+          WHERE m.conversation_id = ${params.conversationId}::uuid
+            AND m.company_id = ${params.companyId}::uuid
             AND (
-              created_at < ${cursorCreatedAt}::timestamp
+              m.created_at < ${cursorCreatedAt}::timestamp
               OR (
-                created_at = ${cursorCreatedAt}::timestamp
-                AND id < ${params.cursorMessageId}::uuid
+                m.created_at = ${cursorCreatedAt}::timestamp
+                AND m.id < ${params.cursorMessageId}::uuid
               )
             )
-          ORDER BY created_at DESC, id DESC
+          ORDER BY m.created_at DESC, m.id DESC
           LIMIT ${limit}`
       : await prisma.$queryRaw<Array<Record<string, any>>>`
-          SELECT *
-          FROM chat_messages
-          WHERE conversation_id = ${params.conversationId}::uuid
-            AND company_id = ${params.companyId}::uuid
-          ORDER BY created_at DESC, id DESC
+          SELECT
+            m.*,
+            tm.user_id AS sender_user_id,
+            COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email) AS sender_name,
+            COALESCE(u.avatar, u.photo_url) AS sender_avatar,
+            COALESCE(tags.tags, '[]'::json) AS tags,
+            COALESCE(reply.reply_to_message, 'null'::json) AS reply_to_message
+          FROM chat_messages m
+          LEFT JOIN team_members tm ON tm.id = m.sender_team_member_id
+          LEFT JOIN users u ON u.id = tm.user_id
+          LEFT JOIN LATERAL (
+            SELECT json_agg(t.tag ORDER BY t.tag ASC) AS tags
+            FROM chat_message_tags t
+            WHERE t.message_id = m.id
+          ) tags ON TRUE
+          LEFT JOIN LATERAL (
+            SELECT json_build_object(
+              'id', rm.id,
+              'body', rm.body,
+              'message_type', rm.message_type,
+              'created_at', rm.created_at,
+              'edited_at', rm.edited_at,
+              'deleted_at', rm.deleted_at,
+              'sender_team_member_id', rm.sender_team_member_id,
+              'sender_user_id', rtm.user_id,
+              'sender_name', COALESCE(NULLIF(TRIM(CONCAT(COALESCE(ru.first_name, ''), ' ', COALESCE(ru.last_name, ''))), ''), ru.display_name, rtm.email),
+              'sender_avatar', COALESCE(ru.avatar, ru.photo_url)
+            ) AS reply_to_message
+            FROM chat_messages rm
+            LEFT JOIN team_members rtm ON rtm.id = rm.sender_team_member_id
+            LEFT JOIN users ru ON ru.id = rtm.user_id
+            WHERE rm.id = m.reply_to_message_id
+          ) reply ON TRUE
+          WHERE m.conversation_id = ${params.conversationId}::uuid
+            AND m.company_id = ${params.companyId}::uuid
+          ORDER BY m.created_at DESC, m.id DESC
           LIMIT ${limit}`;
 
-    return rows.map(mapMessage);
+    return rows.map(mapMessageListItem);
   },
   async createDirectConversation(payload: CreateDirectConversationDTO) {
     const uniqueUserIds = [...new Set(payload.participant_user_ids)];
@@ -1029,7 +1152,7 @@ export const ChatService = {
       user_ids: userIds,
     });
 
-    return mapMessage(rows[0]);
+    return (await getMessageListItemById(rows[0].id)) ?? mapMessageListItem(rows[0]);
   },
 
   async editMessage(params: {
@@ -1037,6 +1160,7 @@ export const ChatService = {
     companyId: string;
     requesterUserId: string;
     requesterTeamMemberId?: string | null;
+    requesterAccess?: string | null;
     body: string;
   }) {
     const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
@@ -1058,11 +1182,25 @@ export const ChatService = {
     const message = rows[0];
     if (!message) throw new ChatHttpError(404, "Message not found", "CHAT_MESSAGE_NOT_FOUND");
     if (!message.requester_is_member) throw new ChatHttpError(403, "You do not have access to this conversation", "CHAT_ACCESS_DENIED");
-    if (message.sender_team_member_id !== params.requesterTeamMemberId) throw new ChatHttpError(403, "You can only edit your own messages", "CHAT_EDIT_FORBIDDEN");
+    const canModerate =
+      params.requesterAccess === "admin" || params.requesterAccess === "superAdmin";
+    if (message.sender_team_member_id !== params.requesterTeamMemberId && !canModerate) {
+      throw new ChatHttpError(403, "You can only edit your own messages", "CHAT_EDIT_FORBIDDEN");
+    }
     if (message.message_type === "system") throw new ChatHttpError(403, "System messages cannot be edited", "CHAT_SYSTEM_EDIT_FORBIDDEN");
 
     const body = params.body.trim();
     if (!body) throw new ChatHttpError(400, "Message body is required", "CHAT_MESSAGE_BODY_REQUIRED");
+
+    const createdAt = new Date(message.created_at);
+    const editCutoff = new Date(createdAt.getTime() + CHAT_MESSAGE_EDIT_WINDOW_MINUTES * 60 * 1000);
+    if (!canModerate && new Date() > editCutoff) {
+      throw new ChatHttpError(
+        403,
+        `Messages can only be edited within ${CHAT_MESSAGE_EDIT_WINDOW_MINUTES} minutes of sending`,
+        "CHAT_EDIT_WINDOW_EXPIRED",
+      );
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
@@ -1095,6 +1233,115 @@ export const ChatService = {
       user_ids: userIds,
     });
 
-    return mapMessage(updated);
+    return (await getMessageListItemById(updated.id)) ?? mapMessageListItem(updated);
+  },
+
+  async deleteMessage(params: {
+    messageId: string;
+    companyId: string;
+    requesterUserId: string;
+    requesterTeamMemberId?: string | null;
+    requesterAccess?: string | null;
+  }) {
+    const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+      SELECT
+        m.*,
+        EXISTS (
+          SELECT 1
+          FROM chat_conversation_members cm
+          WHERE cm.conversation_id = m.conversation_id
+            AND cm.user_id = ${params.requesterUserId}::uuid
+            AND cm.removed_at IS NULL
+        ) AS requester_is_member
+      FROM chat_messages m
+      INNER JOIN chat_conversations c ON c.id = m.conversation_id
+      WHERE m.id = ${params.messageId}::uuid
+        AND c.company_id = ${params.companyId}::uuid
+      LIMIT 1`;
+
+    const message = rows[0];
+    if (!message) throw new ChatHttpError(404, "Message not found", "CHAT_MESSAGE_NOT_FOUND");
+    if (!message.requester_is_member) throw new ChatHttpError(403, "You do not have access to this conversation", "CHAT_ACCESS_DENIED");
+    if (message.deleted_at) return { success: true };
+
+    const canModerate =
+      params.requesterAccess === "admin" || params.requesterAccess === "superAdmin";
+    if (message.sender_team_member_id !== params.requesterTeamMemberId && !canModerate) {
+      throw new ChatHttpError(403, "You can only delete your own messages", "CHAT_DELETE_FORBIDDEN");
+    }
+    if (message.message_type === "system" && !canModerate) {
+      throw new ChatHttpError(403, "System messages cannot be deleted", "CHAT_SYSTEM_DELETE_FORBIDDEN");
+    }
+
+    const updatedRows = await prisma.$queryRaw<Array<Record<string, any>>>`
+      UPDATE chat_messages
+      SET body = ${"Message deleted"},
+          deleted_at = NOW(),
+          updated_at = NOW(),
+          metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('deleted_by', ${params.requesterUserId}::uuid)
+      WHERE id = ${params.messageId}::uuid
+      RETURNING *`;
+
+    const updated = updatedRows[0];
+    const userIds = await getConversationMemberUserIds(updated.conversation_id);
+
+    chatRealtimeService.emit({
+      type: "chat.message.deleted",
+      company_id: params.companyId,
+      conversation_id: updated.conversation_id,
+      message_id: updated.id,
+      user_ids: userIds,
+    });
+    chatRealtimeService.emit({
+      type: "chat.conversation.updated",
+      company_id: params.companyId,
+      conversation_id: updated.conversation_id,
+      user_ids: userIds,
+    });
+
+    return { success: true };
+  },
+
+  async markConversationRead(params: {
+    conversationId: string;
+    companyId: string;
+    userId: string;
+    lastReadMessageId?: string | null;
+    lastReadAt?: string | null;
+  }) {
+    await ChatAuthorizationService.assertCanViewConversation({
+      conversationId: params.conversationId,
+      companyId: params.companyId,
+      userId: params.userId,
+    });
+
+    let resolvedLastReadAt = params.lastReadAt ? new Date(params.lastReadAt).toISOString() : null;
+
+    if (params.lastReadMessageId) {
+      const messageRows = await prisma.$queryRaw<Array<Record<string, any>>>`
+        SELECT created_at
+        FROM chat_messages
+        WHERE id = ${params.lastReadMessageId}::uuid
+          AND conversation_id = ${params.conversationId}::uuid
+          AND company_id = ${params.companyId}::uuid
+        LIMIT 1`;
+
+      const message = messageRows[0];
+      if (!message) {
+        throw new ChatHttpError(404, "Last read message not found", "CHAT_LAST_READ_MESSAGE_NOT_FOUND");
+      }
+
+      resolvedLastReadAt = message.created_at;
+    }
+
+    await prisma.$executeRaw`
+      UPDATE chat_conversation_members
+      SET last_read_message_id = ${params.lastReadMessageId ?? null}::uuid,
+          last_read_at = ${resolvedLastReadAt ?? new Date().toISOString()}::timestamp
+      WHERE conversation_id = ${params.conversationId}::uuid
+        AND user_id = ${params.userId}::uuid
+        AND removed_at IS NULL`;
+
+    return { success: true };
   },
 };

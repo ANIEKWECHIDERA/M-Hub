@@ -78,3 +78,22 @@ export const SendMessageDTO = z
 export const EditMessageDTO = z.object({
   body: z.string().trim().min(1).max(4000),
 });
+
+export const DeleteMessageDTO = z.object({
+  hard_delete: z.boolean().optional(),
+});
+
+export const MarkConversationReadDTO = z
+  .object({
+    last_read_message_id: UUID.optional().nullable(),
+    last_read_at: z.string().datetime().optional().nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.last_read_message_id && !value.last_read_at) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide a message id or timestamp to mark as read.",
+        path: ["last_read_message_id"],
+      });
+    }
+  });

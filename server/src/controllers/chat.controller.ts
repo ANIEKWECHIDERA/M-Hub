@@ -6,7 +6,9 @@ import {
   ChatMessageListQueryDTO,
   CreateDirectConversationDTO,
   CreateGroupConversationDTO,
+  DeleteMessageDTO,
   EditMessageDTO,
+  MarkConversationReadDTO,
   RenameConversationDTO,
   SendMessageDTO,
 } from "../dtos/chat.dto";
@@ -278,13 +280,14 @@ export const ChatController = {
 
   async editMessage(req: any, res: Response) {
     try {
-      const { companyId, userId, teamMemberId } = getChatRequestContext(req);
+      const { companyId, userId, teamMemberId, access } = getChatRequestContext(req);
       const body = EditMessageDTO.parse(req.body);
       const message = await ChatService.editMessage({
         messageId: req.params.messageId,
         companyId,
         requesterUserId: userId,
         requesterTeamMemberId: teamMemberId,
+        requesterAccess: access,
         body: body.body,
       });
 
@@ -292,6 +295,46 @@ export const ChatController = {
     } catch (error) {
       logger.error("ChatController.editMessage failed", { error });
       return handleChatControllerError(res, error, "Failed to edit message");
+    }
+  },
+
+  async deleteMessage(req: any, res: Response) {
+    try {
+      const { companyId, userId, teamMemberId, access } = getChatRequestContext(req);
+      DeleteMessageDTO.parse(req.body ?? {});
+
+      const result = await ChatService.deleteMessage({
+        messageId: req.params.messageId,
+        companyId,
+        requesterUserId: userId,
+        requesterTeamMemberId: teamMemberId,
+        requesterAccess: access,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      logger.error("ChatController.deleteMessage failed", { error });
+      return handleChatControllerError(res, error, "Failed to delete message");
+    }
+  },
+
+  async markConversationRead(req: any, res: Response) {
+    try {
+      const { companyId, userId } = getChatRequestContext(req);
+      const body = MarkConversationReadDTO.parse(req.body);
+
+      const result = await ChatService.markConversationRead({
+        conversationId: req.params.conversationId,
+        companyId,
+        userId,
+        lastReadMessageId: body.last_read_message_id ?? null,
+        lastReadAt: body.last_read_at ?? null,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      logger.error("ChatController.markConversationRead failed", { error });
+      return handleChatControllerError(res, error, "Failed to mark conversation as read");
     }
   },
 

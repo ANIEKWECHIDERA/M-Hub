@@ -66,12 +66,26 @@ export type ChatMessageSummary = {
   message_type: ChatMessageType;
   created_at: string;
   edited_at: string | null;
+  deleted_at?: string | null;
   sender: {
     team_member_id: string | null;
     user_id: string | null;
     name: string | null;
     avatar: string | null;
   };
+};
+
+export type ChatMessageListItem = ChatMessageRecord & {
+  sender: {
+    team_member_id: string | null;
+    user_id: string | null;
+    name: string | null;
+    avatar: string | null;
+  };
+  tags: string[];
+  reply_to: ChatMessageSummary | null;
+  is_edited: boolean;
+  is_deleted: boolean;
 };
 
 export type ChatConversationListItem = ChatConversationRecord & {
@@ -174,6 +188,11 @@ export type UpdateChatMessageDTO = {
   edited_by: string;
 };
 
+export type MarkConversationReadDTO = {
+  last_read_message_id?: string | null;
+  last_read_at?: string | null;
+};
+
 export type ChatRealtimeEvent =
   | {
       type: "chat.conversation.created";
@@ -196,6 +215,13 @@ export type ChatRealtimeEvent =
     }
   | {
       type: "chat.message.updated";
+      company_id: string;
+      conversation_id: string;
+      message_id: string;
+      user_ids: string[];
+    }
+  | {
+      type: "chat.message.deleted";
       company_id: string;
       conversation_id: string;
       message_id: string;

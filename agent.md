@@ -233,7 +233,9 @@ Current MVP endpoints:
 - `POST /api/chat/conversations/direct`
 - `POST /api/chat/conversations/group`
 - `POST /api/chat/conversations/:conversationId/messages`
+- `POST /api/chat/conversations/:conversationId/read`
 - `PATCH /api/chat/messages/:messageId`
+- `DELETE /api/chat/messages/:messageId`
 - `POST /api/chat/conversations/:conversationId/members`
 - `DELETE /api/chat/conversations/:conversationId/members/:userId`
 - `PATCH /api/chat/conversations/:conversationId`
@@ -267,6 +269,32 @@ Phase 3 conversation lifecycle behavior now implemented:
 - conversation details:
   - return metadata, active members, computed permissions, and last-message summary
 
+Phase 4 message lifecycle behavior now implemented:
+
+- message listing:
+  - remains newest-first for consistency with the current backend contract
+  - uses cursor pagination via `cursorMessageId`
+  - returns sender metadata, tags, reply preview, edited/deleted flags, and `nextCursor`
+- sending messages:
+  - validates body length and content shape with Zod
+  - validates sender membership before write
+  - attaches tags when present
+  - updates `last_message_at`
+  - emits realtime message/conversation update events
+- editing messages:
+  - sender-only by default
+  - `admin` / `superAdmin` can moderate-edit if needed
+  - edit window is currently 15 minutes for normal users
+  - preserves edit history in `chat_message_edits`
+- deleting messages:
+  - is soft-delete only
+  - preserves timeline integrity by replacing body with `Message deleted`
+  - sets `deleted_at` and emits realtime delete/update events
+- marking a conversation read:
+  - uses per-member read cursors on `chat_conversation_members`
+  - supports `last_read_message_id` or `last_read_at`
+  - keeps unread-count calculation efficient without recounting all history globally
+
 Current realtime behavior for chat:
 
 - backend chat SSE stream route: `GET /api/chat/stream?token=...`
@@ -278,13 +306,14 @@ Current realtime behavior for chat:
   - member removed
   - message created
   - message updated
+  - message deleted
 
 Current limitations / deferred chat items:
 
 - the frontend `Chat.tsx` is still mock-data based
 - realtime backend events exist, but the frontend `Chat.tsx` is not wired to them yet
 - typing indicators and online presence are not wired yet
-- unread counters/read-cursor endpoints are not exposed yet
+- read-cursor updates are now exposed, but the frontend does not consume them yet
 - moderation delete/hide flows are not implemented yet
 - per-conversation notification preference updates are not exposed yet
 

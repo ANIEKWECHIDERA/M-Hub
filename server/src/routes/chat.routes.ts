@@ -51,11 +51,25 @@ router.post(
   ChatController.sendMessage,
 );
 
+router.post(
+  "/chat/conversations/:conversationId/read",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  ChatController.markConversationRead,
+);
+
 router.patch(
   "/chat/messages/:messageId",
   ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member", "member"]),
   ChatController.editMessage,
+);
+
+router.delete(
+  "/chat/messages/:messageId",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  ChatController.deleteMessage,
 );
 
 router.post(
