@@ -228,8 +228,8 @@ async function createSystemMessage(params: {
   companyId: string;
   body: string;
 }) {
-  const rows = await prisma.$transaction(async (tx) => {
-    const inserted = await tx.$queryRaw<Array<Record<string, any>>>`
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<Record<string, any>>>`
       INSERT INTO chat_messages (
         conversation_id,
         company_id,
@@ -255,25 +255,6 @@ async function createSystemMessage(params: {
       SET last_message_at = NOW(),
           updated_at = NOW()
       WHERE id = ${params.conversationId}::uuid`;
-
-    return inserted;
-  });
-
-  const userIds = await getConversationMemberUserIds(params.conversationId);
-
-  chatRealtimeService.emit({
-    type: "chat.message.created",
-    company_id: params.companyId,
-    conversation_id: params.conversationId,
-    message_id: rows[0].id,
-    user_ids: userIds,
-  });
-
-  chatRealtimeService.emit({
-    type: "chat.conversation.updated",
-    company_id: params.companyId,
-    conversation_id: params.conversationId,
-    user_ids: userIds,
   });
 }
 
@@ -816,13 +797,6 @@ export const ChatService = {
       return createdConversation;
     });
 
-    chatRealtimeService.emit({
-      type: "chat.conversation.created",
-      company_id: payload.company_id,
-      conversation_id: conversation.id,
-      user_ids: members.map((member) => member.user_id),
-    });
-
     return mapConversation(conversation);
   },
 
@@ -887,13 +861,6 @@ export const ChatService = {
       conversationId: conversation.id,
       companyId: payload.company_id,
       body: `Group "${payload.name.trim()}" was created`,
-    });
-
-    chatRealtimeService.emit({
-      type: "chat.conversation.created",
-      company_id: payload.company_id,
-      conversation_id: conversation.id,
-      user_ids: members.map((member) => member.user_id),
     });
 
     return mapConversation(conversation);
@@ -961,18 +928,6 @@ export const ChatService = {
       body: `Members added to ${conversation.name ?? "group chat"}`,
     });
 
-    const userIds = await getConversationMemberUserIds(conversation.id);
-    for (const member of members) {
-      chatRealtimeService.emit({
-        type: "chat.member.added",
-        company_id: params.companyId,
-        conversation_id: conversation.id,
-        user_id: member.user_id,
-        actor_user_id: params.requesterUserId,
-        user_ids: userIds,
-      });
-    }
-
     return { success: true };
   },
   async removeMember(params: {
@@ -1008,16 +963,6 @@ export const ChatService = {
       body: `A member was removed from ${conversation.name ?? "group chat"}`,
     });
 
-    const remainingUserIds = await getConversationMemberUserIds(conversation.id);
-    chatRealtimeService.emit({
-      type: "chat.member.removed",
-      company_id: params.companyId,
-      conversation_id: conversation.id,
-      user_id: params.targetUserId,
-      actor_user_id: params.requesterUserId,
-      user_ids: [...new Set([...remainingUserIds, params.targetUserId])],
-    });
-
     return { success: true };
   },
 
@@ -1050,13 +995,6 @@ export const ChatService = {
       conversationId: conversation.id,
       companyId: params.companyId,
       body: `Group renamed to "${name}"`,
-    });
-
-    chatRealtimeService.emit({
-      type: "chat.conversation.updated",
-      company_id: params.companyId,
-      conversation_id: conversation.id,
-      user_ids: await getConversationMemberUserIds(conversation.id),
     });
 
     return { success: true };
@@ -1141,21 +1079,6 @@ export const ChatService = {
       return inserted;
     });
 
-    const userIds = await getConversationMemberUserIds(params.conversation_id);
-    chatRealtimeService.emit({
-      type: "chat.message.created",
-      company_id: params.company_id,
-      conversation_id: params.conversation_id,
-      message_id: rows[0].id,
-      user_ids: userIds,
-    });
-    chatRealtimeService.emit({
-      type: "chat.conversation.updated",
-      company_id: params.company_id,
-      conversation_id: params.conversation_id,
-      user_ids: userIds,
-    });
-
     return (await getMessageListItemById(rows[0].id)) ?? mapMessageListItem(rows[0]);
   },
 
@@ -1222,21 +1145,6 @@ export const ChatService = {
       return updateRows[0];
     });
 
-    const userIds = await getConversationMemberUserIds(updated.conversation_id);
-    chatRealtimeService.emit({
-      type: "chat.message.updated",
-      company_id: params.companyId,
-      conversation_id: updated.conversation_id,
-      message_id: updated.id,
-      user_ids: userIds,
-    });
-    chatRealtimeService.emit({
-      type: "chat.conversation.updated",
-      company_id: params.companyId,
-      conversation_id: updated.conversation_id,
-      user_ids: userIds,
-    });
-
     return (await getMessageListItemById(updated.id)) ?? mapMessageListItem(updated);
   },
 
@@ -1287,22 +1195,6 @@ export const ChatService = {
       RETURNING *`;
 
     const updated = updatedRows[0];
-    const userIds = await getConversationMemberUserIds(updated.conversation_id);
-
-    chatRealtimeService.emit({
-      type: "chat.message.deleted",
-      company_id: params.companyId,
-      conversation_id: updated.conversation_id,
-      message_id: updated.id,
-      user_ids: userIds,
-    });
-    chatRealtimeService.emit({
-      type: "chat.conversation.updated",
-      company_id: params.companyId,
-      conversation_id: updated.conversation_id,
-      user_ids: userIds,
-    });
-
     return { success: true };
   },
 
@@ -1377,13 +1269,6 @@ export const ChatService = {
       );
     }
 
-    chatRealtimeService.emit({
-      type: "chat.conversation.updated",
-      company_id: params.companyId,
-      conversation_id: params.conversationId,
-      user_ids: await getConversationMemberUserIds(params.conversationId),
-    });
-
     return {
       success: true,
       notifications_muted: Boolean(rows[0].notifications_muted),
@@ -1404,13 +1289,12 @@ export const ChatService = {
 
     const userIds = await getConversationMemberUserIds(params.conversationId);
 
-    chatRealtimeService.emit({
-      type: "chat.typing",
-      company_id: params.companyId,
-      conversation_id: params.conversationId,
-      user_id: params.userId,
+    await chatRealtimeService.sendTypingIndicator({
+      companyId: params.companyId,
+      conversationId: params.conversationId,
+      userId: params.userId,
+      userIds,
       isTyping: params.isTyping,
-      user_ids: userIds,
     });
 
     return { success: true };

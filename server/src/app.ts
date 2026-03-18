@@ -24,8 +24,10 @@ import workspaceRoutes from "./routes/workspace.routes";
 import { apiLimiter } from "./middleware/rateLimiter";
 import cacheRoutes from "./routes/cache.routes";
 import chatRoutes from "./routes/chat.routes";
+import { chatRealtimeService } from "./services/chatRealtime.service";
 
 const app = express();
+chatRealtimeService.initialize();
 
 // CORS middleware - Allow all origins
 app.use(

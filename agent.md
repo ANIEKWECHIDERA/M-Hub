@@ -300,20 +300,25 @@ Phase 4 message lifecycle behavior now implemented:
 Current realtime behavior for chat:
 
 - backend chat SSE stream route: `GET /api/chat/stream?token=...`
-- event bus: `server/src/services/chatRealtime.service.ts`
-- emitted events currently cover:
-  - conversation created
-  - conversation updated
-  - member added
-  - member removed
-  - message created
-  - message updated
-  - message deleted
-- live stream connections now also drive process-local online presence:
+- realtime orchestration lives in `server/src/services/chatRealtime.service.ts`
+- durable chat events are now driven by Supabase Realtime `postgres_changes` subscriptions on:
+  - `chat_messages`
+  - `chat_conversations`
+  - `chat_conversation_members`
+- those DB-backed subscriptions fan back into the existing SSE stream, so:
+  - new message delivery
+  - edited/deleted message updates
+  - group membership changes
+  - conversation metadata/preference updates
+  are all emitted from persistent database changes rather than ad hoc service emits
+- typing indicators stay ephemeral and do not write to the database
+  - typing start/stop is sent through a Supabase broadcast channel
+  - the backend relays it through SSE to current participants
+  - stale typing state auto-expires after a short inactivity window
+- live stream connections still drive process-local online presence:
   - users are marked online when a chat stream connects
   - users are marked offline when their last stream disconnects
   - member summaries expose current `online` state
-- typing indicators are ephemeral and do not write to the database
 - conversation notification preferences are stored durably on `chat_conversation_members.notifications_muted`
 
 Current limitations / deferred chat items:
@@ -322,7 +327,7 @@ Current limitations / deferred chat items:
 - realtime backend events exist, but the frontend `Chat.tsx` is not wired to them yet
 - read-cursor updates and conversation notification preference updates are now exposed, but the frontend does not consume them yet
 - moderation delete/hide flows are not implemented yet
-- presence remains process-local for now; if the backend scales to multiple instances, move chat presence/typing to Supabase Realtime presence/broadcast or another shared realtime layer
+- presence remains process-local for now; if the backend scales to multiple instances, move online presence to Supabase Realtime presence or another shared presence layer
 
 ## Important Paths
 
