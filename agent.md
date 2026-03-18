@@ -226,6 +226,7 @@ Current Phase 2 authorization rules:
 
 Current MVP endpoints:
 
+- `GET /api/chat/stream?token=...`
 - `GET /api/chat/conversations`
 - `GET /api/chat/conversations/:conversationId`
 - `GET /api/chat/conversations/:conversationId/messages`
@@ -240,14 +241,49 @@ Current MVP endpoints:
 Validation and contract notes:
 
 - chat request payloads are validated with Zod before service execution
-- message history is cursor-ready via `cursorMessageId`
-- list/message limits are bounded server-side
+- direct chat creation can target either a user ID or a team-member ID, but server-side resolution always verifies the target belongs to the active company
+- group creation/member-add flows can accept user IDs and/or team-member IDs, and the backend resolves them to active workspace members before writing rows
+- conversation list and message history are cursor-ready via `cursorConversationId` and `cursorMessageId`
+- list/message limits are bounded server-side, and both list endpoints now return `nextCursor`
 - chat system/audit messages are server-only and should continue to be emitted by service methods for membership/name changes
+
+Phase 3 conversation lifecycle behavior now implemented:
+
+- direct conversation creation:
+  - de-duplicates by `direct_key`
+  - returns the existing DM instead of creating duplicates
+- group conversation creation:
+  - adds the creator as a member
+  - validates all initial members against active workspace membership
+  - emits a system message for group creation
+- group rename/add/remove:
+  - are enforced through the shared authorization service
+  - write system messages so membership/history changes are visible
+  - emit chat realtime events for subscribers
+- conversation listing:
+  - is workspace/user scoped
+  - sorts by `last_message_at` (fallback `created_at`) descending
+  - includes unread counts, last-message preview, member count, and member metadata
+- conversation details:
+  - return metadata, active members, computed permissions, and last-message summary
+
+Current realtime behavior for chat:
+
+- backend chat SSE stream route: `GET /api/chat/stream?token=...`
+- event bus: `server/src/services/chatRealtime.service.ts`
+- emitted events currently cover:
+  - conversation created
+  - conversation updated
+  - member added
+  - member removed
+  - message created
+  - message updated
 
 Current limitations / deferred chat items:
 
 - the frontend `Chat.tsx` is still mock-data based
-- realtime message delivery, presence, and typing indicators are not wired yet
+- realtime backend events exist, but the frontend `Chat.tsx` is not wired to them yet
+- typing indicators and online presence are not wired yet
 - unread counters/read-cursor endpoints are not exposed yet
 - moderation delete/hide flows are not implemented yet
 - per-conversation notification preference updates are not exposed yet

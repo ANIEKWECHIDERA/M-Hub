@@ -7,6 +7,7 @@ import { authorize } from "../middleware/authorize";
 
 const router = Router();
 const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
+router.get("/chat/stream", ChatController.streamChat);
 
 router.get(
   "/chat/conversations",

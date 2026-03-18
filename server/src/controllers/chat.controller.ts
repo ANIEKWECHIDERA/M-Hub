@@ -10,8 +10,12 @@ import {
   RenameConversationDTO,
   SendMessageDTO,
 } from "../dtos/chat.dto";
+import admin from "../config/firebaseAdmin";
 import { ChatService } from "../services/chat.service";
-import { isChatHttpError } from "../services/chatErrors";
+import { chatRealtimeService } from "../services/chatRealtime.service";
+import { ChatHttpError, isChatHttpError } from "../services/chatErrors";
+import { RequestCacheService } from "../services/requestCache.service";
+import { UserService } from "../services/user.service";
 import { logger } from "../utils/logger";
 
 function getChatRequestContext(req: any) {
@@ -59,12 +63,20 @@ export const ChatController = {
       const { companyId, userId } = getChatRequestContext(req);
       const query = ChatListQueryDTO.parse(req.query);
       const conversations = await ChatService.listConversations(
-        companyId,
-        userId,
-        query.limit ?? 50,
+        {
+          companyId,
+          userId,
+          limit: query.limit ?? 50,
+          cursorConversationId: query.cursorConversationId ?? null,
+        },
       );
 
-      return res.json({ conversations });
+      const nextCursor =
+        conversations.length === (query.limit ?? 50)
+          ? conversations[conversations.length - 1]?.id ?? null
+          : null;
+
+      return res.json({ conversations, nextCursor });
     } catch (error) {
       logger.error("ChatController.listConversations failed", { error });
       return handleChatControllerError(
@@ -78,11 +90,12 @@ export const ChatController = {
   async getConversation(req: any, res: Response) {
     try {
       const { companyId, userId } = getChatRequestContext(req);
-      const conversation = await ChatService.getConversation(
-        req.params.conversationId,
+      const conversation = await ChatService.getConversationDetails({
+        conversationId: req.params.conversationId,
         companyId,
         userId,
-      );
+        access: req.user?.access ?? null,
+      });
 
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
@@ -107,7 +120,12 @@ export const ChatController = {
         cursorMessageId: query.cursorMessageId ?? null,
       });
 
-      return res.json({ messages });
+      const nextCursor =
+        messages.length === (query.limit ?? 50)
+          ? messages[messages.length - 1]?.id ?? null
+          : null;
+
+      return res.json({ messages, nextCursor });
     } catch (error) {
       logger.error("ChatController.listMessages failed", { error });
       return handleChatControllerError(res, error, "Failed to fetch messages");
@@ -119,10 +137,21 @@ export const ChatController = {
       const { companyId, userId } = getChatRequestContext(req);
       const body = CreateDirectConversationDTO.parse(req.body);
 
+      const participantUserIds =
+        body.target_user_id
+          ? [userId, body.target_user_id]
+          : [
+              userId,
+              await ChatController.resolveTargetUserIdFromTeamMember(
+                companyId,
+                body.target_team_member_id!,
+              ),
+            ];
+
       const conversation = await ChatService.createDirectConversation({
         company_id: companyId,
         created_by: userId,
-        participant_user_ids: [userId, body.participant_user_ids[0]],
+        participant_user_ids: participantUserIds as [string, string],
       });
 
       return res.status(201).json({ conversation });
@@ -140,12 +169,17 @@ export const ChatController = {
     try {
       const { companyId, userId } = getChatRequestContext(req);
       const body = CreateGroupConversationDTO.parse(req.body);
+      const participantUserIds = await ChatService.resolveParticipantUserIds({
+        companyId,
+        participantUserIds: body.participant_user_ids,
+        participantTeamMemberIds: body.participant_team_member_ids,
+      });
 
       const conversation = await ChatService.createGroupConversation({
         company_id: companyId,
         created_by: userId,
         name: body.name,
-        participant_user_ids: body.participant_user_ids,
+        participant_user_ids: participantUserIds,
         metadata: body.metadata,
       });
 
@@ -171,6 +205,7 @@ export const ChatController = {
         requesterUserId: userId,
         requesterAccess: access,
         participantUserIds: body.participant_user_ids,
+        participantTeamMemberIds: body.participant_team_member_ids,
       });
 
       return res.json(result);
@@ -258,5 +293,87 @@ export const ChatController = {
       logger.error("ChatController.editMessage failed", { error });
       return handleChatControllerError(res, error, "Failed to edit message");
     }
+  },
+
+  async streamChat(req: any, res: Response) {
+    const token = String(req.query.token ?? "").trim();
+
+    if (!token) {
+      return res.status(401).json({ error: "Missing chat stream token" });
+    }
+
+    try {
+      const decoded =
+        RequestCacheService.getVerifiedToken(token, {
+          requestPath: req.path,
+        }) ?? (await admin.auth().verifyIdToken(token, true));
+
+      RequestCacheService.setVerifiedToken(token, decoded, {
+        requestPath: req.path,
+      });
+
+      const cachedUser = RequestCacheService.getUser(decoded.uid, {
+        requestPath: req.path,
+      });
+      const user = cachedUser ?? (await UserService.findByFirebaseUid(decoded.uid));
+
+      if (!user?.company_id || !user?.id) {
+        return res.status(403).json({ error: "Chat stream unavailable" });
+      }
+
+      if (!cachedUser && user) {
+        RequestCacheService.setUser(decoded.uid, user, {
+          requestPath: req.path,
+        });
+      }
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders?.();
+
+      const writeEvent = (event: string, data: unknown) => {
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      writeEvent("connected", {
+        companyId: user.company_id,
+        userId: user.id,
+      });
+
+      const unsubscribe = chatRealtimeService.subscribe(
+        user.company_id,
+        user.id,
+        (event) => {
+          writeEvent("chat", event);
+        },
+      );
+
+      const keepAlive = setInterval(() => {
+        writeEvent("ping", { ts: new Date().toISOString() });
+      }, 25000);
+
+      req.on("close", () => {
+        clearInterval(keepAlive);
+        unsubscribe();
+        res.end();
+      });
+    } catch (error: any) {
+      logger.error("ChatController.streamChat failed", {
+        error: error.message,
+      });
+
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+  },
+
+  async resolveTargetUserIdFromTeamMember(companyId: string, teamMemberId: string) {
+    const userId = await ChatService.resolveDirectTargetUser(companyId, teamMemberId);
+    if (!userId) {
+      throw new ChatHttpError(400, "Direct chat target must be an active workspace member", "CHAT_INVALID_PARTICIPANTS");
+    }
+    return userId;
   },
 };

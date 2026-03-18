@@ -11,6 +11,7 @@ const chatMessageTagSchema = z.enum(CHAT_MESSAGE_TAGS);
 
 export const ChatListQueryDTO = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursorConversationId: UUID.optional().nullable(),
 });
 
 export const ChatMessageListQueryDTO = z.object({
@@ -19,17 +20,37 @@ export const ChatMessageListQueryDTO = z.object({
 });
 
 export const CreateDirectConversationDTO = z.object({
-  participant_user_ids: z.array(UUID).length(1),
+  target_user_id: UUID.optional(),
+  target_team_member_id: UUID.optional(),
+}).superRefine((value, ctx) => {
+  const provided = [value.target_user_id, value.target_team_member_id].filter(Boolean);
+  if (provided.length !== 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Provide exactly one direct-chat target.",
+      path: ["target_user_id"],
+    });
+  }
 });
 
 export const CreateGroupConversationDTO = z.object({
   name: z.string().trim().min(1).max(120),
   participant_user_ids: z.array(UUID).max(50).default([]),
+  participant_team_member_ids: z.array(UUID).max(50).default([]),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const AddConversationMembersDTO = z.object({
-  participant_user_ids: z.array(UUID).min(1).max(50),
+  participant_user_ids: z.array(UUID).max(50).default([]),
+  participant_team_member_ids: z.array(UUID).max(50).default([]),
+}).superRefine((value, ctx) => {
+  if (!value.participant_user_ids.length && !value.participant_team_member_ids.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Provide at least one member to add.",
+      path: ["participant_user_ids"],
+    });
+  }
 });
 
 export const RenameConversationDTO = z.object({

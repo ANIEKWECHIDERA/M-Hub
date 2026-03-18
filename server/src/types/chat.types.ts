@@ -47,6 +47,58 @@ export type ChatConversationMemberRecord = {
   notifications_muted: boolean;
 };
 
+export type ChatConversationMemberSummary = {
+  id: string;
+  user_id: string;
+  team_member_id: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+  role: string | null;
+  access: string | null;
+  joined_at: string;
+  notifications_muted: boolean;
+};
+
+export type ChatMessageSummary = {
+  id: string;
+  body: string;
+  message_type: ChatMessageType;
+  created_at: string;
+  edited_at: string | null;
+  sender: {
+    team_member_id: string | null;
+    user_id: string | null;
+    name: string | null;
+    avatar: string | null;
+  };
+};
+
+export type ChatConversationListItem = ChatConversationRecord & {
+  notifications_muted: boolean;
+  last_read_message_id: string | null;
+  last_read_at: string | null;
+  unread_count: number;
+  member_count: number;
+  last_message: ChatMessageSummary | null;
+  members: ChatConversationMemberSummary[];
+};
+
+export type ChatConversationPermissions = {
+  can_view: boolean;
+  can_send_messages: boolean;
+  can_rename_group: boolean;
+  can_manage_members: boolean;
+  can_moderate_messages: boolean;
+};
+
+export type ChatConversationDetails = ChatConversationRecord & {
+  member_count: number;
+  members: ChatConversationMemberSummary[];
+  permissions: ChatConversationPermissions;
+  last_message: ChatMessageSummary | null;
+};
+
 export type ChatMessageRecord = {
   id: string;
   conversation_id: string;
@@ -124,28 +176,46 @@ export type UpdateChatMessageDTO = {
 
 export type ChatRealtimeEvent =
   | {
+      type: "chat.conversation.created";
+      company_id: string;
+      conversation_id: string;
+      user_ids: string[];
+    }
+  | {
+      type: "chat.conversation.updated";
+      company_id: string;
+      conversation_id: string;
+      user_ids: string[];
+    }
+  | {
       type: "chat.message.created";
       company_id: string;
       conversation_id: string;
       message_id: string;
+      user_ids: string[];
     }
   | {
       type: "chat.message.updated";
       company_id: string;
       conversation_id: string;
       message_id: string;
+      user_ids: string[];
     }
   | {
       type: "chat.member.added";
       company_id: string;
       conversation_id: string;
       user_id: string;
+      actor_user_id: string;
+      user_ids: string[];
     }
   | {
       type: "chat.member.removed";
       company_id: string;
       conversation_id: string;
       user_id: string;
+      actor_user_id: string;
+      user_ids: string[];
     }
   | {
       type: "chat.typing";
