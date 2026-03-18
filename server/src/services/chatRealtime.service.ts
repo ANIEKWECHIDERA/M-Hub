@@ -3,6 +3,7 @@ import { ChatRealtimeEvent } from "../types/chat.types";
 
 class ChatRealtimeService {
   private emitter = new EventEmitter();
+  private presence = new Map<string, number>();
 
   subscribe(
     companyId: string,
@@ -32,6 +33,43 @@ class ChatRealtimeService {
 
   emit(event: ChatRealtimeEvent) {
     this.emitter.emit("chat", event);
+  }
+
+  markOnline(companyId: string, userId: string) {
+    const key = `${companyId}:${userId}`;
+    const count = this.presence.get(key) ?? 0;
+    this.presence.set(key, count + 1);
+
+    if (count === 0) {
+      this.emit({
+        type: "chat.presence",
+        company_id: companyId,
+        user_id: userId,
+        online: true,
+      });
+    }
+  }
+
+  markOffline(companyId: string, userId: string) {
+    const key = `${companyId}:${userId}`;
+    const count = this.presence.get(key) ?? 0;
+
+    if (count <= 1) {
+      this.presence.delete(key);
+      this.emit({
+        type: "chat.presence",
+        company_id: companyId,
+        user_id: userId,
+        online: false,
+      });
+      return;
+    }
+
+    this.presence.set(key, count - 1);
+  }
+
+  isOnline(companyId: string, userId: string) {
+    return (this.presence.get(`${companyId}:${userId}`) ?? 0) > 0;
   }
 }
 

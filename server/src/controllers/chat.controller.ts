@@ -11,6 +11,8 @@ import {
   MarkConversationReadDTO,
   RenameConversationDTO,
   SendMessageDTO,
+  TypingIndicatorDTO,
+  UpdateConversationPreferencesDTO,
 } from "../dtos/chat.dto";
 import admin from "../config/firebaseAdmin";
 import { ChatService } from "../services/chat.service";
@@ -370,6 +372,8 @@ export const ChatController = {
         });
       }
 
+      chatRealtimeService.markOnline(user.company_id, user.id);
+
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("Connection", "keep-alive");
@@ -401,6 +405,7 @@ export const ChatController = {
       req.on("close", () => {
         clearInterval(keepAlive);
         unsubscribe();
+        chatRealtimeService.markOffline(user.company_id, user.id);
         res.end();
       });
     } catch (error: any) {
@@ -418,5 +423,51 @@ export const ChatController = {
       throw new ChatHttpError(400, "Direct chat target must be an active workspace member", "CHAT_INVALID_PARTICIPANTS");
     }
     return userId;
+  },
+
+  async updateConversationPreferences(req: any, res: Response) {
+    try {
+      const { companyId, userId } = getChatRequestContext(req);
+      const body = UpdateConversationPreferencesDTO.parse(req.body);
+
+      const result = await ChatService.updateConversationPreferences({
+        conversationId: req.params.conversationId,
+        companyId,
+        userId,
+        notificationsMuted: body.notifications_muted,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      logger.error("ChatController.updateConversationPreferences failed", { error });
+      return handleChatControllerError(
+        res,
+        error,
+        "Failed to update conversation preferences",
+      );
+    }
+  },
+
+  async sendTypingIndicator(req: any, res: Response) {
+    try {
+      const { companyId, userId } = getChatRequestContext(req);
+      const body = TypingIndicatorDTO.parse(req.body);
+
+      const result = await ChatService.emitTypingIndicator({
+        conversationId: req.params.conversationId,
+        companyId,
+        userId,
+        isTyping: body.isTyping,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      logger.error("ChatController.sendTypingIndicator failed", { error });
+      return handleChatControllerError(
+        res,
+        error,
+        "Failed to send typing indicator",
+      );
+    }
   },
 };

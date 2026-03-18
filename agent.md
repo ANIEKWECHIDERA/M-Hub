@@ -233,7 +233,9 @@ Current MVP endpoints:
 - `POST /api/chat/conversations/direct`
 - `POST /api/chat/conversations/group`
 - `POST /api/chat/conversations/:conversationId/messages`
+- `POST /api/chat/conversations/:conversationId/typing`
 - `POST /api/chat/conversations/:conversationId/read`
+- `PATCH /api/chat/conversations/:conversationId/preferences`
 - `PATCH /api/chat/messages/:messageId`
 - `DELETE /api/chat/messages/:messageId`
 - `POST /api/chat/conversations/:conversationId/members`
@@ -307,15 +309,20 @@ Current realtime behavior for chat:
   - message created
   - message updated
   - message deleted
+- live stream connections now also drive process-local online presence:
+  - users are marked online when a chat stream connects
+  - users are marked offline when their last stream disconnects
+  - member summaries expose current `online` state
+- typing indicators are ephemeral and do not write to the database
+- conversation notification preferences are stored durably on `chat_conversation_members.notifications_muted`
 
 Current limitations / deferred chat items:
 
 - the frontend `Chat.tsx` is still mock-data based
 - realtime backend events exist, but the frontend `Chat.tsx` is not wired to them yet
-- typing indicators and online presence are not wired yet
-- read-cursor updates are now exposed, but the frontend does not consume them yet
+- read-cursor updates and conversation notification preference updates are now exposed, but the frontend does not consume them yet
 - moderation delete/hide flows are not implemented yet
-- per-conversation notification preference updates are not exposed yet
+- presence remains process-local for now; if the backend scales to multiple instances, move chat presence/typing to Supabase Realtime presence/broadcast or another shared realtime layer
 
 ## Important Paths
 

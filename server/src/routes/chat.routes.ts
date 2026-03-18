@@ -52,10 +52,24 @@ router.post(
 );
 
 router.post(
+  "/chat/conversations/:conversationId/typing",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  ChatController.sendTypingIndicator,
+);
+
+router.post(
   "/chat/conversations/:conversationId/read",
   ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member", "member"]),
   ChatController.markConversationRead,
+);
+
+router.patch(
+  "/chat/conversations/:conversationId/preferences",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  ChatController.updateConversationPreferences,
 );
 
 router.patch(

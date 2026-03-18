@@ -96,6 +96,7 @@ function mapMemberSummary(row: Record<string, any>): ChatConversationMemberSumma
     name: row.name ?? row.email ?? "Unknown member",
     email: row.email,
     avatar: row.avatar ?? null,
+    online: chatRealtimeService.isOnline(row.company_id, row.user_id),
     role: row.role ?? null,
     access: row.access ?? null,
     joined_at: row.joined_at,
@@ -280,6 +281,7 @@ async function getConversationMemberSummaries(conversationId: string) {
   const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
     SELECT
       cm.id,
+      tm.company_id,
       cm.user_id,
       cm.team_member_id,
       cm.joined_at,
@@ -474,6 +476,7 @@ export const ChatService = {
             SELECT json_agg(
               json_build_object(
                 'id', cm_active.id,
+                'company_id', tm.company_id,
                 'user_id', cm_active.user_id,
                 'team_member_id', cm_active.team_member_id,
                 'joined_at', cm_active.joined_at,
@@ -555,6 +558,7 @@ export const ChatService = {
             SELECT json_agg(
               json_build_object(
                 'id', cm_active.id,
+                'company_id', tm.company_id,
                 'user_id', cm_active.user_id,
                 'team_member_id', cm_active.team_member_id,
                 'joined_at', cm_active.joined_at,
@@ -1341,6 +1345,73 @@ export const ChatService = {
       WHERE conversation_id = ${params.conversationId}::uuid
         AND user_id = ${params.userId}::uuid
         AND removed_at IS NULL`;
+
+    return { success: true };
+  },
+
+  async updateConversationPreferences(params: {
+    conversationId: string;
+    companyId: string;
+    userId: string;
+    notificationsMuted: boolean;
+  }) {
+    await ChatAuthorizationService.assertCanViewConversation({
+      conversationId: params.conversationId,
+      companyId: params.companyId,
+      userId: params.userId,
+    });
+
+    const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+      UPDATE chat_conversation_members
+      SET notifications_muted = ${params.notificationsMuted}
+      WHERE conversation_id = ${params.conversationId}::uuid
+        AND user_id = ${params.userId}::uuid
+        AND removed_at IS NULL
+      RETURNING id, notifications_muted`;
+
+    if (!rows[0]) {
+      throw new ChatHttpError(
+        404,
+        "Conversation member preferences not found",
+        "CHAT_PREFERENCES_NOT_FOUND",
+      );
+    }
+
+    chatRealtimeService.emit({
+      type: "chat.conversation.updated",
+      company_id: params.companyId,
+      conversation_id: params.conversationId,
+      user_ids: await getConversationMemberUserIds(params.conversationId),
+    });
+
+    return {
+      success: true,
+      notifications_muted: Boolean(rows[0].notifications_muted),
+    };
+  },
+
+  async emitTypingIndicator(params: {
+    conversationId: string;
+    companyId: string;
+    userId: string;
+    isTyping: boolean;
+  }) {
+    await ChatAuthorizationService.assertCanSendMessages({
+      conversationId: params.conversationId,
+      companyId: params.companyId,
+      userId: params.userId,
+    });
+
+    const userIds = await getConversationMemberUserIds(params.conversationId);
+
+    chatRealtimeService.emit({
+      type: "chat.typing",
+      company_id: params.companyId,
+      conversation_id: params.conversationId,
+      user_id: params.userId,
+      isTyping: params.isTyping,
+      user_ids: userIds,
+    });
 
     return { success: true };
   },

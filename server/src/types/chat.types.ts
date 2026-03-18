@@ -54,6 +54,7 @@ export type ChatConversationMemberSummary = {
   name: string;
   email: string;
   avatar: string | null;
+  online: boolean;
   role: string | null;
   access: string | null;
   joined_at: string;
@@ -249,10 +250,12 @@ export type ChatRealtimeEvent =
       conversation_id: string;
       user_id: string;
       isTyping: boolean;
+      user_ids: string[];
     }
   | {
       type: "chat.presence";
       company_id: string;
       user_id: string;
       online: boolean;
+      user_ids?: string[];
     };

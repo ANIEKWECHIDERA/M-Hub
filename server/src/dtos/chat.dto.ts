@@ -97,3 +97,11 @@ export const MarkConversationReadDTO = z
       });
     }
   });
+
+export const UpdateConversationPreferencesDTO = z.object({
+  notifications_muted: z.boolean(),
+});
+
+export const TypingIndicatorDTO = z.object({
+  isTyping: z.boolean(),
+});
