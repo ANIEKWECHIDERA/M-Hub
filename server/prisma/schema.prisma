@@ -401,6 +401,7 @@ model chat_conversations {
   @@index([company_id])
   @@index([company_id, type])
   @@index([company_id, last_message_at])
+  @@index([company_id, last_message_at, id])
   @@index([created_by])
 }
 
@@ -428,8 +429,10 @@ model chat_conversation_members {
   @@index([conversation_id])
   @@index([conversation_id, removed_at])
   @@index([user_id, removed_at])
+  @@index([user_id, removed_at, conversation_id])
   @@index([team_member_id, removed_at])
   @@index([last_read_message_id])
+  @@index([conversation_id, user_id, removed_at, last_read_at])
 }
 
 model chat_messages {
@@ -458,6 +461,7 @@ model chat_messages {
   @@map("chat_messages")
   @@index([conversation_id])
   @@index([conversation_id, created_at])
+  @@index([conversation_id, deleted_at, created_at, id])
   @@index([company_id, created_at])
   @@index([sender_team_member_id])
   @@index([reply_to_message_id])

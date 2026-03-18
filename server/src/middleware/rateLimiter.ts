@@ -68,3 +68,21 @@ export const workspaceSwitchLimiter = rateLimit({
   keyGenerator: userAwareKeyGenerator,
   message: { error: "Too many workspace switches, try again later" },
 });
+
+export const chatMessageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userAwareKeyGenerator,
+  message: { error: "Too many chat messages sent, slow down and try again" },
+});
+
+export const chatTypingLimiter = rateLimit({
+  windowMs: 10 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userAwareKeyGenerator,
+  message: { error: "Too many typing events, slow down and try again" },
+});

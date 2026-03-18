@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { logger } from "../utils/logger";
 import {
   CHAT_MESSAGE_TAGS,
   ChatConversationDetails,
@@ -797,6 +798,13 @@ export const ChatService = {
       return createdConversation;
     });
 
+    logger.info("ChatService.createDirectConversation: ensured direct conversation", {
+      companyId: payload.company_id,
+      conversationId: conversation.id,
+      createdBy: payload.created_by,
+      participantUserIds: uniqueUserIds,
+    });
+
     return mapConversation(conversation);
   },
 
@@ -861,6 +869,14 @@ export const ChatService = {
       conversationId: conversation.id,
       companyId: payload.company_id,
       body: `Group "${payload.name.trim()}" was created`,
+    });
+
+    logger.info("ChatService.createGroupConversation: created group conversation", {
+      companyId: payload.company_id,
+      conversationId: conversation.id,
+      createdBy: payload.created_by,
+      memberCount: members.length,
+      name: payload.name.trim(),
     });
 
     return mapConversation(conversation);
@@ -928,6 +944,14 @@ export const ChatService = {
       body: `Members added to ${conversation.name ?? "group chat"}`,
     });
 
+    logger.info("ChatService.addMembers: members added to conversation", {
+      companyId: params.companyId,
+      conversationId: conversation.id,
+      requesterUserId: params.requesterUserId,
+      addedUserIds: members.map((member) => member.user_id),
+      addedCount: members.length,
+    });
+
     return { success: true };
   },
   async removeMember(params: {
@@ -963,6 +987,13 @@ export const ChatService = {
       body: `A member was removed from ${conversation.name ?? "group chat"}`,
     });
 
+    logger.info("ChatService.removeMember: member removed from conversation", {
+      companyId: params.companyId,
+      conversationId: conversation.id,
+      requesterUserId: params.requesterUserId,
+      targetUserId: params.targetUserId,
+    });
+
     return { success: true };
   },
 
@@ -995,6 +1026,13 @@ export const ChatService = {
       conversationId: conversation.id,
       companyId: params.companyId,
       body: `Group renamed to "${name}"`,
+    });
+
+    logger.info("ChatService.renameGroup: group renamed", {
+      companyId: params.companyId,
+      conversationId: conversation.id,
+      requesterUserId: params.requesterUserId,
+      name,
     });
 
     return { success: true };
@@ -1079,6 +1117,16 @@ export const ChatService = {
       return inserted;
     });
 
+    logger.info("ChatService.sendMessage: message sent", {
+      companyId: params.company_id,
+      conversationId: params.conversation_id,
+      messageId: rows[0].id,
+      requesterUserId: params.requesterUserId,
+      messageType,
+      tagCount: uniqueTags.length,
+      replyToMessageId: params.reply_to_message_id ?? null,
+    });
+
     return (await getMessageListItemById(rows[0].id)) ?? mapMessageListItem(rows[0]);
   },
 
@@ -1145,6 +1193,14 @@ export const ChatService = {
       return updateRows[0];
     });
 
+    logger.info("ChatService.editMessage: message edited", {
+      companyId: params.companyId,
+      conversationId: updated.conversation_id,
+      messageId: updated.id,
+      requesterUserId: params.requesterUserId,
+      moderated: message.sender_team_member_id !== params.requesterTeamMemberId,
+    });
+
     return (await getMessageListItemById(updated.id)) ?? mapMessageListItem(updated);
   },
 
@@ -1195,6 +1251,15 @@ export const ChatService = {
       RETURNING *`;
 
     const updated = updatedRows[0];
+
+    logger.info("ChatService.deleteMessage: message soft deleted", {
+      companyId: params.companyId,
+      conversationId: updated.conversation_id,
+      messageId: updated.id,
+      requesterUserId: params.requesterUserId,
+      moderated: message.sender_team_member_id !== params.requesterTeamMemberId,
+    });
+
     return { success: true };
   },
 
@@ -1237,6 +1302,14 @@ export const ChatService = {
       WHERE conversation_id = ${params.conversationId}::uuid
         AND user_id = ${params.userId}::uuid
         AND removed_at IS NULL`;
+
+    logger.info("ChatService.markConversationRead: read cursor updated", {
+      companyId: params.companyId,
+      conversationId: params.conversationId,
+      userId: params.userId,
+      lastReadMessageId: params.lastReadMessageId ?? null,
+      lastReadAt: resolvedLastReadAt ?? null,
+    });
 
     return { success: true };
   },

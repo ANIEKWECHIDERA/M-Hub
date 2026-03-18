@@ -297,6 +297,32 @@ Phase 4 message lifecycle behavior now implemented:
   - supports `last_read_message_id` or `last_read_at`
   - keeps unread-count calculation efficient without recounting all history globally
 
+Phase 6 performance/scalability hardening now implemented:
+
+- chat message and typing endpoints are now rate-limited server-side:
+  - message send uses `chatMessageLimiter`
+  - typing events use `chatTypingLimiter`
+- additional chat indexes were added for the real query shapes used in conversation list, unread lookup, and keyset pagination:
+  - conversation ordering by `company_id + last_message_at + id`
+  - membership lookup by `user_id + removed_at + conversation_id`
+  - read cursor lookup by `conversation_id + user_id + removed_at + last_read_at`
+  - message history/unread lookup by `conversation_id + deleted_at + created_at + id`
+- chat mutation flows now emit structured logs for:
+  - conversation creation
+  - membership changes
+  - message sends
+  - message edits
+  - message soft deletes
+  - read cursor updates
+
+Performance notes:
+
+- chat message history and conversation lists already use cursor-ready keyset-style pagination (`cursorMessageId`, `cursorConversationId`) rather than offset pagination
+- conversation list queries are already built as a single SQL query with lateral joins, so the current implementation avoids obvious per-conversation N+1 explosions
+- unread counts currently use per-member read cursors (`last_read_message_id`, `last_read_at`) and indexed filtered message scans rather than global recounts from scratch
+- `last_message_at` is denormalized on `chat_conversations` and is updated on write, so conversation ordering does not require scanning message history
+- message edits and deletes preserve timeline integrity through `edited_at`, `deleted_at`, edit-history rows, and soft-delete behavior rather than destructive removal
+
 Current realtime behavior for chat:
 
 - backend chat SSE stream route: `GET /api/chat/stream?token=...`

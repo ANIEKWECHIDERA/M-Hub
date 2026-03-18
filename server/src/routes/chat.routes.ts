@@ -4,6 +4,7 @@ import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddlewa
 import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 import { authorize } from "../middleware/authorize";
+import { chatMessageLimiter, chatTypingLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
 const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
@@ -47,6 +48,7 @@ router.post(
 router.post(
   "/chat/conversations/:conversationId/messages",
   ...protectedRoute,
+  chatMessageLimiter,
   authorize(["admin", "superAdmin", "team_member", "member"]),
   ChatController.sendMessage,
 );
@@ -54,6 +56,7 @@ router.post(
 router.post(
   "/chat/conversations/:conversationId/typing",
   ...protectedRoute,
+  chatTypingLimiter,
   authorize(["admin", "superAdmin", "team_member", "member"]),
   ChatController.sendTypingIndicator,
 );
