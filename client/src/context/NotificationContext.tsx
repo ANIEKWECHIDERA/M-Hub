@@ -84,12 +84,25 @@ export const NotificationProvider = ({
   const streamRef = useRef<EventSource | null>(null);
   const pollRef = useRef<number | null>(null);
   const refreshRef = useRef<Promise<void> | null>(null);
+  const refreshScopeRef = useRef<string | null>(null);
+  const idTokenRef = useRef<string | null>(idToken);
+  const scopeKeyRef = useRef<string | null>(null);
 
-  const isReady =
+  useEffect(() => {
+    idTokenRef.current = idToken;
+  }, [idToken]);
+
+  const scopeKey =
     Boolean(idToken) &&
     Boolean(currentUser) &&
     authStatus?.onboardingState === "ACTIVE" &&
-    Boolean(authStatus.companyId);
+    Boolean(authStatus.companyId)
+      ? `${currentUser?.uid}:${authStatus?.companyId}`
+      : null;
+
+  useEffect(() => {
+    scopeKeyRef.current = scopeKey;
+  }, [scopeKey]);
 
   const resetNotifications = useCallback(() => {
     setNotifications([]);
@@ -106,16 +119,19 @@ export const NotificationProvider = ({
 
   const refreshNotifications = useCallback(
     async (options?: { silent?: boolean }) => {
-      if (!idToken || !isReady) {
+      const activeToken = idTokenRef.current;
+
+      if (!activeToken || !scopeKey) {
         resetNotifications();
         return;
       }
 
-      if (refreshRef.current) {
+      if (refreshRef.current && refreshScopeRef.current === scopeKey) {
         return refreshRef.current;
       }
 
       const silent = options?.silent ?? false;
+      const requestScope = scopeKey;
 
       const request = (async () => {
         if (!silent) {
@@ -123,10 +139,14 @@ export const NotificationProvider = ({
         }
 
         try {
-          const response = await notificationsAPI.list(idToken);
-          applyListResponse(response);
+          const response = await notificationsAPI.list(activeToken);
+          if (scopeKeyRef.current === requestScope) {
+            applyListResponse(response);
+          }
         } catch (refreshError: any) {
-          setError(refreshError.message || "Failed to load notifications");
+          if (scopeKeyRef.current === requestScope) {
+            setError(refreshError.message || "Failed to load notifications");
+          }
         } finally {
           if (!silent) {
             setLoading(false);
@@ -135,14 +155,18 @@ export const NotificationProvider = ({
       })();
 
       refreshRef.current = request;
+      refreshScopeRef.current = requestScope;
 
       try {
         await request;
       } finally {
-        refreshRef.current = null;
+        if (refreshRef.current === request) {
+          refreshRef.current = null;
+          refreshScopeRef.current = null;
+        }
       }
     },
-    [applyListResponse, idToken, isReady, resetNotifications],
+    [applyListResponse, resetNotifications, scopeKey],
   );
 
   const markAsRead = useCallback(
@@ -208,22 +232,18 @@ export const NotificationProvider = ({
 
   useEffect(() => {
     resetNotifications();
+    refreshRef.current = null;
+    refreshScopeRef.current = null;
 
-    if (!isReady) {
+    if (!scopeKey) {
       return;
     }
 
     refreshNotifications();
-  }, [
-    authStatus?.companyId,
-    currentUser?.uid,
-    isReady,
-    refreshNotifications,
-    resetNotifications,
-  ]);
+  }, [scopeKey, refreshNotifications, resetNotifications]);
 
   useEffect(() => {
-    if (!isReady || !idToken) {
+    if (!scopeKey || !idTokenRef.current) {
       streamRef.current?.close();
       streamRef.current = null;
 
@@ -237,7 +257,7 @@ export const NotificationProvider = ({
 
     const stream = new EventSource(
       `${API_CONFIG.backend}/api/notifications/stream?token=${encodeURIComponent(
-        idToken,
+        idTokenRef.current,
       )}`,
     );
 
@@ -329,7 +349,7 @@ export const NotificationProvider = ({
       streamRef.current = null;
       stopFallbackPolling();
     };
-  }, [authStatus?.companyId, idToken, isReady, refreshNotifications]);
+  }, [authStatus?.companyId, refreshNotifications, scopeKey]);
 
   const value = useMemo<NotificationContextType>(
     () => ({

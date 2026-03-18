@@ -24,6 +24,7 @@ export async function requireAppUser(
   const cachedTeamMember = RequestCacheService.getTeamMember(
     userId,
     req.user.company_id,
+    { requestPath: req.path },
   );
 
   if (cachedTeamMember) {
@@ -85,7 +86,10 @@ export async function requireAppUser(
         });
       } else {
         req.user.company_id = teamMember.company_id;
-        RequestCacheService.invalidateUserContext({ userId });
+        RequestCacheService.invalidateUserContext(
+          { userId },
+          { requestPath: req.path, reason: "active_company_synced" },
+        );
       }
     }
   }
@@ -98,7 +102,10 @@ export async function requireAppUser(
     !teamMember &&
     !error
   ) {
-    RequestCacheService.setTeamMember(userId, req.user.company_id, null);
+    RequestCacheService.setTeamMember(userId, req.user.company_id, null, {
+      requestPath: req.path,
+      reason: "onboarding_company_creation",
+    });
     return next();
   }
 
@@ -125,7 +132,12 @@ export async function requireAppUser(
   };
 
   req.user = appUser;
-  RequestCacheService.setTeamMember(userId, req.user.company_id, teamMember);
+  RequestCacheService.setTeamMember(
+    userId,
+    req.user.company_id,
+    teamMember,
+    { requestPath: req.path },
+  );
 
   next();
 }

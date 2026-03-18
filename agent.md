@@ -63,6 +63,28 @@ Performance note:
 - Cache invalidation is wired through user/profile updates, workspace switches, company creation, invite acceptance, and team-member mutations
 - The shared cache implementation lives in `server/src/services/requestCache.service.ts`
 - This is an in-process optimization, not a distributed cache; if the backend is scaled to multiple instances later, move these entries to Redis or another shared cache
+- Cache namespaces currently in use:
+  - `token`: verified Firebase token payloads keyed by hashed bearer token
+  - `user`: app user records keyed by Firebase UID
+  - `onboarding`: derived onboarding state keyed by Firebase UID
+  - `team_member`: resolved active membership keyed by `userId + companyId`
+  - `notification`: notification list payloads keyed by `companyId + userId + query shape`
+- Cache instrumentation now tracks per-namespace hits, misses, sets, invalidations, TTL usage, and sampled request-path metadata
+- Admin-only cache metrics are available at `GET /api/cache-metrics`
+- Notification cache keys include workspace, user, and `limit`, and notification ETags are scoped to `companyId + userId + limit + payload`
+- Current invalidation strategy:
+  - `invalidateUserContext(...)` clears `user`, `onboarding`, `team_member`, and `notification` entries related to that user
+  - notification mutation paths use `invalidateNotificationUser(...)`
+  - team-member create/update/delete now also resync `users.has_company` and `users.company_id` before invalidation so fresh reads are correct
+- Known limitation:
+  - because the cache is process-local, metrics and cache contents are per backend instance and are lost on restart
+  - in a multi-instance deployment, two users may hit different warm/cold instances and observe different cache hit rates
+- Redis migration path:
+  - move namespace maps to Redis keys with the same scope rules
+  - keep token values hashed before storage
+  - preserve short TTLs
+  - move invalidation helpers to shared Redis key patterns/sets
+  - keep the local metrics shape, but emit to a shared metrics backend instead of only process-local logs/snapshots
 
 ### 3. Frontend routing depends on onboarding state
 
@@ -132,6 +154,16 @@ Realtime behavior:
 - The frontend does not continuously poll while the stream is healthy; it only falls back to light periodic refresh if the SSE connection becomes unhealthy
 - Notification list and unread count should always be updated from the same shared context, not recomputed separately in the header
 
+### 9. Comments now support project-scoped realtime updates
+
+- Backend comment stream route: `/api/comments/stream?token=...&projectId=...`
+- Backend event bus: `server/src/services/commentRealtime.service.ts`
+- Frontend live state: `client/src/context/CommentContext.tsx`
+- Comment UI surface: `client/src/components/CommentsSystem.tsx`
+
+Comments are project-scoped and now update live for everyone in the active project stream.
+The composer stays pinned to the bottom of the comments surface while the thread scrolls independently above it.
+
 ## Important Paths
 
 ### Backend
@@ -155,6 +187,7 @@ Realtime behavior:
 - Shared UI: `client/src/components/`
 - Image upload helper: `client/src/lib/image-upload.ts`
 - Notification helpers: `client/src/lib/notifications.ts`
+- Shared timestamp helpers: `client/src/lib/datetime.ts`
 
 ## Local Development
 
@@ -288,7 +321,7 @@ Summary of recent changes:
 - Workspace switches can show a blocking loading overlay until core contexts settle
 - The workspace-switch loading overlay should cover the entire shell, including the sidebar, so clicks cannot leak through during company changes
 - `team_member` users have a reduced navigation/admin surface
-- `My Tasks` is intended to be a team-member-only surface, not a shared admin task inbox
+- `My Tasks` is available to every role, but the data must stay scoped to the authenticated user plus active company; never treat it as a company-wide task list
 - Team tables are read-only for `team_member`
 - Last-login state is refreshed on authenticated activity through a throttled backend touch that updates both the `users` row and related `team_members` rows
 - Upload progress bars now appear only while uploads are active
@@ -300,6 +333,11 @@ Summary of recent changes:
 - Shared project progress should be treated as backend-canonical. Use project response fields like `progress`, `task_count`, and `completed_task_count` for project-level progress UI instead of recomputing from whatever task slice a client currently has loaded
 - Notifications are now fetched from the backend, rendered from shared context in the header popover, and updated live through SSE plus periodic reconciliation polling
 - Backend notification list responses now use a short-lived user-scoped response cache with explicit ETag handling so repeated identical reads can return cached `304`/JSON responses without recomputing the payload
+- Comments now render real author data from the backend, update in realtime through project-scoped SSE, and use a bottom-pinned composer with upward scrolling history
+- Chat keeps a desktop split view, but on small screens it behaves like a modern messaging app: conversation list first, then a conversation detail view with an inline back button
+- Dashboard stats and filters can be collapsed on small screens to preserve space without changing the desktop information density
+- Project detail mirrors that small-screen pattern: use a `Show overview` toggle for summary cards on mobile, keep the tab region height-bound, and let only the active tab panel scroll
+- Keep the Overview tab itself static when its content fits; prefer richer summary cards there over turning it into another scrolling pane
 
 New patterns introduced:
 
@@ -313,6 +351,9 @@ New patterns introduced:
 - Clamp progress UI values to `0..100` at the shared `Progress` component so bars render consistently even during optimistic updates
 - For notifications, keep unread count and list in a single shared context, and merge incoming realtime events by notification `id` to avoid duplicates
 - For request-heavy authenticated endpoints, prefer cache-aware middleware/service changes over adding more frontend polling
+- For timestamps in comments, notifications, invites, and team last-login views, use the shared helpers in `client/src/lib/datetime.ts` instead of ad hoc `Date` math
+- Relative timestamps should prefer `now` instead of phrases like `this minute` for very recent events
+- For comments, prefer a fixed composer footer inside an `overflow-hidden` panel over `sticky` positioning so the page itself never pushes the composer off screen
 
 Assumptions currently in use:
 

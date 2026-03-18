@@ -10,9 +10,9 @@ const router = Router();
 
 router.post(
   "/invite",
-  inviteLimiter,
   verifyFirebaseToken,
   profileSync,
+  inviteLimiter,
   requireAppUser,
   authorize(["admin", "superAdmin"]),
   InviteController.sendInvite,
@@ -20,9 +20,9 @@ router.post(
 
 router.post(
   "/invite/accept",
-  inviteLimiter,
   verifyFirebaseToken,
   profileSync,
+  inviteLimiter,
   InviteController.acceptInvite,
 );
 
@@ -32,6 +32,7 @@ router.get(
   "/invites",
   verifyFirebaseToken,
   profileSync,
+  inviteLimiter,
   requireAppUser,
   authorize(["admin", "superAdmin"]),
   InviteController.getInvites,
@@ -41,6 +42,7 @@ router.delete(
   "/invite/:inviteId",
   verifyFirebaseToken,
   profileSync,
+  inviteLimiter,
   requireAppUser,
   authorize(["admin", "superAdmin"]),
   InviteController.cancelInvite,
@@ -50,6 +52,7 @@ router.delete(
   "/invites",
   verifyFirebaseToken,
   profileSync,
+  inviteLimiter,
   requireAppUser,
   authorize(["admin", "superAdmin"]),
   InviteController.cancelInvites,

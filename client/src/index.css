@@ -121,7 +121,12 @@
 
 @layer components {
   .app-shell {
-    @apply min-h-screen bg-[linear-gradient(180deg,theme(colors.background),theme(colors.muted/25))];
+    background-image: linear-gradient(
+      180deg,
+      hsl(var(--background)),
+      hsl(var(--muted) / 0.25)
+    );
+    @apply min-h-screen;
   }
 
   .app-surface {

@@ -20,6 +20,8 @@ import {
   CheckCircle,
   AlertCircle,
   Plus,
+  ChevronDown,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTaskContext } from "@/context/TaskContext";
@@ -50,6 +52,7 @@ export default function Dashboard() {
     clientFilter,
   );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [showCompactOverview, setShowCompactOverview] = useState(false);
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
   const { totalProjects, activeProjects, completedProjects, overdueProjects } =
@@ -129,10 +132,28 @@ export default function Dashboard() {
             Overview of your projects and tasks
           </p>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="sm:hidden"
+          onClick={() => setShowCompactOverview((value) => !value)}
+        >
+          <SlidersHorizontal className="mr-2 h-4 w-4" />
+          {showCompactOverview ? "Hide overview" : "Show overview"}
+          <ChevronDown
+            className={`ml-2 h-4 w-4 transition-transform ${
+              showCompactOverview ? "rotate-180" : ""
+            }`}
+          />
+        </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div
+        className={`grid grid-cols-1 gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-4 ${
+          showCompactOverview ? "grid" : "hidden sm:grid"
+        }`}
+      >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -184,41 +205,46 @@ export default function Dashboard() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="in progress">In Progress</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={clientFilter} onValueChange={setClientFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Filter by client" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Clients</SelectItem>
-            {clients.map((client) => (
-              <SelectItem key={client.id} value={client.name}>
-                {client.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setStatusFilter("all");
-            setClientFilter("all");
-          }}
-        >
-          Reset Filters
-        </Button>
-      </div>
+      <Card
+        className={`app-surface ${showCompactOverview ? "block" : "hidden sm:block"}`}
+      >
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="in progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={clientFilter} onValueChange={setClientFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filter by client" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={client.name}>
+                  {client.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              setStatusFilter("all");
+              setClientFilter("all");
+            }}
+          >
+            Reset Filters
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Project Cards */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">

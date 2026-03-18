@@ -43,7 +43,9 @@ function uniqueNotifications(payloads: CreateNotificationDTO[]) {
 }
 
 async function getUserRecordByFirebaseUid(firebaseUid: string) {
-  const cachedUser = RequestCacheService.getUser(firebaseUid);
+  const cachedUser = RequestCacheService.getUser(firebaseUid, {
+    requestPath: "/api/notifications/stream",
+  });
 
   if (cachedUser) {
     return cachedUser;
@@ -64,7 +66,9 @@ async function getUserRecordByFirebaseUid(firebaseUid: string) {
   }
 
   if (data) {
-    RequestCacheService.setUser(firebaseUid, data);
+    RequestCacheService.setUser(firebaseUid, data, {
+      requestPath: "/api/notifications/stream",
+    });
   }
 
   return data;
@@ -250,7 +254,9 @@ export const NotificationService = {
     const notification = data ? toNotificationDTO(data) : null;
 
     if (notification) {
-      RequestCacheService.invalidateNotificationUser(userId);
+      RequestCacheService.invalidateNotificationUser(userId, {
+        reason: "mark_one_read",
+      });
       notificationRealtimeService.emit({
         type: "notification.read",
         user_id: userId,
@@ -279,7 +285,9 @@ export const NotificationService = {
       throw error;
     }
 
-    RequestCacheService.invalidateNotificationUser(userId);
+    RequestCacheService.invalidateNotificationUser(userId, {
+      reason: "mark_all_read",
+    });
     notificationRealtimeService.emit({
       type: "notification.read_all",
       user_id: userId,
@@ -306,7 +314,9 @@ export const NotificationService = {
     }
 
     const notification = toNotificationDTO(data);
-    RequestCacheService.invalidateNotificationUser(notification.user_id);
+    RequestCacheService.invalidateNotificationUser(notification.user_id, {
+      reason: "notification_created",
+    });
     await emitCreatedNotifications([notification]);
 
     return notification;
@@ -340,7 +350,9 @@ export const NotificationService = {
 
     const notifications = (data ?? []).map(toNotificationDTO);
     notifications.forEach((notification) => {
-      RequestCacheService.invalidateNotificationUser(notification.user_id);
+      RequestCacheService.invalidateNotificationUser(notification.user_id, {
+        reason: "notification_created_many",
+      });
     });
     await emitCreatedNotifications(notifications);
 

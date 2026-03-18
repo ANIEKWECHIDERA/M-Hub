@@ -41,6 +41,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 
 interface NavItem {
   name: string;
@@ -97,6 +98,14 @@ function SidebarPanel({
 
     return chatSections.find((item) => item.id === section)?.id ?? "all";
   }, [search]);
+  const totalChatUnread = useMemo(
+    () =>
+      chatSections.reduce(
+        (sum, section) => sum + (section.unreadCount ?? 0),
+        0,
+      ),
+    [],
+  );
   const settingsSections = getAllowedSettingsSections(isTeamMember);
   const activeSettingsSection = useMemo(() => {
     const params = new URLSearchParams(search);
@@ -243,7 +252,8 @@ function SidebarPanel({
                           tooltip={!isExpanded ? item.name : undefined}
                           aria-label={item.name}
                           className={cn(
-                            !isExpanded && "mx-auto h-10 w-10 justify-center px-0",
+                            !isExpanded &&
+                              "mx-auto h-10 w-10 justify-center px-0",
                             isExpanded && chatOpen && "pr-10",
                           )}
                         >
@@ -258,6 +268,14 @@ function SidebarPanel({
                           >
                             <item.icon className="h-5 w-5" />
                             {isExpanded && <span>{item.name}</span>}
+                            {isExpanded && totalChatUnread > 0 && (
+                              <Badge
+                                variant="destructive"
+                                className="ml-auto mr-8 rounded-full px-2 py-0 text-[11px]"
+                              >
+                                {totalChatUnread}
+                              </Badge>
+                            )}
                           </Link>
                         </SidebarMenuButton>
 
@@ -265,7 +283,9 @@ function SidebarPanel({
                           <button
                             type="button"
                             aria-label={
-                              chatOpen ? "Collapse chat menu" : "Expand chat menu"
+                              chatOpen
+                                ? "Collapse chat menu"
+                                : "Expand chat menu"
                             }
                             onClick={(event) => {
                               event.preventDefault();
@@ -289,7 +309,8 @@ function SidebarPanel({
                           {chatSections.map((section) => {
                             const Icon = section.icon;
                             const isSectionActive =
-                              pathname === "/chat" && activeChatSection === section.id;
+                              pathname === "/chat" &&
+                              activeChatSection === section.id;
 
                             return (
                               <Link
@@ -305,6 +326,14 @@ function SidebarPanel({
                               >
                                 <Icon className="h-4 w-4" />
                                 <span>{section.label}</span>
+                                {(section.unreadCount ?? 0) > 0 && (
+                                  <Badge
+                                    variant="destructive"
+                                    className="ml-auto rounded-full px-2 py-0 text-[11px]"
+                                  >
+                                    {section.unreadCount}
+                                  </Badge>
+                                )}
                               </Link>
                             );
                           })}
@@ -322,8 +351,7 @@ function SidebarPanel({
                       tooltip={!isExpanded ? item.name : undefined}
                       aria-label={item.name}
                       className={cn(
-                        !isExpanded &&
-                          "mx-auto h-10 w-10 justify-center px-0",
+                        !isExpanded && "mx-auto h-10 w-10 justify-center px-0",
                       )}
                     >
                       <Link to={item.to} onClick={handleNavClick}>
@@ -336,89 +364,93 @@ function SidebarPanel({
               })}
 
               {adminNavigation.map((item) => {
-                  const isSettingsRoute = pathname === item.to;
-                  const isActive = isSettingsRoute;
-                  const settingsLink = `/settings?section=${activeSettingsSection}`;
+                const isSettingsRoute = pathname === item.to;
+                const isActive = isSettingsRoute;
+                const settingsLink = `/settings?section=${activeSettingsSection}`;
 
-                  return (
-                    <SidebarMenuItem key={item.name}>
-                      <div className="relative">
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isActive}
-                          tooltip={!isExpanded ? item.name : undefined}
-                          aria-label={item.name}
-                          className={cn(
-                            !isExpanded && "mx-auto h-10 w-10 justify-center px-0",
-                            isExpanded && settingsOpen && "pr-10",
-                          )}
-                        >
-                          <Link
-                            to={settingsLink}
-                            onClick={() => {
-                              if (isExpanded) {
-                                setSettingsOpen(true);
-                              }
-                              handleNavClick();
-                            }}
-                          >
-                            <item.icon className="h-5 w-5" />
-                            {isExpanded && <span>{item.name}</span>}
-                          </Link>
-                        </SidebarMenuButton>
-
-                        {isExpanded && (
-                          <button
-                            type="button"
-                            aria-label={
-                              settingsOpen ? "Collapse settings menu" : "Expand settings menu"
-                            }
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setSettingsOpen((value) => !value);
-                            }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-                          >
-                            <ChevronDown
-                              className={cn(
-                                "h-4 w-4 transition-transform",
-                                settingsOpen && "rotate-180",
-                              )}
-                            />
-                          </button>
+                return (
+                  <SidebarMenuItem key={item.name}>
+                    <div className="relative">
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={!isExpanded ? item.name : undefined}
+                        aria-label={item.name}
+                        className={cn(
+                          !isExpanded &&
+                            "mx-auto h-10 w-10 justify-center px-0",
+                          isExpanded && settingsOpen && "pr-10",
                         )}
-                      </div>
+                      >
+                        <Link
+                          to={settingsLink}
+                          onClick={() => {
+                            if (isExpanded) {
+                              setSettingsOpen(true);
+                            }
+                            handleNavClick();
+                          }}
+                        >
+                          <item.icon className="h-5 w-5" />
+                          {isExpanded && <span>{item.name}</span>}
+                        </Link>
+                      </SidebarMenuButton>
 
-                      {isExpanded && settingsOpen && (
-                        <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
-                          {settingsSections.map((section) => {
-                            const Icon = section.icon;
-                            const isSectionActive =
-                              isSettingsRoute && activeSettingsSection === section.id;
-
-                            return (
-                              <Link
-                                key={section.id}
-                                to={`/settings?section=${section.id}`}
-                                onClick={handleNavClick}
-                                className={cn(
-                                  "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
-                                  isSectionActive
-                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                                    : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
-                                )}
-                              >
-                                <Icon className="h-4 w-4" />
-                                <span>{section.label}</span>
-                              </Link>
-                            );
-                          })}
-                        </div>
+                      {isExpanded && (
+                        <button
+                          type="button"
+                          aria-label={
+                            settingsOpen
+                              ? "Collapse settings menu"
+                              : "Expand settings menu"
+                          }
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setSettingsOpen((value) => !value);
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 transition-transform",
+                              settingsOpen && "rotate-180",
+                            )}
+                          />
+                        </button>
                       )}
-                    </SidebarMenuItem>
-                  );
-                })}
+                    </div>
+
+                    {isExpanded && settingsOpen && (
+                      <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                        {settingsSections.map((section) => {
+                          const Icon = section.icon;
+                          const isSectionActive =
+                            isSettingsRoute &&
+                            activeSettingsSection === section.id;
+
+                          return (
+                            <Link
+                              key={section.id}
+                              to={`/settings?section=${section.id}`}
+                              onClick={handleNavClick}
+                              className={cn(
+                                "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
+                                isSectionActive
+                                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                  : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                              )}
+                            >
+                              <Icon className="h-4 w-4" />
+                              <span>{section.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -22,6 +22,7 @@ import userSettingsRoutes from "./routes/userSettings.routes";
 import bodyParser from "body-parser";
 import workspaceRoutes from "./routes/workspace.routes";
 import { apiLimiter } from "./middleware/rateLimiter";
+import cacheRoutes from "./routes/cache.routes";
 
 const app = express();
 
@@ -67,6 +68,7 @@ app.use("/api/", notificationRoutes);
 app.use("/api/", userSettingsRoutes);
 app.use("/api/", inviteRoutes);
 app.use("/api/", workspaceRoutes);
+app.use("/api/", cacheRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {

@@ -13,10 +13,25 @@ function getNotificationUser(req: any) {
   };
 }
 
-function buildNotificationEtag(payload: unknown) {
+function normalizeNotificationLimit(rawLimit: unknown) {
+  const parsed = Number(rawLimit ?? 50);
+
+  if (!Number.isFinite(parsed)) {
+    return 50;
+  }
+
+  return Math.min(100, Math.max(1, Math.trunc(parsed)));
+}
+
+function buildNotificationEtag(params: {
+  companyId: string;
+  userId: string;
+  limit: number;
+  payload: unknown;
+}) {
   const hash = crypto
     .createHash("sha1")
-    .update(JSON.stringify(payload))
+    .update(JSON.stringify(params))
     .digest("hex");
 
   return `"notif-${hash}"`;
@@ -34,13 +49,14 @@ function normalizeEtag(value: string | string[] | undefined) {
 export const NotificationController = {
   async getMyNotifications(req: any, res: Response) {
     const { companyId, userId } = getNotificationUser(req);
-    const limit = Number(req.query.limit ?? 50);
+    const limit = normalizeNotificationLimit(req.query.limit);
 
     try {
       const cachedResponse = RequestCacheService.getNotificationResponse(
         companyId,
         userId,
         limit,
+        { requestPath: req.path },
       );
 
       if (
@@ -73,11 +89,18 @@ export const NotificationController = {
         notifications,
         unreadCount,
       };
-      const etag = buildNotificationEtag(payload);
+      const etag = buildNotificationEtag({
+        companyId,
+        userId,
+        limit,
+        payload,
+      });
 
       RequestCacheService.setNotificationResponse(companyId, userId, limit, {
         etag,
         payload,
+      }, {
+        requestPath: req.path,
       });
 
       res.setHeader("ETag", etag);
@@ -185,9 +208,13 @@ export const NotificationController = {
 
     try {
       const decoded =
-        RequestCacheService.getVerifiedToken(token) ??
+        RequestCacheService.getVerifiedToken(token, {
+          requestPath: req.path,
+        }) ??
         (await admin.auth().verifyIdToken(token, true));
-      RequestCacheService.setVerifiedToken(token, decoded);
+      RequestCacheService.setVerifiedToken(token, decoded, {
+        requestPath: req.path,
+      });
       const user = await NotificationService.getStreamUser(decoded.uid);
 
       if (!user?.id || !user.company_id) {

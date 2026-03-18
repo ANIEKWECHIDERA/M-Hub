@@ -15,9 +15,9 @@ router.get(
 
 router.post(
   "/workspaces/switch",
-  workspaceSwitchLimiter,
   verifyFirebaseToken,
   profileSync,
+  workspaceSwitchLimiter,
   WorkspaceController.switch,
 );
 

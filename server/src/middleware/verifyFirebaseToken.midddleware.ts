@@ -23,10 +23,12 @@ export async function verifyFirebaseToken(
 
   try {
     const decoded =
-      RequestCacheService.getVerifiedToken(token) ??
+      RequestCacheService.getVerifiedToken(token, { requestPath: req.path }) ??
       (await admin.auth().verifyIdToken(token, true));
 
-    RequestCacheService.setVerifiedToken(token, decoded);
+    RequestCacheService.setVerifiedToken(token, decoded, {
+      requestPath: req.path,
+    });
 
     // Attach only Firebase
     const appUser: any = {

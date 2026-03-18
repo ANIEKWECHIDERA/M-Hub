@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { CommentService } from "../services/comment.service";
+import admin from "../config/firebaseAdmin";
 import { NotificationService } from "../services/notification.service";
+import { commentRealtimeService } from "../services/commentRealtime.service";
+import { RequestCacheService } from "../services/requestCache.service";
+import { UserService } from "../services/user.service";
 import { CreateCommentDTO, UpdateCommentDTO } from "../types/comment.types";
 import { logger } from "../utils/logger";
 
@@ -129,6 +133,83 @@ export const CommentController = {
       });
 
       return res.status(500).json({ error: "Failed to delete comment" });
+    }
+  },
+
+  async streamComments(req: Request, res: Response) {
+    const token = String(req.query.token ?? "").trim();
+    const projectId = String(req.query.projectId ?? "").trim();
+
+    if (!token || !projectId) {
+      return res.status(401).json({ error: "Missing comment stream params" });
+    }
+
+    try {
+      const decoded =
+        RequestCacheService.getVerifiedToken(token, {
+          requestPath: req.path,
+        }) ??
+        (await admin.auth().verifyIdToken(token, true));
+      RequestCacheService.setVerifiedToken(token, decoded, {
+        requestPath: req.path,
+      });
+
+      const cachedUser = RequestCacheService.getUser(decoded.uid, {
+        requestPath: req.path,
+      });
+      const user =
+        cachedUser ?? (await UserService.findByFirebaseUid(decoded.uid));
+
+      if (!user?.company_id) {
+        return res.status(403).json({ error: "Comment stream unavailable" });
+      }
+
+      if (!cachedUser && user) {
+        RequestCacheService.setUser(decoded.uid, user, {
+          requestPath: req.path,
+        });
+      }
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders?.();
+
+      const writeEvent = (event: string, data: unknown) => {
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      writeEvent("connected", {
+        companyId: user.company_id,
+        projectId,
+      });
+
+      const unsubscribe = commentRealtimeService.subscribe(
+        user.company_id,
+        projectId,
+        (event) => {
+          writeEvent("comment", event);
+        },
+      );
+
+      const keepAlive = setInterval(() => {
+        writeEvent("ping", { ts: new Date().toISOString() });
+      }, 25000);
+
+      req.on("close", () => {
+        clearInterval(keepAlive);
+        unsubscribe();
+        res.end();
+      });
+    } catch (error: any) {
+      logger.error("CommentController.streamComments failed", {
+        error: error.message,
+        projectId,
+      });
+
+      return res.status(401).json({ error: "Invalid or expired token" });
     }
   },
 };

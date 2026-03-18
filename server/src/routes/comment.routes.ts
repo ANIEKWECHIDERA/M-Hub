@@ -7,6 +7,7 @@ import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
 const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
+router.get("/comments/stream", CommentController.streamComments);
 // READ – everyone
 router.get(
   "/project/:projectId/comments",

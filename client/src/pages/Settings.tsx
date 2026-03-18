@@ -64,6 +64,7 @@ import { useTeamContext } from "@/context/TeamMemberContext";
 import { useUploadStatus } from "@/context/UploadStatusContext";
 import { useUser } from "@/context/UserContext";
 import { prepareImageUpload } from "@/lib/image-upload";
+import { formatRelativeTimestamp } from "@/lib/datetime";
 
 const roleLabels = {
   superAdmin: "Super Admin",
@@ -170,23 +171,6 @@ export default function Settings() {
       setSearchParams({ section: sections[0]?.id ?? "profile" }, { replace: true });
     }
   }, [searchParams, sections, setSearchParams]);
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (diff < 60) return "just now";
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-
-    return date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
 
   const loadInvites = async () => {
     if (
@@ -649,7 +633,7 @@ export default function Settings() {
                           {!isTeamMember && (
                             <TableCell>
                               {member.last_login
-                                ? formatTime(member.last_login)
+                                ? formatRelativeTimestamp(member.last_login)
                                 : "Never"}
                             </TableCell>
                           )}
@@ -792,7 +776,7 @@ export default function Settings() {
                             <TableCell>
                               <Badge variant="outline">{invite.status}</Badge>
                             </TableCell>
-                            <TableCell>{formatTime(invite.expires_at)}</TableCell>
+                            <TableCell>{formatRelativeTimestamp(invite.expires_at)}</TableCell>
                             <TableCell className="text-right">
                               {invite.status === "PENDING" && (
                                 <Button

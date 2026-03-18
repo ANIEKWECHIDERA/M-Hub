@@ -1,6 +1,5 @@
 import type {
   BackendComment,
-  Comment,
   CreateCommentPayload,
   UpdateCommentPayload,
 } from "@/Types/types";

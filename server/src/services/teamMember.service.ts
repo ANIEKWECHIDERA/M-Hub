@@ -10,9 +10,44 @@ import {
 } from "../types/teamMember.types";
 import { logger } from "../utils/logger";
 
+async function syncUserWorkspaceState(userId?: string | null) {
+  if (!userId) {
+    return;
+  }
+
+  const { data: memberships, error: membershipError } = await supabaseAdmin
+    .from("team_members")
+    .select("company_id, status, created_at")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
+
+  if (membershipError) {
+    throw membershipError;
+  }
+
+  const activeMembership = memberships?.[0] ?? null;
+
+  const { error: updateError } = await supabaseAdmin
+    .from("users")
+    .update({
+      has_company: Boolean(activeMembership),
+      company_id: activeMembership?.company_id ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (updateError) {
+    throw updateError;
+  }
+}
+
 export const TeamMemberService = {
   async getOnboardingState(firebaseUid: string) {
-    const cachedState = RequestCacheService.getOnboardingState(firebaseUid);
+    const requestPath = "/api/status";
+    const cachedState = RequestCacheService.getOnboardingState(firebaseUid, {
+      requestPath,
+    });
 
     if (cachedState) {
       return cachedState;
@@ -59,7 +94,9 @@ export const TeamMemberService = {
       companyId: activeMembership?.company_id ?? data.company_id ?? null,
     };
 
-    RequestCacheService.setOnboardingState(firebaseUid, result);
+    RequestCacheService.setOnboardingState(firebaseUid, result, {
+      requestPath,
+    });
 
     return result;
   },
@@ -114,6 +151,7 @@ export const TeamMemberService = {
 
     if (error) throw error;
 
+    await syncUserWorkspaceState(data?.user_id);
     RequestCacheService.invalidateUserContext({
       userId: data?.user_id,
     });
@@ -128,6 +166,15 @@ export const TeamMemberService = {
   ): Promise<TeamMemberResponseDTO | null> {
     logger.info("TeamMemberService.update: start", { companyId, id });
 
+    const { data: existingMember, error: existingMemberError } = await supabaseAdmin
+      .from("team_members")
+      .select("user_id")
+      .eq("company_id", companyId)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (existingMemberError) throw existingMemberError;
+
     const { data, error } = await supabaseAdmin
       .from("team_members")
       .update(payload)
@@ -138,9 +185,20 @@ export const TeamMemberService = {
 
     if (error) throw error;
 
-    RequestCacheService.invalidateUserContext({
-      userId: data?.user_id,
-    });
+    const affectedUserIds = new Set<string>();
+    if (existingMember?.user_id) {
+      affectedUserIds.add(existingMember.user_id);
+    }
+    if (data?.user_id) {
+      affectedUserIds.add(data.user_id);
+    }
+
+    for (const userId of affectedUserIds) {
+      await syncUserWorkspaceState(userId);
+      RequestCacheService.invalidateUserContext({
+        userId,
+      });
+    }
 
     return data ? toTeamMemberResponseDTO(data) : null;
   },
@@ -165,6 +223,7 @@ export const TeamMemberService = {
 
     if (error) throw error;
 
+    await syncUserWorkspaceState(data?.user_id);
     RequestCacheService.invalidateUserContext({
       userId: data?.user_id,
     });

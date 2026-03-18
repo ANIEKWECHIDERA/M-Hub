@@ -21,7 +21,9 @@ export async function profileSync(
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const cachedUser = RequestCacheService.getUser(firebaseUid);
+  const cachedUser = RequestCacheService.getUser(firebaseUid, {
+    requestPath: req.path,
+  });
 
   if (cachedUser) {
     void UserService.touchLastLoginIfNeeded({
@@ -82,7 +84,9 @@ export async function profileSync(
     ...req.user,
     ...user,
   };
-  RequestCacheService.setUser(firebaseUid, user);
+  RequestCacheService.setUser(firebaseUid, user, {
+    requestPath: req.path,
+  });
 
   void UserService.touchLastLoginIfNeeded({
     firebaseUid,
