@@ -164,9 +164,9 @@ Realtime behavior:
 Comments are project-scoped and now update live for everyone in the active project stream.
 The composer stays pinned to the bottom of the comments surface while the thread scrolls independently above it.
 
-### 10. Chat backend foundation now exists in the schema
+### 10. Chat backend foundation and Phase 2 authorization now exist
 
-Phase 1 chat data modeling is now added to the backend schema.
+The chat backend is no longer schema-only. It now has an initial protected API surface plus server-side authorization.
 
 New chat tables/models:
 
@@ -195,18 +195,62 @@ Important constraints/indexes added:
 - `direct_key` uniqueness for DMs
 - message tag uniqueness on `(message_id, tag)`
 
-Known Phase 1 limitation:
+Current backend files:
+
+- Routes: `server/src/routes/chat.routes.ts`
+- Controller: `server/src/controllers/chat.controller.ts`
+- Services:
+  - `server/src/services/chat.service.ts`
+  - `server/src/services/chatAuthorization.service.ts`
+  - `server/src/services/chatErrors.ts`
+- DTO validation:
+  - `server/src/dtos/chat.dto.ts`
+
+Current Phase 2 authorization rules:
+
+- all chat routes derive `company_id`, `user_id`, `team_member_id`, and `access` from the authenticated request; the client is not trusted for tenant scope or role claims
+- direct conversations:
+  - only active participants can view the conversation
+  - only active participants can list/send/edit messages in that conversation
+  - direct-message creation is restricted to exactly two distinct users in the active company
+- group conversations:
+  - only active members can view/send/edit within the group
+  - removed members lose access immediately because membership checks require `removed_at IS NULL`
+  - add member, remove member, and rename group actions require both:
+    - active membership in that conversation
+    - workspace `admin` or `superAdmin` access
+- moderation-sensitive behavior:
+  - system messages cannot be created by clients
+  - `announcement` message tags are restricted to `admin` and `superAdmin`
+  - message edits are limited to the original sender's active workspace membership
+
+Current MVP endpoints:
+
+- `GET /api/chat/conversations`
+- `GET /api/chat/conversations/:conversationId`
+- `GET /api/chat/conversations/:conversationId/messages`
+- `POST /api/chat/conversations/direct`
+- `POST /api/chat/conversations/group`
+- `POST /api/chat/conversations/:conversationId/messages`
+- `PATCH /api/chat/messages/:messageId`
+- `POST /api/chat/conversations/:conversationId/members`
+- `DELETE /api/chat/conversations/:conversationId/members/:userId`
+- `PATCH /api/chat/conversations/:conversationId`
+
+Validation and contract notes:
+
+- chat request payloads are validated with Zod before service execution
+- message history is cursor-ready via `cursorMessageId`
+- list/message limits are bounded server-side
+- chat system/audit messages are server-only and should continue to be emitted by service methods for membership/name changes
+
+Current limitations / deferred chat items:
 
 - the frontend `Chat.tsx` is still mock-data based
-- no chat routes/services/controllers/realtime handlers exist yet
-- presence, typing, moderation actions, and message notifications are not implemented yet
-
-Recommended Phase 2 direction:
-
-- add conversation/member/message services first
-- enforce tenant and participant authorization in backend middleware/service queries
-- use cursor pagination for message history from day one
-- use Supabase Realtime for message row changes and ephemeral broadcast/presence for typing/online state
+- realtime message delivery, presence, and typing indicators are not wired yet
+- unread counters/read-cursor endpoints are not exposed yet
+- moderation delete/hide flows are not implemented yet
+- per-conversation notification preference updates are not exposed yet
 
 ## Important Paths
 

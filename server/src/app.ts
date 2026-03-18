@@ -23,6 +23,7 @@ import bodyParser from "body-parser";
 import workspaceRoutes from "./routes/workspace.routes";
 import { apiLimiter } from "./middleware/rateLimiter";
 import cacheRoutes from "./routes/cache.routes";
+import chatRoutes from "./routes/chat.routes";
 
 const app = express();
 
@@ -69,6 +70,7 @@ app.use("/api/", userSettingsRoutes);
 app.use("/api/", inviteRoutes);
 app.use("/api/", workspaceRoutes);
 app.use("/api/", cacheRoutes);
+app.use("/api/", chatRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {

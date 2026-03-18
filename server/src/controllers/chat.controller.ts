@@ -1,0 +1,262 @@
+import { Response } from "express";
+import { z } from "zod";
+import {
+  AddConversationMembersDTO,
+  ChatListQueryDTO,
+  ChatMessageListQueryDTO,
+  CreateDirectConversationDTO,
+  CreateGroupConversationDTO,
+  EditMessageDTO,
+  RenameConversationDTO,
+  SendMessageDTO,
+} from "../dtos/chat.dto";
+import { ChatService } from "../services/chat.service";
+import { isChatHttpError } from "../services/chatErrors";
+import { logger } from "../utils/logger";
+
+function getChatRequestContext(req: any) {
+  const companyId = req.user?.company_id;
+  const userId = req.user?.id;
+
+  if (!companyId || !userId) {
+    throw new Error("Unauthorized");
+  }
+
+  return {
+    companyId,
+    userId,
+    teamMemberId: req.user?.team_member_id ?? null,
+    access: req.user?.access ?? null,
+  };
+}
+
+function handleChatControllerError(res: Response, error: unknown, fallback: string) {
+  if (error instanceof z.ZodError) {
+    return res.status(400).json({
+      error: "Invalid chat request payload",
+      code: "CHAT_VALIDATION_FAILED",
+      details: error.flatten(),
+    });
+  }
+
+  if (isChatHttpError(error)) {
+    return res.status(error.statusCode).json({
+      error: error.message,
+      code: error.code,
+    });
+  }
+
+  if (error instanceof Error && error.message === "Unauthorized") {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  return res.status(500).json({ error: fallback });
+}
+
+export const ChatController = {
+  async listConversations(req: any, res: Response) {
+    try {
+      const { companyId, userId } = getChatRequestContext(req);
+      const query = ChatListQueryDTO.parse(req.query);
+      const conversations = await ChatService.listConversations(
+        companyId,
+        userId,
+        query.limit ?? 50,
+      );
+
+      return res.json({ conversations });
+    } catch (error) {
+      logger.error("ChatController.listConversations failed", { error });
+      return handleChatControllerError(
+        res,
+        error,
+        "Failed to fetch conversations",
+      );
+    }
+  },
+
+  async getConversation(req: any, res: Response) {
+    try {
+      const { companyId, userId } = getChatRequestContext(req);
+      const conversation = await ChatService.getConversation(
+        req.params.conversationId,
+        companyId,
+        userId,
+      );
+
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      return res.json({ conversation });
+    } catch (error) {
+      logger.error("ChatController.getConversation failed", { error });
+      return handleChatControllerError(res, error, "Failed to fetch conversation");
+    }
+  },
+
+  async listMessages(req: any, res: Response) {
+    try {
+      const { companyId, userId } = getChatRequestContext(req);
+      const query = ChatMessageListQueryDTO.parse(req.query);
+      const messages = await ChatService.listMessages({
+        conversationId: req.params.conversationId,
+        companyId,
+        userId,
+        limit: query.limit ?? 50,
+        cursorMessageId: query.cursorMessageId ?? null,
+      });
+
+      return res.json({ messages });
+    } catch (error) {
+      logger.error("ChatController.listMessages failed", { error });
+      return handleChatControllerError(res, error, "Failed to fetch messages");
+    }
+  },
+
+  async createDirectConversation(req: any, res: Response) {
+    try {
+      const { companyId, userId } = getChatRequestContext(req);
+      const body = CreateDirectConversationDTO.parse(req.body);
+
+      const conversation = await ChatService.createDirectConversation({
+        company_id: companyId,
+        created_by: userId,
+        participant_user_ids: [userId, body.participant_user_ids[0]],
+      });
+
+      return res.status(201).json({ conversation });
+    } catch (error) {
+      logger.error("ChatController.createDirectConversation failed", { error });
+      return handleChatControllerError(
+        res,
+        error,
+        "Failed to create direct conversation",
+      );
+    }
+  },
+
+  async createGroupConversation(req: any, res: Response) {
+    try {
+      const { companyId, userId } = getChatRequestContext(req);
+      const body = CreateGroupConversationDTO.parse(req.body);
+
+      const conversation = await ChatService.createGroupConversation({
+        company_id: companyId,
+        created_by: userId,
+        name: body.name,
+        participant_user_ids: body.participant_user_ids,
+        metadata: body.metadata,
+      });
+
+      return res.status(201).json({ conversation });
+    } catch (error) {
+      logger.error("ChatController.createGroupConversation failed", { error });
+      return handleChatControllerError(
+        res,
+        error,
+        "Failed to create group conversation",
+      );
+    }
+  },
+
+  async addMembers(req: any, res: Response) {
+    try {
+      const { companyId, userId, access } = getChatRequestContext(req);
+      const body = AddConversationMembersDTO.parse(req.body);
+
+      const result = await ChatService.addMembers({
+        conversationId: req.params.conversationId,
+        companyId,
+        requesterUserId: userId,
+        requesterAccess: access,
+        participantUserIds: body.participant_user_ids,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      logger.error("ChatController.addMembers failed", { error });
+      return handleChatControllerError(res, error, "Failed to add members");
+    }
+  },
+
+  async removeMember(req: any, res: Response) {
+    try {
+      const { companyId, userId, access } = getChatRequestContext(req);
+      const result = await ChatService.removeMember({
+        conversationId: req.params.conversationId,
+        companyId,
+        requesterUserId: userId,
+        requesterAccess: access,
+        targetUserId: req.params.userId,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      logger.error("ChatController.removeMember failed", { error });
+      return handleChatControllerError(res, error, "Failed to remove member");
+    }
+  },
+
+  async renameGroup(req: any, res: Response) {
+    try {
+      const { companyId, userId, access } = getChatRequestContext(req);
+      const body = RenameConversationDTO.parse(req.body);
+      const result = await ChatService.renameGroup({
+        conversationId: req.params.conversationId,
+        companyId,
+        requesterUserId: userId,
+        requesterAccess: access,
+        name: body.name,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      logger.error("ChatController.renameGroup failed", { error });
+      return handleChatControllerError(res, error, "Failed to rename group");
+    }
+  },
+
+  async sendMessage(req: any, res: Response) {
+    try {
+      const { companyId, userId, teamMemberId, access } = getChatRequestContext(req);
+      const body = SendMessageDTO.parse(req.body);
+      const message = await ChatService.sendMessage({
+        conversation_id: req.params.conversationId,
+        company_id: companyId,
+        requesterUserId: userId,
+        requesterAccess: access,
+        sender_team_member_id: teamMemberId,
+        body: body.body,
+        message_type: body.message_type,
+        reply_to_message_id: body.reply_to_message_id ?? null,
+        metadata: body.metadata,
+        tags: body.tags,
+      });
+
+      return res.status(201).json({ message });
+    } catch (error) {
+      logger.error("ChatController.sendMessage failed", { error });
+      return handleChatControllerError(res, error, "Failed to send message");
+    }
+  },
+
+  async editMessage(req: any, res: Response) {
+    try {
+      const { companyId, userId, teamMemberId } = getChatRequestContext(req);
+      const body = EditMessageDTO.parse(req.body);
+      const message = await ChatService.editMessage({
+        messageId: req.params.messageId,
+        companyId,
+        requesterUserId: userId,
+        requesterTeamMemberId: teamMemberId,
+        body: body.body,
+      });
+
+      return res.json({ message });
+    } catch (error) {
+      logger.error("ChatController.editMessage failed", { error });
+      return handleChatControllerError(res, error, "Failed to edit message");
+    }
+  },
+};
