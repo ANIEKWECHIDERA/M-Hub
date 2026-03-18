@@ -6,11 +6,10 @@ export type ChatSectionItem = {
   id: ChatSection;
   label: string;
   icon: LucideIcon;
-  unreadCount?: number;
 };
 
 export const chatSections: ChatSectionItem[] = [
-  { id: "all", label: "All", icon: MessageSquare, unreadCount: 4 },
-  { id: "projects", label: "Projects", icon: Users, unreadCount: 1 },
-  { id: "direct", label: "Direct", icon: Hash, unreadCount: 3 },
+  { id: "all", label: "All", icon: MessageSquare },
+  { id: "projects", label: "Projects", icon: Users },
+  { id: "direct", label: "Direct", icon: Hash },
 ];

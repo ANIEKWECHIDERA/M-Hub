@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/context/AuthContext";
+import { useChatContext } from "@/context/ChatContext";
 import { workspaceAPI, type Workspace } from "@/api/workspace.api";
 import { toast } from "sonner";
 import { chatSections, type ChatSection } from "@/config/chat-nav";
@@ -85,6 +86,7 @@ function SidebarPanel({
   const { authStatus } = useAuthContext();
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
+  const { totalUnreadCount, unreadBySection } = useChatContext();
   const navigation = useMemo(
     () =>
       isTeamMember
@@ -99,12 +101,8 @@ function SidebarPanel({
     return chatSections.find((item) => item.id === section)?.id ?? "all";
   }, [search]);
   const totalChatUnread = useMemo(
-    () =>
-      chatSections.reduce(
-        (sum, section) => sum + (section.unreadCount ?? 0),
-        0,
-      ),
-    [],
+    () => totalUnreadCount,
+    [totalUnreadCount],
   );
   const settingsSections = getAllowedSettingsSections(isTeamMember);
   const activeSettingsSection = useMemo(() => {
@@ -326,12 +324,12 @@ function SidebarPanel({
                               >
                                 <Icon className="h-4 w-4" />
                                 <span>{section.label}</span>
-                                {(section.unreadCount ?? 0) > 0 && (
+                                {(unreadBySection[section.id] ?? 0) > 0 && (
                                   <Badge
                                     variant="destructive"
                                     className="ml-auto rounded-full px-2 py-0 text-[11px]"
                                   >
-                                    {section.unreadCount}
+                                    {unreadBySection[section.id]}
                                   </Badge>
                                 )}
                               </Link>

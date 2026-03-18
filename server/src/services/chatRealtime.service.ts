@@ -1,4 +1,5 @@
 import { EventEmitter } from "events";
+import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "../config/supabaseClient";
 import { prisma } from "../lib/prisma";
 import { ChatRealtimeEvent } from "../types/chat.types";
@@ -8,11 +9,15 @@ const CHAT_TYPING_TTL_MS = 4000;
 
 class ChatRealtimeService {
   private emitter = new EventEmitter();
-  private presence = new Map<string, number>();
   private typingTimeouts = new Map<string, NodeJS.Timeout>();
   private initialized = false;
   private databaseChannel: ReturnType<typeof supabaseAdmin.channel> | null = null;
   private ephemeralChannel: ReturnType<typeof supabaseAdmin.channel> | null = null;
+  private presenceObserverChannels = new Map<
+    string,
+    ReturnType<typeof supabaseAdmin.channel>
+  >();
+  private onlineUsersByCompany = new Map<string, Set<string>>();
 
   subscribe(
     companyId: string,
@@ -82,41 +87,68 @@ class ChatRealtimeService {
     }
   }
 
-  markOnline(companyId: string, userId: string) {
-    const key = `${companyId}:${userId}`;
-    const count = this.presence.get(key) ?? 0;
-    this.presence.set(key, count + 1);
-
-    if (count === 0) {
-      this.emit({
-        type: "chat.presence",
-        company_id: companyId,
-        user_id: userId,
-        online: true,
-      });
-    }
-  }
-
-  markOffline(companyId: string, userId: string) {
-    const key = `${companyId}:${userId}`;
-    const count = this.presence.get(key) ?? 0;
-
-    if (count <= 1) {
-      this.presence.delete(key);
-      this.emit({
-        type: "chat.presence",
-        company_id: companyId,
-        user_id: userId,
-        online: false,
-      });
-      return;
-    }
-
-    this.presence.set(key, count - 1);
-  }
-
   isOnline(companyId: string, userId: string) {
-    return (this.presence.get(`${companyId}:${userId}`) ?? 0) > 0;
+    return this.onlineUsersByCompany.get(companyId)?.has(userId) ?? false;
+  }
+
+  async openPresenceSession(companyId: string, userId: string) {
+    this.initialize();
+    await this.ensurePresenceObserver(companyId);
+
+    const presenceClient = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_KEY!,
+    );
+    const channel = presenceClient.channel(`chat-presence:${companyId}`, {
+      config: {
+        presence: {
+          key: userId,
+        },
+      },
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      channel.subscribe(async (status, error) => {
+        if (status === "SUBSCRIBED") {
+          try {
+            await channel.track({
+              user_id: userId,
+              online_at: new Date().toISOString(),
+            });
+            resolve();
+          } catch (trackError) {
+            reject(trackError);
+          }
+          return;
+        }
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          reject(error ?? new Error("Failed to subscribe to chat presence"));
+        }
+      });
+    });
+
+    return async () => {
+      try {
+        await channel.untrack();
+      } catch (error) {
+        logger.warn("chatRealtimeService: presence untrack failed", {
+          companyId,
+          userId,
+          error,
+        });
+      }
+
+      try {
+        await presenceClient.removeChannel(channel);
+      } catch (error) {
+        logger.warn("chatRealtimeService: presence channel cleanup failed", {
+          companyId,
+          userId,
+          error,
+        });
+      }
+    };
   }
 
   initialize() {
@@ -284,6 +316,75 @@ class ChatRealtimeService {
     }, CHAT_TYPING_TTL_MS);
 
     this.typingTimeouts.set(key, timeout);
+  }
+
+  private async ensurePresenceObserver(companyId: string) {
+    if (this.presenceObserverChannels.has(companyId)) {
+      return;
+    }
+
+    const previousOnline = new Set<string>();
+    const channel = supabaseAdmin
+      .channel(`chat-presence:${companyId}`)
+      .on("presence", { event: "sync" }, () => {
+        const state = (channel as any).presenceState?.() as
+          | Record<string, Array<Record<string, any>>>
+          | undefined;
+
+        const nextOnline = new Set<string>(
+          Object.keys(state ?? {}).filter(Boolean),
+        );
+
+        this.onlineUsersByCompany.set(companyId, nextOnline);
+
+        for (const userId of nextOnline) {
+          if (!previousOnline.has(userId)) {
+            this.emit({
+              type: "chat.presence",
+              company_id: companyId,
+              user_id: userId,
+              online: true,
+            });
+          }
+        }
+
+        for (const userId of previousOnline) {
+          if (!nextOnline.has(userId)) {
+            this.emit({
+              type: "chat.presence",
+              company_id: companyId,
+              user_id: userId,
+              online: false,
+            });
+          }
+        }
+
+        previousOnline.clear();
+        nextOnline.forEach((userId) => previousOnline.add(userId));
+      })
+      .subscribe((status, error) => {
+        if (status === "SUBSCRIBED") {
+          logger.info("chatRealtimeService: presence observer subscribed", {
+            companyId,
+          });
+          return;
+        }
+
+        if (error) {
+          logger.error("chatRealtimeService: presence observer error", {
+            companyId,
+            status,
+            error,
+          });
+        } else {
+          logger.warn("chatRealtimeService: presence observer status", {
+            companyId,
+            status,
+          });
+        }
+      });
+
+    this.presenceObserverChannels.set(companyId, channel);
   }
 
   private async getConversationUserIds(conversationId: string) {

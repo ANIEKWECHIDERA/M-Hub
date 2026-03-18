@@ -315,19 +315,46 @@ Current realtime behavior for chat:
   - typing start/stop is sent through a Supabase broadcast channel
   - the backend relays it through SSE to current participants
   - stale typing state auto-expires after a short inactivity window
-- live stream connections still drive process-local online presence:
-  - users are marked online when a chat stream connects
-  - users are marked offline when their last stream disconnects
-  - member summaries expose current `online` state
+- online presence now uses Supabase Presence instead of the old process-local map:
+  - each chat SSE connection opens a Supabase Presence session for the authenticated user in the active company room
+  - the backend observes company presence state from a shared company-level presence channel
+  - member summaries expose `online` from that observed Supabase Presence state
+  - presence changes are rebroadcast through the existing SSE stream as `chat.presence`
 - conversation notification preferences are stored durably on `chat_conversation_members.notifications_muted`
+
+Frontend chat wiring now in place:
+
+- shared chat API client: `client/src/api/chat.api.ts`
+- shared chat context: `client/src/context/ChatContext.tsx`
+- chat helpers: `client/src/lib/chat.ts`
+- page: `client/src/pages/Chat.tsx`
+- sidebar unread counts now read from live chat context instead of static config
+
+Current frontend behavior:
+
+- conversations are loaded from `/api/chat/conversations`
+- active conversation details and recent messages are loaded from the backend when selected
+- the page subscribes to the existing backend SSE stream for:
+  - new/updated/deleted messages
+  - conversation updates
+  - group membership changes
+  - typing indicators
+  - presence changes
+- unread counts are derived from backend conversation list data and surfaced both in the page and the sidebar chat submenu
+- read state is advanced with `POST /api/chat/conversations/:conversationId/read`
+- typing indicators are sent with `POST /api/chat/conversations/:conversationId/typing`
+- the mobile chat layout remains the same split-list/detail pattern as before, but now uses real backend data
 
 Current limitations / deferred chat items:
 
-- the frontend `Chat.tsx` is still mock-data based
-- realtime backend events exist, but the frontend `Chat.tsx` is not wired to them yet
-- read-cursor updates and conversation notification preference updates are now exposed, but the frontend does not consume them yet
-- moderation delete/hide flows are not implemented yet
-- presence remains process-local for now; if the backend scales to multiple instances, move online presence to Supabase Realtime presence or another shared presence layer
+- there is still no frontend UI yet for:
+  - creating direct conversations
+  - creating/renaming groups
+  - adding/removing group members
+  - editing/deleting messages
+  - toggling per-conversation notification preferences
+- moderation hide/delete flows beyond the current backend soft-delete rules are not implemented yet
+- direct/group/project conversation creation strategy on the frontend is still pending product UI work
 
 ## Important Paths
 

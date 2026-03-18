@@ -372,7 +372,10 @@ export const ChatController = {
         });
       }
 
-      chatRealtimeService.markOnline(user.company_id, user.id);
+      const closePresenceSession = await chatRealtimeService.openPresenceSession(
+        user.company_id,
+        user.id,
+      );
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -405,7 +408,7 @@ export const ChatController = {
       req.on("close", () => {
         clearInterval(keepAlive);
         unsubscribe();
-        chatRealtimeService.markOffline(user.company_id, user.id);
+        void closePresenceSession();
         res.end();
       });
     } catch (error: any) {

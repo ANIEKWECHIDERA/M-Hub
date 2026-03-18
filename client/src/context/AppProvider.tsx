@@ -8,6 +8,7 @@ import { SubTasksContextProvider } from "./SubTasksContext.tsx";
 import { NotificationProvider } from "./NotificationContext.tsx";
 import { ClientProvider } from "./ClientContext.tsx";
 import { MyTasksProvider } from "./MyTaskContext.tsx";
+import { ChatProvider } from "./ChatContext.tsx";
 
 export const AppContextProvider = ({
   children,
@@ -17,21 +18,23 @@ export const AppContextProvider = ({
   return (
     <SettingsProvider>
       <NotificationProvider>
-        <TeamContextProvider>
-          <ClientProvider>
-            <ProjectContextProvider>
-              <SubTasksContextProvider>
-                <TaskContextProvider>
-                  <MyTasksProvider>
-                    <NoteContextProvider>
-                      <AssetContextProvider>{children}</AssetContextProvider>
-                    </NoteContextProvider>
-                  </MyTasksProvider>
-                </TaskContextProvider>
-              </SubTasksContextProvider>
-            </ProjectContextProvider>
-          </ClientProvider>
-        </TeamContextProvider>
+        <ChatProvider>
+          <TeamContextProvider>
+            <ClientProvider>
+              <ProjectContextProvider>
+                <SubTasksContextProvider>
+                  <TaskContextProvider>
+                    <MyTasksProvider>
+                      <NoteContextProvider>
+                        <AssetContextProvider>{children}</AssetContextProvider>
+                      </NoteContextProvider>
+                    </MyTasksProvider>
+                  </TaskContextProvider>
+                </SubTasksContextProvider>
+              </ProjectContextProvider>
+            </ClientProvider>
+          </TeamContextProvider>
+        </ChatProvider>
       </NotificationProvider>
     </SettingsProvider>
   );
