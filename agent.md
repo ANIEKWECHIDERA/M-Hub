@@ -64,11 +64,11 @@ Performance note:
 - The shared cache implementation lives in `server/src/services/requestCache.service.ts`
 - This is an in-process optimization, not a distributed cache; if the backend is scaled to multiple instances later, move these entries to Redis or another shared cache
 - Cache namespaces currently in use:
-  - `token`: verified Firebase token payloads keyed by hashed bearer token
-  - `user`: app user records keyed by Firebase UID
-  - `onboarding`: derived onboarding state keyed by Firebase UID
-  - `team_member`: resolved active membership keyed by `userId + companyId`
-  - `notification`: notification list payloads keyed by `companyId + userId + query shape`
+  - `token`: verified Firebase token payloads keyed as `token:{sha256(token)}`
+  - `user`: app user records keyed as `user:{firebaseUid}`
+  - `onboarding`: derived onboarding state keyed as `onboarding:{firebaseUid}`
+  - `team_member`: resolved active membership keyed as `team_member:{userId}:{companyId}`
+  - `notification`: notification list payloads keyed as `notification:{companyId}:{userId}:limit={n}`
 - Cache instrumentation now tracks per-namespace hits, misses, sets, invalidations, TTL usage, and sampled request-path metadata
 - Admin-only cache metrics are available at `GET /api/cache-metrics`
 - Notification cache keys include workspace, user, and `limit`, and notification ETags are scoped to `companyId + userId + limit + payload`
@@ -163,6 +163,50 @@ Realtime behavior:
 
 Comments are project-scoped and now update live for everyone in the active project stream.
 The composer stays pinned to the bottom of the comments surface while the thread scrolls independently above it.
+
+### 10. Chat backend foundation now exists in the schema
+
+Phase 1 chat data modeling is now added to the backend schema.
+
+New chat tables/models:
+
+- `chat_conversations`
+- `chat_conversation_members`
+- `chat_messages`
+- `chat_message_tags`
+- `chat_message_edits`
+
+Design rules currently encoded in the schema/migration:
+
+- all chat entities are company-scoped
+- direct and group conversations share one conversation model
+- direct conversations use a unique `direct_key` so only one DM exists per user pair per workspace/company
+- group membership is modeled explicitly in `chat_conversation_members`
+- unread state is intended to use per-member read cursors via `last_read_message_id` and `last_read_at`
+- per-conversation notification preferences are stored on the membership row via `notifications_muted`
+- system/audit events are expected to be represented as `chat_messages` with `message_type = 'system'`
+- typing and presence are intentionally not persisted in the main schema; plan to use Supabase Realtime presence/broadcast for those
+
+Important constraints/indexes added:
+
+- partial unique active membership indexes on `(conversation_id, user_id)` and `(conversation_id, team_member_id)` where `removed_at IS NULL`
+- descending pagination index on chat messages by `(conversation_id, created_at DESC, id DESC)`
+- conversation list index on `(company_id, last_message_at DESC)`
+- `direct_key` uniqueness for DMs
+- message tag uniqueness on `(message_id, tag)`
+
+Known Phase 1 limitation:
+
+- the frontend `Chat.tsx` is still mock-data based
+- no chat routes/services/controllers/realtime handlers exist yet
+- presence, typing, moderation actions, and message notifications are not implemented yet
+
+Recommended Phase 2 direction:
+
+- add conversation/member/message services first
+- enforce tenant and participant authorization in backend middleware/service queries
+- use cursor pagination for message history from day one
+- use Supabase Realtime for message row changes and ephemeral broadcast/presence for typing/online state
 
 ## Important Paths
 

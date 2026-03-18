@@ -164,6 +164,18 @@ function getTeamMemberCacheKey(userId: string, companyId?: string | null) {
   return `team_member:${userId}:${companyId ?? "__default__"}`;
 }
 
+function getTokenCacheKey(tokenHash: string) {
+  return `token:${tokenHash}`;
+}
+
+function getUserCacheKey(firebaseUid: string) {
+  return `user:${firebaseUid}`;
+}
+
+function getOnboardingCacheKey(firebaseUid: string) {
+  return `onboarding:${firebaseUid}`;
+}
+
 function getNotificationCacheKey(
   companyId: string,
   userId: string,
@@ -243,7 +255,12 @@ export const RequestCacheService = {
 
   getVerifiedToken(token: string, meta?: CacheMeta) {
     return (
-      getValidCacheEntry(tokenCache, this.hashToken(token), "token", meta)
+      getValidCacheEntry(
+        tokenCache,
+        getTokenCacheKey(this.hashToken(token)),
+        "token",
+        meta,
+      )
         ?.decoded ?? null
     );
   },
@@ -258,7 +275,7 @@ export const RequestCacheService = {
 
     setCacheEntry(
       tokenCache,
-      this.hashToken(token),
+      getTokenCacheKey(this.hashToken(token)),
       { decoded },
       ttlMs,
       "token",
@@ -267,7 +284,7 @@ export const RequestCacheService = {
   },
 
   getUser(firebaseUid: string, meta?: CacheMeta) {
-    return getValidCacheEntry(userCache, firebaseUid, "user", meta);
+    return getValidCacheEntry(userCache, getUserCacheKey(firebaseUid), "user", meta);
   },
 
   setUser(firebaseUid: string, user: CachedUserRecord, meta?: CacheMeta) {
@@ -277,7 +294,7 @@ export const RequestCacheService = {
 
     setCacheEntry(
       userCache,
-      firebaseUid,
+      getUserCacheKey(firebaseUid),
       user,
       USER_CACHE_TTL_MS,
       "user",
@@ -288,7 +305,7 @@ export const RequestCacheService = {
   getOnboardingState(firebaseUid: string, meta?: CacheMeta) {
     return getValidCacheEntry(
       onboardingCache,
-      firebaseUid,
+      getOnboardingCacheKey(firebaseUid),
       "onboarding",
       meta,
     );
@@ -301,7 +318,7 @@ export const RequestCacheService = {
   ) {
     setCacheEntry(
       onboardingCache,
-      firebaseUid,
+      getOnboardingCacheKey(firebaseUid),
       state,
       ONBOARDING_CACHE_TTL_MS,
       "onboarding",
@@ -376,8 +393,8 @@ export const RequestCacheService = {
     const firebaseUid = resolveFirebaseUid(params.userId, params.firebaseUid);
 
     if (firebaseUid) {
-      userCache.delete(firebaseUid);
-      onboardingCache.delete(firebaseUid);
+      userCache.delete(getUserCacheKey(firebaseUid));
+      onboardingCache.delete(getOnboardingCacheKey(firebaseUid));
       recordMetric("user", "invalidations", {
         ...meta,
         reason: "user_context_changed",
