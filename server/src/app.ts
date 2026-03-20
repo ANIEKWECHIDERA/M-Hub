@@ -12,7 +12,6 @@ import teamMemberRoutes from "./routes/teamMember.routes";
 import projectTeamMemberRoutes from "./routes/projectTeamMembers.routes";
 import assetRoutes from "./routes/asset.routes";
 import inviteRoutes from "./routes/invite.routes";
-import morgan from "morgan";
 import { logger } from "./utils/logger";
 import commentRoutes from "./routes/comment.routes";
 import noteRoutes from "./routes/note.routes";
@@ -25,6 +24,7 @@ import { apiLimiter } from "./middleware/rateLimiter";
 import cacheRoutes from "./routes/cache.routes";
 import chatRoutes from "./routes/chat.routes";
 import { chatRealtimeService } from "./services/chatRealtime.service";
+import { requestContext } from "./middleware/requestContext.middleware";
 
 const app = express();
 chatRealtimeService.initialize();
@@ -43,14 +43,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json({}));
 app.use(express.urlencoded({ extended: true }));
 app.use("/api", apiLimiter);
-
-app.use(
-  morgan("combined", {
-    stream: {
-      write: (message) => logger.info(message.trim()),
-    },
-  }),
-);
+app.use(requestContext);
 
 // Mount routes
 app.use("/api/", authRoutes);
@@ -76,7 +69,7 @@ app.use("/api/", chatRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {
-  console.log("Health check endpoint accessed");
+  req.log?.info("Health check endpoint accessed");
   res.send("Server is running");
 });
 
@@ -87,9 +80,16 @@ app.use(
     res: express.Response,
     next: express.NextFunction,
   ) => {
-    logger.error("Unhandled error", {
+    const requestLogger = req.log ?? logger;
+
+    requestLogger.error("Unhandled error", {
+      requestId: req.requestId ?? null,
       message: err.message,
       stack: err.stack,
+      path: req.originalUrl || req.path,
+      method: req.method,
+      companyId: req.user?.company_id ?? null,
+      userId: req.user?.id ?? null,
     });
 
     // Multer errors

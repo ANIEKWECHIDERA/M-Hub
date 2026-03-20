@@ -459,6 +459,9 @@ Current limitations / deferred chat items:
 - Controllers: `server/src/controllers/`
 - Routes: `server/src/routes/`
 - Middleware: `server/src/middleware/`
+- Logging:
+  - logger setup: `server/src/utils/logger.ts`
+  - request logging middleware: `server/src/middleware/requestContext.middleware.ts`
 
 ### Frontend
 
@@ -531,6 +534,21 @@ Important variables used directly in code:
 - `CLOUDINARY_CLOUD_NAME`
 - `CLOUDINARY_API_KEY`
 - `CLOUDINARY_API_SECRET`
+- `LOG_LEVEL` optional override for backend logger verbosity
+- `LOG_DIR` optional override for backend persisted log directory
+
+Backend logging note:
+
+- the backend now writes persistent structured JSON logs to:
+  - `server/logs/app.log`
+  - `server/logs/error.log`
+- console logs remain human-readable for local development
+- each request now gets an `x-request-id`, and request completion/error logs include that ID for correlation
+- sensitive metadata keys such as `authorization`, `token`, `password`, and `cookie` are redacted before logs are written
+- use the file logs for concrete backend health analysis, especially around:
+  - request volume and latency by path
+  - chat/cache/auth hot paths
+  - repeated errors tied to a single request ID
 
 Frontend note:
 
@@ -545,6 +563,7 @@ Frontend note:
 - Controllers should stay thin
 - Feature routes are grouped by resource
 - DB shaping is often handled with `dbSelect/`, DTOs, and mapper files
+- request/operational observability should prefer structured logger metadata over ad hoc `console.log`
 
 ### Frontend conventions
 
