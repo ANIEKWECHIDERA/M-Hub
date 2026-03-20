@@ -168,6 +168,24 @@ function toNoteResponseDTO(row: NoteRow, tags: string[] = []): NoteResponseDTO {
   };
 }
 
+async function deleteNoteTagsForNote(noteId: string, companyId: string) {
+  let request = supabaseAdmin
+    .from("note_tags")
+    .delete()
+    .eq("note_id", noteId);
+
+  let { error } = await request.eq("company_id", companyId);
+
+  if (error && isLegacyCompatibilityError(error)) {
+    ({ error } = await request);
+  }
+
+  if (error) {
+    logger.error("NoteService.deleteNoteTagsForNote: supabase error", { error });
+    throw error;
+  }
+}
+
 function buildPersistedNote(payload: {
   title?: string;
   content_html?: string;
@@ -591,6 +609,32 @@ export const NoteService = {
     }
 
     return this.getById(id, companyId, authorId);
+  },
+
+  async destroy(
+    id: string,
+    companyId: string,
+    authorId: string,
+  ): Promise<boolean> {
+    logger.info("NoteService.destroy: start", { id, companyId, authorId });
+
+    await deleteNoteTagsForNote(id, companyId);
+
+    const { data, error } = await supabaseAdmin
+      .from("notes")
+      .delete()
+      .eq("id", id)
+      .eq("company_id", companyId)
+      .eq("author_id", authorId)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      logger.error("NoteService.destroy: supabase error", { error });
+      throw error;
+    }
+
+    return Boolean(data);
   },
 
   async setPinned(

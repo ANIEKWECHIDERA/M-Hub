@@ -10,7 +10,6 @@ export const NOTE_EDITOR_FORMATS = [
   "strike",
   "blockquote",
   "list",
-  "bullet",
   "code-block",
   "link",
   "color",

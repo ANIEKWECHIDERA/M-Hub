@@ -13,8 +13,13 @@ export async function apiFetch<T>(
     ...options.headers,
   });
 
-  let res = await fetch(`${API_CONFIG.backend}${url}`, {
+  const requestInit = {
     ...options,
+    cache: "no-store" as RequestCache,
+  };
+
+  let res = await fetch(`${API_CONFIG.backend}${url}`, {
+    ...requestInit,
     headers: buildHeaders(idToken),
   });
 
@@ -25,16 +30,19 @@ export async function apiFetch<T>(
 
     if (refreshedToken && refreshedToken !== idToken) {
       res = await fetch(`${API_CONFIG.backend}${url}`, {
-        ...options,
+        ...requestInit,
         headers: buildHeaders(refreshedToken),
       });
     }
   }
 
-  const data = await res.json();
+  const raw = await res.text();
+  const data = raw ? JSON.parse(raw) : null;
 
   if (!res.ok) {
-    throw new Error(data.error || "Request failed");
+    throw new Error(
+      data?.error || data?.message || `Request failed (${res.status})`,
+    );
   }
 
   return data;

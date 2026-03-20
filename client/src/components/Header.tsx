@@ -99,10 +99,26 @@ export function Header() {
 
   if (userLoading) {
     return (
-      <header className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger className="lg:flex" />
+            <div className="hidden lg:block">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Workspace
+              </p>
+              <p className="text-sm font-semibold text-foreground">M-Hub</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-9 animate-pulse rounded-md bg-muted" />
+            <div className="h-9 w-9 animate-pulse rounded-md bg-muted" />
+            <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
+          </div>
+        </div>
       </header>
-    ); // Or skeleton
+    );
   }
 
   return (

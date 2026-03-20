@@ -566,6 +566,7 @@ export interface NoteContextType {
   createNote: (payload?: CreateNoteInput) => Promise<Note>;
   updateNote: (id: string, data: UpdateNoteInput) => Promise<Note>;
   archiveNote: (id: string) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
   restoreNote: (id: string) => Promise<Note | null>;
   setPinned: (id: string, pinned: boolean) => Promise<Note | null>;
 }

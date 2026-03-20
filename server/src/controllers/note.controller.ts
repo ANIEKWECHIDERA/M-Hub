@@ -157,6 +157,29 @@ export const NoteController = {
     }
   },
 
+  async deleteNote(req: any, res: Response) {
+    const { companyId, authorId } = getScopedUser(req);
+    const { id } = req.params;
+
+    try {
+      const deleted = await NoteService.destroy(id, companyId, authorId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      req.log?.error("NoteController.deleteNote: failed", {
+        id,
+        companyId,
+        authorId,
+        error,
+      });
+      return handleNoteError(res, error, "Failed to delete note");
+    }
+  },
+
   async setPinned(req: any, res: Response) {
     const { companyId, authorId } = getScopedUser(req);
     const { id } = req.params;

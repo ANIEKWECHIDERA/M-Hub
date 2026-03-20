@@ -52,6 +52,13 @@ router.post(
 );
 
 router.delete(
+  "/notes/:id/permanent",
+  ...protectedRoute,
+  authorize([...noteRoles]),
+  NoteController.deleteNote,
+);
+
+router.delete(
   "/notes/:id",
   ...protectedRoute,
   authorize([...noteRoles]),

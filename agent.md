@@ -774,11 +774,33 @@ Summary of recent changes:
 - Notes now run in a compatibility mode against older live schemas:
   - if rich-note columns like `plain_text_preview`, `last_edited_at`, `pinned`, or `archived_at` are missing, the backend falls back to legacy-safe note reads and writes
   - legacy mode derives preview text and edited timestamps from existing columns instead of failing the whole feature
+- Notes creation should feel local-first:
+  - create a temporary in-memory note immediately for fast capture
+  - let the editor open and accept input before the backend create round-trip finishes
+  - reconcile the temp note to the real persisted note in the background
+  - when a temp note becomes real, keep the current editor draft intact and let autosave flush it onto the persisted record
+- Notes list data should stay memory-backed per workspace once loaded:
+  - cache active and archived note lists in memory
+  - reopening Notes or toggling between `Active` and `Archived` should prefer cached notes first instead of refetching every time
+  - local note create/pin/archive/restore updates should reconcile that in-memory cache immediately for a snappy feel
 - The Quill notes editor must initialize only once per mounted editor surface; keep changing callbacks in refs instead of putting them in the editor boot effect dependencies
 - Notes autosave must be single-flight:
   - only one save request should be in flight per note at a time
   - later edits should queue a follow-up save instead of overlapping PATCH requests
   - note-tag writes must be idempotent under repeated saves
+- Notes should expose a visible destructive action in the editor header; do not hide the primary delete/archive action behind icon-only affordances
+- Notes bulk actions should live in the header next to the `Active` / `Archived` pills, not inside each note row
+- `Mark to delete` and `Mark to archive` should enter a bulk-selection mode that reveals checkmarks in the note list for batch actions
+- Bulk note delete and archive should be separate actions end to end:
+  - archive moves notes into the archived list
+  - delete permanently removes notes through the dedicated delete endpoint
+  - bulk action buttons should say `Archive` or `Delete`, not a generic `Apply`
+- The full note row should remain clickable to open the note; any nested bulk-selection or restore controls must stop propagation so row click behavior stays intact
+- Keep the primary archive action visible in the editor header; use the header bulk menu for list-level cleanup flows
+- Notes should warm a small number of note details into memory after the first list fetch so opening recently visible notes feels instant instead of always waiting on a cold detail request
+- Keep the active and archived in-memory note caches separate; do not derive one bucket from the other or archived notes can appear to vanish after optimistic updates
+- API requests that expect JSON should avoid browser cache revalidation pitfalls; do not let `304 Not Modified` responses leave Notes or other authenticated screens stuck in loading states
+- Header loading states must never take over the full viewport on top of the app shell; use an in-place skeleton header so feature surfaces like Notes stay clickable while profile data settles
 - Chat dialog flows now need explicit close-state cleanup; if a dialog closes, the page must clear any lingering `body` pointer-events lock so the app never becomes unclickable until refresh
 - Direct chat creation should immediately switch the chat route to `?section=direct` so a newly created DM is visible instead of being hidden behind the group/projects filter
 - Chat conversation auto-selection must be owned by the route/page filter, not a second global default in context; otherwise routes like `?section=direct` can get stuck fighting over `activeConversationId` when that section has no conversations yet

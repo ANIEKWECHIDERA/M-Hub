@@ -130,6 +130,14 @@ export const notesAPI = {
     );
   },
 
+  async delete(id: string, idToken: string) {
+    return apiFetch<{ success: boolean }>(
+      `/api/notes/${id}/permanent`,
+      { method: "DELETE" },
+      idToken,
+    );
+  },
+
   async restore(id: string, idToken: string) {
     const data = await apiFetch<{ note: BackendNote }>(
       `/api/notes/${id}/restore`,

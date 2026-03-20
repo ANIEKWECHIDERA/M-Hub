@@ -10,10 +10,12 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   Archive,
+  Check,
   Clock3,
   FilePlus2,
   FileText,
   Loader2,
+  MoreHorizontal,
   Pin,
   PinOff,
   Search,
@@ -39,6 +41,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,6 +76,8 @@ import {
 import { formatRelativeTimestamp } from "@/lib/datetime";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+const TEMP_NOTE_PREFIX = "temp-note:";
+const isTempNoteId = (id?: string | null) => Boolean(id?.startsWith(TEMP_NOTE_PREFIX));
 
 function useIsMobileScreen() {
   const [isMobile, setIsMobile] = useState(false);
@@ -97,6 +107,7 @@ export default function Notepad() {
     createNote,
     updateNote,
     archiveNote,
+    deleteNote,
     restoreNote,
     setPinned,
   } = useNoteContext();
@@ -106,6 +117,8 @@ export default function Notepad() {
   const [showArchived, setShowArchived] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [archiveTarget, setArchiveTarget] = useState<Note | null>(null);
+  const [bulkMode, setBulkMode] = useState<"delete" | "archive" | null>(null);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [editorTitle, setEditorTitle] = useState("");
   const [editorContentHtml, setEditorContentHtml] = useState(EMPTY_NOTE_HTML);
   const [editorTagsInput, setEditorTagsInput] = useState("");
@@ -184,6 +197,8 @@ export default function Notepad() {
     if (showArchived) {
       clearCurrentNote();
       setMobileNoteOpen(false);
+      setBulkMode(null);
+      setSelectedNoteIds([]);
     }
   }, [clearCurrentNote, showArchived]);
 
@@ -194,11 +209,37 @@ export default function Notepad() {
   }, [isMobile]);
 
   useEffect(() => {
+    setSelectedNoteIds((previous) =>
+      previous.filter((id) => filteredNotes.some((note) => note.id === id)),
+    );
+  }, [filteredNotes]);
+
+  useEffect(() => {
     fetchNotes({ archived: showArchived });
   }, [fetchNotes, showArchived]);
 
   useEffect(() => {
     if (!currentNote || loadedNoteIdRef.current === currentNote.id) {
+      return;
+    }
+
+    const previousNoteId = loadedNoteIdRef.current;
+    const movedFromTempToPersisted =
+      isTempNoteId(previousNoteId) && !isTempNoteId(currentNote.id);
+
+    if (movedFromTempToPersisted) {
+      loadedNoteIdRef.current = currentNote.id;
+      const persistedSignature = JSON.stringify({
+        title: currentNote.title,
+        contentHtml: sanitizeNoteHtmlClient(currentNote.contentHtml),
+        projectId: currentNote.projectId,
+        pinned: currentNote.pinned,
+        tags: currentNote.tags,
+      });
+      lastPersistedSignatureRef.current = persistedSignature;
+      setSaveState(
+        draftSignatureRef.current === persistedSignature ? "saved" : "dirty",
+      );
       return;
     }
 
@@ -244,6 +285,11 @@ export default function Notepad() {
   const persistDraft = useCallback(async () => {
     const activeNote = currentNoteRef.current;
     if (!activeNote) {
+      return;
+    }
+
+    if (isTempNoteId(activeNote.id)) {
+      setSaveState("dirty");
       return;
     }
 
@@ -338,12 +384,11 @@ export default function Notepad() {
     setIsCreating(true);
     try {
       await flushPendingSave();
-      const note = await createNote({
+      await createNote({
         title: "Untitled note",
         contentHtml: EMPTY_NOTE_HTML,
       });
       loadedNoteIdRef.current = null;
-      await openNote(note.id);
       setMobileNoteOpen(true);
     } catch (createError: any) {
       toast.error(createError.message || "Failed to create note");
@@ -414,6 +459,55 @@ export default function Notepad() {
     }
   };
 
+  const isSelected = useCallback(
+    (noteId: string) => selectedNoteIds.includes(noteId),
+    [selectedNoteIds],
+  );
+
+  const toggleSelectedNote = useCallback((noteId: string) => {
+    setSelectedNoteIds((previous) =>
+      previous.includes(noteId)
+        ? previous.filter((id) => id !== noteId)
+        : [...previous, noteId],
+    );
+  }, []);
+
+  const startBulkMode = useCallback((mode: "delete" | "archive") => {
+    setBulkMode(mode);
+    setSelectedNoteIds([]);
+  }, []);
+
+  const cancelBulkMode = useCallback(() => {
+    setBulkMode(null);
+    setSelectedNoteIds([]);
+  }, []);
+
+  const handleBulkApply = useCallback(async () => {
+    if (selectedNoteIds.length === 0) {
+      return;
+    }
+
+    try {
+      setIsActionBusy(true);
+      await flushPendingSave();
+      if (bulkMode === "archive") {
+        await Promise.all(selectedNoteIds.map((id) => archiveNote(id)));
+      } else {
+        await Promise.all(selectedNoteIds.map((id) => deleteNote(id)));
+      }
+      toast.success(
+        bulkMode === "archive"
+          ? "Selected notes archived"
+          : "Selected notes deleted",
+      );
+      cancelBulkMode();
+    } catch (bulkError: any) {
+      toast.error(bulkError.message || "Failed to update selected notes");
+    } finally {
+      setIsActionBusy(false);
+    }
+  }, [archiveNote, bulkMode, cancelBulkMode, deleteNote, flushPendingSave, selectedNoteIds]);
+
   const listEmptyState = showArchived ? (
     <Empty className="border-none px-4 py-14">
       <EmptyHeader>
@@ -479,11 +573,39 @@ export default function Notepad() {
             />
           </div>
           <div className="flex gap-2">
+            {!showArchived ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-w-[5.5rem] rounded-lg"
+                  >
+                    <MoreHorizontal className="mr-2 h-4 w-4" />
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => startBulkMode("archive")}>
+                    Mark to archive
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => startBulkMode("delete")}
+                  >
+                    Mark to delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="min-w-[5.5rem]" />
+            )}
             <Button
               type="button"
               variant={!showArchived ? "default" : "outline"}
               size="sm"
-              className="rounded-lg"
+              className="min-w-[5.5rem] rounded-lg"
               onClick={() => setShowArchived(false)}
             >
               Active
@@ -492,12 +614,41 @@ export default function Notepad() {
               type="button"
               variant={showArchived ? "default" : "outline"}
               size="sm"
-              className="rounded-lg"
+              className="min-w-[5.5rem] rounded-lg"
               onClick={() => setShowArchived(true)}
             >
               Archived
             </Button>
           </div>
+          {bulkMode ? (
+            <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+              <div className="text-xs text-muted-foreground">
+                {bulkMode === "archive"
+                  ? "Select notes to archive"
+                  : "Select notes to mark for deletion"}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-md px-2 text-xs"
+                  onClick={cancelBulkMode}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 rounded-md px-2 text-xs"
+                  disabled={selectedNoteIds.length === 0 || isActionBusy}
+                  onClick={() => void handleBulkApply()}
+                >
+                  {bulkMode === "archive" ? "Archive" : "Delete"} ({selectedNoteIds.length})
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
@@ -513,30 +664,62 @@ export default function Notepad() {
               {filteredNotes.map((note) => {
                 const isActive = currentNote?.id === note.id;
                 return (
-                  <button
-                    type="button"
+                  <div
                     key={note.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => void handleSelectNote(note)}
-                    className={`w-full rounded-xl border px-3 py-3 text-left transition ${
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        void handleSelectNote(note);
+                      }
+                    }}
+                    className={`rounded-xl border px-3 py-3 transition ${
                       isActive
                         ? "border-primary bg-primary/5"
                         : "border-border bg-card hover:bg-muted/50"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          {note.pinned && <Pin className="h-3.5 w-3.5 text-amber-500" />}
-                          <span className="truncate text-sm font-medium">
-                            {note.title}
-                          </span>
+                      <div className="min-w-0 flex-1 text-left">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
+                            {note.pinned && <Pin className="h-3.5 w-3.5 text-amber-500" />}
+                            <span className="truncate text-sm font-medium">
+                              {note.title}
+                            </span>
+                          </div>
+                          <p className="line-clamp-2 text-xs text-muted-foreground">
+                            {note.plainTextPreview || "Empty note"}
+                          </p>
                         </div>
-                        <p className="line-clamp-2 text-xs text-muted-foreground">
-                          {note.plainTextPreview || "Empty note"}
-                        </p>
                       </div>
-                      <div className="shrink-0 text-xs text-muted-foreground">
-                        {formatRelativeTimestamp(note.updatedAt)}
+                      <div className="flex items-start gap-2">
+                        <div className="shrink-0 text-xs text-muted-foreground">
+                          {formatRelativeTimestamp(note.updatedAt)}
+                        </div>
+                        {bulkMode && !showArchived ? (
+                          <button
+                            type="button"
+                            className={`flex h-5 w-5 items-center justify-center rounded border transition ${
+                              isSelected(note.id)
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-muted-foreground/30 bg-background"
+                            }`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleSelectedNote(note.id);
+                            }}
+                            aria-label={
+                              isSelected(note.id) ? "Unselect note" : "Select note"
+                            }
+                          >
+                            {isSelected(note.id) ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : null}
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -565,7 +748,7 @@ export default function Notepad() {
                         </Button>
                       ) : null}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -654,7 +837,6 @@ export default function Notepad() {
                       {currentNote.pinned ? "Unpin note" : "Pin note"}
                     </TooltipContent>
                   </Tooltip>
-
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -770,17 +952,18 @@ export default function Notepad() {
           <AlertDialogHeader>
             <AlertDialogTitle>Archive note</AlertDialogTitle>
             <AlertDialogDescription>
-              This moves the note out of your active list without deleting its content.
+              This moves the note out of your active list so you can restore it later from Archived notes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => void handleArchive()}>
-              Archive
+              Archive note
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }
