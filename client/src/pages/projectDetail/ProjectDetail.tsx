@@ -44,10 +44,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import type { TaskWithAssigneesDTO, TeamMemberSummary } from "@/Types/types";
-import {
-  CommentContextProvider,
-  useCommentContext,
-} from "@/context/CommentContext";
+import { useCommentContext } from "@/context/CommentContext";
 import { Input } from "@/components/ui/input";
 import {
   Breadcrumb,
@@ -759,23 +756,21 @@ export function ProjectDetail() {
           </div>
         </TabsContent>
 
-        <CommentContextProvider projectId={project.id}>
-          <TabsContent
-            value="comments"
-            className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden"
-          >
-            <div className="shrink-0 pb-4">
-              <h2 className="text-xl font-semibold">Project Comments</h2>
-            </div>
-            <CommentsSystem
-              comments={comments}
-              loading={commentLoading}
-              onCommentAdd={addComment}
-              onCommentUpdate={updateComment}
-              onCommentDelete={deleteComment}
-            />
-          </TabsContent>
-        </CommentContextProvider>
+        <TabsContent
+          value="comments"
+          className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <div className="shrink-0 pb-4">
+            <h2 className="text-xl font-semibold">Project Comments</h2>
+          </div>
+          <CommentsSystem
+            comments={comments}
+            loading={commentLoading}
+            onCommentAdd={addComment}
+            onCommentUpdate={updateComment}
+            onCommentDelete={deleteComment}
+          />
+        </TabsContent>
       </Tabs>
 
       <AlertDialog

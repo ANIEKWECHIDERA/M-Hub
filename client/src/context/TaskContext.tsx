@@ -21,7 +21,7 @@ export const TaskContextProvider = ({
   children,
   projectIds,
 }: {
-  projectId: string;
+  projectId?: string;
   children: React.ReactNode;
   projectIds?: string[];
 }) => {
@@ -107,11 +107,12 @@ export const TaskContextProvider = ({
       return;
     }
 
-    // if (!ids.length) {
-    //   setTasks([]);
-    //   setLoading(false);
-    //   return;
-    // }
+    if (!ids.length) {
+      setTasks([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -131,9 +132,12 @@ export const TaskContextProvider = ({
   };
 
   useEffect(() => {
-    if (!projectId || !idToken) return;
+    if (!idToken) {
+      setLoading(false);
+      return;
+    }
     fetchTasks();
-  }, [projectId, idToken]);
+  }, [projectId, projectIds, idToken]);
 
   // Optimistic add
   const addTask = async (
