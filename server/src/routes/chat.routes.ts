@@ -110,4 +110,11 @@ router.patch(
   ChatController.renameGroup,
 );
 
+router.delete(
+  "/chat/conversations/:conversationId",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  ChatController.deleteConversation,
+);
+
 export default router;

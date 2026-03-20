@@ -70,6 +70,7 @@ export type ChatConversationDetails = {
     can_rename_group: boolean;
     can_manage_members: boolean;
     can_moderate_messages: boolean;
+    can_delete_conversation: boolean;
   };
   last_message: ChatMessageSummary | null;
 };
@@ -274,6 +275,14 @@ export const chatAPI = {
         method: "PATCH",
         body: JSON.stringify({ name }),
       },
+      idToken,
+    );
+  },
+
+  deleteConversation(conversationId: string, idToken: string) {
+    return apiFetch<{ success: boolean }>(
+      `/api/chat/conversations/${conversationId}`,
+      { method: "DELETE" },
       idToken,
     );
   },

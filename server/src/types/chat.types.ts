@@ -105,6 +105,7 @@ export type ChatConversationPermissions = {
   can_rename_group: boolean;
   can_manage_members: boolean;
   can_moderate_messages: boolean;
+  can_delete_conversation: boolean;
 };
 
 export type ChatConversationDetails = ChatConversationRecord & {

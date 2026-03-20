@@ -395,6 +395,7 @@ export default function Chat() {
     sendTypingIndicator,
     createDirectConversation,
     createGroupConversation,
+    deleteConversation,
     renameConversation,
     addConversationMembers,
     removeConversationMember,
@@ -420,6 +421,7 @@ export default function Chat() {
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [isManageMembersOpen, setIsManageMembersOpen] = useState(false);
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
+  const [isDeleteConversationOpen, setIsDeleteConversationOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -471,6 +473,7 @@ export default function Chat() {
       isRenameOpen ||
       isManageMembersOpen ||
       isGroupInfoOpen ||
+      isDeleteConversationOpen ||
       Boolean(editingMessage) ||
       Boolean(deleteTarget) ||
       Boolean(profilePreviewMember);
@@ -488,6 +491,7 @@ export default function Chat() {
     isCreateDirectOpen,
     isCreateGroupOpen,
     isDirectoryOpen,
+    isDeleteConversationOpen,
     isGroupInfoOpen,
     isManageMembersOpen,
     isRenameOpen,
@@ -627,6 +631,7 @@ export default function Chat() {
   const canManageMembers = Boolean(activePermissions?.can_manage_members);
   const canRenameGroup = Boolean(activePermissions?.can_rename_group);
   const canModerateMessages = Boolean(activePermissions?.can_moderate_messages);
+  const canDeleteConversation = Boolean(activePermissions?.can_delete_conversation);
   const notificationsMuted = Boolean(activeConversation?.notifications_muted);
   const visibleMemberCount = conversationDetails?.member_count ?? currentChat?.member_count ?? currentMembers.length;
   const memberLabel = visibleMemberCount === 1 ? "member" : "members";
@@ -866,6 +871,28 @@ export default function Chat() {
     }
   };
 
+  const handleDeleteConversation = async () => {
+    if (!currentChat) {
+      return;
+    }
+
+    try {
+      setIsDeleteConversationOpen(false);
+      await deleteConversation();
+      toast.success(
+        currentChat.type === "group"
+          ? "Group chat deleted"
+          : "Personal chat deleted",
+      );
+      if (isMobile) {
+        setMobileConversationOpen(false);
+      }
+    } catch (chatError: any) {
+      setIsDeleteConversationOpen(true);
+      toast.error(chatError.message || "Failed to delete conversation");
+    }
+  };
+
   const handleUpdatePreferences = async () => {
     try {
       await updateConversationPreferences(!notificationsMuted);
@@ -1032,9 +1059,15 @@ export default function Chat() {
                       <EmptyMedia variant="icon">
                         <MessageSquare />
                       </EmptyMedia>
-                      <EmptyTitle>No conversations yet</EmptyTitle>
+                      <EmptyTitle>
+                        {activeSection === "direct"
+                          ? "No personal chats yet"
+                          : "No group chats yet"}
+                      </EmptyTitle>
                       <EmptyDescription>
-                        {`No ${activeSection} conversations match this view right now.`}
+                        {activeSection === "direct"
+                          ? "Start a personal chat with someone in this workspace."
+                          : "Create or join a group chat to start collaborating."}
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -1266,6 +1299,17 @@ export default function Chat() {
                             ? "Unmute notifications"
                             : "Mute notification"}
                         </DropdownMenuItem>
+                        {canDeleteConversation && (
+                          <DropdownMenuItem
+                            onClick={() => setIsDeleteConversationOpen(true)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {currentChat.type === "group"
+                              ? "Delete group chat"
+                              : "Delete personal chat"}
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -1354,9 +1398,15 @@ export default function Chat() {
                           <EmptyMedia variant="icon">
                             {currentChat.type === "direct" ? <Hash /> : <Users />}
                           </EmptyMedia>
-                          <EmptyTitle>No messages yet</EmptyTitle>
+                          <EmptyTitle>
+                            {currentChat.type === "group"
+                              ? "No group messages yet"
+                              : "No personal messages yet"}
+                          </EmptyTitle>
                           <EmptyDescription>
-                            Start the conversation in {currentConversationName}.
+                            {currentChat.type === "group"
+                              ? `Start the first group message in ${currentConversationName}.`
+                              : `Start the first personal message in ${currentConversationName}.`}
                           </EmptyDescription>
                         </EmptyHeader>
                       </Empty>
@@ -1607,6 +1657,42 @@ export default function Chat() {
             </Button>
             <Button onClick={() => void handleCreateGroupConversation()}>
               Create group
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isDeleteConversationOpen}
+        onOpenChange={(open) => !open && setIsDeleteConversationOpen(false)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {currentChat?.type === "group"
+                ? "Delete group chat"
+                : "Delete personal chat"}
+            </DialogTitle>
+            <DialogDescription>
+              {currentChat?.type === "group"
+                ? `This will remove ${currentConversationName} from the workspace chat list for everyone.`
+                : `This will remove the personal chat with ${currentConversationName}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteConversationOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleDeleteConversation()}
+            >
+              {currentChat?.type === "group"
+                ? "Delete group chat"
+                : "Delete personal chat"}
             </Button>
           </DialogFooter>
         </DialogContent>

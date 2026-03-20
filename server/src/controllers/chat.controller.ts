@@ -257,6 +257,23 @@ export const ChatController = {
     }
   },
 
+  async deleteConversation(req: any, res: Response) {
+    try {
+      const { companyId, userId, access } = getChatRequestContext(req);
+      const result = await ChatService.deleteConversation({
+        conversationId: req.params.conversationId,
+        companyId,
+        requesterUserId: userId,
+        requesterAccess: access,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      logger.error("ChatController.deleteConversation failed", { error });
+      return handleChatControllerError(res, error, "Failed to delete conversation");
+    }
+  },
+
   async sendMessage(req: any, res: Response) {
     try {
       const { companyId, userId, teamMemberId, access } = getChatRequestContext(req);

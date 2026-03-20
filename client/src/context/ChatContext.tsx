@@ -58,6 +58,7 @@ type ChatContextType = {
     participant_user_ids?: string[];
     participant_team_member_ids?: string[];
   }) => Promise<string>;
+  deleteConversation: () => Promise<void>;
   renameConversation: (name: string) => Promise<void>;
   addConversationMembers: (payload: {
     participant_user_ids?: string[];
@@ -552,6 +553,55 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     conversationDetails,
     conversations,
     scheduleRefreshActiveConversation,
+    scheduleRefreshConversations,
+  ]);
+
+  const deleteConversation = useCallback(async () => {
+    const token = idTokenRef.current;
+    const conversationId = activeConversationIdRef.current;
+    if (!token || !conversationId) {
+      return;
+    }
+
+    const previousConversations = conversations;
+    const previousConversationDetails = conversationDetails;
+    const previousMessages = messages;
+    const previousActiveConversationId = activeConversationId;
+    const currentIndex = conversations.findIndex(
+      (conversation) => conversation.id === conversationId,
+    );
+    const fallbackConversation =
+      conversations.find((conversation) => conversation.id !== conversationId) ?? null;
+
+    setConversations((prev) =>
+      prev.filter((conversation) => conversation.id !== conversationId),
+    );
+    setConversationDetails(null);
+    setMessages([]);
+    setNextMessageCursor(null);
+    setActiveConversationId(fallbackConversation?.id ?? null);
+
+    try {
+      await chatAPI.deleteConversation(conversationId, token);
+      scheduleRefreshConversations({ silent: true });
+    } catch (error) {
+      setConversations(previousConversations);
+      setConversationDetails(previousConversationDetails);
+      setMessages(previousMessages);
+      setNextMessageCursor(null);
+      setActiveConversationId(
+        previousActiveConversationId ??
+          previousConversations[currentIndex]?.id ??
+          previousConversations[0]?.id ??
+          null,
+      );
+      throw error;
+    }
+  }, [
+    activeConversationId,
+    conversationDetails,
+    conversations,
+    messages,
     scheduleRefreshConversations,
   ]);
 
@@ -1093,6 +1143,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       sendTypingIndicator,
       createDirectConversation,
       createGroupConversation,
+      deleteConversation,
       renameConversation,
       addConversationMembers,
       removeConversationMember,
@@ -1125,6 +1176,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       sendTypingIndicator,
       createDirectConversation,
       createGroupConversation,
+      deleteConversation,
       renameConversation,
       addConversationMembers,
       removeConversationMember,

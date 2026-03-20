@@ -36,6 +36,7 @@ async function getConversationAccessContext(params: {
     FROM chat_conversations c
     WHERE c.id = ${params.conversationId}::uuid
       AND c.company_id = ${params.companyId}::uuid
+      AND c.archived_at IS NULL
     LIMIT 1`;
 
   return (rows[0] as ChatConversationAccessContext | undefined) ?? null;
@@ -140,6 +141,22 @@ export const ChatAuthorizationService = {
     );
 
     requireModeratorAccess(params.access);
+
+    return context;
+  },
+
+  async assertCanDeleteConversation(params: {
+    conversationId: string;
+    companyId: string;
+    userId: string;
+    access?: string | null;
+  }) {
+    const context = requireActiveMember(await getConversationAccessContext(params));
+
+    if (context.type === "group") {
+      requireModeratorAccess(params.access);
+      return requireMutableGroup(requireGroupConversation(context));
+    }
 
     return context;
   },

@@ -401,6 +401,9 @@ Current limitations / deferred chat items:
   - group creation is now admin/superAdmin only, enforced both in routes and service authorization
   - group rename/member-management permissions now treat the system `General` group as immutable
   - the `General` group can be viewed like any other group, but it cannot be manually renamed or membership-edited
+  - direct conversations can now be soft-deleted by their active participants
+  - group conversations can now be soft-deleted only by `admin` and `superAdmin`
+  - soft-deleted conversations are archived with `archived_at` and excluded from normal conversation list queries
   - message edit rules are now sender-only in both direct and group conversations
   - admin and superAdmin can still moderate-delete another user’s message in group conversations, but cannot edit another sender’s message
 - chat hot-path backend cache churn was reduced:
@@ -417,6 +420,9 @@ Current limitations / deferred chat items:
 - no schema change was required for group descriptions in this pass:
   - descriptions are stored in `chat_conversations.metadata.description`
   - no new Prisma migration was added for this chat UI update
+- chat empty-state copy is now context-specific:
+  - the direct-chat list and empty thread use personal-chat wording
+  - the group/projects chat list and empty thread use group-chat wording
 - there is still no frontend UI yet for:
   - replying to a specific message even though the backend already supports `reply_to_message_id`
   - archived conversation management

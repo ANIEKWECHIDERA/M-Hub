@@ -163,6 +163,8 @@ function buildPermissions(params: {
     can_rename_group: canManageGroup,
     can_manage_members: canManageGroup,
     can_moderate_messages: canModerate,
+    can_delete_conversation:
+      params.type === "direct" ? !params.archivedAt : canManageGroup,
   };
 }
 
@@ -723,6 +725,7 @@ export const ChatService = {
               AND cm_active.removed_at IS NULL
           ) members ON TRUE
           WHERE c.company_id = ${params.companyId}::uuid
+            AND c.archived_at IS NULL
             AND (
               COALESCE(c.last_message_at, c.created_at) < ${cursorSortTs}::timestamp
               OR (
@@ -805,6 +808,7 @@ export const ChatService = {
               AND cm_active.removed_at IS NULL
           ) members ON TRUE
           WHERE c.company_id = ${params.companyId}::uuid
+            AND c.archived_at IS NULL
           ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC
           LIMIT ${safeLimit}`;
 
@@ -1330,6 +1334,51 @@ export const ChatService = {
       conversationId: conversation.id,
       requesterUserId: params.requesterUserId,
       name,
+    });
+
+    await emitConversationEvent({
+      type: "chat.conversation.updated",
+      company_id: params.companyId,
+      conversation_id: conversation.id,
+    });
+
+    return { success: true };
+  },
+
+  async deleteConversation(params: {
+    conversationId: string;
+    companyId: string;
+    requesterUserId: string;
+    requesterAccess?: string | null;
+  }) {
+    const conversation = await ChatAuthorizationService.assertCanDeleteConversation({
+      conversationId: params.conversationId,
+      companyId: params.companyId,
+      userId: params.requesterUserId,
+      access: params.requesterAccess,
+    });
+
+    const result = await prisma.$queryRaw<Array<Record<string, any>>>`
+      UPDATE chat_conversations
+      SET archived_at = NOW(),
+          updated_at = NOW()
+      WHERE id = ${conversation.id}::uuid
+        AND archived_at IS NULL
+      RETURNING id`;
+
+    if (!result[0]) {
+      throw new ChatHttpError(
+        404,
+        "Conversation not found",
+        "CHAT_CONVERSATION_NOT_FOUND",
+      );
+    }
+
+    logger.info("ChatService.deleteConversation: conversation archived", {
+      companyId: params.companyId,
+      conversationId: conversation.id,
+      requesterUserId: params.requesterUserId,
+      conversationType: conversation.type,
     });
 
     await emitConversationEvent({
