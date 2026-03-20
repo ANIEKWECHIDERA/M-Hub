@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowDown,
   BellOff,
   Check,
   Crown,
@@ -241,19 +242,19 @@ function ProfilePreviewDialog({
 function MessageBubble({
   message,
   isCurrentUser,
-  canManage,
+  canDeleteModeration,
   onEdit,
   onDelete,
   onPreviewProfile,
 }: {
   message: ChatMessage;
   isCurrentUser: boolean;
-  canManage: boolean;
+  canDeleteModeration: boolean;
   onEdit: (message: ChatMessage) => void;
   onDelete: (message: ChatMessage) => void;
   onPreviewProfile: (message: ChatMessage) => void;
 }) {
-  const canEditOrDelete = isCurrentUser || canManage;
+  const canDelete = isCurrentUser || canDeleteModeration;
 
   if (message.message_type === "system") {
     return (
@@ -261,7 +262,12 @@ function MessageBubble({
         <div className="inline-flex max-w-[90%] items-center gap-2 rounded-full border border-dashed bg-muted/45 px-4 py-2 text-center text-xs font-medium text-muted-foreground">
           <span>{message.body}</span>
           <span className="whitespace-nowrap text-[11px]">
-            {formatShortTime(message.created_at)}
+            {new Date(message.created_at).toLocaleString([], {
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}
           </span>
         </div>
       </div>
@@ -297,7 +303,7 @@ function MessageBubble({
             <span>{message.sender.name || "Unknown"}</span>
             <span>{formatShortTime(message.created_at)}</span>
             {message.is_edited && <span>edited</span>}
-            {canEditOrDelete && !message.id.startsWith("optimistic-") && (
+            {(isCurrentUser || canDelete) && !message.id.startsWith("optimistic-") && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -310,19 +316,21 @@ function MessageBubble({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align={isCurrentUser ? "end" : "start"}>
-                  {!message.is_deleted && (
+                  {!message.is_deleted && isCurrentUser && (
                     <DropdownMenuItem onClick={() => onEdit(message)}>
                       <Pencil className="h-4 w-4" />
                       Edit message
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem
-                    onClick={() => onDelete(message)}
-                    className="text-red-600 focus:text-red-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete message
-                  </DropdownMenuItem>
+                  {canDelete && (
+                    <DropdownMenuItem
+                      onClick={() => onDelete(message)}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete message
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -330,7 +338,7 @@ function MessageBubble({
 
           <div
             className={cn(
-              "rounded-2xl border px-4 py-3 text-sm leading-relaxed",
+              "rounded-2xl border px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
               isCurrentUser
                 ? "border-primary bg-primary text-primary-foreground"
                 : "bg-muted/60",
@@ -419,6 +427,7 @@ export default function Chat() {
   const [groupMemberSearch, setGroupMemberSearch] = useState("");
   const [directorySearch, setDirectorySearch] = useState("");
   const [groupName, setGroupName] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
   const [selectedGroupMembers, setSelectedGroupMembers] = useState<string[]>([]);
   const [selectedAddMembers, setSelectedAddMembers] = useState<string[]>([]);
   const [editValue, setEditValue] = useState("");
@@ -427,7 +436,12 @@ export default function Chat() {
   >([]);
   const typingTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
+  const messageScrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const messageBottomRef = useRef<HTMLDivElement | null>(null);
+  const previousMessageCountRef = useRef(0);
+  const activeConversationChangeRef = useRef(false);
   const isMobile = useIsMobileScreen();
+  const [showNewMessageJump, setShowNewMessageJump] = useState(false);
   const isWorkspaceManager =
     authStatus?.access === "admin" || authStatus?.access === "superAdmin";
 
@@ -448,6 +462,37 @@ export default function Chat() {
       setRenameValue(activeConversation?.name || "");
     }
   }, [activeConversation?.name, isRenameOpen]);
+
+  useEffect(() => {
+    const hasOpenDialog =
+      isCreateDirectOpen ||
+      isCreateGroupOpen ||
+      isDirectoryOpen ||
+      isRenameOpen ||
+      isManageMembersOpen ||
+      isGroupInfoOpen ||
+      Boolean(editingMessage) ||
+      Boolean(deleteTarget) ||
+      Boolean(profilePreviewMember);
+
+    if (!hasOpenDialog) {
+      document.body.style.removeProperty("pointer-events");
+    }
+
+    return () => {
+      document.body.style.removeProperty("pointer-events");
+    };
+  }, [
+    deleteTarget,
+    editingMessage,
+    isCreateDirectOpen,
+    isCreateGroupOpen,
+    isDirectoryOpen,
+    isGroupInfoOpen,
+    isManageMembersOpen,
+    isRenameOpen,
+    profilePreviewMember,
+  ]);
 
   useEffect(() => {
     if (!editingMessage) {
@@ -504,6 +549,11 @@ export default function Chat() {
   }, [isMobile]);
 
   useEffect(() => {
+    activeConversationChangeRef.current = true;
+    setShowNewMessageJump(false);
+  }, [activeConversationId]);
+
+  useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
         window.clearTimeout(typingTimeoutRef.current);
@@ -514,6 +564,7 @@ export default function Chat() {
   }, [sendTypingIndicator]);
 
   const currentChat =
+    activeConversation ??
     filteredChats.find((conversation) => conversation.id === activeConversationId) ??
     filteredChats[0] ??
     null;
@@ -526,6 +577,11 @@ export default function Chat() {
   const currentConversationName = currentChat
     ? getConversationDisplayName(currentChat, profile?.id)
     : "";
+  const currentConversationDescription =
+    currentChat?.type === "group" &&
+    typeof currentChat.metadata?.description === "string"
+      ? currentChat.metadata.description
+      : null;
   const typingNames = typingUserIds
     .map((userId) => currentMembers.find((member) => member.user_id === userId)?.name)
     .filter(Boolean) as string[];
@@ -571,15 +627,42 @@ export default function Chat() {
   const canRenameGroup = Boolean(activePermissions?.can_rename_group);
   const canModerateMessages = Boolean(activePermissions?.can_moderate_messages);
   const notificationsMuted = Boolean(activeConversation?.notifications_muted);
+  const visibleMemberCount = conversationDetails?.member_count ?? currentChat?.member_count ?? currentMembers.length;
+  const memberLabel = visibleMemberCount === 1 ? "member" : "members";
 
   const showInboxPane = !isMobile || !mobileConversationOpen;
   const showConversationPane = !isMobile || mobileConversationOpen;
 
   const handleSelectChat = (conversationId: string) => {
     setActiveConversationId(conversationId);
+    setShowNewMessageJump(false);
     if (isMobile) {
       setMobileConversationOpen(true);
     }
+  };
+
+  const scrollToLatestMessage = (behavior: ScrollBehavior = "smooth") => {
+    const container = messageScrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior,
+    });
+    setShowNewMessageJump(false);
+  };
+
+  const isScrolledFarFromBottom = () => {
+    const container = messageScrollContainerRef.current;
+    if (!container) {
+      return false;
+    }
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    return distanceFromBottom > 320;
   };
 
   const handleMessageChange = async (value: string) => {
@@ -647,6 +730,9 @@ export default function Chat() {
 
   const handleCreateDirectConversation = async (member: TeamMember) => {
     try {
+      setIsCreateDirectOpen(false);
+      setIsDirectoryOpen(false);
+      setSearchParams({ section: "direct" }, { replace: true });
       await createDirectConversation(
         member.user_id
           ? { target_user_id: member.user_id }
@@ -659,6 +745,7 @@ export default function Chat() {
         setMobileConversationOpen(true);
       }
     } catch (chatError: any) {
+      setIsCreateDirectOpen(true);
       toast.error(chatError.message || "Failed to start direct chat");
     }
   };
@@ -667,6 +754,8 @@ export default function Chat() {
     member: ChatMember,
   ) => {
     try {
+      setIsManageMembersOpen(false);
+      setSearchParams({ section: "direct" }, { replace: true });
       await createDirectConversation(
         member.user_id
           ? { target_user_id: member.user_id }
@@ -677,6 +766,7 @@ export default function Chat() {
         setMobileConversationOpen(true);
       }
     } catch (chatError: any) {
+      setIsManageMembersOpen(true);
       toast.error(chatError.message || "Failed to start direct chat");
     }
   };
@@ -696,8 +786,12 @@ export default function Chat() {
     }
 
     try {
+      setIsCreateGroupOpen(false);
       await createGroupConversation({
         name: groupName.trim(),
+        metadata: groupDescription.trim()
+          ? { description: groupDescription.trim() }
+          : undefined,
         participant_user_ids: selectedMembers
           .filter((member) => member.user_id)
           .map((member) => member.user_id as string),
@@ -706,13 +800,14 @@ export default function Chat() {
           .map((member) => member.id),
       });
       setGroupName("");
+      setGroupDescription("");
       setSelectedGroupMembers([]);
       setGroupMemberSearch("");
-      setIsCreateGroupOpen(false);
       if (isMobile) {
         setMobileConversationOpen(true);
       }
     } catch (chatError: any) {
+      setIsCreateGroupOpen(true);
       toast.error(chatError.message || "Failed to create group");
     }
   };
@@ -724,10 +819,11 @@ export default function Chat() {
     }
 
     try {
-      await renameConversation(renameValue.trim());
       setIsRenameOpen(false);
+      await renameConversation(renameValue.trim());
       toast.success("Group name updated");
     } catch (chatError: any) {
+      setIsRenameOpen(true);
       toast.error(chatError.message || "Failed to rename group");
     }
   };
@@ -743,6 +839,7 @@ export default function Chat() {
     }
 
     try {
+      setIsManageMembersOpen(false);
       await addConversationMembers({
         participant_user_ids: selectedMembers
           .filter((member) => member.user_id)
@@ -754,6 +851,7 @@ export default function Chat() {
       setSelectedAddMembers([]);
       toast.success("Members added");
     } catch (chatError: any) {
+      setIsManageMembersOpen(true);
       toast.error(chatError.message || "Failed to add members");
     }
   };
@@ -785,10 +883,11 @@ export default function Chat() {
     }
 
     try {
-      await editMessage(editingMessage.id, editValue.trim());
       setEditingMessage(null);
+      await editMessage(editingMessage.id, editValue.trim());
       toast.success("Message updated");
     } catch (chatError: any) {
+      setEditingMessage(editingMessage);
       toast.error(chatError.message || "Failed to edit message");
     }
   };
@@ -799,10 +898,11 @@ export default function Chat() {
     }
 
     try {
-      await deleteMessage(deleteTarget.id);
       setDeleteTarget(null);
+      await deleteMessage(deleteTarget.id);
       toast.success("Message deleted");
     } catch (chatError: any) {
+      setDeleteTarget(deleteTarget);
       toast.error(chatError.message || "Failed to delete message");
     }
   };
@@ -813,11 +913,46 @@ export default function Chat() {
     );
   };
 
+  useEffect(() => {
+    const container = messageScrollContainerRef.current;
+    if (!container || !currentChat) {
+      previousMessageCountRef.current = messages.length;
+      return;
+    }
+
+    const previousCount = previousMessageCountRef.current;
+    const currentCount = messages.length;
+    const messageCountInView = currentCount;
+    const latestMessage = messages[currentCount - 1];
+    const latestFromCurrentUser = latestMessage?.sender.user_id === profile?.id;
+
+    if (activeConversationChangeRef.current) {
+      requestAnimationFrame(() => {
+        scrollToLatestMessage("auto");
+        activeConversationChangeRef.current = false;
+      });
+      previousMessageCountRef.current = currentCount;
+      return;
+    }
+
+    if (currentCount > previousCount) {
+      if (!isScrolledFarFromBottom() || latestFromCurrentUser) {
+        requestAnimationFrame(() => {
+          scrollToLatestMessage("smooth");
+        });
+      } else if (messageCountInView > 8) {
+        setShowNewMessageJump(true);
+      }
+    }
+
+    previousMessageCountRef.current = currentCount;
+  }, [currentChat, messages, profile?.id]);
+
   return (
     <>
-      <div className="flex h-[calc(100vh-8rem)] min-h-[620px] gap-4">
+      <div className="flex h-[calc(100vh-8rem)] min-h-0 gap-4">
         {showInboxPane && (
-          <Card className="flex min-w-0 flex-1 flex-col md:max-w-sm md:flex-[0_0_24rem]">
+          <Card className="flex min-h-0 min-w-0 flex-1 flex-col md:max-w-sm md:flex-[0_0_24rem]">
             <CardHeader className="space-y-4 border-b pb-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
@@ -828,14 +963,6 @@ export default function Chat() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsDirectoryOpen(true)}
-                  >
-                    <Users className="h-4 w-4" />
-                    <span className="sr-only">Open workspace people</span>
-                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button size="icon">
@@ -844,6 +971,10 @@ export default function Chat() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setIsDirectoryOpen(true)}>
+                        Workspace people
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setIsCreateDirectOpen(true)}>
                         New direct chat
                       </DropdownMenuItem>
@@ -885,7 +1016,7 @@ export default function Chat() {
 
             </CardHeader>
 
-            <CardContent className="flex-1 overflow-y-auto p-0">
+            <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
               <div className="space-y-1 p-3">
                 {loadingConversations ? (
                   <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
@@ -951,14 +1082,19 @@ export default function Chat() {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-medium">
+                            <div className="flex items-start gap-2">
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium">
                                 {displayName}
+                              </span>
+                              <span className="shrink-0 text-[11px] text-muted-foreground">
+                                {formatShortTime(
+                                  conversation.last_message_at ?? conversation.created_at,
+                                )}
                               </span>
                               {conversation.unread_count > 0 && (
                                 <Badge
                                   variant="destructive"
-                                  className="ml-auto rounded-full px-2 py-0 text-[11px]"
+                                  className="shrink-0 rounded-full px-2 py-0 text-[11px]"
                                 >
                                   {conversation.unread_count}
                                 </Badge>
@@ -967,20 +1103,20 @@ export default function Chat() {
 
                             {conversation.type === "group" && (
                               <p className="mt-1 text-xs text-muted-foreground">
-                                {conversation.member_count} members
+                                {conversation.member_count}{" "}
+                                {conversation.member_count === 1 ? "member" : "members"}
                               </p>
                             )}
 
                             <p className="mt-1 truncate text-sm text-muted-foreground">
+                              {conversation.type === "group" &&
+                              conversation.last_message?.sender.name
+                                ? `${conversation.last_message.sender.name}: `
+                                : ""}
                               {conversation.last_message?.body || "No messages yet"}
                             </p>
 
                             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>
-                                {formatShortTime(
-                                  conversation.last_message_at ?? conversation.created_at,
-                                )}
-                              </span>
                               {conversation.notifications_muted && (
                                 <BellOff className="h-3.5 w-3.5" />
                               )}
@@ -997,7 +1133,7 @@ export default function Chat() {
         )}
 
         {showConversationPane && (
-          <Card className="flex min-w-0 flex-1 flex-col">
+          <Card className="flex min-h-0 min-w-0 flex-1 flex-col">
             <CardHeader className="border-b pb-4">
               {currentChat ? (
                 <div className="flex items-start justify-between gap-3">
@@ -1053,8 +1189,7 @@ export default function Chat() {
                           </span>
                         ) : (
                           <span>
-                            {conversationDetails?.member_count ?? currentChat.member_count}{" "}
-                            members
+                            {visibleMemberCount} {memberLabel}
                           </span>
                         )}
                         {notificationsMuted && (
@@ -1066,6 +1201,11 @@ export default function Chat() {
                           </Badge>
                         )}
                       </div>
+                      {currentConversationDescription && (
+                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                          {currentConversationDescription}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1134,8 +1274,31 @@ export default function Chat() {
                 </div>
               )}
             </CardHeader>
-            <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
-              <div className="flex-1 overflow-y-auto p-4">
+            <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+              <div className="relative flex-1 min-h-0">
+                {showNewMessageJump && (
+                  <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="pointer-events-auto rounded-md bg-background/95 shadow-sm backdrop-blur"
+                      onClick={() => scrollToLatestMessage("smooth")}
+                    >
+                      <ArrowDown className="mr-2 h-4 w-4" />
+                      New message
+                    </Button>
+                  </div>
+                )}
+              <div
+                ref={messageScrollContainerRef}
+                className="h-full overflow-y-auto p-4"
+                onScroll={() => {
+                  if (!isScrolledFarFromBottom()) {
+                    setShowNewMessageJump(false);
+                  }
+                }}
+              >
                 {loadingMessages && currentChat ? (
                   <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1169,7 +1332,9 @@ export default function Chat() {
                           key={message.id}
                           message={message}
                           isCurrentUser={message.sender.user_id === profile?.id}
-                          canManage={canModerateMessages}
+                          canDeleteModeration={
+                            canModerateMessages && currentChat.type === "group"
+                          }
                           onEdit={setEditingMessage}
                           onDelete={setDeleteTarget}
                           onPreviewProfile={(target) =>
@@ -1193,12 +1358,14 @@ export default function Chat() {
                         </EmptyHeader>
                       </Empty>
                     )}
+                    <div ref={messageBottomRef} />
                   </div>
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                     {error || "Try another chat section or search term."}
                   </div>
                 )}
+              </div>
               </div>
 
               <div className="border-t p-4">
@@ -1222,7 +1389,7 @@ export default function Chat() {
                     onKeyDown={(event) => {
                       void handleKeyPress(event);
                     }}
-                    className="min-h-[56px] flex-1 resize-none"
+                    className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto"
                     disabled={!currentChat}
                   />
                   {currentChat?.type === "group" && (
@@ -1334,7 +1501,18 @@ export default function Chat() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCreateGroupOpen} onOpenChange={setIsCreateGroupOpen}>
+      <Dialog
+        open={isCreateGroupOpen}
+        onOpenChange={(open) => {
+          setIsCreateGroupOpen(open);
+          if (!open) {
+            setGroupName("");
+            setGroupDescription("");
+            setSelectedGroupMembers([]);
+            setGroupMemberSearch("");
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create group chat</DialogTitle>
@@ -1351,6 +1529,17 @@ export default function Chat() {
                 value={groupName}
                 onChange={(event) => setGroupName(event.target.value)}
                 placeholder="Design review squad"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="group-description">Group description</Label>
+              <Textarea
+                id="group-description"
+                value={groupDescription}
+                onChange={(event) => setGroupDescription(event.target.value)}
+                placeholder="What is this group about?"
+                className="min-h-[96px]"
               />
             </div>
 
@@ -1536,9 +1725,20 @@ export default function Chat() {
                 <div>
                   <p className="text-xs uppercase tracking-wide">Members</p>
                   <p className="font-medium text-foreground">
-                    {conversationDetails?.member_count ?? currentMembers.length}
+                    {conversationDetails?.member_count ?? currentMembers.length}{" "}
+                    {(conversationDetails?.member_count ?? currentMembers.length) === 1
+                      ? "member"
+                      : "members"}
                   </p>
                 </div>
+                {currentConversationDescription && (
+                  <div className="sm:col-span-2">
+                    <p className="text-xs uppercase tracking-wide">Description</p>
+                    <p className="font-medium text-foreground">
+                      {currentConversationDescription}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs uppercase tracking-wide">Created</p>
                   <p className="font-medium text-foreground">

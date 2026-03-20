@@ -50,39 +50,45 @@ export function updateConversationPresence<T extends { members: ChatMember[] }>(
 }
 
 export function getConversationDisplayName(
-  conversation: Pick<ChatConversation, "type" | "name" | "members">,
+  conversation: Pick<ChatConversation, "type" | "name"> & {
+    members?: ChatMember[] | null;
+  },
   currentUserId?: string | null,
 ) {
   if (conversation.type === "group") {
     return conversation.name || "Group chat";
   }
 
-  const otherMember = conversation.members.find(
+  const otherMember = (conversation.members ?? []).find(
     (member) => member.user_id !== currentUserId,
   );
   return otherMember?.name || otherMember?.email || "Direct message";
 }
 
 export function getConversationAvatar(
-  conversation: Pick<ChatConversation, "type" | "members">,
+  conversation: Pick<ChatConversation, "type"> & {
+    members?: ChatMember[] | null;
+  },
   currentUserId?: string | null,
 ) {
   if (conversation.type === "group") {
     return null;
   }
 
-  const otherMember = conversation.members.find(
+  const otherMember = (conversation.members ?? []).find(
     (member) => member.user_id !== currentUserId,
   );
   return otherMember?.avatar ?? null;
 }
 
 export function getConversationSubtitle(
-  conversation: Pick<ChatConversation, "type" | "members">,
+  conversation: Pick<ChatConversation, "type"> & {
+    members?: ChatMember[] | null;
+  },
   details?: ChatConversationDetails | null,
 ) {
   if (conversation.type === "direct") {
-    const otherMember = (details?.members ?? conversation.members).find(
+    const otherMember = (details?.members ?? conversation.members ?? []).find(
       (member) => member.user_id !== details?.members?.[0]?.user_id,
     );
     if (otherMember?.online) {
@@ -91,5 +97,5 @@ export function getConversationSubtitle(
     return "Direct message";
   }
 
-  return `${details?.member_count ?? conversation.members.length} members`;
+  return `${details?.member_count ?? (conversation.members ?? []).length} members`;
 }

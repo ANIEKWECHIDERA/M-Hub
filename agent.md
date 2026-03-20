@@ -386,6 +386,13 @@ Current limitations / deferred chat items:
   - message tag selection moved out of the visible composer UI into the composer overflow menu for group chats only
   - direct-chat overflow menu now includes profile viewing, and group-chat overflow menu now includes group info, members, rename/manage actions, and mute notification controls
   - group conversation cards now use a subtly different visual treatment from direct-message cards
+  - system-message timestamps now include calendar date plus time instead of time-only badges
+  - group/member count copy now uses singular/plural correctly, for example `1 member` vs `2 members`
+  - group conversation rows now show the last sender name before the last message body, and move timestamp treatment to the upper-right of the row
+  - the message thread now auto-opens at the newest message, and if a user is reading older history, a top-centered `New message` jump action appears when fresh messages arrive
+  - the separate workspace-people icon button was removed from the chat header; that action now lives under the main plus menu
+  - create-group now supports a group description field in the UI, stored in conversation `metadata.description`
+  - chat submit dialogs now close on submit attempt for create-group, rename, add-members, edit-message, delete-message, and direct-chat launch flows
 - chat rerender/reconnect flow was later optimized for stability:
   - chat mutations now favor optimistic local updates for rename, member add/remove, mute, send, edit, and delete flows
   - the chat context no longer does a full conversation-list and active-thread refetch on every interaction; stream-driven reconciliation is now debounced
@@ -394,6 +401,8 @@ Current limitations / deferred chat items:
   - group creation is now admin/superAdmin only, enforced both in routes and service authorization
   - group rename/member-management permissions now treat the system `General` group as immutable
   - the `General` group can be viewed like any other group, but it cannot be manually renamed or membership-edited
+  - message edit rules are now sender-only in both direct and group conversations
+  - admin and superAdmin can still moderate-delete another user’s message in group conversations, but cannot edit another sender’s message
 - chat hot-path backend cache churn was reduced:
   - `touchLastLoginIfNeeded` no longer invalidates full user context on every eligible request
   - cached user records are updated in place for `last_login`, which avoids repeated user/team-member cache thrash during chat typing/read traffic
@@ -405,6 +414,9 @@ Current limitations / deferred chat items:
   - active workspace members are synced into that `General` conversation automatically
   - new active members are added automatically through company creation, invite acceptance, team-member creation/update, and a fallback ensure step in conversation listing
   - removed/inactive members are removed from workspace chat memberships immediately so chat access matches workspace membership
+- no schema change was required for group descriptions in this pass:
+  - descriptions are stored in `chat_conversations.metadata.description`
+  - no new Prisma migration was added for this chat UI update
 - there is still no frontend UI yet for:
   - replying to a specific message even though the backend already supports `reply_to_message_id`
   - archived conversation management
@@ -583,6 +595,9 @@ Summary of recent changes:
 - Backend notification list responses now use a short-lived user-scoped response cache with explicit ETag handling so repeated identical reads can return cached `304`/JSON responses without recomputing the payload
 - Comments now render real author data from the backend, update in realtime through project-scoped SSE, and use a bottom-pinned composer with upward scrolling history
 - Chat keeps a desktop split view, but on small screens it behaves like a modern messaging app: conversation list first, then a conversation detail view with an inline back button
+- Chat dialog flows now need explicit close-state cleanup; if a dialog closes, the page must clear any lingering `body` pointer-events lock so the app never becomes unclickable until refresh
+- Direct chat creation should immediately switch the chat route to `?section=direct` so a newly created DM is visible instead of being hidden behind the group/projects filter
+- Chat auto-scroll should target the message pane container itself, not `scrollIntoView()` on a child node; otherwise the outer layout can shift and the composer can fall out of the viewport
 - Dashboard stats and filters can be collapsed on small screens to preserve space without changing the desktop information density
 - Project detail mirrors that small-screen pattern: use a `Show overview` toggle for summary cards on mobile, keep the tab region height-bound, and let only the active tab panel scroll
 - Keep the Overview tab itself static when its content fits; prefer richer summary cards there over turning it into another scrolling pane
@@ -602,6 +617,8 @@ New patterns introduced:
 - For timestamps in comments, notifications, invites, and team last-login views, use the shared helpers in `client/src/lib/datetime.ts` instead of ad hoc `Date` math
 - Relative timestamps should prefer `now` instead of phrases like `this minute` for very recent events
 - For comments, prefer a fixed composer footer inside an `overflow-hidden` panel over `sticky` positioning so the page itself never pushes the composer off screen
+- In chat, long message content should wrap aggressively and the composer textarea should stay height-capped with its own internal scroll so oversized drafts never push the conversation window out of layout
+- For chat split panes, every flex ancestor around the message pane should keep `min-h-0` so the `overflow-y-auto` thread owns scrolling instead of expanding the whole panel
 
 Assumptions currently in use:
 

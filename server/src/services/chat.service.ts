@@ -1450,9 +1450,7 @@ export const ChatService = {
     const message = rows[0];
     if (!message) throw new ChatHttpError(404, "Message not found", "CHAT_MESSAGE_NOT_FOUND");
     if (!message.requester_is_member) throw new ChatHttpError(403, "You do not have access to this conversation", "CHAT_ACCESS_DENIED");
-    const canModerate =
-      params.requesterAccess === "admin" || params.requesterAccess === "superAdmin";
-    if (message.sender_team_member_id !== params.requesterTeamMemberId && !canModerate) {
+    if (message.sender_team_member_id !== params.requesterTeamMemberId) {
       throw new ChatHttpError(403, "You can only edit your own messages", "CHAT_EDIT_FORBIDDEN");
     }
     if (message.message_type === "system") throw new ChatHttpError(403, "System messages cannot be edited", "CHAT_SYSTEM_EDIT_FORBIDDEN");
@@ -1462,7 +1460,7 @@ export const ChatService = {
 
     const createdAt = new Date(message.created_at);
     const editCutoff = new Date(createdAt.getTime() + CHAT_MESSAGE_EDIT_WINDOW_MINUTES * 60 * 1000);
-    if (!canModerate && new Date() > editCutoff) {
+    if (new Date() > editCutoff) {
       throw new ChatHttpError(
         403,
         `Messages can only be edited within ${CHAT_MESSAGE_EDIT_WINDOW_MINUTES} minutes of sending`,
@@ -1491,7 +1489,7 @@ export const ChatService = {
       conversationId: updated.conversation_id,
       messageId: updated.id,
       requesterUserId: params.requesterUserId,
-      moderated: message.sender_team_member_id !== params.requesterTeamMemberId,
+      moderated: false,
     });
 
     await emitConversationEvent({
@@ -1514,6 +1512,7 @@ export const ChatService = {
     const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
       SELECT
         m.*,
+        c.type AS conversation_type,
         EXISTS (
           SELECT 1
           FROM chat_conversation_members cm
@@ -1534,7 +1533,12 @@ export const ChatService = {
 
     const canModerate =
       params.requesterAccess === "admin" || params.requesterAccess === "superAdmin";
-    if (message.sender_team_member_id !== params.requesterTeamMemberId && !canModerate) {
+    const canModerateGroupDelete =
+      canModerate && message.conversation_type === "group";
+    if (
+      message.sender_team_member_id !== params.requesterTeamMemberId &&
+      !canModerateGroupDelete
+    ) {
       throw new ChatHttpError(403, "You can only delete your own messages", "CHAT_DELETE_FORBIDDEN");
     }
     if (message.message_type === "system" && !canModerate) {

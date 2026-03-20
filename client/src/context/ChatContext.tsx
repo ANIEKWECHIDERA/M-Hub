@@ -54,6 +54,7 @@ type ChatContextType = {
   }) => Promise<string>;
   createGroupConversation: (payload: {
     name: string;
+    metadata?: Record<string, unknown>;
     participant_user_ids?: string[];
     participant_team_member_ids?: string[];
   }) => Promise<string>;
@@ -92,6 +93,33 @@ function updateConversationById(
       conversation.id === conversationId ? updater(conversation) : conversation,
     ),
   );
+}
+
+function normalizeConversation(
+  conversation: Partial<ChatConversation> & Pick<ChatConversation, "id" | "type">,
+): ChatConversation {
+  return {
+    company_id: "",
+    direct_key: null,
+    name: null,
+    created_by: "",
+    created_at: new Date(0).toISOString(),
+    updated_at: new Date(0).toISOString(),
+    last_message_at: null,
+    archived_at: null,
+    metadata: null,
+    notifications_muted: false,
+    last_read_message_id: null,
+    last_read_at: null,
+    unread_count: 0,
+    member_count: 0,
+    last_message: null,
+    members: [],
+    ...conversation,
+    members: conversation.members ?? [],
+    member_count:
+      conversation.member_count ?? conversation.members?.length ?? 0,
+  };
 }
 
 export function useChatContext() {
@@ -437,8 +465,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [messages]);
 
   const openConversation = useCallback((conversation: ChatConversation) => {
-    setActiveConversationId(conversation.id);
-    setConversations((prev) => sortConversations(upsertConversation(prev, conversation)));
+    const normalizedConversation = normalizeConversation(conversation);
+    setActiveConversationId(normalizedConversation.id);
+    setConversations((prev) =>
+      sortConversations(upsertConversation(prev, normalizedConversation)),
+    );
   }, []);
 
   const createDirectConversation = useCallback(
@@ -461,6 +492,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const createGroupConversation = useCallback(
     async (payload: {
       name: string;
+      metadata?: Record<string, unknown>;
       participant_user_ids?: string[];
       participant_team_member_ids?: string[];
     }) => {
