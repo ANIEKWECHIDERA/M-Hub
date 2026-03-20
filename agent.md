@@ -790,7 +790,10 @@ Summary of recent changes:
   - note-tag writes must be idempotent under repeated saves
 - Notes should expose a visible destructive action in the editor header; do not hide the primary delete/archive action behind icon-only affordances
 - Notes bulk actions should live in the header next to the `Active` / `Archived` pills, not inside each note row
+- The Notes header control order should be `Active`, `Archived`, then the ellipsis button on the far right
+- The ellipsis trigger should stay visually aligned with the nav pills while showing only the icon, not the word `Actions`
 - `Mark to delete` and `Mark to archive` should enter a bulk-selection mode that reveals checkmarks in the note list for batch actions
+- In the `Archived` view, use the same far-right ellipsis pattern but expose `Bulk restore` and `Bulk delete`
 - Bulk note delete and archive should be separate actions end to end:
   - archive moves notes into the archived list
   - delete permanently removes notes through the dedicated delete endpoint

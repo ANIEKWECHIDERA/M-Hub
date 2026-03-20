@@ -117,7 +117,7 @@ export default function Notepad() {
   const [showArchived, setShowArchived] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [archiveTarget, setArchiveTarget] = useState<Note | null>(null);
-  const [bulkMode, setBulkMode] = useState<"delete" | "archive" | null>(null);
+  const [bulkMode, setBulkMode] = useState<"delete" | "archive" | "restore" | null>(null);
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [editorTitle, setEditorTitle] = useState("");
   const [editorContentHtml, setEditorContentHtml] = useState(EMPTY_NOTE_HTML);
@@ -472,7 +472,7 @@ export default function Notepad() {
     );
   }, []);
 
-  const startBulkMode = useCallback((mode: "delete" | "archive") => {
+  const startBulkMode = useCallback((mode: "delete" | "archive" | "restore") => {
     setBulkMode(mode);
     setSelectedNoteIds([]);
   }, []);
@@ -492,12 +492,16 @@ export default function Notepad() {
       await flushPendingSave();
       if (bulkMode === "archive") {
         await Promise.all(selectedNoteIds.map((id) => archiveNote(id)));
+      } else if (bulkMode === "restore") {
+        await Promise.all(selectedNoteIds.map((id) => restoreNote(id)));
       } else {
         await Promise.all(selectedNoteIds.map((id) => deleteNote(id)));
       }
       toast.success(
         bulkMode === "archive"
           ? "Selected notes archived"
+          : bulkMode === "restore"
+            ? "Selected notes restored"
           : "Selected notes deleted",
       );
       cancelBulkMode();
@@ -506,7 +510,7 @@ export default function Notepad() {
     } finally {
       setIsActionBusy(false);
     }
-  }, [archiveNote, bulkMode, cancelBulkMode, deleteNote, flushPendingSave, selectedNoteIds]);
+  }, [archiveNote, bulkMode, cancelBulkMode, deleteNote, flushPendingSave, restoreNote, selectedNoteIds]);
 
   const listEmptyState = showArchived ? (
     <Empty className="border-none px-4 py-14">
@@ -573,34 +577,6 @@ export default function Notepad() {
             />
           </div>
           <div className="flex gap-2">
-            {!showArchived ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="min-w-[5.5rem] rounded-lg"
-                  >
-                    <MoreHorizontal className="mr-2 h-4 w-4" />
-                    Actions
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem onClick={() => startBulkMode("archive")}>
-                    Mark to archive
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => startBulkMode("delete")}
-                  >
-                    Mark to delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <div className="min-w-[5.5rem]" />
-            )}
             <Button
               type="button"
               variant={!showArchived ? "default" : "outline"}
@@ -619,12 +595,56 @@ export default function Notepad() {
             >
               Archived
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-w-[5.5rem] rounded-lg px-0"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span className="sr-only">
+                    {showArchived ? "Archived note actions" : "Note actions"}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {showArchived ? (
+                  <>
+                    <DropdownMenuItem onClick={() => startBulkMode("restore")}>
+                      Bulk restore
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => startBulkMode("delete")}
+                    >
+                      Bulk delete
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem onClick={() => startBulkMode("archive")}>
+                      Mark to archive
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => startBulkMode("delete")}
+                    >
+                      Mark to delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           {bulkMode ? (
             <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2">
               <div className="text-xs text-muted-foreground">
                 {bulkMode === "archive"
                   ? "Select notes to archive"
+                  : bulkMode === "restore"
+                    ? "Select notes to restore"
                   : "Select notes to mark for deletion"}
               </div>
               <div className="flex items-center gap-2">
@@ -644,7 +664,12 @@ export default function Notepad() {
                   disabled={selectedNoteIds.length === 0 || isActionBusy}
                   onClick={() => void handleBulkApply()}
                 >
-                  {bulkMode === "archive" ? "Archive" : "Delete"} ({selectedNoteIds.length})
+                  {bulkMode === "archive"
+                    ? "Archive"
+                    : bulkMode === "restore"
+                      ? "Restore"
+                      : "Delete"}{" "}
+                  ({selectedNoteIds.length})
                 </Button>
               </div>
             </div>
@@ -699,7 +724,7 @@ export default function Notepad() {
                         <div className="shrink-0 text-xs text-muted-foreground">
                           {formatRelativeTimestamp(note.updatedAt)}
                         </div>
-                        {bulkMode && !showArchived ? (
+                        {bulkMode ? (
                           <button
                             type="button"
                             className={`flex h-5 w-5 items-center justify-center rounded border transition ${
