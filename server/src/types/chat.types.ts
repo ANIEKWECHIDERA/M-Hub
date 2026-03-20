@@ -154,6 +154,7 @@ export type CreateDirectConversationDTO = {
 export type CreateGroupConversationDTO = {
   company_id: string;
   created_by: string;
+  requester_access?: string | null;
   name: string;
   participant_user_ids: string[];
   metadata?: Record<string, unknown>;

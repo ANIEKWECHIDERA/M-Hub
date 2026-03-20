@@ -8,6 +8,7 @@ export type ChatConversationAccessContext = {
   name: string | null;
   created_by: string;
   archived_at: string | null;
+  metadata: Record<string, unknown> | null;
   requester_is_member: boolean;
 };
 
@@ -24,6 +25,7 @@ async function getConversationAccessContext(params: {
       c.name,
       c.created_by,
       c.archived_at,
+      c.metadata,
       EXISTS (
         SELECT 1
         FROM chat_conversation_members cm
@@ -56,6 +58,23 @@ function requireGroupConversation(context: ChatConversationAccessContext) {
       400,
       "This action is only available for group conversations",
       "CHAT_GROUP_ONLY",
+    );
+  }
+
+  return context;
+}
+
+function requireMutableGroup(context: ChatConversationAccessContext) {
+  const kind =
+    context.metadata && typeof context.metadata === "object"
+      ? (context.metadata as Record<string, unknown>).kind
+      : null;
+
+  if (kind === "general") {
+    throw new ChatHttpError(
+      403,
+      "The General group is system-managed and cannot be edited",
+      "CHAT_GENERAL_GROUP_IMMUTABLE",
     );
   }
 
@@ -114,8 +133,10 @@ export const ChatAuthorizationService = {
     userId: string;
     access?: string | null;
   }) {
-    const context = requireGroupConversation(
+    const context = requireMutableGroup(
+      requireGroupConversation(
       requireActiveMember(await getConversationAccessContext(params)),
+      ),
     );
 
     requireModeratorAccess(params.access);

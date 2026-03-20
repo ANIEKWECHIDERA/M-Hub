@@ -58,6 +58,14 @@ class ChatRealtimeService {
   }) {
     this.initialize();
 
+    this.handleTypingPayload({
+      company_id: params.companyId,
+      conversation_id: params.conversationId,
+      user_id: params.userId,
+      user_ids: params.userIds,
+      isTyping: params.isTyping,
+    });
+
     const result = await this.ephemeralChannel?.send({
       type: "broadcast",
       event: "typing",

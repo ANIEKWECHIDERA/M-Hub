@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../config/supabaseClient";
 import { RequestCacheService } from "./requestCache.service";
 import { generateInviteToken } from "../utils/token";
 import { logger } from "../utils/logger";
+import { ChatService } from "./chat.service";
 
 async function getActiveMembershipContext(userId: string) {
   const { data: user, error: userError } = await supabaseAdmin
@@ -254,6 +255,7 @@ export const InviteService = {
     });
 
     RequestCacheService.invalidateUserContext({ userId });
+    await ChatService.ensureGeneralConversation(result.companyId);
 
     logger.info("InviteService.acceptInvite:success", result);
     return result;

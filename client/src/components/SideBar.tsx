@@ -98,7 +98,7 @@ function SidebarPanel({
     const params = new URLSearchParams(search);
     const section = params.get("section") as ChatSection | null;
 
-    return chatSections.find((item) => item.id === section)?.id ?? "all";
+    return chatSections.find((item) => item.id === section)?.id ?? "projects";
   }, [search]);
   const totalChatUnread = useMemo(
     () => totalUnreadCount,

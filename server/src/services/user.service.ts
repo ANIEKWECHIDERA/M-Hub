@@ -312,10 +312,14 @@ export const UserService = {
       }
     }
 
-    RequestCacheService.invalidateUserContext({
-      userId,
-      firebaseUid,
-    });
+    const cachedUser = RequestCacheService.getUser(firebaseUid);
+    if (cachedUser) {
+      RequestCacheService.setUser(firebaseUid, {
+        ...cachedUser,
+        last_login: timestamp,
+        updated_at: timestamp,
+      });
+    }
 
     return true;
   },

@@ -3,26 +3,77 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  BellOff,
+  Check,
+  Crown,
   Hash,
   Loader2,
+  Mail,
   MessageSquare,
+  MoreHorizontal,
+  Pencil,
+  Plus,
   Search,
   Send,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import type { ChatMessage, ChatMember } from "@/api/chat.api";
+import type { TeamMember } from "@/Types/types";
 import { chatSections, type ChatSection } from "@/config/chat-nav";
 import { useChatContext } from "@/context/ChatContext";
+import { useAuthContext } from "@/context/AuthContext";
 import { useUser } from "@/context/UserContext";
-import { getConversationAvatar, getConversationDisplayName, getConversationSection } from "@/lib/chat";
+import {
+  getConversationAvatar,
+  getConversationDisplayName,
+  getConversationSection,
+} from "@/lib/chat";
 import { formatRelativeTimestamp, formatShortTime } from "@/lib/datetime";
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
+const MESSAGE_TAGS = [
+  "urgent",
+  "blocker",
+  "announcement",
+  "follow-up",
+  "decision",
+] as const;
 
 function useIsMobileScreen() {
   const [isMobile, setIsMobile] = useState(false);
@@ -39,43 +90,381 @@ function useIsMobileScreen() {
   return isMobile;
 }
 
+function getInitials(name?: string | null, email?: string | null) {
+  const base = name || email || "User";
+  return base
+    .split(" ")
+    .map((part) => part[0]?.toUpperCase())
+    .join("")
+    .slice(0, 2);
+}
+
+function getMemberRoleBadge(access?: string | null, role?: string | null) {
+  if (access === "superAdmin") {
+    return {
+      label: role || "Super Admin",
+      icon: Crown,
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (access === "admin") {
+    return {
+      label: role || "Admin",
+      icon: ShieldCheck,
+      className: "border-sky-200 bg-sky-50 text-sky-700",
+    };
+  }
+
+  return {
+    label: role || "Member",
+    icon: Users,
+    className: "border-border bg-muted/40 text-muted-foreground",
+  };
+}
+
+function PersonBadge({
+  access,
+  role,
+}: {
+  access?: string | null;
+  role?: string | null;
+}) {
+  const badge = getMemberRoleBadge(access, role);
+  const Icon = badge.icon;
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "gap-1.5 rounded-full px-2.5 py-0.5 text-[11px]",
+        badge.className,
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      {badge.label}
+    </Badge>
+  );
+}
+
+function MemberAvatar({
+  member,
+  onPreview,
+  showPresence = false,
+}: {
+  member: {
+    name?: string | null;
+    email?: string | null;
+    avatar?: string | null;
+    online?: boolean;
+  };
+  onPreview?: () => void;
+  showPresence?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPreview}
+      disabled={!onPreview}
+      className="relative shrink-0 rounded-full disabled:cursor-default"
+    >
+      <Avatar className="h-10 w-10 border">
+        <AvatarImage src={member.avatar || undefined} />
+        <AvatarFallback>{getInitials(member.name, member.email)}</AvatarFallback>
+      </Avatar>
+      {showPresence && member.online && (
+        <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
+      )}
+    </button>
+  );
+}
+
+function ProfilePreviewDialog({
+  open,
+  onOpenChange,
+  member,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  member: {
+    name?: string | null;
+    email?: string | null;
+    avatar?: string | null;
+    role?: string | null;
+    access?: string | null;
+  } | null;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl overflow-hidden p-0">
+        <DialogHeader className="px-6 pt-6">
+          <DialogTitle>{member?.name || member?.email || "Profile photo"}</DialogTitle>
+          <DialogDescription>Preview the member profile image.</DialogDescription>
+        </DialogHeader>
+        <div className="px-6 pb-6 pt-2">
+          {member?.avatar ? (
+            <div className="overflow-hidden rounded-xl border bg-muted/20">
+              <img
+                src={member.avatar}
+                alt={`${member.name || member.email || "User"} profile`}
+                className="max-h-[70vh] w-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="flex min-h-[240px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+              No profile photo available.
+            </div>
+          )}
+          {member && (
+            <div className="mt-4 space-y-2 rounded-xl border bg-muted/20 p-4 text-sm">
+              {member.email && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Email
+                  </p>
+                  <p className="font-medium">{member.email}</p>
+                </div>
+              )}
+              {(member.role || member.access) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <PersonBadge access={member.access} role={member.role} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MessageBubble({
+  message,
+  isCurrentUser,
+  canManage,
+  onEdit,
+  onDelete,
+  onPreviewProfile,
+}: {
+  message: ChatMessage;
+  isCurrentUser: boolean;
+  canManage: boolean;
+  onEdit: (message: ChatMessage) => void;
+  onDelete: (message: ChatMessage) => void;
+  onPreviewProfile: (message: ChatMessage) => void;
+}) {
+  const canEditOrDelete = isCurrentUser || canManage;
+
+  if (message.message_type === "system") {
+    return (
+      <div className="flex justify-center py-1">
+        <div className="inline-flex max-w-[90%] items-center gap-2 rounded-full border border-dashed bg-muted/45 px-4 py-2 text-center text-xs font-medium text-muted-foreground">
+          <span>{message.body}</span>
+          <span className="whitespace-nowrap text-[11px]">
+            {formatShortTime(message.created_at)}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "group flex gap-3",
+        isCurrentUser ? "justify-end" : "justify-start",
+      )}
+    >
+      {!isCurrentUser && (
+        <MemberAvatar
+          member={message.sender}
+          onPreview={() => onPreviewProfile(message)}
+        />
+      )}
+
+      <div
+        className={cn(
+          "max-w-[88%] space-y-1",
+          isCurrentUser ? "items-end text-right" : "",
+        )}
+      >
+          <div
+            className={cn(
+              "flex items-center gap-2 text-xs text-muted-foreground",
+              isCurrentUser && "justify-end",
+            )}
+          >
+            <span>{message.sender.name || "Unknown"}</span>
+            <span>{formatShortTime(message.created_at)}</span>
+            {message.is_edited && <span>edited</span>}
+            {canEditOrDelete && !message.id.startsWith("optimistic-") && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Message options</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align={isCurrentUser ? "end" : "start"}>
+                  {!message.is_deleted && (
+                    <DropdownMenuItem onClick={() => onEdit(message)}>
+                      <Pencil className="h-4 w-4" />
+                      Edit message
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => onDelete(message)}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete message
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+
+          <div
+            className={cn(
+              "rounded-2xl border px-4 py-3 text-sm leading-relaxed",
+              isCurrentUser
+                ? "border-primary bg-primary text-primary-foreground"
+                : "bg-muted/60",
+              message.is_deleted && "italic opacity-80",
+            )}
+          >
+            {message.reply_to && !message.is_deleted && (
+              <div
+                className={cn(
+                  "mb-2 rounded-xl border px-3 py-2 text-xs",
+                  isCurrentUser
+                    ? "border-primary-foreground/20 bg-primary-foreground/10"
+                    : "border-border bg-background/70",
+                )}
+              >
+                <div className="font-medium">{message.reply_to.sender.name || "Reply"}</div>
+                <div className="truncate">{message.reply_to.body}</div>
+              </div>
+            )}
+            {message.body}
+          </div>
+      </div>
+
+      {isCurrentUser && (
+        <MemberAvatar
+          member={message.sender}
+          onPreview={() => onPreviewProfile(message)}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function Chat() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { authStatus } = useAuthContext();
   const { profile } = useUser();
   const {
     conversations,
+    workspaceMembers,
     activeConversationId,
     activeConversation,
     conversationDetails,
     messages,
     loadingConversations,
     loadingMessages,
+    loadingWorkspaceMembers,
+    loadingOlderMessages,
+    hasMoreMessages,
     error,
     setActiveConversationId,
+    loadOlderMessages,
     sendMessage,
     sendTypingIndicator,
+    createDirectConversation,
+    createGroupConversation,
+    renameConversation,
+    addConversationMembers,
+    removeConversationMember,
+    updateConversationPreferences,
+    editMessage,
+    deleteMessage,
     typingUserIds,
-    unreadBySection,
+    presenceByUserId,
   } = useChatContext();
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [mobileConversationOpen, setMobileConversationOpen] = useState(false);
+  const [profilePreviewMember, setProfilePreviewMember] = useState<{
+    name?: string | null;
+    email?: string | null;
+    avatar?: string | null;
+    role?: string | null;
+    access?: string | null;
+  } | null>(null);
+  const [isCreateDirectOpen, setIsCreateDirectOpen] = useState(false);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
+  const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [isManageMembersOpen, setIsManageMembersOpen] = useState(false);
+  const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [directMemberSearch, setDirectMemberSearch] = useState("");
+  const [groupMemberSearch, setGroupMemberSearch] = useState("");
+  const [directorySearch, setDirectorySearch] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState<string[]>([]);
+  const [selectedAddMembers, setSelectedAddMembers] = useState<string[]>([]);
+  const [editValue, setEditValue] = useState("");
+  const [selectedTags, setSelectedTags] = useState<
+    Array<(typeof MESSAGE_TAGS)[number]>
+  >([]);
   const typingTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
   const isMobile = useIsMobileScreen();
+  const isWorkspaceManager =
+    authStatus?.access === "admin" || authStatus?.access === "superAdmin";
 
   const activeSection = useMemo(() => {
     const section = searchParams.get("section") as ChatSection | null;
-    return chatSections.find((item) => item.id === section)?.id ?? "all";
+    return chatSections.find((item) => item.id === section)?.id ?? "projects";
   }, [searchParams]);
 
   useEffect(() => {
     const currentSection = searchParams.get("section") as ChatSection | null;
-
     if (!chatSections.some((section) => section.id === currentSection)) {
-      setSearchParams({ section: "all" }, { replace: true });
+      setSearchParams({ section: "projects" }, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!isRenameOpen) {
+      setRenameValue(activeConversation?.name || "");
+    }
+  }, [activeConversation?.name, isRenameOpen]);
+
+  useEffect(() => {
+    if (!editingMessage) {
+      setEditValue("");
+      return;
+    }
+    setEditValue(editingMessage.body);
+  }, [editingMessage]);
+
+  const workspaceDirectoryMembers = useMemo(() => {
+    return workspaceMembers
+      .filter((member) => member.user_id !== profile?.id)
+      .map((member) => ({
+        ...member,
+        online: member.user_id ? Boolean(presenceByUserId[member.user_id]) : false,
+      }));
+  }, [presenceByUserId, profile?.id, workspaceMembers]);
 
   const filteredChats = useMemo(() => {
     return conversations.filter((conversation) => {
@@ -88,11 +477,6 @@ export default function Chat() {
       if (!matchesSearch) {
         return false;
       }
-
-      if (activeSection === "all") {
-        return true;
-      }
-
       return section === activeSection;
     });
   }, [activeSection, conversations, profile?.id, searchTerm]);
@@ -133,10 +517,63 @@ export default function Chat() {
     filteredChats.find((conversation) => conversation.id === activeConversationId) ??
     filteredChats[0] ??
     null;
+
   const currentMembers = conversationDetails?.members ?? currentChat?.members ?? [];
+  const directConversationMember =
+    currentChat?.type === "direct"
+      ? currentMembers.find((member) => member.user_id !== profile?.id) ?? null
+      : null;
+  const currentConversationName = currentChat
+    ? getConversationDisplayName(currentChat, profile?.id)
+    : "";
   const typingNames = typingUserIds
     .map((userId) => currentMembers.find((member) => member.user_id === userId)?.name)
     .filter(Boolean) as string[];
+
+  const availableMembersToAdd = useMemo(() => {
+    const activeUserIds = new Set(currentMembers.map((member) => member.user_id));
+    return workspaceDirectoryMembers.filter(
+      (member) => !member.user_id || !activeUserIds.has(member.user_id),
+    );
+  }, [currentMembers, workspaceDirectoryMembers]);
+
+  const filteredDirectMembers = useMemo(() => {
+    return workspaceDirectoryMembers.filter((member) => {
+      const matchesSearch =
+        member.name.toLowerCase().includes(directMemberSearch.toLowerCase()) ||
+        member.email.toLowerCase().includes(directMemberSearch.toLowerCase());
+      return matchesSearch;
+    });
+  }, [directMemberSearch, workspaceDirectoryMembers]);
+
+  const filteredGroupMembers = useMemo(() => {
+    return workspaceDirectoryMembers.filter((member) => {
+      const matchesSearch =
+        member.name.toLowerCase().includes(groupMemberSearch.toLowerCase()) ||
+        member.email.toLowerCase().includes(groupMemberSearch.toLowerCase());
+      return matchesSearch;
+    });
+  }, [groupMemberSearch, workspaceDirectoryMembers]);
+
+  const filteredDirectoryMembers = useMemo(() => {
+    return workspaceDirectoryMembers.filter((member) => {
+      const roleLabel = getMemberRoleBadge(member.access, member.role).label;
+      return (
+        member.name.toLowerCase().includes(directorySearch.toLowerCase()) ||
+        member.email.toLowerCase().includes(directorySearch.toLowerCase()) ||
+        roleLabel.toLowerCase().includes(directorySearch.toLowerCase())
+      );
+    });
+  }, [directorySearch, workspaceDirectoryMembers]);
+
+  const activePermissions = conversationDetails?.permissions;
+  const canManageMembers = Boolean(activePermissions?.can_manage_members);
+  const canRenameGroup = Boolean(activePermissions?.can_rename_group);
+  const canModerateMessages = Boolean(activePermissions?.can_moderate_messages);
+  const notificationsMuted = Boolean(activeConversation?.notifications_muted);
+
+  const showInboxPane = !isMobile || !mobileConversationOpen;
+  const showConversationPane = !isMobile || mobileConversationOpen;
 
   const handleSelectChat = (conversationId: string) => {
     setActiveConversationId(conversationId);
@@ -147,18 +584,13 @@ export default function Chat() {
 
   const handleMessageChange = async (value: string) => {
     setNewMessage(value);
-
-    if (!currentChat) {
-      return;
-    }
+    if (!currentChat) return;
 
     const hasValue = Boolean(value.trim());
-
     if (hasValue && !typingActiveRef.current) {
       typingActiveRef.current = true;
       await sendTypingIndicator(true);
     }
-
     if (!hasValue && typingActiveRef.current) {
       typingActiveRef.current = false;
       await sendTypingIndicator(false);
@@ -176,345 +608,1177 @@ export default function Chat() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !currentChat) return;
-
-    const outgoingMessage = newMessage;
+  const clearComposer = async () => {
     setNewMessage("");
-
+    setSelectedTags([]);
     if (typingTimeoutRef.current) {
       window.clearTimeout(typingTimeoutRef.current);
     }
     typingActiveRef.current = false;
     await sendTypingIndicator(false);
-
-    try {
-      await sendMessage(outgoingMessage);
-    } catch (chatError: any) {
-      setNewMessage(outgoingMessage);
-      toast.error(chatError.message || "Failed to send message");
-    }
   };
 
-  const handleKeyPress = async (event: React.KeyboardEvent) => {
+  const handleKeyPress = async (
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       await handleSendMessage();
     }
   };
 
-  const showInboxPane = !isMobile || !mobileConversationOpen;
-  const showConversationPane = !isMobile || mobileConversationOpen;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !currentChat) return;
+
+    const outgoingMessage = newMessage;
+    const outgoingTags = selectedTags;
+    await clearComposer();
+
+    try {
+      await sendMessage(outgoingMessage, {
+        tags: outgoingTags.length ? outgoingTags : undefined,
+      });
+    } catch (chatError: any) {
+      setNewMessage(outgoingMessage);
+      setSelectedTags(outgoingTags);
+      toast.error(chatError.message || "Failed to send message");
+    }
+  };
+
+  const handleCreateDirectConversation = async (member: TeamMember) => {
+    try {
+      await createDirectConversation(
+        member.user_id
+          ? { target_user_id: member.user_id }
+          : { target_team_member_id: member.id },
+      );
+      setIsCreateDirectOpen(false);
+      setIsDirectoryOpen(false);
+      setDirectMemberSearch("");
+      if (isMobile) {
+        setMobileConversationOpen(true);
+      }
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to start direct chat");
+    }
+  };
+
+  const handleCreateDirectConversationFromChatMember = async (
+    member: ChatMember,
+  ) => {
+    try {
+      await createDirectConversation(
+        member.user_id
+          ? { target_user_id: member.user_id }
+          : { target_team_member_id: member.team_member_id },
+      );
+      setIsManageMembersOpen(false);
+      if (isMobile) {
+        setMobileConversationOpen(true);
+      }
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to start direct chat");
+    }
+  };
+
+  const handleCreateGroupConversation = async () => {
+    const selectedMembers = workspaceDirectoryMembers.filter((member) =>
+      selectedGroupMembers.includes(member.id),
+    );
+
+    if (!groupName.trim()) {
+      toast.error("Please enter a group name");
+      return;
+    }
+    if (!selectedMembers.length) {
+      toast.error("Choose at least one member for the group");
+      return;
+    }
+
+    try {
+      await createGroupConversation({
+        name: groupName.trim(),
+        participant_user_ids: selectedMembers
+          .filter((member) => member.user_id)
+          .map((member) => member.user_id as string),
+        participant_team_member_ids: selectedMembers
+          .filter((member) => !member.user_id)
+          .map((member) => member.id),
+      });
+      setGroupName("");
+      setSelectedGroupMembers([]);
+      setGroupMemberSearch("");
+      setIsCreateGroupOpen(false);
+      if (isMobile) {
+        setMobileConversationOpen(true);
+      }
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to create group");
+    }
+  };
+
+  const handleRenameConversation = async () => {
+    if (!renameValue.trim()) {
+      toast.error("Group name cannot be empty");
+      return;
+    }
+
+    try {
+      await renameConversation(renameValue.trim());
+      setIsRenameOpen(false);
+      toast.success("Group name updated");
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to rename group");
+    }
+  };
+
+  const handleAddMembers = async () => {
+    const selectedMembers = availableMembersToAdd.filter((member) =>
+      selectedAddMembers.includes(member.id),
+    );
+
+    if (!selectedMembers.length) {
+      toast.error("Select at least one member to add");
+      return;
+    }
+
+    try {
+      await addConversationMembers({
+        participant_user_ids: selectedMembers
+          .filter((member) => member.user_id)
+          .map((member) => member.user_id as string),
+        participant_team_member_ids: selectedMembers
+          .filter((member) => !member.user_id)
+          .map((member) => member.id),
+      });
+      setSelectedAddMembers([]);
+      toast.success("Members added");
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to add members");
+    }
+  };
+
+  const handleRemoveMember = async (member: ChatMember) => {
+    try {
+      await removeConversationMember(member.user_id);
+      toast.success(`${member.name} removed from group`);
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to remove member");
+    }
+  };
+
+  const handleUpdatePreferences = async () => {
+    try {
+      await updateConversationPreferences(!notificationsMuted);
+      toast.success(
+        !notificationsMuted ? "Notifications muted" : "Notifications enabled",
+      );
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to update preferences");
+    }
+  };
+
+  const handleConfirmEdit = async () => {
+    if (!editingMessage || !editValue.trim()) {
+      toast.error("Message cannot be empty");
+      return;
+    }
+
+    try {
+      await editMessage(editingMessage.id, editValue.trim());
+      setEditingMessage(null);
+      toast.success("Message updated");
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to edit message");
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    try {
+      await deleteMessage(deleteTarget.id);
+      setDeleteTarget(null);
+      toast.success("Message deleted");
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to delete message");
+    }
+  };
+
+  const handleToggleTag = (tag: (typeof MESSAGE_TAGS)[number]) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag],
+    );
+  };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[620px] gap-4">
-      {showInboxPane && (
-        <Card className="flex min-w-0 flex-1 flex-col md:max-w-sm md:flex-[0_0_22rem]">
-          <CardHeader className="space-y-4 border-b pb-4">
-            <div className="space-y-1">
-              <CardTitle className="text-lg">Messages</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Browse workspace conversations and direct messages in one place.
-              </p>
+    <>
+      <div className="flex h-[calc(100vh-8rem)] min-h-[620px] gap-4">
+        {showInboxPane && (
+          <Card className="flex min-w-0 flex-1 flex-col md:max-w-sm md:flex-[0_0_24rem]">
+            <CardHeader className="space-y-4 border-b pb-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg">Messages</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Start direct conversations, create groups, and keep track of live workspace activity.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsDirectoryOpen(true)}
+                  >
+                    <Users className="h-4 w-4" />
+                    <span className="sr-only">Open workspace people</span>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon">
+                        <Plus className="h-4 w-4" />
+                        <span className="sr-only">Create conversation</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setIsCreateDirectOpen(true)}>
+                        New direct chat
+                      </DropdownMenuItem>
+                      {isWorkspaceManager && (
+                        <DropdownMenuItem onClick={() => setIsCreateGroupOpen(true)}>
+                          New group chat
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search conversations..."
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <div className="flex gap-2 md:hidden">
+                {chatSections.map((section) => (
+                  <Button
+                    key={section.id}
+                    variant={activeSection === section.id ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-md px-3"
+                    onClick={() =>
+                      setSearchParams({ section: section.id }, { replace: true })
+                    }
+                  >
+                    {section.label}
+                  </Button>
+                ))}
+              </div>
+
+            </CardHeader>
+
+            <CardContent className="flex-1 overflow-y-auto p-0">
+              <div className="space-y-1 p-3">
+                {loadingConversations ? (
+                  <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading conversations...
+                  </div>
+                ) : filteredChats.length === 0 ? (
+                  <Empty className="min-h-[16rem] border-none bg-transparent p-0">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <MessageSquare />
+                      </EmptyMedia>
+                      <EmptyTitle>No conversations yet</EmptyTitle>
+                      <EmptyDescription>
+                        {`No ${activeSection} conversations match this view right now.`}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : (
+                  filteredChats.map((conversation) => {
+                    const isActive = currentChat?.id === conversation.id;
+                    const displayName = getConversationDisplayName(
+                      conversation,
+                      profile?.id,
+                    );
+                    const avatar = getConversationAvatar(conversation, profile?.id);
+                    const otherMember =
+                      conversation.type === "direct"
+                        ? conversation.members.find(
+                            (member) => member.user_id !== profile?.id,
+                          )
+                        : null;
+
+                    return (
+                      <button
+                        key={conversation.id}
+                        type="button"
+                        onClick={() => handleSelectChat(conversation.id)}
+                        className={cn(
+                          "w-full rounded-xl border px-3 py-3 text-left transition-colors",
+                          conversation.type === "group" &&
+                            "border-sky-100 bg-sky-50/40 hover:bg-sky-50/60 dark:border-sky-950 dark:bg-sky-950/20",
+                          isActive
+                            ? "border-primary/20 bg-primary/8"
+                            : "border-transparent hover:bg-muted/60",
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="relative mt-0.5">
+                            {conversation.type === "group" ? (
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            ) : (
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={avatar || undefined} />
+                                <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
+                              </Avatar>
+                            )}
+                            {conversation.type === "direct" && otherMember?.online && (
+                              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-medium">
+                                {displayName}
+                              </span>
+                              {conversation.unread_count > 0 && (
+                                <Badge
+                                  variant="destructive"
+                                  className="ml-auto rounded-full px-2 py-0 text-[11px]"
+                                >
+                                  {conversation.unread_count}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {conversation.type === "group" && (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {conversation.member_count} members
+                              </p>
+                            )}
+
+                            <p className="mt-1 truncate text-sm text-muted-foreground">
+                              {conversation.last_message?.body || "No messages yet"}
+                            </p>
+
+                            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>
+                                {formatShortTime(
+                                  conversation.last_message_at ?? conversation.created_at,
+                                )}
+                              </span>
+                              {conversation.notifications_muted && (
+                                <BellOff className="h-3.5 w-3.5" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {showConversationPane && (
+          <Card className="flex min-w-0 flex-1 flex-col">
+            <CardHeader className="border-b pb-4">
+              {currentChat ? (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {isMobile && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        onClick={() => setMobileConversationOpen(false)}
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        <span className="sr-only">Back to conversations</span>
+                      </Button>
+                    )}
+
+                    {currentChat.type === "direct" ? (
+                      <MemberAvatar
+                        member={{
+                          name: currentConversationName,
+                          email: directConversationMember?.email,
+                          avatar: getConversationAvatar(currentChat, profile?.id),
+                          online: directConversationMember?.online,
+                        }}
+                        onPreview={() =>
+                          setProfilePreviewMember(directConversationMember ?? null)
+                        }
+                        showPresence
+                      />
+                    ) : (
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted">
+                        <Users className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-semibold">
+                        {currentConversationName}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                        {typingNames.length ? (
+                          <span>
+                            {typingNames.join(", ")}{" "}
+                            {typingNames.length > 1 ? "are" : "is"} typing...
+                          </span>
+                        ) : currentChat.type === "direct" ? (
+                          <span>
+                            {currentMembers.find(
+                              (member) => member.user_id !== profile?.id,
+                            )?.online
+                              ? "Online"
+                              : "Direct message"}
+                          </span>
+                        ) : (
+                          <span>
+                            {conversationDetails?.member_count ?? currentChat.member_count}{" "}
+                            members
+                          </span>
+                        )}
+                        {notificationsMuted && (
+                          <Badge
+                            variant="outline"
+                            className="rounded-full px-2 py-0 text-[11px]"
+                          >
+                            Muted
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Conversation actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {currentChat.type === "direct" && directConversationMember && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setProfilePreviewMember({
+                                name: directConversationMember.name,
+                                email: directConversationMember.email,
+                                avatar: directConversationMember.avatar,
+                                role: directConversationMember.role,
+                                access: directConversationMember.access,
+                              })
+                            }
+                          >
+                            View profile
+                          </DropdownMenuItem>
+                        )}
+                        {currentChat.type === "group" && (
+                          <DropdownMenuItem onClick={() => setIsGroupInfoOpen(true)}>
+                            Show group info
+                          </DropdownMenuItem>
+                        )}
+                        {currentChat.type === "group" && (
+                          <DropdownMenuItem
+                            onClick={() => setIsManageMembersOpen(true)}
+                          >
+                            Show members
+                          </DropdownMenuItem>
+                        )}
+                        {currentChat.type === "group" && canRenameGroup && (
+                          <DropdownMenuItem onClick={() => setIsRenameOpen(true)}>
+                            Rename group
+                          </DropdownMenuItem>
+                        )}
+                        {currentChat.type === "group" && canManageMembers && (
+                          <DropdownMenuItem
+                            onClick={() => setIsManageMembersOpen(true)}
+                          >
+                            Manage members
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleUpdatePreferences}>
+                          {notificationsMuted
+                            ? "Unmute notifications"
+                            : "Mute notification"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <MessageSquare className="h-4 w-4" />
+                  No conversation selected.
+                </div>
+              )}
+            </CardHeader>
+            <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
+              <div className="flex-1 overflow-y-auto p-4">
+                {loadingMessages && currentChat ? (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading messages...
+                  </div>
+                ) : currentChat ? (
+                  <div className="space-y-4">
+                    {hasMoreMessages && (
+                      <div className="flex justify-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void loadOlderMessages()}
+                          disabled={loadingOlderMessages}
+                        >
+                          {loadingOlderMessages ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Loading earlier messages...
+                            </>
+                          ) : (
+                            "Load earlier messages"
+                          )}
+                        </Button>
+                      </div>
+                    )}
+
+                    {messages.length ? (
+                      messages.map((message) => (
+                        <MessageBubble
+                          key={message.id}
+                          message={message}
+                          isCurrentUser={message.sender.user_id === profile?.id}
+                          canManage={canModerateMessages}
+                          onEdit={setEditingMessage}
+                          onDelete={setDeleteTarget}
+                          onPreviewProfile={(target) =>
+                            setProfilePreviewMember({
+                              name: target.sender.name,
+                              avatar: target.sender.avatar,
+                            })
+                          }
+                        />
+                      ))
+                    ) : (
+                      <Empty className="min-h-[28rem] border-none bg-transparent">
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            {currentChat.type === "direct" ? <Hash /> : <Users />}
+                          </EmptyMedia>
+                          <EmptyTitle>No messages yet</EmptyTitle>
+                          <EmptyDescription>
+                            Start the conversation in {currentConversationName}.
+                          </EmptyDescription>
+                        </EmptyHeader>
+                      </Empty>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    {error || "Try another chat section or search term."}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t p-4">
+                {currentChat?.last_message_at && (
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Updated {formatRelativeTimestamp(currentChat.last_message_at)}
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder={
+                      currentChat
+                        ? `Message ${currentConversationName}...`
+                        : "Select a conversation..."
+                    }
+                    value={newMessage}
+                    onChange={(event) => {
+                      void handleMessageChange(event.target.value);
+                    }}
+                    onKeyDown={(event) => {
+                      void handleKeyPress(event);
+                    }}
+                    className="min-h-[56px] flex-1 resize-none"
+                    disabled={!currentChat}
+                  />
+                  {currentChat?.type === "group" && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon" className="self-end">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Message options</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {MESSAGE_TAGS.map((tag) => (
+                          <DropdownMenuCheckboxItem
+                            key={tag}
+                            checked={selectedTags.includes(tag)}
+                            onCheckedChange={() => handleToggleTag(tag)}
+                          >
+                            {tag}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  <Button
+                    className="self-end"
+                    onClick={() => {
+                      void handleSendMessage();
+                    }}
+                    disabled={!newMessage.trim() || !currentChat}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <Dialog open={isCreateDirectOpen} onOpenChange={setIsCreateDirectOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Start direct conversation</DialogTitle>
+            <DialogDescription>
+              Everyone in the current workspace is listed here so you can start a direct chat quickly.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={directMemberSearch}
+                onChange={(event) => setDirectMemberSearch(event.target.value)}
+                placeholder="Search workspace members..."
+                className="pl-10"
+              />
+            </div>
+
+            <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
+              {loadingWorkspaceMembers ? (
+                <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading workspace members...
+                </div>
+              ) : filteredDirectMembers.length === 0 ? (
+                <Empty className="border-dashed py-10">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Users />
+                    </EmptyMedia>
+                    <EmptyTitle>No matching members</EmptyTitle>
+                    <EmptyDescription>Try another search term.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                filteredDirectMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border p-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <MemberAvatar
+                        member={member}
+                        onPreview={() => setProfilePreviewMember(member)}
+                        showPresence
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate font-medium">{member.name}</p>
+                          <PersonBadge access={member.access} role={member.role} />
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span className="truncate">{member.email}</span>
+                          {member.online && <span className="text-emerald-600">Online</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button onClick={() => void handleCreateDirectConversation(member)}>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Chat
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreateGroupOpen} onOpenChange={setIsCreateGroupOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create group chat</DialogTitle>
+            <DialogDescription>
+              Name the group, choose members from this workspace, and start collaborating.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="group-name">Group name</Label>
+              <Input
+                id="group-name"
+                value={groupName}
+                onChange={(event) => setGroupName(event.target.value)}
+                placeholder="Design review squad"
+              />
             </div>
 
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search conversations..."
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
+                value={groupMemberSearch}
+                onChange={(event) => setGroupMemberSearch(event.target.value)}
+                placeholder="Search members to add..."
                 className="pl-10"
               />
             </div>
-          </CardHeader>
 
-          <CardContent className="flex-1 overflow-y-auto p-0">
-            <div className="space-y-1 p-3">
-              {loadingConversations ? (
-                <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading conversations...
-                </div>
-              ) : filteredChats.length === 0 ? (
-                <Empty className="min-h-[16rem] border-none bg-transparent p-0">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <MessageSquare />
-                    </EmptyMedia>
-                    <EmptyTitle>No conversations yet</EmptyTitle>
-                    <EmptyDescription>
-                      {activeSection === "all"
-                        ? "Your workspace conversations will appear here."
-                        : `No ${activeSection} chats match this view right now.`}
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              ) : (
-                filteredChats.map((conversation) => {
-                  const isActive = currentChat?.id === conversation.id;
-                  const displayName = getConversationDisplayName(
-                    conversation,
-                    profile?.id,
-                  );
-                  const avatar = getConversationAvatar(conversation, profile?.id);
-                  const otherMember =
-                    conversation.type === "direct"
-                      ? conversation.members.find(
-                          (member) => member.user_id !== profile?.id,
-                        )
-                      : null;
-
-                  return (
-                    <button
-                      key={conversation.id}
-                      type="button"
-                      onClick={() => handleSelectChat(conversation.id)}
-                      className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                        isActive
-                          ? "border-primary/20 bg-primary/8"
-                          : "border-transparent hover:bg-muted/60"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="relative mt-0.5">
-                          {conversation.type === "group" ? (
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                          ) : (
-                            <Avatar className="h-9 w-9">
-                              <AvatarImage src={avatar || undefined} />
-                              <AvatarFallback>
-                                {displayName
-                                  .split(" ")
-                                  .map((part) => part[0])
-                                  .join("")
-                                  .slice(0, 2)}
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
-                          {conversation.type === "direct" && otherMember?.online && (
-                            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" />
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate text-sm font-medium">
-                              {displayName}
-                            </span>
-                            {conversation.unread_count > 0 && (
-                              <Badge
-                                variant="destructive"
-                                className="ml-auto rounded-full px-2 py-0 text-[11px]"
-                              >
-                                {conversation.unread_count}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="mt-1 truncate text-sm text-muted-foreground">
-                            {conversation.last_message?.body || "No messages yet"}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {formatShortTime(
-                              conversation.last_message_at ?? conversation.created_at,
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {showConversationPane && (
-        <Card className="flex min-w-0 flex-1 flex-col">
-          <CardHeader className="border-b pb-4">
-            {currentChat ? (
-              <div className="flex items-center gap-3">
-                {isMobile && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    onClick={() => setMobileConversationOpen(false)}
+            <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
+              {filteredGroupMembers.map((member) => {
+                const checked = selectedGroupMembers.includes(member.id);
+                return (
+                  <label
+                    key={member.id}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3"
                   >
-                    <ArrowLeft className="h-4 w-4" />
-                    <span className="sr-only">Back to conversations</span>
-                  </Button>
-                )}
-
-                {currentChat.type === "direct" ? (
-                  <div className="relative">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage
-                        src={
-                          getConversationAvatar(currentChat, profile?.id) ||
-                          undefined
-                        }
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(nextChecked) => {
+                          setSelectedGroupMembers((prev) =>
+                            nextChecked
+                              ? [...prev, member.id]
+                              : prev.filter((id) => id !== member.id),
+                          );
+                        }}
                       />
-                      <AvatarFallback>
-                        {getConversationDisplayName(currentChat, profile?.id)
-                          .split(" ")
-                          .map((part) => part[0])
-                          .join("")
-                          .slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    {currentMembers.find((member) => member.user_id !== profile?.id)
-                      ?.online && (
-                      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" />
+                      <MemberAvatar
+                        member={member}
+                        onPreview={() => setProfilePreviewMember(member)}
+                        showPresence
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate font-medium">{member.name}</p>
+                          <PersonBadge access={member.access} role={member.role} />
+                        </div>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {member.email}
+                        </p>
+                      </div>
+                    </div>
+                    {member.online && (
+                      <Badge variant="outline" className="rounded-full">
+                        Online
+                      </Badge>
                     )}
-                  </div>
-                ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                )}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
 
-                <div className="min-w-0">
-                  <h2 className="truncate font-semibold">
-                    {getConversationDisplayName(currentChat, profile?.id)}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {typingNames.length
-                      ? `${typingNames.join(", ")} ${typingNames.length > 1 ? "are" : "is"} typing...`
-                      : currentChat.type === "direct"
-                        ? currentMembers.find((member) => member.user_id !== profile?.id)
-                            ?.online
-                          ? "Online"
-                          : "Direct message"
-                        : `${conversationDetails?.member_count ?? currentChat.member_count} members`}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateGroupOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleCreateGroupConversation()}>
+              Create group
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDirectoryOpen} onOpenChange={setIsDirectoryOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Workspace people</DialogTitle>
+            <DialogDescription>
+              See everyone in this workspace, their roles, and start a conversation from one place.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={directorySearch}
+                onChange={(event) => setDirectorySearch(event.target.value)}
+                placeholder="Search by name, email, or role..."
+                className="pl-10"
+              />
+            </div>
+
+            <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+              {filteredDirectoryMembers.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border p-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <MemberAvatar
+                      member={member}
+                      onPreview={() => setProfilePreviewMember(member)}
+                      showPresence
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-medium">{member.name}</p>
+                        <PersonBadge access={member.access} role={member.role} />
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Mail className="h-3.5 w-3.5" />
+                        <span className="truncate">{member.email}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {member.online && (
+                      <Badge variant="outline" className="rounded-full text-emerald-600">
+                        Online
+                      </Badge>
+                    )}
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleCreateDirectConversation(member)}
+                    >
+                      Start chat
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename group</DialogTitle>
+            <DialogDescription>
+              Update the group name for everyone in this conversation.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="rename-conversation">Group name</Label>
+            <Input
+              id="rename-conversation"
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              placeholder="Enter a new group name"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRenameOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleRenameConversation()}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isGroupInfoOpen} onOpenChange={setIsGroupInfoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Group info</DialogTitle>
+            <DialogDescription>
+              Overview for this group conversation.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-sm font-medium">{currentConversationName}</p>
+              <div className="mt-2 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide">Type</p>
+                  <p className="font-medium text-foreground">
+                    {currentChat?.metadata?.kind === "general"
+                      ? "General group"
+                      : "Group chat"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide">Members</p>
+                  <p className="font-medium text-foreground">
+                    {conversationDetails?.member_count ?? currentMembers.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide">Created</p>
+                  <p className="font-medium text-foreground">
+                    {currentChat?.created_at
+                      ? formatRelativeTimestamp(currentChat.created_at)
+                      : "Unknown"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide">Updated</p>
+                  <p className="font-medium text-foreground">
+                    {currentChat?.updated_at
+                      ? formatRelativeTimestamp(currentChat.updated_at)
+                      : "Unknown"}
                   </p>
                 </div>
               </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MessageSquare className="h-4 w-4" />
-                No conversation selected.
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isManageMembersOpen} onOpenChange={setIsManageMembersOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Manage group members</DialogTitle>
+            <DialogDescription>
+              Add new people to this group or remove members who no longer need access.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-3">
+              <div>
+                <h3 className="font-medium">Current members</h3>
+                <p className="text-sm text-muted-foreground">
+                  Access changes apply immediately.
+                </p>
               </div>
-            )}
-          </CardHeader>
 
-          <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
-            <div className="flex-1 overflow-y-auto p-4">
-              {loadingMessages && currentChat ? (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading messages...
-                </div>
-              ) : currentChat ? (
-                messages.length ? (
-                  <div className="space-y-4">
-                    {messages.map((message) => {
-                      const isCurrentUser = message.sender.user_id === profile?.id;
-
-                      return (
-                        <div
-                          key={message.id}
-                          className={`flex gap-3 ${
-                            isCurrentUser ? "justify-end" : "justify-start"
-                          }`}
-                        >
-                          {!isCurrentUser && (
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={message.sender.avatar || undefined} />
-                              <AvatarFallback>
-                                {(message.sender.name || "U")
-                                  .split(" ")
-                                  .map((part) => part[0])
-                                  .join("")
-                                  .slice(0, 2)}
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
-
-                          <div
-                            className={`max-w-[82%] space-y-1 ${
-                              isCurrentUser ? "items-end text-right" : ""
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{message.sender.name || "Unknown"}</span>
-                              <span>{formatShortTime(message.created_at)}</span>
-                              {message.is_edited && <span>edited</span>}
-                            </div>
-                            <div
-                              className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                                isCurrentUser
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted"
-                              }`}
-                            >
-                              {message.body}
-                            </div>
-                          </div>
+              <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
+                {currentMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border p-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <MemberAvatar
+                        member={member}
+                        onPreview={() => setProfilePreviewMember(member)}
+                        showPresence
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate font-medium">{member.name}</p>
+                          <PersonBadge access={member.access} role={member.role} />
                         </div>
-                      );
-                    })}
+                        <p className="truncate text-sm text-muted-foreground">
+                          {member.email}
+                        </p>
+                      </div>
+                    </div>
+
+                    {canManageMembers && member.user_id !== profile?.id && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            void handleCreateDirectConversationFromChatMember(member)
+                          }
+                        >
+                          Chat
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-600"
+                          onClick={() => void handleRemoveMember(member)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    )}
+                    {!canManageMembers && member.user_id !== profile?.id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          void handleCreateDirectConversationFromChatMember(member)
+                        }
+                      >
+                        Chat
+                      </Button>
+                    )}
                   </div>
-                ) : (
-                  <Empty className="min-h-full border-none bg-transparent">
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <h3 className="font-medium">Add members</h3>
+                <p className="text-sm text-muted-foreground">
+                  Choose more people from this workspace.
+                </p>
+              </div>
+
+              <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
+                {availableMembersToAdd.length === 0 ? (
+                  <Empty className="border-dashed py-10">
                     <EmptyHeader>
                       <EmptyMedia variant="icon">
-                        {currentChat.type === "direct" ? <Hash /> : <Users />}
+                        <UserPlus />
                       </EmptyMedia>
-                      <EmptyTitle>No messages yet</EmptyTitle>
+                      <EmptyTitle>No available members</EmptyTitle>
                       <EmptyDescription>
-                        Start the conversation in{" "}
-                        {getConversationDisplayName(currentChat, profile?.id)}.
+                        Everyone in the workspace is already part of this group.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
-                )
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  {error || "Try another chat section or search term."}
-                </div>
-              )}
-            </div>
-
-            <div className="border-t p-4">
-              {currentChat?.last_message_at && (
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Updated {formatRelativeTimestamp(currentChat.last_message_at)}
-                </p>
-              )}
-              <div className="flex gap-2">
-                <Input
-                  placeholder={
-                    currentChat
-                      ? `Message ${getConversationDisplayName(currentChat, profile?.id)}...`
-                      : "Select a conversation..."
-                  }
-                  value={newMessage}
-                  onChange={(event) => {
-                    void handleMessageChange(event.target.value);
-                  }}
-                  onKeyDown={(event) => {
-                    void handleKeyPress(event);
-                  }}
-                  className="flex-1"
-                  disabled={!currentChat}
-                />
-                <Button
-                  onClick={() => {
-                    void handleSendMessage();
-                  }}
-                  disabled={!newMessage.trim() || !currentChat}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+                ) : (
+                  availableMembersToAdd.map((member) => (
+                    <label
+                      key={member.id}
+                      className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Checkbox
+                          checked={selectedAddMembers.includes(member.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedAddMembers((prev) =>
+                              checked
+                                ? [...prev, member.id]
+                                : prev.filter((id) => id !== member.id),
+                            );
+                          }}
+                        />
+                        <MemberAvatar
+                          member={member}
+                          onPreview={() => setProfilePreviewMember(member)}
+                          showPresence
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate font-medium">{member.name}</p>
+                            <PersonBadge access={member.access} role={member.role} />
+                          </div>
+                          <p className="truncate text-sm text-muted-foreground">
+                            {member.email}
+                          </p>
+                        </div>
+                      </div>
+                    </label>
+                  ))
+                )}
               </div>
+
+              <Button
+                className="w-full"
+                onClick={() => void handleAddMembers()}
+                disabled={!selectedAddMembers.length}
+              >
+                Add selected members
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(editingMessage)}
+        onOpenChange={(open) => !open && setEditingMessage(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit message</DialogTitle>
+            <DialogDescription>
+              Update the message body and save your changes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Textarea
+            value={editValue}
+            onChange={(event) => setEditValue(event.target.value)}
+            className="min-h-[140px]"
+          />
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingMessage(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleConfirmEdit()}>
+              <Check className="mr-2 h-4 w-4" />
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete message</DialogTitle>
+            <DialogDescription>
+              This will soft-delete the message and keep the timeline intact for
+              everyone in the conversation.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-xl border bg-muted/30 p-3 text-sm text-muted-foreground">
+            {deleteTarget?.body}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => void handleConfirmDelete()}
+            >
+              Delete message
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ProfilePreviewDialog
+        open={Boolean(profilePreviewMember)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setProfilePreviewMember(null);
+          }
+        }}
+        member={profilePreviewMember}
+      />
+    </>
   );
 }

@@ -373,12 +373,42 @@ Current frontend behavior:
 
 Current limitations / deferred chat items:
 
+- frontend chat Phase 7 is now in place:
+  - `client/src/pages/Chat.tsx` now supports direct chat creation, group creation, group rename, member add/remove, message edit/delete, mute/unmute preferences, and a surfaced `Load earlier messages` flow
+  - the chat page includes a workspace people directory so users can see everyone in the active workspace, their role/access badges, live presence, and start direct conversations
+  - admin and superAdmin members now use special badge/icon treatment in the chat UI
+  - member avatars are previewable from chat using the same dialog pattern used in `Settings.tsx`
+  - backend-supported message tags are now surfaced in the composer and rendered on messages
+- chat UX was later tightened further:
+  - system messages now render as centered badge-like timeline events instead of regular chat bubbles
+  - chat page section pills were removed; section navigation now stays in the main sidebar submenu
+  - the `All` chat subsection was removed, leaving `Projects` and `Direct`
+  - message tag selection moved out of the visible composer UI into the composer overflow menu for group chats only
+  - direct-chat overflow menu now includes profile viewing, and group-chat overflow menu now includes group info, members, rename/manage actions, and mute notification controls
+  - group conversation cards now use a subtly different visual treatment from direct-message cards
+- chat rerender/reconnect flow was later optimized for stability:
+  - chat mutations now favor optimistic local updates for rename, member add/remove, mute, send, edit, and delete flows
+  - the chat context no longer does a full conversation-list and active-thread refetch on every interaction; stream-driven reconciliation is now debounced
+  - mobile-only chat section buttons were restored for `Projects` and `Direct`, using a less-rounded style to match the app shell
+- backend chat moderation and system-group rules were tightened:
+  - group creation is now admin/superAdmin only, enforced both in routes and service authorization
+  - group rename/member-management permissions now treat the system `General` group as immutable
+  - the `General` group can be viewed like any other group, but it cannot be manually renamed or membership-edited
+- chat hot-path backend cache churn was reduced:
+  - `touchLastLoginIfNeeded` no longer invalidates full user context on every eligible request
+  - cached user records are updated in place for `last_login`, which avoids repeated user/team-member cache thrash during chat typing/read traffic
+- chat realtime reliability was strengthened:
+  - typing indicators now emit immediately on the backend before broadcast fanout, so same-instance subscribers see typing without waiting on broadcast echo behavior
+  - chat mutations also publish direct realtime events from the service layer, which acts as a practical fallback when durable Supabase event propagation is delayed in local/dev environments
+- default workspace chat behavior now includes a required `General` group:
+  - each company/workspace is guaranteed a default `General` group conversation
+  - active workspace members are synced into that `General` conversation automatically
+  - new active members are added automatically through company creation, invite acceptance, team-member creation/update, and a fallback ensure step in conversation listing
+  - removed/inactive members are removed from workspace chat memberships immediately so chat access matches workspace membership
 - there is still no frontend UI yet for:
-  - creating direct conversations
-  - creating/renaming groups
-  - adding/removing group members
-  - editing/deleting messages
-  - toggling per-conversation notification preferences
+  - replying to a specific message even though the backend already supports `reply_to_message_id`
+  - archived conversation management
+  - richer moderation actions beyond the current edit/delete flows
 - moderation hide/delete flows beyond the current backend soft-delete rules are not implemented yet
 - direct/group/project conversation creation strategy on the frontend is still pending product UI work
 

@@ -41,7 +41,7 @@ router.post(
 router.post(
   "/chat/conversations/group",
   ...protectedRoute,
-  authorize(["admin", "superAdmin", "team_member", "member"]),
+  authorize(["admin", "superAdmin"]),
   ChatController.createGroupConversation,
 );
 

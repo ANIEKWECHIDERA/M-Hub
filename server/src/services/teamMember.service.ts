@@ -3,6 +3,7 @@ import { PROFILE_STATUS_DATA } from "../dbSelect/profileStatus.select";
 import { TEAM_MEMBER_SELECT } from "../dbSelect/teamMember.select";
 import { toTeamMemberResponseDTO } from "../mapper/teamMemberRespose.DTO";
 import { RequestCacheService } from "./requestCache.service";
+import { ChatService } from "./chat.service";
 import {
   CreateTeamMemberDTO,
   UpdateTeamMemberDTO,
@@ -155,6 +156,9 @@ export const TeamMemberService = {
     RequestCacheService.invalidateUserContext({
       userId: data?.user_id,
     });
+    if (data?.user_id && data?.status === "active") {
+      await ChatService.ensureGeneralConversation(data.company_id);
+    }
 
     return toTeamMemberResponseDTO(data);
   },
@@ -200,6 +204,15 @@ export const TeamMemberService = {
       });
     }
 
+    if (data?.user_id && data?.status === "active") {
+      await ChatService.ensureGeneralConversation(companyId);
+    } else if (existingMember?.user_id) {
+      await ChatService.deactivateCompanyMembershipChats({
+        companyId,
+        userId: existingMember.user_id,
+      });
+    }
+
     return data ? toTeamMemberResponseDTO(data) : null;
   },
 
@@ -225,6 +238,10 @@ export const TeamMemberService = {
 
     await syncUserWorkspaceState(data?.user_id);
     RequestCacheService.invalidateUserContext({
+      userId: data?.user_id,
+    });
+    await ChatService.deactivateCompanyMembershipChats({
+      companyId,
       userId: data?.user_id,
     });
   },

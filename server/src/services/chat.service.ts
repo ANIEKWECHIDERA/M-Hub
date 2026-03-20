@@ -31,6 +31,11 @@ type ActiveMemberRow = {
   avatar: string | null;
 };
 
+type EnsureGeneralConversationResult = {
+  conversationId: string;
+  created: boolean;
+};
+
 const CHAT_MESSAGE_EDIT_WINDOW_MINUTES = 15;
 
 function mapConversation(row: Record<string, any>): ChatConversationRecord {
@@ -143,9 +148,15 @@ function buildPermissions(params: {
   type: "direct" | "group";
   archivedAt: string | null;
   access?: string | null;
+  metadata?: Record<string, unknown> | null;
 }): ChatConversationPermissions {
   const canModerate = params.access === "admin" || params.access === "superAdmin";
-  const canManageGroup = params.type === "group" && canModerate;
+  const isSystemGeneralGroup =
+    params.metadata &&
+    typeof params.metadata === "object" &&
+    (params.metadata as Record<string, unknown>).kind === "general";
+  const canManageGroup =
+    params.type === "group" && canModerate && !isSystemGeneralGroup;
   return {
     can_view: true,
     can_send_messages: !params.archivedAt,
@@ -214,6 +225,181 @@ async function resolveActiveMembersForScope(params: {
   return [...resolved.values()];
 }
 
+async function getAllActiveWorkspaceMembers(companyId: string) {
+  const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+    SELECT
+      tm.id,
+      tm.user_id,
+      tm.company_id,
+      tm.status,
+      tm.role,
+      tm.access,
+      tm.email,
+      COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email) AS name,
+      COALESCE(u.avatar, u.photo_url) AS avatar
+    FROM team_members tm
+    LEFT JOIN users u ON u.id = tm.user_id
+    WHERE tm.company_id = ${companyId}::uuid
+      AND tm.status = 'active'
+      AND tm.user_id IS NOT NULL`;
+
+  return rows as ActiveMemberRow[];
+}
+
+async function insertGeneralSystemMessage(params: {
+  conversationId: string;
+  companyId: string;
+}) {
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<Record<string, any>>>`
+      INSERT INTO chat_messages (
+        conversation_id,
+        company_id,
+        sender_team_member_id,
+        body,
+        message_type,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${params.conversationId}::uuid,
+        ${params.companyId}::uuid,
+        NULL,
+        ${"General chat created"},
+        ${"system"},
+        NOW(),
+        NOW()
+      )
+      RETURNING id`;
+
+    await tx.$executeRaw`
+      UPDATE chat_conversations
+      SET last_message_at = NOW(),
+          updated_at = NOW()
+      WHERE id = ${params.conversationId}::uuid`;
+  });
+}
+
+async function ensureGeneralConversation(companyId: string): Promise<EnsureGeneralConversationResult | null> {
+  const activeMembers = await getAllActiveWorkspaceMembers(companyId);
+
+  if (!activeMembers.length) {
+    return null;
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const existingRows = await tx.$queryRaw<Array<Record<string, any>>>`
+      SELECT id
+      FROM chat_conversations
+      WHERE company_id = ${companyId}::uuid
+        AND type = ${"group"}
+        AND archived_at IS NULL
+        AND (
+          COALESCE(metadata->>'kind', '') = ${"general"}
+          OR LOWER(COALESCE(name, '')) = LOWER(${ "General" })
+        )
+      ORDER BY created_at ASC
+      LIMIT 1
+      FOR UPDATE`;
+
+    let conversationId = existingRows[0]?.id as string | undefined;
+    let created = false;
+
+    if (!conversationId) {
+      const creatorUserId = activeMembers[0]?.user_id;
+      const createdRows = await tx.$queryRaw<Array<Record<string, any>>>`
+        INSERT INTO chat_conversations (
+          company_id,
+          type,
+          name,
+          created_by,
+          created_at,
+          updated_at,
+          metadata
+        )
+        VALUES (
+          ${companyId}::uuid,
+          ${"group"},
+          ${"General"},
+          ${creatorUserId}::uuid,
+          NOW(),
+          NOW(),
+          ${JSON.stringify({ kind: "general" })}::jsonb
+        )
+        RETURNING id`;
+
+      conversationId = createdRows[0]?.id;
+      created = true;
+    } else {
+      await tx.$executeRaw`
+        UPDATE chat_conversations
+        SET name = ${"General"},
+            metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({
+              kind: "general",
+            })}::jsonb,
+            updated_at = NOW()
+        WHERE id = ${conversationId}::uuid`;
+    }
+
+    if (!conversationId) {
+      throw new ChatHttpError(
+        500,
+        "Failed to ensure General conversation",
+        "CHAT_GENERAL_CONVERSATION_FAILED",
+      );
+    }
+
+    for (const member of activeMembers) {
+      await tx.$executeRaw`
+        INSERT INTO chat_conversation_members (
+          conversation_id,
+          user_id,
+          team_member_id,
+          joined_at,
+          added_by
+        )
+        SELECT
+          ${conversationId}::uuid,
+          ${member.user_id}::uuid,
+          ${member.id}::uuid,
+          NOW(),
+          ${member.user_id}::uuid
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM chat_conversation_members cm
+          WHERE cm.conversation_id = ${conversationId}::uuid
+            AND cm.user_id = ${member.user_id}::uuid
+            AND cm.removed_at IS NULL
+        )`;
+
+      await tx.$executeRaw`
+        UPDATE chat_conversation_members
+        SET removed_at = NULL,
+            removed_by = NULL,
+            team_member_id = ${member.id}::uuid
+        WHERE conversation_id = ${conversationId}::uuid
+          AND user_id = ${member.user_id}::uuid
+          AND removed_at IS NOT NULL`;
+    }
+
+    return { conversationId, created };
+  });
+
+  if (result.created) {
+    await insertGeneralSystemMessage({
+      conversationId: result.conversationId,
+      companyId,
+    });
+    logger.info("ChatService.ensureGeneralConversation: created default General chat", {
+      companyId,
+      conversationId: result.conversationId,
+      memberCount: activeMembers.length,
+    });
+  }
+
+  return result;
+}
+
 async function getConversationMemberUserIds(conversationId: string) {
   const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
     SELECT user_id
@@ -222,6 +408,37 @@ async function getConversationMemberUserIds(conversationId: string) {
       AND removed_at IS NULL`;
 
   return rows.map((row) => row.user_id as string);
+}
+
+async function emitConversationEvent(
+  event:
+    | {
+        type: "chat.conversation.created" | "chat.conversation.updated";
+        company_id: string;
+        conversation_id: string;
+      }
+    | {
+        type: "chat.message.created" | "chat.message.updated" | "chat.message.deleted";
+        company_id: string;
+        conversation_id: string;
+        message_id: string;
+      }
+    | {
+        type: "chat.member.added" | "chat.member.removed";
+        company_id: string;
+        conversation_id: string;
+        user_id: string;
+        actor_user_id: string;
+      },
+) {
+  const userIds = await getConversationMemberUserIds(event.conversation_id);
+  chatRealtimeService.emit({
+    ...event,
+    user_ids:
+      "user_id" in event
+        ? [...new Set([...userIds, event.user_id])]
+        : userIds,
+  } as any);
 }
 
 async function createSystemMessage(params: {
@@ -361,6 +578,32 @@ function mapConversationListItem(row: Record<string, any>): ChatConversationList
 }
 
 export const ChatService = {
+  ensureGeneralConversation,
+
+  async deactivateCompanyMembershipChats(params: {
+    companyId: string;
+    userId?: string | null;
+  }) {
+    if (!params.userId) {
+      return;
+    }
+
+    await prisma.$executeRaw`
+      UPDATE chat_conversation_members cm
+      SET removed_at = NOW(),
+          removed_by = ${params.userId}::uuid
+      FROM chat_conversations c
+      WHERE cm.conversation_id = c.id
+        AND c.company_id = ${params.companyId}::uuid
+        AND cm.user_id = ${params.userId}::uuid
+        AND cm.removed_at IS NULL`;
+
+    logger.info("ChatService.deactivateCompanyMembershipChats: removed user from workspace chats", {
+      companyId: params.companyId,
+      userId: params.userId,
+    });
+  },
+
   async resolveDirectTargetUser(companyId: string, teamMemberId: string) {
     const members = await resolveActiveMembersForScope({
       companyId,
@@ -390,6 +633,8 @@ export const ChatService = {
     limit?: number;
     cursorConversationId?: string | null;
   }) {
+    await ensureGeneralConversation(params.companyId);
+
     const safeLimit = clampLimit(params.limit);
     let cursorSortTs: string | null = null;
 
@@ -600,6 +845,7 @@ export const ChatService = {
         type: conversation.type,
         archivedAt: conversation.archived_at,
         access: params.access,
+        metadata: conversation.metadata,
       }),
       last_message: lastMessage,
     };
@@ -805,10 +1051,18 @@ export const ChatService = {
       participantUserIds: uniqueUserIds,
     });
 
+    await emitConversationEvent({
+      type: "chat.conversation.created",
+      company_id: payload.company_id,
+      conversation_id: conversation.id,
+    });
+
     return mapConversation(conversation);
   },
 
   async createGroupConversation(payload: CreateGroupConversationDTO) {
+    ChatAuthorizationService.assertCanModerateWorkspace(payload.requester_access);
+
     const uniqueUserIds = [...new Set([payload.created_by, ...payload.participant_user_ids])];
 
     if (!payload.name.trim()) {
@@ -877,6 +1131,12 @@ export const ChatService = {
       createdBy: payload.created_by,
       memberCount: members.length,
       name: payload.name.trim(),
+    });
+
+    await emitConversationEvent({
+      type: "chat.conversation.created",
+      company_id: payload.company_id,
+      conversation_id: conversation.id,
     });
 
     return mapConversation(conversation);
@@ -952,6 +1212,18 @@ export const ChatService = {
       addedCount: members.length,
     });
 
+    await Promise.all(
+      members.map((member) =>
+        emitConversationEvent({
+          type: "chat.member.added",
+          company_id: params.companyId,
+          conversation_id: conversation.id,
+          user_id: member.user_id,
+          actor_user_id: params.requesterUserId,
+        }),
+      ),
+    );
+
     return { success: true };
   },
   async removeMember(params: {
@@ -994,6 +1266,14 @@ export const ChatService = {
       targetUserId: params.targetUserId,
     });
 
+    await emitConversationEvent({
+      type: "chat.member.removed",
+      company_id: params.companyId,
+      conversation_id: conversation.id,
+      user_id: params.targetUserId,
+      actor_user_id: params.requesterUserId,
+    });
+
     return { success: true };
   },
 
@@ -1033,6 +1313,12 @@ export const ChatService = {
       conversationId: conversation.id,
       requesterUserId: params.requesterUserId,
       name,
+    });
+
+    await emitConversationEvent({
+      type: "chat.conversation.updated",
+      company_id: params.companyId,
+      conversation_id: conversation.id,
     });
 
     return { success: true };
@@ -1127,6 +1413,13 @@ export const ChatService = {
       replyToMessageId: params.reply_to_message_id ?? null,
     });
 
+    await emitConversationEvent({
+      type: "chat.message.created",
+      company_id: params.company_id,
+      conversation_id: params.conversation_id,
+      message_id: rows[0].id,
+    });
+
     return (await getMessageListItemById(rows[0].id)) ?? mapMessageListItem(rows[0]);
   },
 
@@ -1201,6 +1494,13 @@ export const ChatService = {
       moderated: message.sender_team_member_id !== params.requesterTeamMemberId,
     });
 
+    await emitConversationEvent({
+      type: "chat.message.updated",
+      company_id: params.companyId,
+      conversation_id: updated.conversation_id,
+      message_id: updated.id,
+    });
+
     return (await getMessageListItemById(updated.id)) ?? mapMessageListItem(updated);
   },
 
@@ -1258,6 +1558,13 @@ export const ChatService = {
       messageId: updated.id,
       requesterUserId: params.requesterUserId,
       moderated: message.sender_team_member_id !== params.requesterTeamMemberId,
+    });
+
+    await emitConversationEvent({
+      type: "chat.message.deleted",
+      company_id: params.companyId,
+      conversation_id: updated.conversation_id,
+      message_id: updated.id,
     });
 
     return { success: true };
@@ -1341,6 +1648,12 @@ export const ChatService = {
         "CHAT_PREFERENCES_NOT_FOUND",
       );
     }
+
+    await emitConversationEvent({
+      type: "chat.conversation.updated",
+      company_id: params.companyId,
+      conversation_id: params.conversationId,
+    });
 
     return {
       success: true,

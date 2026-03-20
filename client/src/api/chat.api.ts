@@ -191,9 +191,10 @@ export const chatAPI = {
     conversationId: string,
     idToken: string,
     cursorMessageId?: string | null,
+    limit = 50,
   ) {
     const params = new URLSearchParams();
-    params.set("limit", "50");
+    params.set("limit", String(limit));
     if (cursorMessageId) {
       params.set("cursorMessageId", cursorMessageId);
     }
@@ -222,6 +223,117 @@ export const chatAPI = {
         method: "POST",
         body: JSON.stringify(payload),
       },
+      idToken,
+    );
+  },
+
+  createDirectConversation(
+    payload: {
+      target_user_id?: string;
+      target_team_member_id?: string;
+    },
+    idToken: string,
+  ) {
+    return apiFetch<{ conversation: ChatConversation }>(
+      "/api/chat/conversations/direct",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+      idToken,
+    );
+  },
+
+  createGroupConversation(
+    payload: {
+      name: string;
+      participant_user_ids?: string[];
+      participant_team_member_ids?: string[];
+      metadata?: Record<string, unknown>;
+    },
+    idToken: string,
+  ) {
+    return apiFetch<{ conversation: ChatConversation }>(
+      "/api/chat/conversations/group",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+      idToken,
+    );
+  },
+
+  renameConversation(
+    conversationId: string,
+    name: string,
+    idToken: string,
+  ) {
+    return apiFetch<{ success: boolean }>(
+      `/api/chat/conversations/${conversationId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      },
+      idToken,
+    );
+  },
+
+  addMembers(
+    conversationId: string,
+    payload: {
+      participant_user_ids?: string[];
+      participant_team_member_ids?: string[];
+    },
+    idToken: string,
+  ) {
+    return apiFetch<{ success: boolean }>(
+      `/api/chat/conversations/${conversationId}/members`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+      idToken,
+    );
+  },
+
+  removeMember(conversationId: string, userId: string, idToken: string) {
+    return apiFetch<{ success: boolean }>(
+      `/api/chat/conversations/${conversationId}/members/${userId}`,
+      { method: "DELETE" },
+      idToken,
+    );
+  },
+
+  updatePreferences(
+    conversationId: string,
+    notificationsMuted: boolean,
+    idToken: string,
+  ) {
+    return apiFetch<{ success: boolean; notifications_muted: boolean }>(
+      `/api/chat/conversations/${conversationId}/preferences`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ notifications_muted: notificationsMuted }),
+      },
+      idToken,
+    );
+  },
+
+  editMessage(messageId: string, body: string, idToken: string) {
+    return apiFetch<{ message: ChatMessage }>(
+      `/api/chat/messages/${messageId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ body }),
+      },
+      idToken,
+    );
+  },
+
+  deleteMessage(messageId: string, idToken: string) {
+    return apiFetch<{ success: boolean }>(
+      `/api/chat/messages/${messageId}`,
+      { method: "DELETE", body: JSON.stringify({}) },
       idToken,
     );
   },

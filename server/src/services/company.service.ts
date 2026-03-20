@@ -8,6 +8,7 @@ import {
 import { logger } from "../utils/logger";
 import { AppUser } from "../types/types";
 import { RequestCacheService } from "./requestCache.service";
+import { ChatService } from "./chat.service";
 
 function toCompanyResponseDTO(row: any): CompanyResponseDTO {
   return {
@@ -133,6 +134,7 @@ export const CompanyService = {
       userId,
       firebaseUid: user.firebase_uid,
     });
+    await ChatService.ensureGeneralConversation(company.id);
 
     return toCompanyResponseDTO(company);
   },

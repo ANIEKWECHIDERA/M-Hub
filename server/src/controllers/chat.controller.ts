@@ -64,7 +64,7 @@ function handleChatControllerError(res: Response, error: unknown, fallback: stri
 export const ChatController = {
   async listConversations(req: any, res: Response) {
     try {
-      const { companyId, userId } = getChatRequestContext(req);
+      const { companyId, userId, access } = getChatRequestContext(req);
       const query = ChatListQueryDTO.parse(req.query);
       const conversations = await ChatService.listConversations(
         {
@@ -171,7 +171,7 @@ export const ChatController = {
 
   async createGroupConversation(req: any, res: Response) {
     try {
-      const { companyId, userId } = getChatRequestContext(req);
+      const { companyId, userId, access } = getChatRequestContext(req);
       const body = CreateGroupConversationDTO.parse(req.body);
       const participantUserIds = await ChatService.resolveParticipantUserIds({
         companyId,
@@ -182,6 +182,7 @@ export const ChatController = {
       const conversation = await ChatService.createGroupConversation({
         company_id: companyId,
         created_by: userId,
+        requester_access: access,
         name: body.name,
         participant_user_ids: participantUserIds,
         metadata: body.metadata,
