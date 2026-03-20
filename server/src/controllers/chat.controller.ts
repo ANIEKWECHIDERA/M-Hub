@@ -72,6 +72,7 @@ export const ChatController = {
           userId,
           limit: query.limit ?? 50,
           cursorConversationId: query.cursorConversationId ?? null,
+          requestPath: req.path,
         },
       );
 
@@ -283,6 +284,7 @@ export const ChatController = {
         company_id: companyId,
         requesterUserId: userId,
         requesterAccess: access,
+        requestPath: req.path,
         sender_team_member_id: teamMemberId,
         body: body.body,
         message_type: body.message_type,
@@ -349,6 +351,7 @@ export const ChatController = {
         userId,
         lastReadMessageId: body.last_read_message_id ?? null,
         lastReadAt: body.last_read_at ?? null,
+        requestPath: req.path,
       });
 
       return res.json(result);
@@ -456,6 +459,7 @@ export const ChatController = {
         companyId,
         userId,
         notificationsMuted: body.notifications_muted,
+        requestPath: req.path,
       });
 
       return res.json(result);
@@ -479,6 +483,7 @@ export const ChatController = {
         companyId,
         userId,
         isTyping: body.isTyping,
+        requestPath: req.path,
       });
 
       return res.json(result);

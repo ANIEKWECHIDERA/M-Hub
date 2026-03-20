@@ -18,6 +18,7 @@ import {
 import { ChatAuthorizationService } from "./chatAuthorization.service";
 import { ChatHttpError } from "./chatErrors";
 import { chatRealtimeService } from "./chatRealtime.service";
+import { RequestCacheService } from "./requestCache.service";
 
 type ActiveMemberRow = {
   id: string;
@@ -37,6 +38,10 @@ type EnsureGeneralConversationResult = {
 };
 
 const CHAT_MESSAGE_EDIT_WINDOW_MINUTES = 15;
+const READ_CURSOR_LOG_SAMPLE_INTERVAL = 10;
+const TYPING_LOG_SAMPLE_INTERVAL = 20;
+let readCursorEventCount = 0;
+let typingEventCount = 0;
 
 function mapConversation(row: Record<string, any>): ChatConversationRecord {
   return {
@@ -74,6 +79,24 @@ function mapMessage(row: Record<string, any>): ChatMessageRecord {
 function buildDirectKey(companyId: string, userIds: [string, string]) {
   const [first, second] = [...userIds].sort();
   return `${companyId}:${first}:${second}`;
+}
+
+function shouldSampleChatLog(count: number, interval: number) {
+  return count <= 5 || count % interval === 0;
+}
+
+function normalizeIsoTimestamp(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ChatHttpError(
+      400,
+      "Invalid timestamp supplied",
+      "CHAT_INVALID_TIMESTAMP",
+    );
+  }
+
+  return date.toISOString();
 }
 
 function clampLimit(limit: number | undefined, fallback = 50) {
@@ -604,6 +627,10 @@ export const ChatService = {
       companyId: params.companyId,
       userId: params.userId,
     });
+
+    RequestCacheService.invalidateChatMembershipForUser(params.userId, {
+      reason: "chat_membership_changed",
+    });
   },
 
   async resolveDirectTargetUser(companyId: string, teamMemberId: string) {
@@ -634,6 +661,7 @@ export const ChatService = {
     userId: string;
     limit?: number;
     cursorConversationId?: string | null;
+    requestPath?: string;
   }) {
     await ensureGeneralConversation(params.companyId);
 
@@ -653,34 +681,45 @@ export const ChatService = {
 
     const rows = cursorSortTs
       ? await prisma.$queryRaw<Array<Record<string, any>>>`
+          WITH base_conversations AS (
+            SELECT
+              c.*,
+              cm.notifications_muted,
+              cm.last_read_message_id,
+              cm.last_read_at,
+              cm.team_member_id
+            FROM chat_conversations c
+            INNER JOIN chat_conversation_members cm
+              ON cm.conversation_id = c.id
+             AND cm.user_id = ${params.userId}::uuid
+             AND cm.removed_at IS NULL
+            WHERE c.company_id = ${params.companyId}::uuid
+              AND c.archived_at IS NULL
+              AND (
+                COALESCE(c.last_message_at, c.created_at) < ${cursorSortTs}::timestamp
+                OR (
+                  COALESCE(c.last_message_at, c.created_at) = ${cursorSortTs}::timestamp
+                  AND c.id < ${params.cursorConversationId}::uuid
+                )
+              )
+            ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC
+            LIMIT ${safeLimit}
+          )
           SELECT
-            c.*,
-            cm.notifications_muted,
-            cm.last_read_message_id,
-            cm.last_read_at,
+            bc.*,
             COALESCE(unread.unread_count, 0) AS unread_count,
-            COALESCE(member_counts.member_count, 0) AS member_count,
+            COALESCE(member_data.member_count, 0) AS member_count,
             COALESCE(last_message.last_message, 'null'::json) AS last_message,
-            COALESCE(members.members, '[]'::json) AS members
-          FROM chat_conversations c
-          INNER JOIN chat_conversation_members cm
-            ON cm.conversation_id = c.id
-           AND cm.user_id = ${params.userId}::uuid
-           AND cm.removed_at IS NULL
+            COALESCE(member_data.members, '[]'::json) AS members
+          FROM base_conversations bc
           LEFT JOIN LATERAL (
             SELECT COUNT(*)::int AS unread_count
             FROM chat_messages m
-            WHERE m.conversation_id = c.id
+            WHERE m.conversation_id = bc.id
               AND m.deleted_at IS NULL
-              AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
-              AND (m.sender_team_member_id IS NULL OR m.sender_team_member_id <> cm.team_member_id)
+              AND (bc.last_read_at IS NULL OR m.created_at > bc.last_read_at)
+              AND (m.sender_team_member_id IS NULL OR m.sender_team_member_id <> bc.team_member_id)
           ) unread ON TRUE
-          LEFT JOIN LATERAL (
-            SELECT COUNT(*)::int AS member_count
-            FROM chat_conversation_members cm_all
-            WHERE cm_all.conversation_id = c.id
-              AND cm_all.removed_at IS NULL
-          ) member_counts ON TRUE
           LEFT JOIN LATERAL (
             SELECT json_build_object(
               'id', m.id,
@@ -696,74 +735,70 @@ export const ChatService = {
             FROM chat_messages m
             LEFT JOIN team_members tm ON tm.id = m.sender_team_member_id
             LEFT JOIN users u ON u.id = tm.user_id
-            WHERE m.conversation_id = c.id
+            WHERE m.conversation_id = bc.id
               AND m.deleted_at IS NULL
             ORDER BY m.created_at DESC, m.id DESC
             LIMIT 1
           ) last_message ON TRUE
           LEFT JOIN LATERAL (
-            SELECT json_agg(
-              json_build_object(
-                'id', cm_active.id,
-                'company_id', tm.company_id,
-                'user_id', cm_active.user_id,
-                'team_member_id', cm_active.team_member_id,
-                'joined_at', cm_active.joined_at,
-                'notifications_muted', cm_active.notifications_muted,
-                'role', tm.role,
-                'access', tm.access,
-                'email', tm.email,
-                'name', COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email),
-                'avatar', COALESCE(u.avatar, u.photo_url)
-              )
-              ORDER BY cm_active.joined_at ASC
-            ) AS members
+            SELECT
+              COUNT(*)::int AS member_count,
+              json_agg(
+                json_build_object(
+                  'id', cm_active.id,
+                  'company_id', tm.company_id,
+                  'user_id', cm_active.user_id,
+                  'team_member_id', cm_active.team_member_id,
+                  'joined_at', cm_active.joined_at,
+                  'notifications_muted', cm_active.notifications_muted,
+                  'role', tm.role,
+                  'access', tm.access,
+                  'email', tm.email,
+                  'name', COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email),
+                  'avatar', COALESCE(u.avatar, u.photo_url)
+                )
+                ORDER BY cm_active.joined_at ASC
+              ) AS members
             FROM chat_conversation_members cm_active
             INNER JOIN team_members tm ON tm.id = cm_active.team_member_id
             LEFT JOIN users u ON u.id = cm_active.user_id
-            WHERE cm_active.conversation_id = c.id
+            WHERE cm_active.conversation_id = bc.id
               AND cm_active.removed_at IS NULL
-          ) members ON TRUE
-          WHERE c.company_id = ${params.companyId}::uuid
-            AND c.archived_at IS NULL
-            AND (
-              COALESCE(c.last_message_at, c.created_at) < ${cursorSortTs}::timestamp
-              OR (
-                COALESCE(c.last_message_at, c.created_at) = ${cursorSortTs}::timestamp
-                AND c.id < ${params.cursorConversationId}::uuid
-              )
-            )
-          ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC
-          LIMIT ${safeLimit}`
+          ) member_data ON TRUE
+          ORDER BY COALESCE(bc.last_message_at, bc.created_at) DESC, bc.id DESC`
       : await prisma.$queryRaw<Array<Record<string, any>>>`
+          WITH base_conversations AS (
+            SELECT
+              c.*,
+              cm.notifications_muted,
+              cm.last_read_message_id,
+              cm.last_read_at,
+              cm.team_member_id
+            FROM chat_conversations c
+            INNER JOIN chat_conversation_members cm
+              ON cm.conversation_id = c.id
+             AND cm.user_id = ${params.userId}::uuid
+             AND cm.removed_at IS NULL
+            WHERE c.company_id = ${params.companyId}::uuid
+              AND c.archived_at IS NULL
+            ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC
+            LIMIT ${safeLimit}
+          )
           SELECT
-            c.*,
-            cm.notifications_muted,
-            cm.last_read_message_id,
-            cm.last_read_at,
+            bc.*,
             COALESCE(unread.unread_count, 0) AS unread_count,
-            COALESCE(member_counts.member_count, 0) AS member_count,
+            COALESCE(member_data.member_count, 0) AS member_count,
             COALESCE(last_message.last_message, 'null'::json) AS last_message,
-            COALESCE(members.members, '[]'::json) AS members
-          FROM chat_conversations c
-          INNER JOIN chat_conversation_members cm
-            ON cm.conversation_id = c.id
-           AND cm.user_id = ${params.userId}::uuid
-           AND cm.removed_at IS NULL
+            COALESCE(member_data.members, '[]'::json) AS members
+          FROM base_conversations bc
           LEFT JOIN LATERAL (
             SELECT COUNT(*)::int AS unread_count
             FROM chat_messages m
-            WHERE m.conversation_id = c.id
+            WHERE m.conversation_id = bc.id
               AND m.deleted_at IS NULL
-              AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
-              AND (m.sender_team_member_id IS NULL OR m.sender_team_member_id <> cm.team_member_id)
+              AND (bc.last_read_at IS NULL OR m.created_at > bc.last_read_at)
+              AND (m.sender_team_member_id IS NULL OR m.sender_team_member_id <> bc.team_member_id)
           ) unread ON TRUE
-          LEFT JOIN LATERAL (
-            SELECT COUNT(*)::int AS member_count
-            FROM chat_conversation_members cm_all
-            WHERE cm_all.conversation_id = c.id
-              AND cm_all.removed_at IS NULL
-          ) member_counts ON TRUE
           LEFT JOIN LATERAL (
             SELECT json_build_object(
               'id', m.id,
@@ -779,38 +814,37 @@ export const ChatService = {
             FROM chat_messages m
             LEFT JOIN team_members tm ON tm.id = m.sender_team_member_id
             LEFT JOIN users u ON u.id = tm.user_id
-            WHERE m.conversation_id = c.id
+            WHERE m.conversation_id = bc.id
               AND m.deleted_at IS NULL
             ORDER BY m.created_at DESC, m.id DESC
             LIMIT 1
           ) last_message ON TRUE
           LEFT JOIN LATERAL (
-            SELECT json_agg(
-              json_build_object(
-                'id', cm_active.id,
-                'company_id', tm.company_id,
-                'user_id', cm_active.user_id,
-                'team_member_id', cm_active.team_member_id,
-                'joined_at', cm_active.joined_at,
-                'notifications_muted', cm_active.notifications_muted,
-                'role', tm.role,
-                'access', tm.access,
-                'email', tm.email,
-                'name', COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email),
-                'avatar', COALESCE(u.avatar, u.photo_url)
-              )
-              ORDER BY cm_active.joined_at ASC
-            ) AS members
+            SELECT
+              COUNT(*)::int AS member_count,
+              json_agg(
+                json_build_object(
+                  'id', cm_active.id,
+                  'company_id', tm.company_id,
+                  'user_id', cm_active.user_id,
+                  'team_member_id', cm_active.team_member_id,
+                  'joined_at', cm_active.joined_at,
+                  'notifications_muted', cm_active.notifications_muted,
+                  'role', tm.role,
+                  'access', tm.access,
+                  'email', tm.email,
+                  'name', COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email),
+                  'avatar', COALESCE(u.avatar, u.photo_url)
+                )
+                ORDER BY cm_active.joined_at ASC
+              ) AS members
             FROM chat_conversation_members cm_active
             INNER JOIN team_members tm ON tm.id = cm_active.team_member_id
             LEFT JOIN users u ON u.id = cm_active.user_id
-            WHERE cm_active.conversation_id = c.id
+            WHERE cm_active.conversation_id = bc.id
               AND cm_active.removed_at IS NULL
-          ) members ON TRUE
-          WHERE c.company_id = ${params.companyId}::uuid
-            AND c.archived_at IS NULL
-          ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC
-          LIMIT ${safeLimit}`;
+          ) member_data ON TRUE
+          ORDER BY COALESCE(bc.last_message_at, bc.created_at) DESC, bc.id DESC`;
 
     return rows.map(mapConversationListItem);
   },
@@ -1252,6 +1286,11 @@ export const ChatService = {
       addedCount: members.length,
     });
 
+    RequestCacheService.invalidateChatMembershipForConversation(
+      conversation.id,
+      { reason: "chat_membership_changed" },
+    );
+
     await Promise.all(
       members.map((member) =>
         emitConversationEvent({
@@ -1306,6 +1345,11 @@ export const ChatService = {
       targetUserId: params.targetUserId,
     });
 
+    RequestCacheService.invalidateChatMembershipForConversation(
+      conversation.id,
+      { reason: "chat_membership_changed" },
+    );
+
     await emitConversationEvent({
       type: "chat.member.removed",
       company_id: params.companyId,
@@ -1355,6 +1399,11 @@ export const ChatService = {
       name,
     });
 
+    RequestCacheService.invalidateChatMembershipForConversation(
+      conversation.id,
+      { reason: "chat_conversation_changed" },
+    );
+
     await emitConversationEvent({
       type: "chat.conversation.updated",
       company_id: params.companyId,
@@ -1400,6 +1449,11 @@ export const ChatService = {
       conversationType: conversation.type,
     });
 
+    RequestCacheService.invalidateChatMembershipForConversation(
+      conversation.id,
+      { reason: "chat_conversation_changed" },
+    );
+
     await emitConversationEvent({
       type: "chat.conversation.updated",
       company_id: params.companyId,
@@ -1413,12 +1467,14 @@ export const ChatService = {
     params: CreateChatMessageDTO & {
       requesterUserId: string;
       requesterAccess?: string | null;
+      requestPath?: string;
     },
   ) {
     await ChatAuthorizationService.assertCanSendMessages({
       conversationId: params.conversation_id,
       companyId: params.company_id,
       userId: params.requesterUserId,
+      requestPath: params.requestPath,
     });
 
     const messageType = (params.message_type ?? "text") as ChatMessageType;
@@ -1665,14 +1721,17 @@ export const ChatService = {
     userId: string;
     lastReadMessageId?: string | null;
     lastReadAt?: string | null;
+    requestPath?: string;
   }) {
     await ChatAuthorizationService.assertCanViewConversation({
       conversationId: params.conversationId,
       companyId: params.companyId,
       userId: params.userId,
+      requestPath: params.requestPath,
     });
 
-    let resolvedLastReadAt = params.lastReadAt ? new Date(params.lastReadAt).toISOString() : null;
+    const normalizedLastReadAt = normalizeIsoTimestamp(params.lastReadAt ?? null);
+    let resolvedLastReadAt = normalizedLastReadAt;
 
     if (params.lastReadMessageId) {
       const messageRows = await prisma.$queryRaw<Array<Record<string, any>>>`
@@ -1691,21 +1750,131 @@ export const ChatService = {
       resolvedLastReadAt = message.created_at;
     }
 
-    await prisma.$executeRaw`
-      UPDATE chat_conversation_members
-      SET last_read_message_id = ${params.lastReadMessageId ?? null}::uuid,
-          last_read_at = ${resolvedLastReadAt ?? new Date().toISOString()}::timestamp
+    const targetLastReadAt = resolvedLastReadAt ?? new Date().toISOString();
+    const currentRows = await prisma.$queryRaw<Array<Record<string, any>>>`
+      SELECT last_read_message_id, last_read_at
+      FROM chat_conversation_members
       WHERE conversation_id = ${params.conversationId}::uuid
         AND user_id = ${params.userId}::uuid
-        AND removed_at IS NULL`;
+        AND removed_at IS NULL
+      LIMIT 1`;
 
-    logger.info("ChatService.markConversationRead: read cursor updated", {
-      companyId: params.companyId,
-      conversationId: params.conversationId,
-      userId: params.userId,
-      lastReadMessageId: params.lastReadMessageId ?? null,
-      lastReadAt: resolvedLastReadAt ?? null,
-    });
+    const current = currentRows[0];
+    if (!current) {
+      throw new ChatHttpError(
+        404,
+        "Conversation member not found",
+        "CHAT_MEMBER_NOT_FOUND",
+      );
+    }
+
+    const targetTime = new Date(targetLastReadAt).getTime();
+    const currentTime = current.last_read_at
+      ? new Date(current.last_read_at).getTime()
+      : null;
+    const incomingMessageId = params.lastReadMessageId ?? null;
+
+    if (
+      currentTime !== null &&
+      targetTime === currentTime &&
+      (current.last_read_message_id ?? null) === incomingMessageId
+    ) {
+      readCursorEventCount += 1;
+      if (shouldSampleChatLog(readCursorEventCount, READ_CURSOR_LOG_SAMPLE_INTERVAL)) {
+        logger.info("ChatService.markConversationRead: skipped unchanged read cursor", {
+          companyId: params.companyId,
+          conversationId: params.conversationId,
+          userId: params.userId,
+          lastReadMessageId: incomingMessageId,
+          lastReadAt: targetLastReadAt,
+        });
+      }
+      return { success: true };
+    }
+
+    if (currentTime !== null && targetTime < currentTime) {
+      readCursorEventCount += 1;
+      if (shouldSampleChatLog(readCursorEventCount, READ_CURSOR_LOG_SAMPLE_INTERVAL)) {
+        logger.info("ChatService.markConversationRead: skipped stale read cursor", {
+          companyId: params.companyId,
+          conversationId: params.conversationId,
+          userId: params.userId,
+          lastReadMessageId: incomingMessageId,
+          lastReadAt: targetLastReadAt,
+          currentLastReadMessageId: current.last_read_message_id ?? null,
+          currentLastReadAt: current.last_read_at ?? null,
+        });
+      }
+      return { success: true };
+    }
+
+    const updatedRows = await prisma.$queryRaw<Array<Record<string, any>>>`
+      UPDATE chat_conversation_members
+      SET last_read_message_id = ${incomingMessageId}::uuid,
+          last_read_at = ${targetLastReadAt}::timestamp
+      WHERE conversation_id = ${params.conversationId}::uuid
+        AND user_id = ${params.userId}::uuid
+        AND removed_at IS NULL
+        AND (
+          last_read_at IS NULL
+          OR last_read_at < ${targetLastReadAt}::timestamp
+          OR (
+            last_read_at = ${targetLastReadAt}::timestamp
+            AND COALESCE(last_read_message_id::text, '') <> COALESCE(${incomingMessageId}, '')
+          )
+        )
+      RETURNING last_read_message_id, last_read_at`;
+
+    if (!updatedRows[0]) {
+      const finalRows = await prisma.$queryRaw<Array<Record<string, any>>>`
+        SELECT last_read_message_id, last_read_at
+        FROM chat_conversation_members
+        WHERE conversation_id = ${params.conversationId}::uuid
+          AND user_id = ${params.userId}::uuid
+          AND removed_at IS NULL
+        LIMIT 1`;
+
+      const finalState = finalRows[0];
+      const finalTime = finalState?.last_read_at
+        ? new Date(finalState.last_read_at).getTime()
+        : null;
+      const outcome =
+        finalTime !== null && finalTime > targetTime
+          ? "stale"
+          : finalState?.last_read_message_id === incomingMessageId &&
+              finalState?.last_read_at === targetLastReadAt
+            ? "unchanged"
+            : "stale";
+
+      readCursorEventCount += 1;
+      if (shouldSampleChatLog(readCursorEventCount, READ_CURSOR_LOG_SAMPLE_INTERVAL)) {
+        logger.info(
+          `ChatService.markConversationRead: skipped ${outcome} read cursor`,
+          {
+            companyId: params.companyId,
+            conversationId: params.conversationId,
+            userId: params.userId,
+            lastReadMessageId: incomingMessageId,
+            lastReadAt: targetLastReadAt,
+            currentLastReadMessageId: finalState?.last_read_message_id ?? null,
+            currentLastReadAt: finalState?.last_read_at ?? null,
+          },
+        );
+      }
+
+      return { success: true };
+    }
+
+    readCursorEventCount += 1;
+    if (shouldSampleChatLog(readCursorEventCount, READ_CURSOR_LOG_SAMPLE_INTERVAL)) {
+      logger.info("ChatService.markConversationRead: read cursor update applied", {
+        companyId: params.companyId,
+        conversationId: params.conversationId,
+        userId: params.userId,
+        lastReadMessageId: incomingMessageId,
+        lastReadAt: targetLastReadAt,
+      });
+    }
 
     return { success: true };
   },
@@ -1715,11 +1884,13 @@ export const ChatService = {
     companyId: string;
     userId: string;
     notificationsMuted: boolean;
+    requestPath?: string;
   }) {
     await ChatAuthorizationService.assertCanViewConversation({
       conversationId: params.conversationId,
       companyId: params.companyId,
       userId: params.userId,
+      requestPath: params.requestPath,
     });
 
     const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
@@ -1755,11 +1926,13 @@ export const ChatService = {
     companyId: string;
     userId: string;
     isTyping: boolean;
+    requestPath?: string;
   }) {
     await ChatAuthorizationService.assertCanSendMessages({
       conversationId: params.conversationId,
       companyId: params.companyId,
       userId: params.userId,
+      requestPath: params.requestPath,
     });
 
     const userIds = await getConversationMemberUserIds(params.conversationId);
@@ -1771,6 +1944,17 @@ export const ChatService = {
       userIds,
       isTyping: params.isTyping,
     });
+
+    typingEventCount += 1;
+    if (shouldSampleChatLog(typingEventCount, TYPING_LOG_SAMPLE_INTERVAL)) {
+      logger.info("ChatService.emitTypingIndicator: typing event emitted", {
+        companyId: params.companyId,
+        conversationId: params.conversationId,
+        userId: params.userId,
+        isTyping: params.isTyping,
+        recipientCount: userIds.length,
+      });
+    }
 
     return { success: true };
   },

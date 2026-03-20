@@ -69,6 +69,7 @@ Performance note:
   - `onboarding`: derived onboarding state keyed as `onboarding:{firebaseUid}`
   - `team_member`: resolved active membership keyed as `team_member:{userId}:{companyId}`
   - `notification`: notification list payloads keyed as `notification:{companyId}:{userId}:limit={n}`
+  - `chat_membership`: cached conversation access context keyed as `chat_membership:{companyId}:{conversationId}:{userId}`
 - Cache instrumentation now tracks per-namespace hits, misses, sets, invalidations, TTL usage, and sampled request-path metadata
 - Admin-only cache metrics are available at `GET /api/cache-metrics`
 - Notification cache keys include workspace, user, and `limit`, and notification ETags are scoped to `companyId + userId + limit + payload`
@@ -85,6 +86,7 @@ Performance note:
   - preserve short TTLs
   - move invalidation helpers to shared Redis key patterns/sets
   - keep the local metrics shape, but emit to a shared metrics backend instead of only process-local logs/snapshots
+  - move chat membership caching to Redis alongside shared membership-change invalidation when the backend is scaled beyond a single process
 
 ### 3. Frontend routing depends on onboarding state
 
@@ -314,6 +316,20 @@ Phase 6 performance/scalability hardening now implemented:
   - message edits
   - message soft deletes
   - read cursor updates
+- chat read/typing hot paths were tightened further:
+  - `markConversationRead` is monotonic and will only move the stored read cursor forward
+  - repeated identical `/read` calls are no-ops and do not write again
+  - stale `/read` calls are skipped safely instead of overwriting newer read state
+  - a short-lived `chat_membership` authorization cache now reuses conversation membership checks for the same `companyId + conversationId + userId`
+  - that membership cache is invalidated only for real chat membership/conversation changes such as add/remove/archive/rename
+  - normal chat read and typing activity no longer destroys generic `user`, `onboarding`, or `team_member` cache value
+  - typing remains ephemeral and lightweight, reusing cached authorization when available and avoiding any durable state writes
+  - the conversation list query now limits the base conversation slice first, then computes unread counts, last-message preview, and member aggregation for only that bounded result set
+  - chat hot-path logs now distinguish:
+    - read update applied
+    - read update skipped as stale
+    - read update skipped as unchanged
+    - `chat_membership` cache hit/miss/invalidation via the shared cache metrics
 
 Performance notes:
 
@@ -341,6 +357,7 @@ Current realtime behavior for chat:
   - typing start/stop is sent through a Supabase broadcast channel
   - the backend relays it through SSE to current participants
   - stale typing state auto-expires after a short inactivity window
+  - typing requests now only do authorization plus the minimal participant lookup needed for realtime fanout; they do not trigger generic cache invalidation
 - online presence now uses Supabase Presence instead of the old process-local map:
   - each chat SSE connection opens a Supabase Presence session for the authenticated user in the active company room
   - the backend observes company presence state from a shared company-level presence channel
@@ -429,6 +446,7 @@ Current limitations / deferred chat items:
   - richer moderation actions beyond the current edit/delete flows
 - moderation hide/delete flows beyond the current backend soft-delete rules are not implemented yet
 - direct/group/project conversation creation strategy on the frontend is still pending product UI work
+- the new `chat_membership` cache is still process-local; in a multi-instance deployment it should move to Redis or another shared cache so read/typing authorization hits are shared across nodes
 
 ## Important Paths
 

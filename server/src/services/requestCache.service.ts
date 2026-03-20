@@ -25,19 +25,24 @@ type CachedOnboardingState = {
   access: string | null;
   companyId: string | null;
 };
+type CachedChatMembershipRecord = {
+  context: Record<string, any> | null;
+};
 
 const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000;
 const USER_CACHE_TTL_MS = 2 * 60 * 1000;
 const TEAM_MEMBER_CACHE_TTL_MS = 60 * 1000;
 const NOTIFICATION_CACHE_TTL_MS = 20 * 1000;
 const ONBOARDING_CACHE_TTL_MS = 60 * 1000;
+const CHAT_MEMBERSHIP_CACHE_TTL_MS = 45 * 1000;
 
 type CacheNamespace =
   | "token"
   | "user"
   | "onboarding"
   | "team_member"
-  | "notification";
+  | "notification"
+  | "chat_membership";
 
 type CacheMetrics = {
   hits: number;
@@ -61,10 +66,16 @@ const notificationCache = new Map<
   string,
   CacheEntry<CachedNotificationResponse>
 >();
+const chatMembershipCache = new Map<
+  string,
+  CacheEntry<CachedChatMembershipRecord>
+>();
 
 const userIdToFirebaseUid = new Map<string, string>();
 const userIdToTeamMemberKeys = new Map<string, Set<string>>();
 const notificationKeysByUser = new Map<string, Set<string>>();
+const chatMembershipKeysByConversation = new Map<string, Set<string>>();
+const chatMembershipKeysByUser = new Map<string, Set<string>>();
 
 const cacheMetrics: Record<CacheNamespace, CacheMetrics> = {
   token: { hits: 0, misses: 0, sets: 0, invalidations: 0 },
@@ -72,6 +83,7 @@ const cacheMetrics: Record<CacheNamespace, CacheMetrics> = {
   onboarding: { hits: 0, misses: 0, sets: 0, invalidations: 0 },
   team_member: { hits: 0, misses: 0, sets: 0, invalidations: 0 },
   notification: { hits: 0, misses: 0, sets: 0, invalidations: 0 },
+  chat_membership: { hits: 0, misses: 0, sets: 0, invalidations: 0 },
 };
 
 const CACHE_LOG_SAMPLE_INTERVAL = 25;
@@ -184,6 +196,14 @@ function getNotificationCacheKey(
   return `notification:${companyId}:${userId}:limit=${limit}`;
 }
 
+function getChatMembershipCacheKey(
+  companyId: string,
+  conversationId: string,
+  userId: string,
+) {
+  return `chat_membership:${companyId}:${conversationId}:${userId}`;
+}
+
 function rememberTeamMemberKey(userId: string, key: string) {
   const keys = userIdToTeamMemberKeys.get(userId) ?? new Set<string>();
   keys.add(key);
@@ -194,6 +214,21 @@ function rememberNotificationKey(userId: string, key: string) {
   const keys = notificationKeysByUser.get(userId) ?? new Set<string>();
   keys.add(key);
   notificationKeysByUser.set(userId, keys);
+}
+
+function rememberChatMembershipKey(
+  conversationId: string,
+  userId: string,
+  key: string,
+) {
+  const conversationKeys =
+    chatMembershipKeysByConversation.get(conversationId) ?? new Set<string>();
+  conversationKeys.add(key);
+  chatMembershipKeysByConversation.set(conversationId, conversationKeys);
+
+  const userKeys = chatMembershipKeysByUser.get(userId) ?? new Set<string>();
+  userKeys.add(key);
+  chatMembershipKeysByUser.set(userId, userKeys);
 }
 
 function clearTrackedKeys(map: Map<string, Set<string>>, key: string) {
@@ -234,6 +269,45 @@ function invalidateNotificationEntries(userId: string, meta?: CacheMeta) {
     invalidatedKeys: keys.size,
   });
   clearTrackedKeys(notificationKeysByUser, userId);
+}
+
+function clearChatMembershipKeyTracking(
+  conversationId: string,
+  userId: string,
+  keys: Iterable<string>,
+) {
+  const conversationKeys = chatMembershipKeysByConversation.get(conversationId);
+  if (conversationKeys) {
+    for (const key of keys) {
+      conversationKeys.delete(key);
+    }
+    if (!conversationKeys.size) {
+      chatMembershipKeysByConversation.delete(conversationId);
+    }
+  }
+
+  const userKeys = chatMembershipKeysByUser.get(userId);
+  if (userKeys) {
+    for (const key of keys) {
+      userKeys.delete(key);
+    }
+    if (!userKeys.size) {
+      chatMembershipKeysByUser.delete(userId);
+    }
+  }
+}
+
+function invalidateChatMembershipKeys(keys: Set<string>, meta?: CacheMeta) {
+  if (!keys.size) {
+    return;
+  }
+
+  keys.forEach((key) => chatMembershipCache.delete(key));
+  recordMetric("chat_membership", "invalidations", {
+    ...meta,
+    reason: meta?.reason ?? "chat_membership_changed",
+    invalidatedKeys: keys.size,
+  });
 }
 
 function resolveFirebaseUid(userId?: string | null, firebaseUid?: string | null) {
@@ -386,6 +460,95 @@ export const RequestCacheService = {
     );
   },
 
+  getChatMembership(
+    companyId: string,
+    conversationId: string,
+    userId: string,
+    meta?: CacheMeta,
+  ) {
+    return getValidCacheEntry(
+      chatMembershipCache,
+      getChatMembershipCacheKey(companyId, conversationId, userId),
+      "chat_membership",
+      meta,
+    );
+  },
+
+  setChatMembership(
+    companyId: string,
+    conversationId: string,
+    userId: string,
+    membership: Record<string, any> | null,
+    meta?: CacheMeta,
+  ) {
+    const key = getChatMembershipCacheKey(companyId, conversationId, userId);
+    rememberChatMembershipKey(conversationId, userId, key);
+    setCacheEntry(
+      chatMembershipCache,
+      key,
+      { context: membership },
+      CHAT_MEMBERSHIP_CACHE_TTL_MS,
+      "chat_membership",
+      meta,
+    );
+  },
+
+  invalidateChatMembershipForConversation(
+    conversationId: string,
+    meta?: CacheMeta,
+  ) {
+    const keys = chatMembershipKeysByConversation.get(conversationId);
+    if (!keys?.size) {
+      return;
+    }
+
+    const keysToRemove = new Set(keys);
+    invalidateChatMembershipKeys(keysToRemove, {
+      ...meta,
+      reason: meta?.reason ?? "chat_membership_changed",
+    });
+
+    for (const [userId, userKeys] of chatMembershipKeysByUser.entries()) {
+      const intersectingKeys = [...keysToRemove].filter((key) => userKeys.has(key));
+      if (intersectingKeys.length) {
+        clearChatMembershipKeyTracking(
+          conversationId,
+          userId,
+          intersectingKeys,
+        );
+      }
+    }
+  },
+
+  invalidateChatMembershipForUser(
+    userId: string,
+    meta?: CacheMeta,
+  ) {
+    const keys = chatMembershipKeysByUser.get(userId);
+    if (!keys?.size) {
+      return;
+    }
+
+    const keysToRemove = new Set(keys);
+    invalidateChatMembershipKeys(keysToRemove, {
+      ...meta,
+      reason: meta?.reason ?? "chat_membership_changed",
+    });
+
+    for (const [conversationId, conversationKeys] of chatMembershipKeysByConversation.entries()) {
+      const intersectingKeys = [...keysToRemove].filter((key) =>
+        conversationKeys.has(key),
+      );
+      if (intersectingKeys.length) {
+        clearChatMembershipKeyTracking(
+          conversationId,
+          userId,
+          intersectingKeys,
+        );
+      }
+    }
+  },
+
   invalidateUserContext(
     params: { userId?: string | null; firebaseUid?: string | null },
     meta?: CacheMeta,
@@ -410,6 +573,10 @@ export const RequestCacheService = {
     if (params.userId) {
       invalidateTeamMemberEntries(params.userId, meta);
       invalidateNotificationEntries(params.userId, meta);
+      this.invalidateChatMembershipForUser(params.userId, {
+        ...meta,
+        reason: meta?.reason ?? "user_context_changed",
+      });
     }
   },
 
@@ -423,14 +590,18 @@ export const RequestCacheService = {
     onboardingCache.clear();
     teamMemberCache.clear();
     notificationCache.clear();
+    chatMembershipCache.clear();
     userIdToFirebaseUid.clear();
     userIdToTeamMemberKeys.clear();
     notificationKeysByUser.clear();
+    chatMembershipKeysByConversation.clear();
+    chatMembershipKeysByUser.clear();
     recordMetric("token", "invalidations", { reason: "invalidate_all" });
     recordMetric("user", "invalidations", { reason: "invalidate_all" });
     recordMetric("onboarding", "invalidations", { reason: "invalidate_all" });
     recordMetric("team_member", "invalidations", { reason: "invalidate_all" });
     recordMetric("notification", "invalidations", { reason: "invalidate_all" });
+    recordMetric("chat_membership", "invalidations", { reason: "invalidate_all" });
   },
 
   getMetricsSnapshot() {
@@ -448,6 +619,10 @@ export const RequestCacheService = {
       notification: {
         ...cacheMetrics.notification,
         hitRate: getHitRate("notification"),
+      },
+      chat_membership: {
+        ...cacheMetrics.chat_membership,
+        hitRate: getHitRate("chat_membership"),
       },
     };
   },

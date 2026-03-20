@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { ChatHttpError } from "./chatErrors";
+import { RequestCacheService } from "./requestCache.service";
 
 export type ChatConversationAccessContext = {
   id: string;
@@ -16,7 +17,19 @@ async function getConversationAccessContext(params: {
   conversationId: string;
   companyId: string;
   userId: string;
+  requestPath?: string;
 }) {
+  const cachedContext = RequestCacheService.getChatMembership(
+    params.companyId,
+    params.conversationId,
+    params.userId,
+    { requestPath: params.requestPath },
+  );
+
+  if (cachedContext) {
+    return cachedContext.context as ChatConversationAccessContext | null;
+  }
+
   const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
     SELECT
       c.id,
@@ -39,7 +52,16 @@ async function getConversationAccessContext(params: {
       AND c.archived_at IS NULL
     LIMIT 1`;
 
-  return (rows[0] as ChatConversationAccessContext | undefined) ?? null;
+  const context = (rows[0] as ChatConversationAccessContext | undefined) ?? null;
+  RequestCacheService.setChatMembership(
+    params.companyId,
+    params.conversationId,
+    params.userId,
+    context,
+    { requestPath: params.requestPath },
+  );
+
+  return context;
 }
 
 function requireActiveMember(
@@ -97,6 +119,7 @@ export const ChatAuthorizationService = {
     conversationId: string;
     companyId: string;
     userId: string;
+    requestPath?: string;
   }) {
     return getConversationAccessContext(params);
   },
@@ -105,6 +128,7 @@ export const ChatAuthorizationService = {
     conversationId: string;
     companyId: string;
     userId: string;
+    requestPath?: string;
   }) {
     const context = await getConversationAccessContext(params);
     return requireActiveMember(context);
@@ -114,6 +138,7 @@ export const ChatAuthorizationService = {
     conversationId: string;
     companyId: string;
     userId: string;
+    requestPath?: string;
   }) {
     const context = requireActiveMember(await getConversationAccessContext(params));
 
@@ -133,6 +158,7 @@ export const ChatAuthorizationService = {
     companyId: string;
     userId: string;
     access?: string | null;
+    requestPath?: string;
   }) {
     const context = requireMutableGroup(
       requireGroupConversation(
@@ -150,6 +176,7 @@ export const ChatAuthorizationService = {
     companyId: string;
     userId: string;
     access?: string | null;
+    requestPath?: string;
   }) {
     const context = requireActiveMember(await getConversationAccessContext(params));
 
