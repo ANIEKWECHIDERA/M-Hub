@@ -33,6 +33,17 @@ type NotificationStreamEvent =
       type: "notification.read_all";
       user_id: string;
       company_id: string;
+    }
+  | {
+      type: "notification.deleted";
+      user_id: string;
+      company_id: string;
+      notificationId: string;
+    }
+  | {
+      type: "notification.cleared_all";
+      user_id: string;
+      company_id: string;
     };
 
 interface NotificationContextType {
@@ -42,6 +53,8 @@ interface NotificationContextType {
   error: string | null;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  clearNotification: (id: string) => Promise<void>;
+  clearAllNotifications: () => Promise<void>;
   refreshNotifications: (options?: { silent?: boolean }) => Promise<void>;
 }
 
@@ -230,6 +243,61 @@ export const NotificationProvider = ({
     }
   }, [idToken, notifications, unreadCount]);
 
+  const clearNotification = useCallback(
+    async (id: string) => {
+      if (!idToken) {
+        return;
+      }
+
+      const previousNotifications = notifications;
+      const previousUnreadCount = unreadCount;
+      const target = notifications.find((notification) => notification.id === id);
+
+      if (!target) {
+        return;
+      }
+
+      setNotifications((prev) =>
+        prev.filter((notification) => notification.id !== id),
+      );
+
+      if (!target.read) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+
+      try {
+        const response = await notificationsAPI.clearOne(id, idToken);
+        setUnreadCount(response.unreadCount);
+      } catch (clearError: any) {
+        setNotifications(previousNotifications);
+        setUnreadCount(previousUnreadCount);
+        setError(clearError.message || "Failed to clear notification");
+      }
+    },
+    [idToken, notifications, unreadCount],
+  );
+
+  const clearAllNotifications = useCallback(async () => {
+    if (!idToken || notifications.length === 0) {
+      return;
+    }
+
+    const previousNotifications = notifications;
+    const previousUnreadCount = unreadCount;
+
+    setNotifications([]);
+    setUnreadCount(0);
+
+    try {
+      const response = await notificationsAPI.clearAll(idToken);
+      setUnreadCount(response.unreadCount);
+    } catch (clearError: any) {
+      setNotifications(previousNotifications);
+      setUnreadCount(previousUnreadCount);
+      setError(clearError.message || "Failed to clear notifications");
+    }
+  }, [idToken, notifications, unreadCount]);
+
   useEffect(() => {
     resetNotifications();
     refreshRef.current = null;
@@ -322,6 +390,29 @@ export const NotificationProvider = ({
           return;
         }
 
+        if (payload.type === "notification.deleted") {
+          setNotifications((prev) => {
+            const target = prev.find(
+              (notification) => notification.id === payload.notificationId,
+            );
+
+            if (target && !target.read) {
+              setUnreadCount((count) => Math.max(0, count - 1));
+            }
+
+            return prev.filter(
+              (notification) => notification.id !== payload.notificationId,
+            );
+          });
+          return;
+        }
+
+        if (payload.type === "notification.cleared_all") {
+          setNotifications([]);
+          setUnreadCount(0);
+          return;
+        }
+
         setNotifications((prev) =>
           prev.map((notification) => ({ ...notification, read: true })),
         );
@@ -359,6 +450,8 @@ export const NotificationProvider = ({
       error,
       markAsRead,
       markAllAsRead,
+      clearNotification,
+      clearAllNotifications,
       refreshNotifications,
     }),
     [
@@ -368,6 +461,8 @@ export const NotificationProvider = ({
       error,
       markAsRead,
       markAllAsRead,
+      clearNotification,
+      clearAllNotifications,
       refreshNotifications,
     ],
   );

@@ -38,4 +38,18 @@ router.patch(
   NotificationController.markAllNotificationsRead,
 );
 
+router.delete(
+  "/notifications/:id",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member"]),
+  NotificationController.clearNotification,
+);
+
+router.delete(
+  "/notifications",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member"]),
+  NotificationController.clearAllNotifications,
+);
+
 export default router;

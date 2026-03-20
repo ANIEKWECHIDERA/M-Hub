@@ -48,4 +48,20 @@ export const notificationsAPI = {
       idToken,
     );
   },
+
+  clearOne(id: string, idToken: string) {
+    return apiFetch<{ success: boolean; unreadCount: number }>(
+      `/api/notifications/${id}`,
+      { method: "DELETE" },
+      idToken,
+    );
+  },
+
+  clearAll(idToken: string) {
+    return apiFetch<{ success: boolean; unreadCount: number; clearedCount: number }>(
+      "/api/notifications",
+      { method: "DELETE" },
+      idToken,
+    );
+  },
 };

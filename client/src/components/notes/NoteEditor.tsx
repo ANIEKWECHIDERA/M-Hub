@@ -36,6 +36,8 @@ export function NoteEditor({
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const quillRef = useRef<Quill | null>(null);
   const isApplyingExternalValueRef = useRef(false);
+  const onChangeRef = useRef(onChange);
+  const onBlurRef = useRef(onBlur);
 
   const modules = useMemo(
     () => ({
@@ -48,6 +50,14 @@ export function NoteEditor({
     }),
     [],
   );
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    onBlurRef.current = onBlur;
+  }, [onBlur]);
 
   useEffect(() => {
     if (!editorContainerRef.current || quillRef.current) {
@@ -73,10 +83,10 @@ export function NoteEditor({
         return;
       }
 
-      onChange(quill.root.innerHTML || EMPTY_NOTE_HTML);
+      onChangeRef.current(quill.root.innerHTML || EMPTY_NOTE_HTML);
     };
 
-    const handleBlur = () => onBlur?.();
+    const handleBlur = () => onBlurRef.current?.();
 
     const handlePaste = (event: ClipboardEvent) => {
       const html = event.clipboardData?.getData("text/html");
@@ -103,7 +113,7 @@ export function NoteEditor({
       quill.root.removeEventListener("paste", handlePaste);
       quillRef.current = null;
     };
-  }, [modules, onBlur, onChange, placeholder]);
+  }, [modules, placeholder]);
 
   useEffect(() => {
     const quill = quillRef.current;

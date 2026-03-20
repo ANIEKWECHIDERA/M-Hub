@@ -297,6 +297,76 @@ export const NotificationService = {
     return 0;
   },
 
+  async clearOne(
+    id: string,
+    companyId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const { data, error } = await supabaseAdmin
+      .from("notifications")
+      .delete()
+      .eq("id", id)
+      .eq("company_id", companyId)
+      .eq("user_id", userId)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      logger.error("NotificationService.clearOne: error", {
+        error,
+        id,
+        companyId,
+        userId,
+      });
+      throw error;
+    }
+
+    if (data) {
+      RequestCacheService.invalidateNotificationUser(userId, {
+        reason: "notification_cleared_one",
+      });
+      notificationRealtimeService.emit({
+        type: "notification.deleted",
+        user_id: userId,
+        company_id: companyId,
+        notificationId: id,
+      });
+    }
+
+    return Boolean(data);
+  },
+
+  async clearAll(companyId: string, userId: string): Promise<number> {
+    const { data, error } = await supabaseAdmin
+      .from("notifications")
+      .delete()
+      .eq("company_id", companyId)
+      .eq("user_id", userId)
+      .select("id");
+
+    if (error) {
+      logger.error("NotificationService.clearAll: error", {
+        error,
+        companyId,
+        userId,
+      });
+      throw error;
+    }
+
+    const clearedCount = data?.length ?? 0;
+
+    RequestCacheService.invalidateNotificationUser(userId, {
+      reason: "notification_cleared_all",
+    });
+    notificationRealtimeService.emit({
+      type: "notification.cleared_all",
+      user_id: userId,
+      company_id: companyId,
+    });
+
+    return clearedCount;
+  },
+
   async create(payload: CreateNotificationDTO): Promise<NotificationResponseDTO> {
     logger.info("NotificationService.create", payload);
 

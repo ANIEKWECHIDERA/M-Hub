@@ -89,15 +89,16 @@ export const AuthController = {
    */
 
   async checkProfileComplete(req: Request, res: Response) {
-    const firebaseUid = req.user?.firebase_uid;
-    logger.info(
-      "checkProfileComplete: Received request",
-      { firebaseUid },
-      req.user,
-    );
+    const firebaseUid = req.user?.firebase_uid ?? req.user?.uid;
+    logger.info("checkProfileComplete: Received request", {
+      firebaseUid,
+      userId: req.user?.id ?? req.user?.user_id ?? null,
+      path: req.path,
+    });
     if (!firebaseUid) {
       logger.warn("checkProfileComplete: Firebase UID is missing in request", {
         path: req.path,
+        userId: req.user?.id ?? req.user?.user_id ?? null,
       });
       return res.status(401).json({ error: "Unauthorized" });
     }

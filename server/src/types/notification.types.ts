@@ -40,4 +40,15 @@ export type NotificationStreamEvent =
       type: "notification.read_all";
       user_id: string;
       company_id: string;
+    }
+  | {
+      type: "notification.deleted";
+      user_id: string;
+      company_id: string;
+      notificationId: string;
+    }
+  | {
+      type: "notification.cleared_all";
+      user_id: string;
+      company_id: string;
     };

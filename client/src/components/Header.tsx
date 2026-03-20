@@ -20,6 +20,7 @@ import { useAuthContext } from "@/context/AuthContext";
 import { useUser } from "@/context/UserContext";
 import {
   Bell,
+  Trash2,
   Moon,
   RefreshCw,
   Settings,
@@ -41,6 +42,8 @@ export function Header() {
     notifications,
     markAsRead,
     markAllAsRead,
+    clearNotification,
+    clearAllNotifications,
     unreadCount,
     loading: notificationsLoading,
     error: notificationsError,
@@ -177,6 +180,15 @@ export function Header() {
                     >
                       Mark all read
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={clearAllNotifications}
+                      disabled={notifications.length === 0}
+                    >
+                      Clear all
+                    </Button>
                   </div>
                 </div>
                 <div className="space-y-2 max-h-80 overflow-y-auto">
@@ -238,6 +250,18 @@ export function Header() {
                           {!notification.read && (
                             <div className="w-2 h-2 bg-primary rounded-full mt-1" />
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void clearNotification(notification.id);
+                            }}
+                            aria-label="Clear notification"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
                     ))

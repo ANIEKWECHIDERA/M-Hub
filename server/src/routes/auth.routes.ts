@@ -2,7 +2,7 @@ import express from "express";
 import { AuthController } from "../controllers/auth.controller";
 import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
 import { profileSync } from "../middleware/profileSync.middleware";
-import { authLimiter } from "../middleware/rateLimiter";
+import { authLimiter, authStatusLimiter } from "../middleware/rateLimiter";
 
 const router = express.Router();
 
@@ -17,7 +17,7 @@ router.post(
 
 router.get(
   "/status",
-  authLimiter,
+  authStatusLimiter,
   verifyFirebaseToken,
   profileSync,
   AuthController.checkProfileComplete,

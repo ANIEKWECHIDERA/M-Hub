@@ -42,6 +42,15 @@ export const authLimiter = rateLimit({
   message: { error: "Too many authentication requests, try again later" },
 });
 
+export const authStatusLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 180,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: ipOnlyKeyGenerator,
+  message: { error: "Too many status checks, try again later" },
+});
+
 export const createUserLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,

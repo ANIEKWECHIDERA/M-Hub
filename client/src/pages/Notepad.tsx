@@ -66,7 +66,6 @@ import {
   sanitizeNoteHtmlClient,
 } from "@/lib/notes";
 import { formatRelativeTimestamp } from "@/lib/datetime";
-import { cn } from "@/lib/utils";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 
@@ -119,8 +118,18 @@ export default function Notepad() {
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const loadedNoteIdRef = useRef<string | null>(null);
   const saveTimeoutRef = useRef<number | null>(null);
-  const latestSaveRequestRef = useRef(0);
   const lastPersistedSignatureRef = useRef("");
+  const currentNoteRef = useRef<Note | null>(null);
+  const draftPayloadRef = useRef<{
+    title: string;
+    contentHtml: string;
+    projectId: string | null;
+    pinned: boolean;
+    tags: string[];
+  } | null>(null);
+  const draftSignatureRef = useRef("");
+  const savePromiseRef = useRef<Promise<void> | null>(null);
+  const shouldSaveAgainRef = useRef(false);
 
   const filteredNotes = useMemo(() => {
     const query = deferredSearchTerm.trim().toLowerCase();
@@ -209,6 +218,15 @@ export default function Notepad() {
   }, [currentNote]);
 
   useEffect(() => {
+    currentNoteRef.current = currentNote;
+  }, [currentNote]);
+
+  useEffect(() => {
+    draftPayloadRef.current = draftPayload;
+    draftSignatureRef.current = draftSignature;
+  }, [draftPayload, draftSignature]);
+
+  useEffect(() => {
     if (!currentNote || loadedNoteIdRef.current !== currentNote.id) {
       return;
     }
@@ -224,42 +242,64 @@ export default function Notepad() {
   }, [currentNote, draftSignature, saveState]);
 
   const persistDraft = useCallback(async () => {
-    if (!currentNote) {
+    const activeNote = currentNoteRef.current;
+    if (!activeNote) {
       return;
     }
 
-    if (draftSignature === lastPersistedSignatureRef.current) {
+    if (draftSignatureRef.current === lastPersistedSignatureRef.current) {
       setSaveState("saved");
       return;
     }
 
-    const requestId = ++latestSaveRequestRef.current;
-    setSaveState("saving");
-
-    try {
-      const updatedNote = await updateNote(currentNote.id, draftPayload);
-
-      if (latestSaveRequestRef.current !== requestId) {
-        return;
-      }
-
-      lastPersistedSignatureRef.current = JSON.stringify({
-        title: updatedNote.title,
-        contentHtml: sanitizeNoteHtmlClient(updatedNote.contentHtml),
-        projectId: updatedNote.projectId,
-        pinned: updatedNote.pinned,
-        tags: updatedNote.tags,
-      });
-      setSaveState("saved");
-    } catch (saveError: any) {
-      if (latestSaveRequestRef.current !== requestId) {
-        return;
-      }
-
-      setSaveState("error");
-      toast.error(saveError.message || "Failed to save note");
+    if (savePromiseRef.current) {
+      shouldSaveAgainRef.current = true;
+      await savePromiseRef.current;
+      return;
     }
-  }, [currentNote, draftPayload, draftSignature, updateNote]);
+
+    const noteId = activeNote.id;
+    const payload = draftPayloadRef.current;
+    const signature = draftSignatureRef.current;
+
+    savePromiseRef.current = (async () => {
+      setSaveState("saving");
+
+      try {
+        const updatedNote = await updateNote(noteId, payload);
+
+        lastPersistedSignatureRef.current = JSON.stringify({
+          title: updatedNote.title,
+          contentHtml: sanitizeNoteHtmlClient(updatedNote.contentHtml),
+          projectId: updatedNote.projectId,
+          pinned: updatedNote.pinned,
+          tags: updatedNote.tags,
+        });
+
+        if (currentNoteRef.current?.id === updatedNote.id) {
+          setSaveState("saved");
+        }
+      } catch (saveError: any) {
+        setSaveState("error");
+        toast.error(saveError.message || "Failed to save note");
+      } finally {
+        savePromiseRef.current = null;
+
+        if (
+          shouldSaveAgainRef.current &&
+          currentNoteRef.current?.id === noteId &&
+          draftSignatureRef.current !== lastPersistedSignatureRef.current
+        ) {
+          shouldSaveAgainRef.current = false;
+          void persistDraft();
+        } else {
+          shouldSaveAgainRef.current = false;
+        }
+      }
+    })();
+
+    await savePromiseRef.current;
+  }, [updateNote]);
 
   useEffect(() => {
     if (!currentNote || saveState !== "dirty") {
@@ -289,6 +329,8 @@ export default function Notepad() {
 
     if (saveState === "dirty") {
       await persistDraft();
+    } else if (savePromiseRef.current) {
+      await savePromiseRef.current;
     }
   }, [persistDraft, saveState]);
 
@@ -503,6 +545,11 @@ export default function Notepad() {
                           {tag}
                         </Badge>
                       ))}
+                      {note.tags.length > 3 ? (
+                        <span className="text-[11px] text-muted-foreground">
+                          +{note.tags.length - 3} more tags
+                        </span>
+                      ) : null}
                       {showArchived ? (
                         <Button
                           type="button"

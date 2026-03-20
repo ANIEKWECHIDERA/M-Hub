@@ -199,6 +199,53 @@ export const NotificationController = {
     }
   },
 
+  async clearNotification(req: any, res: Response) {
+    const { id } = req.params;
+    const { companyId, userId } = getNotificationUser(req);
+
+    try {
+      const cleared = await NotificationService.clearOne(id, companyId, userId);
+
+      if (!cleared) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+
+      const unreadCount = await NotificationService.getUnreadCount(
+        companyId,
+        userId,
+      );
+
+      return res.json({ success: true, unreadCount });
+    } catch (error) {
+      logger.error("NotificationController.clearNotification failed", {
+        id,
+        companyId,
+        userId,
+        error,
+      });
+
+      return res.status(500).json({ error: "Failed to clear notification" });
+    }
+  },
+
+  async clearAllNotifications(req: any, res: Response) {
+    const { companyId, userId } = getNotificationUser(req);
+
+    try {
+      const clearedCount = await NotificationService.clearAll(companyId, userId);
+
+      return res.json({ success: true, unreadCount: 0, clearedCount });
+    } catch (error) {
+      logger.error("NotificationController.clearAllNotifications failed", {
+        companyId,
+        userId,
+        error,
+      });
+
+      return res.status(500).json({ error: "Failed to clear notifications" });
+    }
+  },
+
   async streamNotifications(req: Request, res: Response) {
     const token = String(req.query.token ?? "").trim();
 

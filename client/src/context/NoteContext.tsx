@@ -108,7 +108,14 @@ export const NoteContextProvider = ({
         return null;
       }
 
+      if (currentNote?.id === id) {
+        setCurrentNoteLoading(false);
+        return currentNote;
+      }
+
       if (detailCacheRef.current[id]) {
+        setCurrentNoteLoading(false);
+        setError(null);
         setCurrentNote(detailCacheRef.current[id]);
         return detailCacheRef.current[id];
       }
@@ -117,6 +124,7 @@ export const NoteContextProvider = ({
       try {
         const note = await notesAPI.getById(id, idToken);
         detailCacheRef.current[id] = note;
+        setError(null);
         setCurrentNote(note);
         return note;
       } catch (noteError: any) {
@@ -126,7 +134,7 @@ export const NoteContextProvider = ({
         setCurrentNoteLoading(false);
       }
     },
-    [authStatus?.onboardingState, idToken],
+    [authStatus?.onboardingState, currentNote, idToken],
   );
 
   const clearCurrentNote = useCallback(() => {

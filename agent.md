@@ -761,6 +761,7 @@ Summary of recent changes:
 - Project and task CRUD now prefer optimistic UI updates with rollback on failure, and create/edit dialogs close immediately on submit attempt instead of waiting for the network round-trip
 - Shared project progress should be treated as backend-canonical. Use project response fields like `progress`, `task_count`, and `completed_task_count` for project-level progress UI instead of recomputing from whatever task slice a client currently has loaded
 - Notifications are now fetched from the backend, rendered from shared context in the header popover, and updated live through SSE plus periodic reconciliation polling
+- Notifications can now be cleared individually or cleared all at once from the header popover; those actions are backed by real backend delete endpoints and realtime removal events
 - Backend notification list responses now use a short-lived user-scoped response cache with explicit ETag handling so repeated identical reads can return cached `304`/JSON responses without recomputing the payload
 - Comments now render real author data from the backend, update in realtime through project-scoped SSE, and use a bottom-pinned composer with upward scrolling history
 - Chat keeps a desktop split view, but on small screens it behaves like a modern messaging app: conversation list first, then a conversation detail view with an inline back button
@@ -770,6 +771,14 @@ Summary of recent changes:
   - small screens open to the notes list first
   - selecting a note opens the editor view with an inline back arrow
   - note section pills like `Active` and `Archived` should use the same dark selected-state treatment as chat section pills
+- Notes now run in a compatibility mode against older live schemas:
+  - if rich-note columns like `plain_text_preview`, `last_edited_at`, `pinned`, or `archived_at` are missing, the backend falls back to legacy-safe note reads and writes
+  - legacy mode derives preview text and edited timestamps from existing columns instead of failing the whole feature
+- The Quill notes editor must initialize only once per mounted editor surface; keep changing callbacks in refs instead of putting them in the editor boot effect dependencies
+- Notes autosave must be single-flight:
+  - only one save request should be in flight per note at a time
+  - later edits should queue a follow-up save instead of overlapping PATCH requests
+  - note-tag writes must be idempotent under repeated saves
 - Chat dialog flows now need explicit close-state cleanup; if a dialog closes, the page must clear any lingering `body` pointer-events lock so the app never becomes unclickable until refresh
 - Direct chat creation should immediately switch the chat route to `?section=direct` so a newly created DM is visible instead of being hidden behind the group/projects filter
 - Chat conversation auto-selection must be owned by the route/page filter, not a second global default in context; otherwise routes like `?section=direct` can get stuck fighting over `activeConversationId` when that section has no conversations yet
@@ -797,6 +806,7 @@ New patterns introduced:
 - In chat, long message content should wrap aggressively and the composer textarea should stay height-capped with its own internal scroll so oversized drafts never push the conversation window out of layout
 - For chat split panes, every flex ancestor around the message pane should keep `min-h-0` so the `overflow-y-auto` thread owns scrolling instead of expanding the whole panel
 - Avoid mount-time typing network calls in chat cleanup/effects; only send `typing: false` if the user was actually marked as typing
+- Keep `/api/status` on a lighter dedicated limiter than login/signup endpoints; the shell pings it often enough that sharing the strict auth limiter can create false auth-sync failures during UI churn or Playwright runs
 
 Assumptions currently in use:
 
