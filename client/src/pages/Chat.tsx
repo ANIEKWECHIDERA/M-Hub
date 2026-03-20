@@ -1191,7 +1191,7 @@ export default function Chat() {
                 />
               </div>
 
-              <div className="flex gap-2 md:hidden">
+              <div className="flex gap-2">
                 {chatSections.map((section) => (
                   <Button
                     key={section.id}

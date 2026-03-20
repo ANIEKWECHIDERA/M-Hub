@@ -8,8 +8,8 @@ import {
 } from "react";
 import { toast } from "sonner";
 import {
+  ArrowLeft,
   Archive,
-  ArchiveRestore,
   Clock3,
   FilePlus2,
   FileText,
@@ -66,8 +66,24 @@ import {
   sanitizeNoteHtmlClient,
 } from "@/lib/notes";
 import { formatRelativeTimestamp } from "@/lib/datetime";
+import { cn } from "@/lib/utils";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+
+function useIsMobileScreen() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const handleChange = () => setIsMobile(mediaQuery.matches);
+
+    handleChange();
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  return isMobile;
+}
 
 export default function Notepad() {
   const {
@@ -86,6 +102,7 @@ export default function Notepad() {
     setPinned,
   } = useNoteContext();
   const { projects } = useProjectContext();
+  const isMobile = useIsMobileScreen();
 
   const [showArchived, setShowArchived] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -97,6 +114,7 @@ export default function Notepad() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [isCreating, setIsCreating] = useState(false);
   const [isActionBusy, setIsActionBusy] = useState(false);
+  const [mobileNoteOpen, setMobileNoteOpen] = useState(false);
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const loadedNoteIdRef = useRef<string | null>(null);
@@ -156,8 +174,15 @@ export default function Notepad() {
   useEffect(() => {
     if (showArchived) {
       clearCurrentNote();
+      setMobileNoteOpen(false);
     }
   }, [clearCurrentNote, showArchived]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileNoteOpen(false);
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     fetchNotes({ archived: showArchived });
@@ -277,6 +302,7 @@ export default function Notepad() {
       });
       loadedNoteIdRef.current = null;
       await openNote(note.id);
+      setMobileNoteOpen(true);
     } catch (createError: any) {
       toast.error(createError.message || "Failed to create note");
     } finally {
@@ -287,6 +313,7 @@ export default function Notepad() {
   const handleSelectNote = async (note: NoteSummary) => {
     await flushPendingSave();
     await openNote(note.id);
+    setMobileNoteOpen(true);
   };
 
   const handleTogglePin = async () => {
@@ -320,6 +347,7 @@ export default function Notepad() {
       await archiveNote(archiveTarget.id);
       setArchiveTarget(null);
       loadedNoteIdRef.current = null;
+      setMobileNoteOpen(false);
     } catch (archiveError: any) {
       toast.error(archiveError.message || "Failed to archive note");
     } finally {
@@ -335,6 +363,7 @@ export default function Notepad() {
         setShowArchived(false);
         loadedNoteIdRef.current = null;
         await openNote(restored.id);
+        setMobileNoteOpen(true);
       }
     } catch (restoreError: any) {
       toast.error(restoreError.message || "Failed to restore note");
@@ -369,9 +398,13 @@ export default function Notepad() {
     </Empty>
   );
 
+  const showListPane = !isMobile || !mobileNoteOpen;
+  const showEditorPane = !isMobile || mobileNoteOpen;
+
   return (
     <div className="flex h-[calc(100vh-8rem)] min-h-0 gap-4">
-      <Card className="flex w-[22rem] min-h-0 shrink-0 flex-col overflow-hidden">
+      {showListPane && (
+      <Card className="flex min-h-0 w-full shrink-0 flex-col overflow-hidden md:w-[22rem]">
         <div className="flex items-center justify-between border-b px-4 py-4">
           <div>
             <h1 className="text-lg font-semibold">Notes</h1>
@@ -406,7 +439,7 @@ export default function Notepad() {
           <div className="flex gap-2">
             <Button
               type="button"
-              variant={!showArchived ? "secondary" : "outline"}
+              variant={!showArchived ? "default" : "outline"}
               size="sm"
               className="rounded-lg"
               onClick={() => setShowArchived(false)}
@@ -415,7 +448,7 @@ export default function Notepad() {
             </Button>
             <Button
               type="button"
-              variant={showArchived ? "secondary" : "outline"}
+              variant={showArchived ? "default" : "outline"}
               size="sm"
               className="rounded-lg"
               onClick={() => setShowArchived(true)}
@@ -492,8 +525,10 @@ export default function Notepad() {
           )}
         </div>
       </Card>
+      )}
 
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {showEditorPane && (
+      <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {error ? (
           <div className="flex flex-1 items-center justify-center p-6">
             <Empty className="max-w-lg">
@@ -516,22 +551,39 @@ export default function Notepad() {
             <div className="sticky top-0 z-10 border-b bg-background/95 px-5 py-4 backdrop-blur">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0 flex-1 space-y-3">
-                  <Input
-                    value={editorTitle}
-                    onChange={(event) => setEditorTitle(event.target.value)}
-                    onBlur={() => void flushPendingSave()}
-                    placeholder="Untitled note"
-                    className="h-11 border-0 px-0 text-2xl font-semibold shadow-none focus-visible:ring-0"
-                  />
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock3 className="h-4 w-4" />
-                      {getNoteSaveStateLabel(saveState)}
-                    </span>
-                    <span>Edited {formatRelativeTimestamp(currentNote.lastEditedAt)}</span>
-                    {currentProjectTitle ? (
-                      <Badge variant="outline">{currentProjectTitle}</Badge>
-                    ) : null}
+                  <div className="flex min-w-0 items-start gap-3">
+                    {isMobile && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        onClick={() => setMobileNoteOpen(false)}
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        <span className="sr-only">Back to notes</span>
+                      </Button>
+                    )}
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <Input
+                        value={editorTitle}
+                        onChange={(event) => setEditorTitle(event.target.value)}
+                        onBlur={() => void flushPendingSave()}
+                        placeholder="Untitled note"
+                        className="h-11 border-0 px-0 text-2xl font-semibold shadow-none focus-visible:ring-0"
+                      />
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock3 className="h-4 w-4" />
+                          {getNoteSaveStateLabel(saveState)}
+                        </span>
+                        <span>
+                          Edited {formatRelativeTimestamp(currentNote.lastEditedAt)}
+                        </span>
+                        {currentProjectTitle ? (
+                          <Badge variant="outline">{currentProjectTitle}</Badge>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -657,6 +709,7 @@ export default function Notepad() {
           </div>
         )}
       </Card>
+      )}
 
       <AlertDialog
         open={Boolean(archiveTarget)}

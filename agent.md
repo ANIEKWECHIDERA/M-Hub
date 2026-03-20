@@ -764,6 +764,12 @@ Summary of recent changes:
 - Backend notification list responses now use a short-lived user-scoped response cache with explicit ETag handling so repeated identical reads can return cached `304`/JSON responses without recomputing the payload
 - Comments now render real author data from the backend, update in realtime through project-scoped SSE, and use a bottom-pinned composer with upward scrolling history
 - Chat keeps a desktop split view, but on small screens it behaves like a modern messaging app: conversation list first, then a conversation detail view with an inline back button
+- Chat section pills for `Projects` and `Direct` should stay visible across screen sizes, with the selected state using the primary/dark button treatment instead of a muted pill style
+- Notes now follow the same interaction model as Chat:
+  - desktop uses a split list/editor layout
+  - small screens open to the notes list first
+  - selecting a note opens the editor view with an inline back arrow
+  - note section pills like `Active` and `Archived` should use the same dark selected-state treatment as chat section pills
 - Chat dialog flows now need explicit close-state cleanup; if a dialog closes, the page must clear any lingering `body` pointer-events lock so the app never becomes unclickable until refresh
 - Direct chat creation should immediately switch the chat route to `?section=direct` so a newly created DM is visible instead of being hidden behind the group/projects filter
 - Chat conversation auto-selection must be owned by the route/page filter, not a second global default in context; otherwise routes like `?section=direct` can get stuck fighting over `activeConversationId` when that section has no conversations yet
