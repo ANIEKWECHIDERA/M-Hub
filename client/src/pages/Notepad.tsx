@@ -576,7 +576,7 @@ export default function Notepad() {
               className="pl-9"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant={!showArchived ? "default" : "outline"}
@@ -595,48 +595,50 @@ export default function Notepad() {
             >
               Archived
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="min-w-[5.5rem] rounded-lg px-0"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                  <span className="sr-only">
-                    {showArchived ? "Archived note actions" : "Note actions"}
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {showArchived ? (
-                  <>
-                    <DropdownMenuItem onClick={() => startBulkMode("restore")}>
-                      Bulk restore
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => startBulkMode("delete")}
-                    >
-                      Bulk delete
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <>
-                    <DropdownMenuItem onClick={() => startBulkMode("archive")}>
-                      Mark to archive
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => startBulkMode("delete")}
-                    >
-                      Mark to delete
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="ml-auto">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-lg"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">
+                      {showArchived ? "Archived note actions" : "Note actions"}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {showArchived ? (
+                    <>
+                      <DropdownMenuItem onClick={() => startBulkMode("restore")}>
+                        Bulk restore
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => startBulkMode("delete")}
+                      >
+                        Bulk delete
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={() => startBulkMode("archive")}>
+                        Mark to archive
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => startBulkMode("delete")}
+                      >
+                        Mark to delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           {bulkMode ? (
             <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2">
