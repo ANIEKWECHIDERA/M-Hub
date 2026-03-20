@@ -157,6 +157,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const streamRef = useRef<EventSource | null>(null);
   const conversationsRefreshTimeoutRef = useRef<number | null>(null);
   const activeRefreshTimeoutRef = useRef<number | null>(null);
+  const conversationsRetryTimeoutRef = useRef<number | null>(null);
+  const conversationsRetryCountRef = useRef(0);
   const idTokenRef = useRef<string | null>(idToken);
   const activeConversationIdRef = useRef<string | null>(activeConversationId);
   const conversationsRefreshRef = useRef<Promise<void> | null>(null);
@@ -209,6 +211,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       window.clearTimeout(activeRefreshTimeoutRef.current);
       activeRefreshTimeoutRef.current = null;
     }
+    if (conversationsRetryTimeoutRef.current) {
+      window.clearTimeout(conversationsRetryTimeoutRef.current);
+      conversationsRetryTimeoutRef.current = null;
+    }
+    conversationsRetryCountRef.current = 0;
     lastReadMessageIdRef.current = null;
   }, []);
 
@@ -262,9 +269,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
           setConversations(sortConversations(response.conversations ?? []));
           setError(null);
+          conversationsRetryCountRef.current = 0;
         } catch (chatError: any) {
           if (scopeKeyRef.current === requestScope) {
             setError(chatError.message || "Failed to load chats");
+            if (
+              conversationsRetryCountRef.current < 1 &&
+              !conversationsRetryTimeoutRef.current
+            ) {
+              conversationsRetryCountRef.current += 1;
+              conversationsRetryTimeoutRef.current = window.setTimeout(() => {
+                conversationsRetryTimeoutRef.current = null;
+                void refreshConversations({ silent: true });
+              }, 500);
+            }
           }
         } finally {
           if (!silent) {

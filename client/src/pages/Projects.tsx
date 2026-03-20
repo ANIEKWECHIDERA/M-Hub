@@ -389,7 +389,7 @@ export default function Projects() {
             <DialogHeader>
               <DialogTitle>Edit Project</DialogTitle>
               <DialogDescription>
-                Update the task details and save your changes.
+                Update the project details and save your changes.
               </DialogDescription>
             </DialogHeader>
             <ProjectForm
