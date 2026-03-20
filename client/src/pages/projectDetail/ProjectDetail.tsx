@@ -53,7 +53,6 @@ import {
   Breadcrumb,
   BreadcrumbList,
   BreadcrumbItem,
-  BreadcrumbLink,
   BreadcrumbSeparator,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
@@ -166,15 +165,21 @@ export function ProjectDetail() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink>
-                <RouterLink to="/">Home</RouterLink>
-              </BreadcrumbLink>
+              <RouterLink
+                to="/"
+                className="transition-colors hover:text-foreground"
+              >
+                Home
+              </RouterLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink>
-                <RouterLink to="/projects">Projects</RouterLink>
-              </BreadcrumbLink>
+              <RouterLink
+                to="/projects"
+                className="transition-colors hover:text-foreground"
+              >
+                Projects
+              </RouterLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>

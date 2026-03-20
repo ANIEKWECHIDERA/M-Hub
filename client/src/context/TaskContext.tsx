@@ -120,7 +120,6 @@ export const TaskContextProvider = ({
       const allTasks = await Promise.all(
         ids.map((id) => tasksAPI.getAllByProject(id, idToken)),
       );
-      console.log("All tasks:", allTasks);
       // Flatten the results and normalize
       setTasks(allTasks.flat().map(normalizeTask));
     } catch (err: any) {
