@@ -329,6 +329,10 @@ model notes {
   title       String
   visibility  String    @default("private")
   content     String
+  plain_text_preview String @default("")
+  pinned      Boolean   @default(false)
+  archived_at DateTime?
+  last_edited_at DateTime @default(now()) @map("last_edited_at")
   created_at  DateTime  @default(now()) @map("created_at")
   updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
 
@@ -341,6 +345,8 @@ model notes {
   @@index([company_id])
   @@index([project_id])
   @@index([author_id])
+  @@index([company_id, author_id, archived_at])
+  @@index([company_id, author_id, pinned, updated_at])
 }
 
 model note_tags {
@@ -353,6 +359,7 @@ model note_tags {
 
   @@map("note_tags")
   @@index([note_id])
+  @@unique([company_id, note_id, tag])
 }
 
 // ============================================

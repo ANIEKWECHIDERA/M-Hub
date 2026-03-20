@@ -12,7 +12,7 @@ const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 router.get(
   "/notes/:noteId/tags",
   ...protectedRoute,
-  authorize(["admin", "superAdmin", "team_member"]),
+  authorize(["admin", "superAdmin", "team_member", "member"]),
   NoteTagController.getNoteTags,
 );
 
@@ -20,7 +20,7 @@ router.get(
 router.put(
   "/notes/:noteId/tags",
   ...protectedRoute,
-  authorize(["admin", "superAdmin", "team_member"]),
+  authorize(["admin", "superAdmin", "team_member", "member"]),
   NoteTagController.upsertNoteTags,
 );
 

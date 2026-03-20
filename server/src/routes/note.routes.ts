@@ -1,43 +1,61 @@
 import { Router } from "express";
 import { NoteController } from "../controllers/note.controller";
 import { authorize } from "../middleware/authorize";
-import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
 import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
+import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
 
 const router = Router();
 const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
+const noteRoles = ["admin", "superAdmin", "team_member", "member"] as const;
 
-// READ (company scoped, private/public logic handled in service)
 router.get(
   "/notes",
   ...protectedRoute,
-  authorize(["admin", "superAdmin", "team_member"]),
-  NoteController.getMyNotes,
+  authorize([...noteRoles]),
+  NoteController.listNotes,
 );
 
-// CREATE (any authenticated user)
+router.get(
+  "/notes/:id",
+  ...protectedRoute,
+  authorize([...noteRoles]),
+  NoteController.getNote,
+);
+
 router.post(
   "/notes",
   ...protectedRoute,
-  authorize(["admin", "superAdmin", "team_member"]),
+  authorize([...noteRoles]),
   NoteController.createNote,
 );
 
-// UPDATE (author only)
 router.patch(
   "/notes/:id",
   ...protectedRoute,
-  authorize(["admin", "superAdmin", "team_member"]),
+  authorize([...noteRoles]),
   NoteController.updateNote,
 );
 
-// DELETE (author only)
+router.patch(
+  "/notes/:id/pin",
+  ...protectedRoute,
+  authorize([...noteRoles]),
+  NoteController.setPinned,
+);
+
+router.post(
+  "/notes/:id/restore",
+  ...protectedRoute,
+  authorize([...noteRoles]),
+  NoteController.restoreNote,
+);
+
 router.delete(
   "/notes/:id",
   ...protectedRoute,
-  authorize(["admin", "superAdmin", "team_member"]),
-  NoteController.deleteNote,
+  authorize([...noteRoles]),
+  NoteController.archiveNote,
 );
 
 export default router;

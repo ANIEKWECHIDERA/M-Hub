@@ -107,6 +107,27 @@ The client uses multiple React context providers for project, task, note, asset,
 
 Before introducing new global state, check whether an existing context already owns it.
 
+### 4a. Notes are now a real personal feature, not mock UI
+
+The Notes feature is now backed by the real backend and is intentionally personal.
+
+- Notes are scoped to:
+  - authenticated user
+  - active company/workspace
+- Notes are not shared with teammates
+- The frontend Notes surface lives in:
+  - `client/src/pages/Notepad.tsx`
+  - `client/src/context/NoteContext.tsx`
+  - `client/src/components/notes/NoteEditor.tsx`
+  - `client/src/api/notes.api.ts`
+- The backend Notes surface lives in:
+  - `server/src/routes/note.routes.ts`
+  - `server/src/controllers/note.controller.ts`
+  - `server/src/services/note.service.ts`
+  - `server/src/lib/noteSanitizer.ts`
+
+Notes reuse the existing `notes` and `note_tags` tables, but the feature was upgraded from a mock textarea flow to a richer Quill-based editor with autosave and safer persistence.
+
 ### 5. Workspace-aware UI shell
 
 The authenticated app now uses a shadcn-style provider-based sidebar shell rather than a fixed custom sidebar.
@@ -447,6 +468,111 @@ Current limitations / deferred chat items:
 - moderation hide/delete flows beyond the current backend soft-delete rules are not implemented yet
 - direct/group/project conversation creation strategy on the frontend is still pending product UI work
 - the new `chat_membership` cache is still process-local; in a multi-instance deployment it should move to Redis or another shared cache so read/typing authorization hits are shared across nodes
+
+### 11. Notes implementation details
+
+Current notes data model:
+
+- table: `notes`
+- ownership: `author_id + company_id`
+- optional project linkage: `project_id`
+- stored fields now used by the Notes UX:
+  - `title`
+  - `content` (stores sanitized rich HTML)
+  - `plain_text_preview`
+  - `pinned`
+  - `archived_at`
+  - `last_edited_at`
+  - timestamps
+- tags remain in `note_tags`
+
+Notes backend API:
+
+- `GET /api/notes`
+  - returns current user notes for the active workspace
+  - supports `archived=true` and optional `q`
+- `GET /api/notes/:id`
+  - returns one note detail for the current user/workspace
+- `POST /api/notes`
+  - creates a new personal note
+- `PATCH /api/notes/:id`
+  - updates title, content, linked project, pin state, and tags
+- `PATCH /api/notes/:id/pin`
+  - toggles pinned state
+- `POST /api/notes/:id/restore`
+  - restores an archived note
+- `DELETE /api/notes/:id`
+  - archives a note instead of hard deleting it
+
+Ownership/security model:
+
+- every notes controller derives `company_id` and `author_id` from the authenticated request
+- the client is not trusted for note ownership
+- list, read, update, pin, archive, and restore all enforce the authenticated user plus company/workspace scope
+- note HTML is sanitized on the backend before persistence
+
+Quill integration:
+
+- the Notes editor now uses Quill directly through `client/src/components/notes/NoteEditor.tsx`
+- toolbar is intentionally limited to practical note-taking features:
+  - headings
+  - bold / italic / underline / strike
+  - ordered, bullet, and checklist lists
+  - blockquote
+  - code block
+  - links
+  - text color / highlight
+  - clean formatting
+- lightweight undo/redo controls are exposed above the editor via Quill history
+
+Sanitization approach:
+
+- backend source of truth:
+  - `server/src/lib/noteSanitizer.ts`
+  - uses `sanitize-html`
+  - preserves expected rich text while stripping unsafe tags and attributes
+- frontend defense-in-depth:
+  - `client/src/lib/notes.ts`
+  - uses `dompurify`
+  - sanitizes editor HTML before save and sanitizes pasted HTML before insertion into Quill
+- preview snippets are generated from sanitized plain text, not rendered raw HTML
+
+Save strategy:
+
+- notes are created once, then updated via debounced autosave
+- editor changes are debounced at about 800ms
+- save state is surfaced in the UI as:
+  - `Saving...`
+  - `Saved`
+  - `Unsaved changes`
+  - `Save failed`
+- pending changes are flushed when switching notes, blurring the editor, or taking destructive actions
+- note hydration is keyed by note ID so switching notes does not leak stale editor state or reset cursor position on every autosave response
+
+Notes UX features currently implemented:
+
+- real note list and detail/editor flow
+- search over title, preview, and tags
+- pinned notes
+- archived notes with restore flow
+- optional project link
+- tags
+- empty, loading, and error states
+- tooltip coverage on key note actions
+
+Notes testing currently added:
+
+- backend tests cover:
+  - sanitization behavior
+  - ownership scoping in controller flows
+  - archive/update not-found behavior
+
+Known limitations:
+
+- notes search is lightweight and user-scoped; it is not full-text indexed search
+- autosave is debounced and flushed on key interactions, but there is no offline draft recovery layer yet
+- archived notes are hidden from the active list and restored via a dedicated action; there is no permanent hard-delete UI yet
+- rich text is stored as sanitized HTML in the existing `notes.content` column for compatibility, not in a separate delta/json column
 
 ## Important Paths
 

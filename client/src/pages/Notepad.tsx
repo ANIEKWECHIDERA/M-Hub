@@ -1,32 +1,46 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-
-import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
 import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
+  Archive,
+  ArchiveRestore,
+  Clock3,
+  FilePlus2,
   FileText,
-  Calendar,
+  Loader2,
+  Pin,
+  PinOff,
+  Search,
   Tag,
 } from "lucide-react";
+import type { Note, NoteSummary } from "@/Types/types";
 import { useNoteContext } from "@/context/NoteContext";
 import { useProjectContext } from "@/context/ProjectContext";
-import type { Note } from "@/Types/types";
-
-import { AlertDialog } from "@radix-ui/react-alert-dialog";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -35,266 +49,638 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Toaster } from "sonner";
-import NoteForm from "@/components/NoteForm";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { NoteEditor } from "@/components/notes/NoteEditor";
+import {
+  buildNoteSearchText,
+  EMPTY_NOTE_HTML,
+  getNoteSaveStateLabel,
+  normalizeNoteTagsClient,
+  normalizeNoteTitleClient,
+  sanitizeNoteHtmlClient,
+} from "@/lib/notes";
+import { formatRelativeTimestamp } from "@/lib/datetime";
+
+type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 
 export default function Notepad() {
-  const { notes, addNote, updateNote, deleteNote, loading, error } =
-    useNoteContext();
+  const {
+    notes,
+    currentNote,
+    loading,
+    currentNoteLoading,
+    error,
+    fetchNotes,
+    openNote,
+    clearCurrentNote,
+    createNote,
+    updateNote,
+    archiveNote,
+    restoreNote,
+    setPinned,
+  } = useNoteContext();
   const { projects } = useProjectContext();
 
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<Note | null>(null);
+  const [editorTitle, setEditorTitle] = useState("");
+  const [editorContentHtml, setEditorContentHtml] = useState(EMPTY_NOTE_HTML);
+  const [editorTagsInput, setEditorTagsInput] = useState("");
+  const [editorProjectId, setEditorProjectId] = useState<string>("none");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [isCreating, setIsCreating] = useState(false);
+  const [isActionBusy, setIsActionBusy] = useState(false);
 
-  const filteredNotes: Note[] = notes.filter(
-    (note: Note) =>
-      note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.content?.toLowerCase().includes(searchTerm.toLowerCase() ?? false) ||
-      note.tags.some((tag) =>
-        tag.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const loadedNoteIdRef = useRef<string | null>(null);
+  const saveTimeoutRef = useRef<number | null>(null);
+  const latestSaveRequestRef = useRef(0);
+  const lastPersistedSignatureRef = useRef("");
+
+  const filteredNotes = useMemo(() => {
+    const query = deferredSearchTerm.trim().toLowerCase();
+
+    if (!query) {
+      return notes;
+    }
+
+    return notes.filter((note) =>
+      buildNoteSearchText(note).includes(query),
+    );
+  }, [deferredSearchTerm, notes]);
+
+  const editorTags = useMemo(
+    () =>
+      normalizeNoteTagsClient(
+        editorTagsInput
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      ),
+    [editorTagsInput],
   );
 
-  if (loading) return <div>Loading notes...</div>;
-  if (error) return <div>Error: {error}</div>;
+  const currentProjectTitle = useMemo(() => {
+    if (!currentNote?.projectId) {
+      return null;
+    }
+
+    return (
+      projects.find((project) => project.id === currentNote.projectId)?.title ?? null
+    );
+  }, [currentNote?.projectId, projects]);
+
+  const draftPayload = useMemo(
+    () => ({
+      title: normalizeNoteTitleClient(editorTitle),
+      contentHtml: sanitizeNoteHtmlClient(editorContentHtml),
+      projectId: editorProjectId === "none" ? null : editorProjectId,
+      pinned: currentNote?.pinned ?? false,
+      tags: editorTags,
+    }),
+    [currentNote?.pinned, editorContentHtml, editorProjectId, editorTags, editorTitle],
+  );
+
+  const draftSignature = useMemo(
+    () => JSON.stringify(draftPayload),
+    [draftPayload],
+  );
+
+  useEffect(() => {
+    if (showArchived) {
+      clearCurrentNote();
+    }
+  }, [clearCurrentNote, showArchived]);
+
+  useEffect(() => {
+    fetchNotes({ archived: showArchived });
+  }, [fetchNotes, showArchived]);
+
+  useEffect(() => {
+    if (!currentNote || loadedNoteIdRef.current === currentNote.id) {
+      return;
+    }
+
+    loadedNoteIdRef.current = currentNote.id;
+    setEditorTitle(currentNote.title);
+    setEditorContentHtml(currentNote.contentHtml);
+    setEditorTagsInput(currentNote.tags.join(", "));
+    setEditorProjectId(currentNote.projectId ?? "none");
+    setSaveState("saved");
+    lastPersistedSignatureRef.current = JSON.stringify({
+      title: currentNote.title,
+      contentHtml: sanitizeNoteHtmlClient(currentNote.contentHtml),
+      projectId: currentNote.projectId,
+      pinned: currentNote.pinned,
+      tags: currentNote.tags,
+    });
+  }, [currentNote]);
+
+  useEffect(() => {
+    if (!currentNote || loadedNoteIdRef.current !== currentNote.id) {
+      return;
+    }
+
+    if (draftSignature === lastPersistedSignatureRef.current) {
+      if (saveState !== "saving" && saveState !== "saved") {
+        setSaveState("saved");
+      }
+      return;
+    }
+
+    setSaveState("dirty");
+  }, [currentNote, draftSignature, saveState]);
+
+  const persistDraft = useCallback(async () => {
+    if (!currentNote) {
+      return;
+    }
+
+    if (draftSignature === lastPersistedSignatureRef.current) {
+      setSaveState("saved");
+      return;
+    }
+
+    const requestId = ++latestSaveRequestRef.current;
+    setSaveState("saving");
+
+    try {
+      const updatedNote = await updateNote(currentNote.id, draftPayload);
+
+      if (latestSaveRequestRef.current !== requestId) {
+        return;
+      }
+
+      lastPersistedSignatureRef.current = JSON.stringify({
+        title: updatedNote.title,
+        contentHtml: sanitizeNoteHtmlClient(updatedNote.contentHtml),
+        projectId: updatedNote.projectId,
+        pinned: updatedNote.pinned,
+        tags: updatedNote.tags,
+      });
+      setSaveState("saved");
+    } catch (saveError: any) {
+      if (latestSaveRequestRef.current !== requestId) {
+        return;
+      }
+
+      setSaveState("error");
+      toast.error(saveError.message || "Failed to save note");
+    }
+  }, [currentNote, draftPayload, draftSignature, updateNote]);
+
+  useEffect(() => {
+    if (!currentNote || saveState !== "dirty") {
+      return;
+    }
+
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = window.setTimeout(() => {
+      void persistDraft();
+    }, 800);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [currentNote, persistDraft, saveState]);
+
+  const flushPendingSave = useCallback(async () => {
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    if (saveState === "dirty") {
+      await persistDraft();
+    }
+  }, [persistDraft, saveState]);
+
+  const handleCreateNote = async () => {
+    setIsCreating(true);
+    try {
+      await flushPendingSave();
+      const note = await createNote({
+        title: "Untitled note",
+        contentHtml: EMPTY_NOTE_HTML,
+      });
+      loadedNoteIdRef.current = null;
+      await openNote(note.id);
+    } catch (createError: any) {
+      toast.error(createError.message || "Failed to create note");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleSelectNote = async (note: NoteSummary) => {
+    await flushPendingSave();
+    await openNote(note.id);
+  };
+
+  const handleTogglePin = async () => {
+    if (!currentNote) {
+      return;
+    }
+
+    try {
+      setIsActionBusy(true);
+      const updated = await setPinned(currentNote.id, !currentNote.pinned);
+      if (updated) {
+        loadedNoteIdRef.current = null;
+        await openNote(updated.id);
+      }
+      toast.success(currentNote.pinned ? "Note unpinned" : "Note pinned");
+    } catch (pinError: any) {
+      toast.error(pinError.message || "Failed to update note");
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!archiveTarget) {
+      return;
+    }
+
+    try {
+      setIsActionBusy(true);
+      await flushPendingSave();
+      await archiveNote(archiveTarget.id);
+      setArchiveTarget(null);
+      loadedNoteIdRef.current = null;
+    } catch (archiveError: any) {
+      toast.error(archiveError.message || "Failed to archive note");
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+
+  const handleRestore = async (noteId: string) => {
+    try {
+      setIsActionBusy(true);
+      const restored = await restoreNote(noteId);
+      if (restored) {
+        setShowArchived(false);
+        loadedNoteIdRef.current = null;
+        await openNote(restored.id);
+      }
+    } catch (restoreError: any) {
+      toast.error(restoreError.message || "Failed to restore note");
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+
+  const listEmptyState = showArchived ? (
+    <Empty className="border-none px-4 py-14">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Archive className="size-5" />
+        </EmptyMedia>
+        <EmptyTitle>No archived notes</EmptyTitle>
+        <EmptyDescription>
+          Archived notes will appear here so you can restore them later.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  ) : (
+    <Empty className="border-none px-4 py-14">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <FileText className="size-5" />
+        </EmptyMedia>
+        <EmptyTitle>No notes yet</EmptyTitle>
+        <EmptyDescription>
+          Create your first personal note for planning, briefs, or quick capture.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-4">
-      {/* Notes Sidebar */}
-      <Card className="w-80 flex flex-col">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Notes</CardTitle>
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
-                  <DialogTitle>Create New Note</DialogTitle>
-                </DialogHeader>
-                <NoteForm
-                  onSave={async (data: any) => {
-                    const newNote: Note = {
-                      id: notes.length + 1, // TODO: Replace with server-generated ID
-                      companyId: 1, // TODO: Replace with useAuthContext().user.companyId
-                      projectId: data.projectId || 0, // Use 0 for no project
-                      authorId: 1, // TODO: Replace with useAuthContext().user.id
-                      title: data.title!,
-                      content: data.content,
-                      tags: data.tags || [],
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    };
-                    await addNote(newNote);
-                    setSelectedNote(newNote);
-                    setIsCreateOpen(false);
-                  }}
-                  onCancel={() => setIsCreateOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
+    <div className="flex h-[calc(100vh-8rem)] min-h-0 gap-4">
+      <Card className="flex w-[22rem] min-h-0 shrink-0 flex-col overflow-hidden">
+        <div className="flex items-center justify-between border-b px-4 py-4">
+          <div>
+            <h1 className="text-lg font-semibold">Notes</h1>
+            <p className="text-sm text-muted-foreground">
+              Personal notes scoped to your active workspace.
+            </p>
           </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={handleCreateNote} size="icon" disabled={isCreating}>
+                {isCreating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FilePlus2 className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Create a new note</TooltipContent>
+          </Tooltip>
+        </div>
+
+        <div className="space-y-3 border-b px-4 py-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search notes..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search notes"
+              className="pl-9"
             />
           </div>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto p-0">
-          <div className="space-y-2 px-4">
-            {filteredNotes.map((note: Note) => (
-              <div
-                key={note.id}
-                onClick={() => setSelectedNote(note)}
-                className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                  selectedNote?.id === note.id
-                    ? "bg-primary/10 border border-primary/20"
-                    : "hover:bg-muted/50"
-                }`}
-              >
-                <div className="space-y-2">
-                  <h3 className="font-medium text-sm line-clamp-1">
-                    {note.title}
-                  </h3>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {note.content}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      <span>
-                        {new Date(note.updatedAt).toLocaleDateString()}
-                      </span>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={!showArchived ? "secondary" : "outline"}
+              size="sm"
+              className="rounded-lg"
+              onClick={() => setShowArchived(false)}
+            >
+              Active
+            </Button>
+            <Button
+              type="button"
+              variant={showArchived ? "secondary" : "outline"}
+              size="sm"
+              className="rounded-lg"
+              onClick={() => setShowArchived(true)}
+            >
+              Archived
+            </Button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+          {loading ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading notes...
+            </div>
+          ) : filteredNotes.length === 0 ? (
+            listEmptyState
+          ) : (
+            <div className="space-y-2">
+              {filteredNotes.map((note) => {
+                const isActive = currentNote?.id === note.id;
+                return (
+                  <button
+                    type="button"
+                    key={note.id}
+                    onClick={() => void handleSelectNote(note)}
+                    className={`w-full rounded-xl border px-3 py-3 text-left transition ${
+                      isActive
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-card hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2">
+                          {note.pinned && <Pin className="h-3.5 w-3.5 text-amber-500" />}
+                          <span className="truncate text-sm font-medium">
+                            {note.title}
+                          </span>
+                        </div>
+                        <p className="line-clamp-2 text-xs text-muted-foreground">
+                          {note.plainTextPreview || "Empty note"}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-xs text-muted-foreground">
+                        {formatRelativeTimestamp(note.updatedAt)}
+                      </div>
                     </div>
-                    {note.projectId && (
-                      <Badge variant="outline" className="text-xs">
-                        {projects.find((p) => p.id === note.projectId)?.title ||
-                          "Unknown Project"}
-                      </Badge>
-                    )}
-                  </div>
-                  {note.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {note.tags.map((tag, index) => (
-                        <Badge
-                          key={index}
-                          variant="secondary"
-                          className="text-xs"
-                        >
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {note.tags.slice(0, 3).map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-[11px]">
                           {tag}
                         </Badge>
                       ))}
+                      {showArchived ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto h-7 rounded-md px-2 text-xs"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleRestore(note.id);
+                          }}
+                        >
+                          Restore
+                        </Button>
+                      ) : null}
                     </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </Card>
 
-      {/* Note Content */}
-      <Card className="flex-1 flex flex-col">
-        {selectedNote ? (
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {error ? (
+          <div className="flex flex-1 items-center justify-center p-6">
+            <Empty className="max-w-lg">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FileText className="size-5" />
+                </EmptyMedia>
+                <EmptyTitle>Notes are unavailable</EmptyTitle>
+                <EmptyDescription>{error}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </div>
+        ) : currentNoteLoading ? (
+          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Opening note...
+          </div>
+        ) : currentNote ? (
           <>
-            <CardHeader className="border-b">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h2 className="text-xl font-semibold">
-                    {selectedNote.title}
-                  </h2>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>
-                        Updated{" "}
-                        {new Date(selectedNote.updatedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    {selectedNote.projectId > 0 && (
-                      <div className="flex items-center gap-1">
-                        <FileText className="h-4 w-4" />
-                        <span>
-                          {projects.find(
-                            (proj) => proj.id === selectedNote.projectId
-                          )?.title || "Unknown Project"}
-                        </span>
-                      </div>
-                    )}
+            <div className="sticky top-0 z-10 border-b bg-background/95 px-5 py-4 backdrop-blur">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="min-w-0 flex-1 space-y-3">
+                  <Input
+                    value={editorTitle}
+                    onChange={(event) => setEditorTitle(event.target.value)}
+                    onBlur={() => void flushPendingSave()}
+                    placeholder="Untitled note"
+                    className="h-11 border-0 px-0 text-2xl font-semibold shadow-none focus-visible:ring-0"
+                  />
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock3 className="h-4 w-4" />
+                      {getNoteSaveStateLabel(saveState)}
+                    </span>
+                    <span>Edited {formatRelativeTimestamp(currentNote.lastEditedAt)}</span>
+                    {currentProjectTitle ? (
+                      <Badge variant="outline">{currentProjectTitle}</Badge>
+                    ) : null}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
+                <div className="flex flex-wrap items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => void handleTogglePin()}
+                        disabled={isActionBusy}
+                      >
+                        {currentNote.pinned ? (
+                          <PinOff className="h-4 w-4" />
+                        ) : (
+                          <Pin className="h-4 w-4" />
+                        )}
                       </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[600px]">
-                      <DialogHeader>
-                        <DialogTitle>Edit Note</DialogTitle>
-                      </DialogHeader>
-                      <NoteForm
-                        note={selectedNote}
-                        onSave={async (data) => {
-                          await updateNote(selectedNote.id, data);
-                          setSelectedNote({
-                            ...selectedNote,
-                            ...data,
-                            updatedAt: new Date().toISOString(),
-                          });
-                          setIsEditOpen(false);
-                        }}
-                        onCancel={() => setIsEditOpen(false)}
-                      />
-                    </DialogContent>
-                  </Dialog>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-red-500 hover:text-red-700 bg-transparent"
-                    onClick={() => setIsDeleteOpen(true)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {currentNote.pinned ? "Unpin note" : "Pin note"}
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setArchiveTarget(currentNote)}
+                        disabled={isActionBusy}
+                      >
+                        <Archive className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Archive note</TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-4">
-                {selectedNote.tags.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex flex-wrap gap-1">
-                      {selectedNote.tags.map((tag: string, index: number) => (
-                        <Badge key={index} variant="secondary">
-                          {tag}
-                        </Badge>
-                      ))}
+            </div>
+
+            <div className="grid min-h-0 flex-1 gap-4 overflow-hidden p-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
+              <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
+                <NoteEditor
+                  value={editorContentHtml}
+                  onChange={setEditorContentHtml}
+                  onBlur={() => void flushPendingSave()}
+                  placeholder="Capture plans, briefs, and ideas..."
+                />
+              </div>
+
+              <div className="space-y-4 overflow-y-auto">
+                <Card className="rounded-xl border bg-muted/20 p-4 shadow-none">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="note-project">Linked Project</Label>
+                      <Select
+                        value={editorProjectId}
+                        onValueChange={(value) => setEditorProjectId(value)}
+                      >
+                        <SelectTrigger id="note-project">
+                          <SelectValue placeholder="No linked project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No linked project</SelectItem>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="note-tags">Tags</Label>
+                      <Input
+                        id="note-tags"
+                        value={editorTagsInput}
+                        onChange={(event) => setEditorTagsInput(event.target.value)}
+                        onBlur={() => void flushPendingSave()}
+                        placeholder="brief, planning, follow-up"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Separate tags with commas for lightweight personal organization.
+                      </p>
+                    </div>
+
+                    {editorTags.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          <Tag className="h-3.5 w-3.5" />
+                          Applied tags
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {editorTags.map((tag) => (
+                            <Badge key={tag} variant="secondary">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                )}
-                <div className="prose prose-sm max-w-none">
-                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                    {selectedNote.content}
-                  </pre>
-                </div>
+                </Card>
               </div>
-            </CardContent>
+            </div>
           </>
         ) : (
-          <CardContent className="flex-1 flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto" />
-              <h3 className="text-lg font-medium">No note selected</h3>
-              <p className="text-muted-foreground">
-                Select a note from the sidebar to view its content
-              </p>
-            </div>
-          </CardContent>
+          <div className="flex flex-1 items-center justify-center p-6">
+            <Empty className="max-w-lg">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FileText className="size-5" />
+                </EmptyMedia>
+                <EmptyTitle>No note selected</EmptyTitle>
+                <EmptyDescription>
+                  Choose a note from the list or create a fresh one to start planning.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </div>
         )}
       </Card>
-      {/* Delete Confirmation */}
-      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+
+      <AlertDialog
+        open={Boolean(archiveTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setArchiveTarget(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Note</AlertDialogTitle>
+            <AlertDialogTitle>Archive note</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this note? This action cannot be
-              undone.
+              This moves the note out of your active list without deleting its content.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                if (selectedNote) {
-                  await deleteNote(selectedNote.id);
-                  setSelectedNote(null);
-                  setIsDeleteOpen(false);
-                }
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
+            <AlertDialogAction onClick={() => void handleArchive()}>
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Sonner toaster */}
-      <Toaster position="top-right" />
     </div>
   );
 }

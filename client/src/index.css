@@ -161,3 +161,23 @@
     transform: translateX(280%);
   }
 }
+
+.notes-quill-editor {
+  @apply h-full bg-background;
+}
+
+.notes-quill-editor .ql-toolbar.ql-snow {
+  @apply border-0 border-b bg-muted/30 px-3 py-2;
+}
+
+.notes-quill-editor .ql-container.ql-snow {
+  @apply border-0 text-sm;
+}
+
+.notes-quill-editor .ql-editor {
+  @apply min-h-[20rem] px-5 py-4 text-sm leading-7 text-foreground;
+}
+
+.notes-quill-editor .ql-editor.ql-blank::before {
+  @apply left-5 right-5 text-sm text-muted-foreground not-italic;
+}

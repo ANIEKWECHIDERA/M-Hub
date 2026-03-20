@@ -1,128 +1,183 @@
 import { Response } from "express";
+import { ZodError } from "zod";
+import {
+  createNoteSchema,
+  noteListQuerySchema,
+  pinNoteSchema,
+  updateNoteSchema,
+} from "../dtos/note.dto";
 import { NoteService } from "../services/note.service";
-import { CreateNoteDTO, UpdateNoteDTO } from "../types/note.types";
-import { logger } from "../utils/logger";
+
+const getScopedUser = (req: any) => ({
+  companyId: req.user.company_id as string,
+  authorId: (req.user.id ?? req.user.user_id) as string,
+});
+
+const handleNoteError = (res: Response, error: unknown, fallback: string) => {
+  if (error instanceof ZodError) {
+    return res.status(400).json({
+      error: "Invalid note payload",
+      details: error.issues,
+    });
+  }
+
+  return res.status(500).json({ error: fallback });
+};
 
 export const NoteController = {
-  async getMyNotes(req: any, res: Response) {
-    const companyId = req.user.company_id;
-    const authorId = req.user.user_id;
+  async listNotes(req: any, res: Response) {
+    const { companyId, authorId } = getScopedUser(req);
 
     try {
-      logger.info("getMyNotes: fetching user notes", {
-        companyId,
-        authorId,
-      });
-
-      const notes = await NoteService.findByAuthor(companyId, authorId);
-
-      return res.json(notes || []);
+      const query = noteListQuerySchema.parse(req.query);
+      const notes = await NoteService.listForAuthor(companyId, authorId, query);
+      return res.json({ notes });
     } catch (error) {
-      logger.error("getMyNotes: failed", {
+      req.log?.error("NoteController.listNotes: failed", {
         companyId,
         authorId,
         error,
       });
+      return handleNoteError(res, error, "Failed to fetch notes");
+    }
+  },
 
-      return res.status(500).json({ error: "Failed to fetch notes" });
+  async getNote(req: any, res: Response) {
+    const { companyId, authorId } = getScopedUser(req);
+    const { id } = req.params;
+
+    try {
+      const note = await NoteService.getById(id, companyId, authorId);
+
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+
+      return res.json({ note });
+    } catch (error) {
+      req.log?.error("NoteController.getNote: failed", {
+        id,
+        companyId,
+        authorId,
+        error,
+      });
+      return handleNoteError(res, error, "Failed to fetch note");
     }
   },
 
   async createNote(req: any, res: Response) {
-    const companyId = req.user.company_id;
-    const authorId = req.user.user_id;
-
-    const payload: CreateNoteDTO = {
-      ...req.body,
-      company_id: companyId,
-      author_id: authorId,
-    };
+    const { companyId, authorId } = getScopedUser(req);
 
     try {
-      logger.info("createNote: creating note", {
+      const body = createNoteSchema.parse(req.body);
+      const note = await NoteService.create({
+        ...body,
+        company_id: companyId,
+        author_id: authorId,
+      });
+
+      return res.status(201).json({ note });
+    } catch (error) {
+      req.log?.error("NoteController.createNote: failed", {
         companyId,
         authorId,
-        projectId: payload.project_id,
-      });
-
-      const note = await NoteService.create(payload);
-
-      return res.status(201).json(note);
-    } catch (error) {
-      logger.error("createNote: failed", {
-        companyId,
-        payload,
         error,
       });
-
-      return res.status(500).json({ error: "Failed to create note" });
+      return handleNoteError(res, error, "Failed to create note");
     }
   },
 
   async updateNote(req: any, res: Response) {
+    const { companyId, authorId } = getScopedUser(req);
     const { id } = req.params;
-    const companyId = req.user.company_id;
-    const authorId = req.user.user_id;
-
-    const payload: UpdateNoteDTO = req.body;
 
     try {
-      logger.info("updateNote: updating note", {
-        id,
-        companyId,
-        authorId,
-      });
+      const body = updateNoteSchema.parse(req.body);
+      const note = await NoteService.update(id, companyId, authorId, body);
 
-      const updatedNote = await NoteService.update(
-        id,
-        companyId,
-        authorId,
-        payload,
-      );
-
-      if (!updatedNote) {
-        return res.status(403).json({
-          error: "You can only edit your own notes",
-        });
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
       }
 
-      return res.json(updatedNote);
+      return res.json({ note });
     } catch (error) {
-      logger.error("updateNote: failed", {
+      req.log?.error("NoteController.updateNote: failed", {
         id,
         companyId,
         authorId,
         error,
       });
-
-      return res.status(500).json({ error: "Failed to update note" });
+      return handleNoteError(res, error, "Failed to update note");
     }
   },
 
-  async deleteNote(req: any, res: Response) {
+  async archiveNote(req: any, res: Response) {
+    const { companyId, authorId } = getScopedUser(req);
     const { id } = req.params;
-    const companyId = req.user.company_id;
-    const authorId = req.user.user_id;
 
     try {
-      logger.info("deleteNote: deleting note", {
-        id,
-        companyId,
-        authorId,
-      });
+      const archived = await NoteService.archive(id, companyId, authorId);
 
-      await NoteService.deleteById(id, companyId, authorId);
+      if (!archived) {
+        return res.status(404).json({ error: "Note not found" });
+      }
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error("deleteNote: failed", {
+      req.log?.error("NoteController.archiveNote: failed", {
         id,
         companyId,
         authorId,
         error,
       });
+      return handleNoteError(res, error, "Failed to archive note");
+    }
+  },
 
-      return res.status(500).json({ error: "Failed to delete note" });
+  async restoreNote(req: any, res: Response) {
+    const { companyId, authorId } = getScopedUser(req);
+    const { id } = req.params;
+
+    try {
+      const note = await NoteService.restore(id, companyId, authorId);
+
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+
+      return res.json({ note });
+    } catch (error) {
+      req.log?.error("NoteController.restoreNote: failed", {
+        id,
+        companyId,
+        authorId,
+        error,
+      });
+      return handleNoteError(res, error, "Failed to restore note");
+    }
+  },
+
+  async setPinned(req: any, res: Response) {
+    const { companyId, authorId } = getScopedUser(req);
+    const { id } = req.params;
+
+    try {
+      const { pinned } = pinNoteSchema.parse(req.body);
+      const note = await NoteService.setPinned(id, companyId, authorId, pinned);
+
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+
+      return res.json({ note });
+    } catch (error) {
+      req.log?.error("NoteController.setPinned: failed", {
+        id,
+        companyId,
+        authorId,
+        error,
+      });
+      return handleNoteError(res, error, "Failed to update note pin");
     }
   },
 };

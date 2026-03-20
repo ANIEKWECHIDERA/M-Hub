@@ -1,127 +1,268 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import type { Note, NoteContextType } from "../Types/types";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import type {
+  CreateNoteInput,
+  Note,
+  NoteContextType,
+  NoteSummary,
+  UpdateNoteInput,
+} from "../Types/types";
+import { notesAPI } from "@/api/notes.api";
+import { useAuthContext } from "./AuthContext";
 
 const NoteContext = createContext<NoteContextType | null>(null);
 
 export const useNoteContext = () => {
   const context = useContext(NoteContext);
   if (!context) {
-    throw new Error("useNoteContext must be used within a NoteProvider");
+    throw new Error("useNoteContext must be used within a NoteContextProvider");
   }
   return context;
 };
+
+const toSummary = (note: Note): NoteSummary => ({
+  id: note.id,
+  companyId: note.companyId,
+  projectId: note.projectId,
+  authorId: note.authorId,
+  title: note.title,
+  plainTextPreview: note.plainTextPreview,
+  pinned: note.pinned,
+  archivedAt: note.archivedAt,
+  createdAt: note.createdAt,
+  updatedAt: note.updatedAt,
+  lastEditedAt: note.lastEditedAt,
+  tags: note.tags,
+});
 
 export const NoteContextProvider = ({
   children,
 }: {
   children: React.ReactNode;
 }) => {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const { idToken, authStatus } = useAuthContext();
+  const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [currentNote, setCurrentNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(false);
+  const [currentNoteLoading, setCurrentNoteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const detailCacheRef = useRef<Record<string, Note>>({});
 
-  // Sample mock notes
-  const mockNotes: Note[] = [
-    {
-      id: 1,
-      companyId: 1,
-      projectId: 5,
-      authorId: 1,
-      title: "Project Meeting Notes",
-      content:
-        "Discussed timeline and deliverrrrrrrrrrrables for LexCorp project. Key points:\n- Logo concepts due by Friday\n- Client feedback session next Tuesday\n- Final delivery by month end",
-      tags: ["meeting", "important"],
-      createdAt: "2024-01-15",
-      updatedAt: "2024-01-15",
-    },
-    {
-      id: 2,
+  const replaceSummary = useCallback((updatedNote: Note) => {
+    const summary = toSummary(updatedNote);
 
-      companyId: 1,
-      projectId: 3,
-      authorId: 1,
-      title: "Design Ideas",
-      content:
-        "Color palette inspiration:\n- Deep blue (#1e40af)\n- Warm gray (#6b7280)\n- Accent green (#10b981)\n\nTypography: Consider Inter or Poppins for clean, modern look.",
+    setNotes((previous) => {
+      const next = previous.some((note) => note.id === summary.id)
+        ? previous.map((note) => (note.id === summary.id ? summary : note))
+        : [summary, ...previous];
 
-      tags: ["design", "inspiration"],
-      createdAt: "2024-01-14",
-      updatedAt: "2024-01-16",
-    },
-    {
-      id: 3,
-      companyId: 1,
-      projectId: 2,
-      authorId: 1,
-      title: "Client Feedback",
-      content:
-        "Client loves the direction we're taking with the brand. Requested minor adjustments to logo spacing and wants to see alternative color options.",
+      return [...next].sort((left, right) => {
+        if (left.pinned !== right.pinned) {
+          return left.pinned ? -1 : 1;
+        }
 
-      tags: ["feedback", "client"],
-      createdAt: "2024-01-16",
-      updatedAt: "2024-01-16",
-    },
-  ];
+        return (
+          new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+        );
+      });
+    });
 
-  const fetchNotes = async () => {
-    setLoading(true);
-    try {
-      // TODO: Replace with API call
-      // const response = await fetch('/api/notes');
-      // const data = await response.json();
-
-      setNotes(mockNotes);
-      setError(null);
-    } catch (err) {
-      setError("Failed to fetch notes.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addNote = async (note: Note) => {
-    setNotes((prev) => [...prev, note]);
-    toast.success("Note added successfully");
-    // TODO: POST to API
-  };
-
-  const updateNote = async (id: number, data: Partial<Note>) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id
-          ? { ...note, ...data, updatedAt: new Date().toISOString() }
-          : note
-      )
+    detailCacheRef.current[updatedNote.id] = updatedNote;
+    setCurrentNote((previous) =>
+      previous?.id === updatedNote.id ? updatedNote : previous,
     );
-    toast.success("Note updated successfully");
-    // TODO: PATCH/PUT to API
-  };
-
-  const deleteNote = async (id: number) => {
-    setNotes((prev) => prev.filter((note) => note.id !== id));
-    toast.success("Note deleted successfully");
-    // TODO: DELETE from API
-  };
-
-  useEffect(() => {
-    fetchNotes();
   }, []);
 
-  const value = {
-    notes,
-    setNotes,
-    currentNote,
-    setCurrentNote,
-    fetchNotes,
-    addNote,
-    updateNote,
-    deleteNote,
-    loading,
-    error,
-    tags: [],
-  };
+  const fetchNotes = useCallback(
+    async (options?: { archived?: boolean; q?: string }) => {
+      if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
+        setNotes([]);
+        setCurrentNote(null);
+        setError(null);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const data = await notesAPI.list(idToken, options);
+        setNotes(data);
+        setError(null);
+
+        setCurrentNote((previous) =>
+          previous && !data.some((note) => note.id === previous.id)
+            ? null
+            : previous,
+        );
+      } catch (noteError: any) {
+        setError(noteError.message || "Failed to fetch notes");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [authStatus?.onboardingState, idToken],
+  );
+
+  const openNote = useCallback(
+    async (id: string) => {
+      if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
+        return null;
+      }
+
+      if (detailCacheRef.current[id]) {
+        setCurrentNote(detailCacheRef.current[id]);
+        return detailCacheRef.current[id];
+      }
+
+      setCurrentNoteLoading(true);
+      try {
+        const note = await notesAPI.getById(id, idToken);
+        detailCacheRef.current[id] = note;
+        setCurrentNote(note);
+        return note;
+      } catch (noteError: any) {
+        setError(noteError.message || "Failed to open note");
+        return null;
+      } finally {
+        setCurrentNoteLoading(false);
+      }
+    },
+    [authStatus?.onboardingState, idToken],
+  );
+
+  const clearCurrentNote = useCallback(() => {
+    setCurrentNote(null);
+  }, []);
+
+  const createNote = useCallback(
+    async (payload?: CreateNoteInput) => {
+      if (!idToken) {
+        throw new Error("You must be signed in to create notes");
+      }
+
+      const note = await notesAPI.create(
+        {
+          title: payload?.title,
+          content_html: payload?.contentHtml,
+          project_id: payload?.projectId ?? null,
+          pinned: payload?.pinned,
+          tags: payload?.tags,
+        },
+        idToken,
+      );
+
+      replaceSummary(note);
+      setCurrentNote(note);
+      toast.success("Note created");
+      return note;
+    },
+    [idToken, replaceSummary],
+  );
+
+  const updateNote = useCallback(
+    async (id: string, data: UpdateNoteInput) => {
+      if (!idToken) {
+        throw new Error("You must be signed in to update notes");
+      }
+
+      const note = await notesAPI.update(
+        id,
+        {
+          title: data.title,
+          content_html: data.contentHtml,
+          project_id: data.projectId ?? null,
+          pinned: data.pinned,
+          tags: data.tags,
+        },
+        idToken,
+      );
+
+      replaceSummary(note);
+      return note;
+    },
+    [idToken, replaceSummary],
+  );
+
+  const archiveNote = useCallback(
+    async (id: string) => {
+      if (!idToken) {
+        throw new Error("You must be signed in to archive notes");
+      }
+
+      await notesAPI.archive(id, idToken);
+      delete detailCacheRef.current[id];
+      setNotes((previous) => previous.filter((note) => note.id !== id));
+      setCurrentNote((previous) => (previous?.id === id ? null : previous));
+      toast.success("Note archived");
+    },
+    [idToken],
+  );
+
+  const restoreNote = useCallback(
+    async (id: string) => {
+      if (!idToken) {
+        throw new Error("You must be signed in to restore notes");
+      }
+
+      const note = await notesAPI.restore(id, idToken);
+      replaceSummary(note);
+      toast.success("Note restored");
+      return note;
+    },
+    [idToken, replaceSummary],
+  );
+
+  const setPinned = useCallback(
+    async (id: string, pinned: boolean) => {
+      if (!idToken) {
+        throw new Error("You must be signed in to pin notes");
+      }
+
+      const note = await notesAPI.setPinned(id, pinned, idToken);
+      replaceSummary(note);
+      return note;
+    },
+    [idToken, replaceSummary],
+  );
+
+  useEffect(() => {
+    detailCacheRef.current = {};
+    setNotes([]);
+    setCurrentNote(null);
+    setError(null);
+  }, [authStatus?.companyId, authStatus?.onboardingState, idToken]);
+
+  const value = useMemo<NoteContextType>(
+    () => ({
+      notes,
+      currentNote,
+      loading,
+      currentNoteLoading,
+      error,
+      fetchNotes,
+      openNote,
+      clearCurrentNote,
+      createNote,
+      updateNote,
+      archiveNote,
+      restoreNote,
+      setPinned,
+    }),
+    [
+      archiveNote,
+      clearCurrentNote,
+      createNote,
+      currentNote,
+      currentNoteLoading,
+      error,
+      fetchNotes,
+      loading,
+      notes,
+      openNote,
+      restoreNote,
+      setPinned,
+      updateNote,
+    ],
+  );
 
   return <NoteContext.Provider value={value}>{children}</NoteContext.Provider>;
 };
