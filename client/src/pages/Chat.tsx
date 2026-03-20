@@ -1769,11 +1769,13 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Manage group members</DialogTitle>
             <DialogDescription>
-              Add new people to this group or remove members who no longer need access.
+              {canManageMembers
+                ? "Add new people to this group or remove members who no longer need access."
+                : "See who currently belongs to this group and start direct conversations from the roster."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className={cn("grid gap-6", canManageMembers && "md:grid-cols-2")}>
             <div className="space-y-3">
               <div>
                 <h3 className="font-medium">Current members</h3>
@@ -1842,72 +1844,74 @@ export default function Chat() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <h3 className="font-medium">Add members</h3>
-                <p className="text-sm text-muted-foreground">
-                  Choose more people from this workspace.
-                </p>
-              </div>
+            {canManageMembers && (
+              <div className="space-y-3">
+                <div>
+                  <h3 className="font-medium">Add members</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Choose more people from this workspace.
+                  </p>
+                </div>
 
-              <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
-                {availableMembersToAdd.length === 0 ? (
-                  <Empty className="border-dashed py-10">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <UserPlus />
-                      </EmptyMedia>
-                      <EmptyTitle>No available members</EmptyTitle>
-                      <EmptyDescription>
-                        Everyone in the workspace is already part of this group.
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                ) : (
-                  availableMembersToAdd.map((member) => (
-                    <label
-                      key={member.id}
-                      className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Checkbox
-                          checked={selectedAddMembers.includes(member.id)}
-                          onCheckedChange={(checked) => {
-                            setSelectedAddMembers((prev) =>
-                              checked
-                                ? [...prev, member.id]
-                                : prev.filter((id) => id !== member.id),
-                            );
-                          }}
-                        />
-                        <MemberAvatar
-                          member={member}
-                          onPreview={() => setProfilePreviewMember(member)}
-                          showPresence
-                        />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate font-medium">{member.name}</p>
-                            <PersonBadge access={member.access} role={member.role} />
+                <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
+                  {availableMembersToAdd.length === 0 ? (
+                    <Empty className="border-dashed py-10">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <UserPlus />
+                        </EmptyMedia>
+                        <EmptyTitle>No available members</EmptyTitle>
+                        <EmptyDescription>
+                          Everyone in the workspace is already part of this group.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  ) : (
+                    availableMembersToAdd.map((member) => (
+                      <label
+                        key={member.id}
+                        className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Checkbox
+                            checked={selectedAddMembers.includes(member.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedAddMembers((prev) =>
+                                checked
+                                  ? [...prev, member.id]
+                                  : prev.filter((id) => id !== member.id),
+                              );
+                            }}
+                          />
+                          <MemberAvatar
+                            member={member}
+                            onPreview={() => setProfilePreviewMember(member)}
+                            showPresence
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate font-medium">{member.name}</p>
+                              <PersonBadge access={member.access} role={member.role} />
+                            </div>
+                            <p className="truncate text-sm text-muted-foreground">
+                              {member.email}
+                            </p>
                           </div>
-                          <p className="truncate text-sm text-muted-foreground">
-                            {member.email}
-                          </p>
                         </div>
-                      </div>
-                    </label>
-                  ))
-                )}
-              </div>
+                      </label>
+                    ))
+                  )}
+                </div>
 
-              <Button
-                className="w-full"
-                onClick={() => void handleAddMembers()}
-                disabled={!selectedAddMembers.length}
-              >
-                Add selected members
-              </Button>
-            </div>
+                <Button
+                  className="w-full"
+                  onClick={() => void handleAddMembers()}
+                  disabled={!selectedAddMembers.length}
+                >
+                  Add selected members
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
