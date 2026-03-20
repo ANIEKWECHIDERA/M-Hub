@@ -598,6 +598,7 @@ Summary of recent changes:
 - Chat dialog flows now need explicit close-state cleanup; if a dialog closes, the page must clear any lingering `body` pointer-events lock so the app never becomes unclickable until refresh
 - Direct chat creation should immediately switch the chat route to `?section=direct` so a newly created DM is visible instead of being hidden behind the group/projects filter
 - Chat auto-scroll should target the message pane container itself, not `scrollIntoView()` on a child node; otherwise the outer layout can shift and the composer can fall out of the viewport
+- When opening a conversation, delay the initial scroll-to-latest until the message fetch has finished and the thread has painted; firing too early can leave the user stranded in older history
 - Dashboard stats and filters can be collapsed on small screens to preserve space without changing the desktop information density
 - Project detail mirrors that small-screen pattern: use a `Show overview` toggle for summary cards on mobile, keep the tab region height-bound, and let only the active tab panel scroll
 - Keep the Overview tab itself static when its content fits; prefer richer summary cards there over turning it into another scrolling pane

@@ -439,7 +439,7 @@ export default function Chat() {
   const messageScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const messageBottomRef = useRef<HTMLDivElement | null>(null);
   const previousMessageCountRef = useRef(0);
-  const activeConversationChangeRef = useRef(false);
+  const shouldScrollOnConversationOpenRef = useRef(false);
   const isMobile = useIsMobileScreen();
   const [showNewMessageJump, setShowNewMessageJump] = useState(false);
   const isWorkspaceManager =
@@ -549,7 +549,8 @@ export default function Chat() {
   }, [isMobile]);
 
   useEffect(() => {
-    activeConversationChangeRef.current = true;
+    shouldScrollOnConversationOpenRef.current = true;
+    previousMessageCountRef.current = 0;
     setShowNewMessageJump(false);
   }, [activeConversationId]);
 
@@ -926,11 +927,13 @@ export default function Chat() {
     const latestMessage = messages[currentCount - 1];
     const latestFromCurrentUser = latestMessage?.sender.user_id === profile?.id;
 
-    if (activeConversationChangeRef.current) {
+    if (shouldScrollOnConversationOpenRef.current && !loadingMessages) {
       requestAnimationFrame(() => {
-        scrollToLatestMessage("auto");
-        activeConversationChangeRef.current = false;
+        requestAnimationFrame(() => {
+          scrollToLatestMessage("auto");
+        });
       });
+      shouldScrollOnConversationOpenRef.current = false;
       previousMessageCountRef.current = currentCount;
       return;
     }
@@ -946,7 +949,7 @@ export default function Chat() {
     }
 
     previousMessageCountRef.current = currentCount;
-  }, [currentChat, messages, profile?.id]);
+  }, [currentChat, loadingMessages, messages, profile?.id]);
 
   return (
     <>
