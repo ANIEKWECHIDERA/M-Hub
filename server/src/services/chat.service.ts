@@ -1165,6 +1165,38 @@ export const ChatService = {
 
     await prisma.$transaction(async (tx) => {
       for (const member of members) {
+        const activeMembership = await tx.$queryRaw<Array<Record<string, any>>>`
+          SELECT id
+          FROM chat_conversation_members
+          WHERE conversation_id = ${conversation.id}::uuid
+            AND user_id = ${member.user_id}::uuid
+            AND removed_at IS NULL
+          LIMIT 1`;
+
+        if (activeMembership[0]) {
+          continue;
+        }
+
+        const removedMembership = await tx.$queryRaw<Array<Record<string, any>>>`
+          SELECT id
+          FROM chat_conversation_members
+          WHERE conversation_id = ${conversation.id}::uuid
+            AND user_id = ${member.user_id}::uuid
+            AND removed_at IS NOT NULL
+          ORDER BY removed_at DESC NULLS LAST, joined_at DESC, id DESC
+          LIMIT 1`;
+
+        if (removedMembership[0]?.id) {
+          await tx.$executeRaw`
+            UPDATE chat_conversation_members
+            SET removed_at = NULL,
+                removed_by = NULL,
+                added_by = ${params.requesterUserId}::uuid,
+                team_member_id = ${member.id}::uuid
+            WHERE id = ${removedMembership[0].id}::uuid`;
+          continue;
+        }
+
         await tx.$executeRaw`
           INSERT INTO chat_conversation_members (
             conversation_id,
@@ -1179,22 +1211,7 @@ export const ChatService = {
             ${member.id}::uuid,
             NOW(),
             ${params.requesterUserId}::uuid
-          WHERE NOT EXISTS (
-            SELECT 1
-            FROM chat_conversation_members cm
-            WHERE cm.conversation_id = ${conversation.id}::uuid
-              AND cm.user_id = ${member.user_id}::uuid
-              AND cm.removed_at IS NULL
-          )`;
-
-        await tx.$executeRaw`
-          UPDATE chat_conversation_members
-          SET removed_at = NULL,
-              removed_by = NULL,
-              added_by = ${params.requesterUserId}::uuid
-          WHERE conversation_id = ${conversation.id}::uuid
-            AND user_id = ${member.user_id}::uuid
-            AND removed_at IS NOT NULL`;
+          `;
       }
     });
 

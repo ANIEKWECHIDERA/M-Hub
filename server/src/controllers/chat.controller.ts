@@ -58,7 +58,13 @@ function handleChatControllerError(res: Response, error: unknown, fallback: stri
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  return res.status(500).json({ error: fallback });
+  const payload: Record<string, unknown> = { error: fallback };
+
+  if (process.env.NODE_ENV !== "production" && error instanceof Error) {
+    payload.details = error.message;
+  }
+
+  return res.status(500).json(payload);
 }
 
 export const ChatController = {
