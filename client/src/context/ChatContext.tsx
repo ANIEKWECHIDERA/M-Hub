@@ -58,7 +58,7 @@ type ChatContextType = {
     participant_user_ids?: string[];
     participant_team_member_ids?: string[];
   }) => Promise<string>;
-  deleteConversation: () => Promise<void>;
+  deleteConversation: (conversationId?: string) => Promise<void>;
   renameConversation: (name: string) => Promise<void>;
   addConversationMembers: (payload: {
     participant_user_ids?: string[];
@@ -161,6 +161,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const activeConversationIdRef = useRef<string | null>(activeConversationId);
   const conversationsRefreshRef = useRef<Promise<void> | null>(null);
   const activeRefreshRef = useRef<Promise<void> | null>(null);
+  const activeRefreshKeyRef = useRef<string | null>(null);
   const scopeKey =
     Boolean(idToken) &&
     Boolean(currentUser) &&
@@ -199,6 +200,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setLoadingOlderMessages(false);
     conversationsRefreshRef.current = null;
     activeRefreshRef.current = null;
+    activeRefreshKeyRef.current = null;
     if (conversationsRefreshTimeoutRef.current) {
       window.clearTimeout(conversationsRefreshTimeoutRef.current);
       conversationsRefreshTimeoutRef.current = null;
@@ -294,10 +296,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setMessages([]);
         setNextMessageCursor(null);
         lastReadMessageIdRef.current = null;
+        activeRefreshKeyRef.current = null;
         return;
       }
 
-      if (activeRefreshRef.current) {
+      const refreshKey = `${requestScope}:${conversationId}`;
+
+      if (
+        activeRefreshRef.current &&
+        activeRefreshKeyRef.current === refreshKey
+      ) {
         return activeRefreshRef.current;
       }
 
@@ -361,11 +369,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       })();
 
       activeRefreshRef.current = request;
+      activeRefreshKeyRef.current = refreshKey;
       try {
         await request;
       } finally {
         if (activeRefreshRef.current === request) {
           activeRefreshRef.current = null;
+          activeRefreshKeyRef.current = null;
         }
       }
     },
@@ -556,9 +566,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     scheduleRefreshConversations,
   ]);
 
-  const deleteConversation = useCallback(async () => {
+  const deleteConversation = useCallback(async (targetConversationId?: string) => {
     const token = idTokenRef.current;
-    const conversationId = activeConversationIdRef.current;
+    const conversationId = targetConversationId ?? activeConversationIdRef.current;
     if (!token || !conversationId) {
       return;
     }
@@ -597,13 +607,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       );
       throw error;
     }
-  }, [
-    activeConversationId,
-    conversationDetails,
-    conversations,
-    messages,
-    scheduleRefreshConversations,
-  ]);
+  }, [activeConversationId, conversationDetails, conversations, messages, scheduleRefreshConversations]);
 
   const addConversationMembers = useCallback(
     async (payload: {
@@ -963,21 +967,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [refreshConversations, refreshWorkspaceMembers, resetState, scopeKey]);
 
   useEffect(() => {
-    if (!scopeKey || !conversations.length) {
-      return;
-    }
-
-    if (
-      activeConversationId &&
-      conversations.some((conversation) => conversation.id === activeConversationId)
-    ) {
-      return;
-    }
-
-    setActiveConversationId(conversations[0]?.id ?? null);
-  }, [activeConversationId, conversations, scopeKey]);
-
-  useEffect(() => {
     if (!scopeKey || !activeConversationId) {
       setConversationDetails(null);
       setMessages([]);
@@ -986,6 +975,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    setConversationDetails(null);
+    setMessages([]);
+    setNextMessageCursor(null);
+    lastReadMessageIdRef.current = null;
     void refreshActiveConversation();
   }, [activeConversationId, refreshActiveConversation, scopeKey]);
 

@@ -19,11 +19,9 @@ export const WorkspaceService = {
       activeCompanyId,
     });
 
-    const { data, error } = await supabaseAdmin
+    const { data: memberships, error } = await supabaseAdmin
       .from("team_members")
-      .select(
-        "company_id, role, access, status, companies(id, name, logo_url)",
-      )
+      .select("company_id, role, access, status")
       .eq("user_id", userId)
       .order("created_at", { ascending: true });
 
@@ -32,15 +30,55 @@ export const WorkspaceService = {
       throw error;
     }
 
-    const workspaces: WorkspaceSummary[] = (data ?? []).map((row: any) => ({
-      companyId: row.company_id,
-      name: row.companies?.name ?? "Workspace",
-      logoUrl: row.companies?.logo_url ?? null,
-      role: row.role,
-      access: row.access,
-      status: row.status,
-      isActive: row.company_id === activeCompanyId,
-    }));
+    const companyIds = Array.from(
+      new Set(
+        (memberships ?? [])
+          .map((row: any) => row.company_id)
+          .filter(Boolean),
+      ),
+    );
+
+    let companiesById = new Map<string, { name: string | null; logo_url: string | null }>();
+
+    if (companyIds.length) {
+      const { data: companies, error: companiesError } = await supabaseAdmin
+        .from("companies")
+        .select("id, name, logo_url")
+        .in("id", companyIds);
+
+      if (companiesError) {
+        logger.error("WorkspaceService.listForUser:companies error", {
+          companiesError,
+          userId,
+          companyIds,
+        });
+        throw companiesError;
+      }
+
+      companiesById = new Map(
+        (companies ?? []).map((company: any) => [
+          company.id,
+          {
+            name: company.name ?? null,
+            logo_url: company.logo_url ?? null,
+          },
+        ]),
+      );
+    }
+
+    const workspaces: WorkspaceSummary[] = (memberships ?? []).map((row: any) => {
+      const company = companiesById.get(row.company_id);
+
+      return {
+        companyId: row.company_id,
+        name: company?.name ?? "Workspace",
+        logoUrl: company?.logo_url ?? null,
+        role: row.role,
+        access: row.access,
+        status: row.status,
+        isActive: row.company_id === activeCompanyId,
+      };
+    });
 
     return workspaces;
   },

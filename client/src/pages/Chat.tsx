@@ -36,7 +36,6 @@ import {
 } from "@/lib/chat";
 import { formatRelativeTimestamp, formatShortTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,14 +48,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -98,6 +89,37 @@ function getInitials(name?: string | null, email?: string | null) {
     .map((part) => part[0]?.toUpperCase())
     .join("")
     .slice(0, 2);
+}
+
+function AvatarVisual({
+  name,
+  email,
+  avatar,
+  className,
+}: {
+  name?: string | null;
+  email?: string | null;
+  avatar?: string | null;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border bg-muted text-sm font-medium text-foreground",
+        className,
+      )}
+    >
+      {avatar ? (
+        <img
+          src={avatar}
+          alt={`${name || email || "User"} avatar`}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <span>{getInitials(name, email)}</span>
+      )}
+    </div>
+  );
 }
 
 function getMemberRoleBadge(access?: string | null, role?: string | null) {
@@ -169,10 +191,11 @@ function MemberAvatar({
       disabled={!onPreview}
       className="relative shrink-0 rounded-full disabled:cursor-default"
     >
-      <Avatar className="h-10 w-10 border">
-        <AvatarImage src={member.avatar || undefined} />
-        <AvatarFallback>{getInitials(member.name, member.email)}</AvatarFallback>
-      </Avatar>
+      <AvatarVisual
+        name={member.name}
+        email={member.email}
+        avatar={member.avatar}
+      />
       {showPresence && member.online && (
         <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
       )}
@@ -237,6 +260,109 @@ function ProfilePreviewDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function ActionMenu({
+  align = "end",
+  trigger,
+  children,
+}: {
+  align?: "start" | "end";
+  trigger: (controls: {
+    open: boolean;
+    toggle: () => void;
+    close: () => void;
+  }) => React.ReactNode;
+  children: (controls: { close: () => void }) => React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        rootRef.current &&
+        !rootRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      {trigger({
+        open,
+        toggle: () => setOpen((previous) => !previous),
+        close: () => setOpen(false),
+      })}
+      {open && (
+        <div
+          className={cn(
+            "absolute top-full z-20 mt-2 min-w-[13rem] rounded-xl border bg-background p-1 shadow-lg",
+            align === "end" ? "right-0" : "left-0",
+          )}
+        >
+          {children({ close: () => setOpen(false) })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActionMenuItem({
+  label,
+  onSelect,
+  icon: Icon,
+  destructive = false,
+  checked = false,
+  keepOpen = false,
+}: {
+  label: string;
+  onSelect: () => void;
+  icon?: React.ComponentType<{ className?: string }>;
+  destructive?: boolean;
+  checked?: boolean;
+  keepOpen?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+        destructive && "text-red-600 hover:bg-red-50 hover:text-red-600",
+      )}
+      onClick={onSelect}
+      data-keep-open={keepOpen ? "true" : undefined}
+    >
+      <span className="flex h-4 w-4 items-center justify-center">
+        {checked ? <Check className="h-4 w-4" /> : Icon ? <Icon className="h-4 w-4" /> : null}
+      </span>
+      <span className="flex-1">{label}</span>
+    </button>
+  );
+}
+
+function ActionMenuSeparator() {
+  return <div className="my-1 h-px bg-border" />;
 }
 
 function MessageBubble({
@@ -304,35 +430,32 @@ function MessageBubble({
             <span>{formatShortTime(message.created_at)}</span>
             {message.is_edited && <span>edited</span>}
             {(isCurrentUser || canDelete) && !message.id.startsWith("optimistic-") && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                {!message.is_deleted && isCurrentUser && (
                   <Button
+                    type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="h-7 w-7"
+                    onClick={() => onEdit(message)}
                   >
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Message options</span>
+                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Edit message</span>
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align={isCurrentUser ? "end" : "start"}>
-                  {!message.is_deleted && isCurrentUser && (
-                    <DropdownMenuItem onClick={() => onEdit(message)}>
-                      <Pencil className="h-4 w-4" />
-                      Edit message
-                    </DropdownMenuItem>
-                  )}
-                  {canDelete && (
-                    <DropdownMenuItem
-                      onClick={() => onDelete(message)}
-                      className="text-red-600 focus:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete message
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                )}
+                {canDelete && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-red-600 hover:text-red-600"
+                    onClick={() => onDelete(message)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete message</span>
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
@@ -422,6 +545,8 @@ export default function Chat() {
   const [isManageMembersOpen, setIsManageMembersOpen] = useState(false);
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
   const [isDeleteConversationOpen, setIsDeleteConversationOpen] = useState(false);
+  const [deleteConversationTarget, setDeleteConversationTarget] =
+    useState<ChatConversation | null>(null);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -442,6 +567,7 @@ export default function Chat() {
   const messageBottomRef = useRef<HTMLDivElement | null>(null);
   const previousMessageCountRef = useRef(0);
   const shouldScrollOnConversationOpenRef = useRef(false);
+  const hasCompletedInitialScrollRef = useRef(false);
   const isMobile = useIsMobileScreen();
   const [showNewMessageJump, setShowNewMessageJump] = useState(false);
   const isWorkspaceManager =
@@ -554,6 +680,7 @@ export default function Chat() {
 
   useEffect(() => {
     shouldScrollOnConversationOpenRef.current = true;
+    hasCompletedInitialScrollRef.current = false;
     previousMessageCountRef.current = 0;
     setShowNewMessageJump(false);
   }, [activeConversationId]);
@@ -562,6 +689,9 @@ export default function Chat() {
     return () => {
       if (typingTimeoutRef.current) {
         window.clearTimeout(typingTimeoutRef.current);
+      }
+      if (!typingActiveRef.current) {
+        return;
       }
       typingActiveRef.current = false;
       void sendTypingIndicator(false);
@@ -587,6 +717,9 @@ export default function Chat() {
     typeof currentChat.metadata?.description === "string"
       ? currentChat.metadata.description
       : null;
+  const deleteConversationTargetName = deleteConversationTarget
+    ? getConversationDisplayName(deleteConversationTarget, profile?.id)
+    : "";
   const typingNames = typingUserIds
     .map((userId) => currentMembers.find((member) => member.user_id === userId)?.name)
     .filter(Boolean) as string[];
@@ -872,18 +1005,22 @@ export default function Chat() {
   };
 
   const handleDeleteConversation = async () => {
-    if (!currentChat) {
+    if (!deleteConversationTarget) {
       return;
     }
 
     try {
       setIsDeleteConversationOpen(false);
-      await deleteConversation();
+      await deleteConversation(deleteConversationTarget.id);
+      if (deleteConversationTarget.type === "direct") {
+        setSearchParams({ section: "projects" }, { replace: true });
+      }
       toast.success(
-        currentChat.type === "group"
+        deleteConversationTarget.type === "group"
           ? "Group chat deleted"
           : "Personal chat deleted",
       );
+      setDeleteConversationTarget(null);
       if (isMobile) {
         setMobileConversationOpen(false);
       }
@@ -955,12 +1092,18 @@ export default function Chat() {
     const latestFromCurrentUser = latestMessage?.sender.user_id === profile?.id;
 
     if (shouldScrollOnConversationOpenRef.current && !loadingMessages) {
+      shouldScrollOnConversationOpenRef.current = false;
+      previousMessageCountRef.current = currentCount;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           scrollToLatestMessage("auto");
+          hasCompletedInitialScrollRef.current = true;
         });
       });
-      shouldScrollOnConversationOpenRef.current = false;
+      return;
+    }
+
+    if (!hasCompletedInitialScrollRef.current) {
       previousMessageCountRef.current = currentCount;
       return;
     }
@@ -993,28 +1136,48 @@ export default function Chat() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="icon">
+                  <ActionMenu
+                    align="end"
+                    trigger={({ toggle }) => (
+                      <button
+                        type="button"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent bg-primary text-primary-foreground transition-colors hover:bg-primary/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                        onClick={toggle}
+                      >
                         <Plus className="h-4 w-4" />
                         <span className="sr-only">Create conversation</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setIsDirectoryOpen(true)}>
-                        Workspace people
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setIsCreateDirectOpen(true)}>
-                        New direct chat
-                      </DropdownMenuItem>
-                      {isWorkspaceManager && (
-                        <DropdownMenuItem onClick={() => setIsCreateGroupOpen(true)}>
-                          New group chat
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      </button>
+                    )}
+                  >
+                    {({ close }) => (
+                      <>
+                        <ActionMenuItem
+                          label="Workspace people"
+                          onSelect={() => {
+                            close();
+                            setIsDirectoryOpen(true);
+                          }}
+                        />
+                        <ActionMenuSeparator />
+                        <ActionMenuItem
+                          label="New direct chat"
+                          onSelect={() => {
+                            close();
+                            setIsCreateDirectOpen(true);
+                          }}
+                        />
+                        {isWorkspaceManager && (
+                          <ActionMenuItem
+                            label="New group chat"
+                            onSelect={() => {
+                              close();
+                              setIsCreateGroupOpen(true);
+                            }}
+                          />
+                        )}
+                      </>
+                    )}
+                  </ActionMenu>
                 </div>
               </div>
 
@@ -1107,10 +1270,10 @@ export default function Chat() {
                                 <Users className="h-4 w-4 text-muted-foreground" />
                               </div>
                             ) : (
-                              <Avatar className="h-10 w-10">
-                                <AvatarImage src={avatar || undefined} />
-                                <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
-                              </Avatar>
+                              <AvatarVisual
+                                name={displayName}
+                                avatar={avatar || null}
+                              />
                             )}
                             {conversation.type === "direct" && otherMember?.online && (
                               <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
@@ -1187,18 +1350,19 @@ export default function Chat() {
                     )}
 
                     {currentChat.type === "direct" ? (
-                      <MemberAvatar
-                        member={{
-                          name: currentConversationName,
-                          email: directConversationMember?.email,
-                          avatar: getConversationAvatar(currentChat, profile?.id),
-                          online: directConversationMember?.online,
-                        }}
-                        onPreview={() =>
-                          setProfilePreviewMember(directConversationMember ?? null)
-                        }
-                        showPresence
-                      />
+                      <div className="relative shrink-0">
+                        <AvatarVisual
+                          className="h-11 w-11"
+                          name={currentConversationName}
+                          email={directConversationMember?.email}
+                          avatar={
+                            getConversationAvatar(currentChat, profile?.id) || null
+                          }
+                        />
+                        {directConversationMember?.online && (
+                          <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
+                        )}
+                      </div>
                     ) : (
                       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted">
                         <Users className="h-5 w-5 text-muted-foreground" />
@@ -1246,72 +1410,103 @@ export default function Chat() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon">
+                    <ActionMenu
+                      align="end"
+                      trigger={({ toggle }) => (
+                        <button
+                          type="button"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                          onClick={toggle}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Conversation actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {currentChat.type === "direct" && directConversationMember && (
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setProfilePreviewMember({
-                                name: directConversationMember.name,
-                                email: directConversationMember.email,
-                                avatar: directConversationMember.avatar,
-                                role: directConversationMember.role,
-                                access: directConversationMember.access,
-                              })
+                        </button>
+                      )}
+                    >
+                      {({ close }) => (
+                        <>
+                          {currentChat.type === "direct" && directConversationMember && (
+                            <ActionMenuItem
+                              label="View profile"
+                              onSelect={() => {
+                                close();
+                                setProfilePreviewMember({
+                                  name: directConversationMember.name,
+                                  email: directConversationMember.email,
+                                  avatar: directConversationMember.avatar,
+                                  role: directConversationMember.role,
+                                  access: directConversationMember.access,
+                                });
+                              }}
+                            />
+                          )}
+                          {currentChat.type === "group" && (
+                            <ActionMenuItem
+                              label="Show group info"
+                              onSelect={() => {
+                                close();
+                                setIsGroupInfoOpen(true);
+                              }}
+                            />
+                          )}
+                          {currentChat.type === "group" && (
+                            <ActionMenuItem
+                              label="Show members"
+                              onSelect={() => {
+                                close();
+                                setIsManageMembersOpen(true);
+                              }}
+                            />
+                          )}
+                          {currentChat.type === "group" && canRenameGroup && (
+                            <ActionMenuItem
+                              label="Rename group"
+                              onSelect={() => {
+                                close();
+                                setIsRenameOpen(true);
+                              }}
+                            />
+                          )}
+                          {currentChat.type === "group" && canManageMembers && (
+                            <ActionMenuItem
+                              label="Manage members"
+                              onSelect={() => {
+                                close();
+                                setIsManageMembersOpen(true);
+                              }}
+                            />
+                          )}
+                          <ActionMenuSeparator />
+                          <ActionMenuItem
+                            label={
+                              notificationsMuted
+                                ? "Unmute notifications"
+                                : "Mute notification"
                             }
-                          >
-                            View profile
-                          </DropdownMenuItem>
-                        )}
-                        {currentChat.type === "group" && (
-                          <DropdownMenuItem onClick={() => setIsGroupInfoOpen(true)}>
-                            Show group info
-                          </DropdownMenuItem>
-                        )}
-                        {currentChat.type === "group" && (
-                          <DropdownMenuItem
-                            onClick={() => setIsManageMembersOpen(true)}
-                          >
-                            Show members
-                          </DropdownMenuItem>
-                        )}
-                        {currentChat.type === "group" && canRenameGroup && (
-                          <DropdownMenuItem onClick={() => setIsRenameOpen(true)}>
-                            Rename group
-                          </DropdownMenuItem>
-                        )}
-                        {currentChat.type === "group" && canManageMembers && (
-                          <DropdownMenuItem
-                            onClick={() => setIsManageMembersOpen(true)}
-                          >
-                            Manage members
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={handleUpdatePreferences}>
-                          {notificationsMuted
-                            ? "Unmute notifications"
-                            : "Mute notification"}
-                        </DropdownMenuItem>
-                        {canDeleteConversation && (
-                          <DropdownMenuItem
-                            onClick={() => setIsDeleteConversationOpen(true)}
-                            className="text-red-600 focus:text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            {currentChat.type === "group"
-                              ? "Delete group chat"
-                              : "Delete personal chat"}
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                            onSelect={() => {
+                              close();
+                              void handleUpdatePreferences();
+                            }}
+                          />
+                          {canDeleteConversation && (
+                            <ActionMenuItem
+                              label={
+                                currentChat.type === "group"
+                                  ? "Delete group chat"
+                                  : "Delete personal chat"
+                              }
+                              icon={Trash2}
+                              destructive
+                              onSelect={() => {
+                                close();
+                                setDeleteConversationTarget(currentChat);
+                                setIsDeleteConversationOpen(true);
+                              }}
+                            />
+                          )}
+                        </>
+                      )}
+                    </ActionMenu>
                   </div>
                 </div>
               ) : (
@@ -1325,16 +1520,14 @@ export default function Chat() {
               <div className="relative flex-1 min-h-0">
                 {showNewMessageJump && (
                   <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
-                    <Button
+                    <button
                       type="button"
-                      size="sm"
-                      variant="outline"
-                      className="pointer-events-auto rounded-md bg-background/95 shadow-sm backdrop-blur"
+                      className="pointer-events-auto inline-flex items-center rounded-md border bg-background/95 px-3 py-2 text-sm shadow-sm backdrop-blur transition-colors hover:bg-accent hover:text-accent-foreground"
                       onClick={() => scrollToLatestMessage("smooth")}
                     >
                       <ArrowDown className="mr-2 h-4 w-4" />
                       New message
-                    </Button>
+                    </button>
                   </div>
                 )}
               <div
@@ -1446,25 +1639,33 @@ export default function Chat() {
                     disabled={!currentChat}
                   />
                   {currentChat?.type === "group" && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon" className="self-end">
+                    <ActionMenu
+                      align="end"
+                      trigger={({ toggle }) => (
+                        <button
+                          type="button"
+                          className="inline-flex h-9 w-9 self-end items-center justify-center rounded-lg border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                          onClick={toggle}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Message options</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {MESSAGE_TAGS.map((tag) => (
-                          <DropdownMenuCheckboxItem
-                            key={tag}
-                            checked={selectedTags.includes(tag)}
-                            onCheckedChange={() => handleToggleTag(tag)}
-                          >
-                            {tag}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                        </button>
+                      )}
+                    >
+                      {() => (
+                        <>
+                          {MESSAGE_TAGS.map((tag) => (
+                            <ActionMenuItem
+                              key={tag}
+                              label={tag}
+                              checked={selectedTags.includes(tag)}
+                              keepOpen
+                              onSelect={() => handleToggleTag(tag)}
+                            />
+                          ))}
+                        </>
+                      )}
+                    </ActionMenu>
                   )}
                   <Button
                     className="self-end"
@@ -1664,25 +1865,36 @@ export default function Chat() {
 
       <Dialog
         open={isDeleteConversationOpen}
-        onOpenChange={(open) => !open && setIsDeleteConversationOpen(false)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsDeleteConversationOpen(false);
+            setDeleteConversationTarget(null);
+          }
+        }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent
+          className="max-w-md"
+          onCloseAutoFocus={(event) => event.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
-              {currentChat?.type === "group"
+              {deleteConversationTarget?.type === "group"
                 ? "Delete group chat"
                 : "Delete personal chat"}
             </DialogTitle>
             <DialogDescription>
-              {currentChat?.type === "group"
-                ? `This will remove ${currentConversationName} from the workspace chat list for everyone.`
-                : `This will remove the personal chat with ${currentConversationName}.`}
+              {deleteConversationTarget?.type === "group"
+                ? `This will remove ${deleteConversationTargetName || "this group"} from the workspace chat list for everyone.`
+                : `This will remove the personal chat with ${deleteConversationTargetName || "this member"}.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsDeleteConversationOpen(false)}
+              onClick={() => {
+                setIsDeleteConversationOpen(false);
+                setDeleteConversationTarget(null);
+              }}
             >
               Cancel
             </Button>
@@ -1690,7 +1902,7 @@ export default function Chat() {
               variant="destructive"
               onClick={() => void handleDeleteConversation()}
             >
-              {currentChat?.type === "group"
+              {deleteConversationTarget?.type === "group"
                 ? "Delete group chat"
                 : "Delete personal chat"}
             </Button>

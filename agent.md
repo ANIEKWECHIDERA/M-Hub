@@ -603,6 +603,7 @@ Summary of recent changes:
 - Chat keeps a desktop split view, but on small screens it behaves like a modern messaging app: conversation list first, then a conversation detail view with an inline back button
 - Chat dialog flows now need explicit close-state cleanup; if a dialog closes, the page must clear any lingering `body` pointer-events lock so the app never becomes unclickable until refresh
 - Direct chat creation should immediately switch the chat route to `?section=direct` so a newly created DM is visible instead of being hidden behind the group/projects filter
+- Chat conversation auto-selection must be owned by the route/page filter, not a second global default in context; otherwise routes like `?section=direct` can get stuck fighting over `activeConversationId` when that section has no conversations yet
 - Chat auto-scroll should target the message pane container itself, not `scrollIntoView()` on a child node; otherwise the outer layout can shift and the composer can fall out of the viewport
 - When opening a conversation, delay the initial scroll-to-latest until the message fetch has finished and the thread has painted; firing too early can leave the user stranded in older history
 - Dashboard stats and filters can be collapsed on small screens to preserve space without changing the desktop information density
@@ -626,6 +627,7 @@ New patterns introduced:
 - For comments, prefer a fixed composer footer inside an `overflow-hidden` panel over `sticky` positioning so the page itself never pushes the composer off screen
 - In chat, long message content should wrap aggressively and the composer textarea should stay height-capped with its own internal scroll so oversized drafts never push the conversation window out of layout
 - For chat split panes, every flex ancestor around the message pane should keep `min-h-0` so the `overflow-y-auto` thread owns scrolling instead of expanding the whole panel
+- Avoid mount-time typing network calls in chat cleanup/effects; only send `typing: false` if the user was actually marked as typing
 
 Assumptions currently in use:
 
