@@ -8,6 +8,7 @@ import { useUser } from "@/context/UserContext";
 import type { UIComment } from "@/Types/types";
 import { CommentSkeleton } from "./CommentSkeleton";
 import { formatRelativeTimestamp } from "@/lib/datetime";
+import { cn } from "@/lib/utils";
 
 interface Comment {
   id: string;
@@ -31,6 +32,7 @@ interface CommentsSystemProps {
   placeholder?: string;
   maxCommentLength?: number;
   loading?: boolean;
+  compact?: boolean;
 }
 
 export function CommentsSystem({
@@ -41,6 +43,7 @@ export function CommentsSystem({
   onCommentDelete,
   placeholder = "Add a comment...",
   maxCommentLength = 1000,
+  compact = false,
 }: CommentsSystemProps) {
   const { profile } = useUser();
 
@@ -167,8 +170,14 @@ export function CommentsSystem({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card">
-      <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="space-y-4">
+      <div
+        ref={listRef}
+        className={cn(
+          "flex-1 overflow-y-auto px-4 py-4",
+          compact && "px-3 py-3 sm:px-4 sm:py-4",
+        )}
+      >
+        <div className={cn("space-y-4", compact && "space-y-3")}>
           {loading && <CommentSkeleton />}
 
           {!loading && localComments.length === 0 ? (
@@ -182,9 +191,9 @@ export function CommentsSystem({
 
               return (
                 <Card key={comment.id} className="transition-all">
-                  <CardContent className="p-4">
-                    <div className="flex gap-3">
-                      <Avatar className="h-9 w-9">
+                  <CardContent className={cn("p-4", compact && "p-3 sm:p-4")}>
+                    <div className={cn("flex gap-3", compact && "gap-2.5")}>
+                      <Avatar className={cn("h-9 w-9", compact && "h-8 w-8 sm:h-9 sm:w-9")}>
                         <AvatarImage src={comment.author?.avatar} />
                         <AvatarFallback>
                           {comment.author?.name
@@ -197,22 +206,22 @@ export function CommentsSystem({
                       </Avatar>
 
                       <div className="min-w-0 flex-1">
-                        <div className="mb-1 flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-medium">
+                        <div className={cn("mb-1 flex flex-wrap items-center gap-2", compact && "gap-1.5")}>
+                          <span className={cn("text-sm font-medium", compact && "text-[13px] sm:text-sm")}>
                             {comment.author?.name}
                           </span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className={cn("text-xs text-muted-foreground", compact && "text-[11px]")}>
                             {formatRelativeTimestamp(comment.createdAt)}
                             {comment.isEdited && " (edited)"}
                           </span>
                         </div>
 
                         {isEditing ? (
-                          <div className="space-y-3">
+                          <div className={cn("space-y-3", compact && "space-y-2")}>
                             <Textarea
                               value={editContent}
                               onChange={(event) => setEditContent(event.target.value)}
-                              className="min-h-[80px]"
+                              className={cn("min-h-[80px]", compact && "min-h-[72px] text-sm")}
                               autoFocus
                             />
                             <div className="flex gap-2">
@@ -236,16 +245,24 @@ export function CommentsSystem({
                           </div>
                         ) : (
                           <>
-                            <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed">
+                            <p
+                              className={cn(
+                                "mb-3 whitespace-pre-wrap text-sm leading-relaxed",
+                                compact && "mb-2 text-[13px] leading-5 sm:text-sm sm:leading-relaxed",
+                              )}
+                            >
                               {comment.content}
                             </p>
 
                             {isOwner && (
-                              <div className="mt-2 flex gap-2">
+                              <div className={cn("mt-2 flex gap-2", compact && "mt-1.5 gap-1.5")}>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                                  className={cn(
+                                    "h-8 px-2 text-muted-foreground hover:text-foreground",
+                                    compact && "h-7 px-2 text-[12px]",
+                                  )}
                                   onClick={() => handleStartEdit(comment)}
                                 >
                                   <Edit className="mr-1 h-3.5 w-3.5" />
@@ -255,7 +272,10 @@ export function CommentsSystem({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 px-2 text-destructive hover:text-destructive/90"
+                                  className={cn(
+                                    "h-8 px-2 text-destructive hover:text-destructive/90",
+                                    compact && "h-7 px-2 text-[12px]",
+                                  )}
                                   onClick={() => handleDelete(comment.id)}
                                 >
                                   <Trash2 className="mr-1 h-3.5 w-3.5" />
@@ -275,9 +295,14 @@ export function CommentsSystem({
         </div>
       </div>
 
-      <div className="shrink-0 border-t bg-background/95 p-4 backdrop-blur">
-        <div className="flex gap-3">
-          <Avatar className="h-9 w-9">
+      <div
+        className={cn(
+          "shrink-0 border-t bg-background/95 p-4 backdrop-blur",
+          compact && "p-3 sm:p-4",
+        )}
+      >
+        <div className={cn("flex gap-3", compact && "gap-2.5")}>
+          <Avatar className={cn("h-9 w-9", compact && "h-8 w-8 sm:h-9 sm:w-9")}>
             <AvatarImage src={currentUser?.avatar} />
             <AvatarFallback>
               {currentUser?.name
@@ -289,13 +314,16 @@ export function CommentsSystem({
             </AvatarFallback>
           </Avatar>
 
-          <div className="flex-1 space-y-3">
+          <div className={cn("flex-1 space-y-3", compact && "space-y-2")}>
             <Textarea
               ref={textareaRef}
               value={newComment}
               onChange={(event) => setNewComment(event.target.value)}
               placeholder={placeholder}
-              className="min-h-[72px] resize-none"
+              className={cn(
+                "min-h-[72px] resize-none",
+                compact && "min-h-[64px] text-sm",
+              )}
               maxLength={maxCommentLength}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
@@ -306,13 +334,14 @@ export function CommentsSystem({
             />
 
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
+              <span className={cn("text-xs text-muted-foreground", compact && "text-[11px]")}>
                 {newComment.length} / {maxCommentLength}
               </span>
               <Button
                 size="sm"
                 onClick={handleAddComment}
                 disabled={!newComment.trim()}
+                className={cn(compact && "h-8 px-3 text-[12px]")}
               >
                 <Send className="mr-2 h-4 w-4" />
                 Comment

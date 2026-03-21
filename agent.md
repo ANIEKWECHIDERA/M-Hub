@@ -671,6 +671,7 @@ Backend logging note:
 - console logs remain human-readable for local development
 - each request now gets an `x-request-id`, and request completion/error logs include that ID for correlation
 - sensitive metadata keys such as `authorization`, `token`, `password`, and `cookie` are redacted before logs are written
+- request-path logging now also redacts sensitive query parameters like `token`, `authorization`, `access_token`, `id_token`, and `refresh_token` so SSE/stream URLs do not leak bearer tokens into persisted logs
 - use the file logs for concrete backend health analysis, especially around:
   - request volume and latency by path
   - chat/cache/auth hot paths

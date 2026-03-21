@@ -5,22 +5,15 @@ import { logger } from "../utils/logger";
 
 export const ProjectController = {
   async getProjects(req: Request, res: Response) {
-    logger.info(
-      "REQ.USER:",
-      req.user?.uid,
-      req.user?.company_id,
-      req.user?.email,
-    );
-
     if (!req.user?.company_id) {
       logger.error("ProjectController: Missing company_id on request", {
-        user: req.user,
+        userId: req.user?.id ?? null,
+        firebaseUid: req.user?.firebase_uid ?? req.user?.uid ?? null,
       });
       return res.status(401).json({ error: "Unauthorized" });
     }
 
     const companyId = req.user.company_id;
-    logger.info(`ProjectController: CompanyId: ${companyId}`);
 
     try {
       logger.info("ProjectController: getProjects: fetching projects", {
@@ -67,7 +60,6 @@ export const ProjectController = {
         {
           id,
           companyId,
-          project,
         },
       );
 

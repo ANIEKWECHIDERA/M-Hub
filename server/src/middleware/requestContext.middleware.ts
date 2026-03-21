@@ -2,6 +2,14 @@ import crypto from "crypto";
 import { NextFunction, Request, Response } from "express";
 import { logger } from "../utils/logger";
 
+const SENSITIVE_QUERY_PARAMS = new Set([
+  "token",
+  "authorization",
+  "access_token",
+  "id_token",
+  "refresh_token",
+]);
+
 const getClientIp = (req: Request): string | undefined => {
   const forwardedFor = req.headers["x-forwarded-for"];
 
@@ -16,6 +24,25 @@ const getClientIp = (req: Request): string | undefined => {
   return req.ip;
 };
 
+const getSafeRequestPath = (req: Request): string => {
+  const rawPath = req.originalUrl || req.path;
+
+  try {
+    const parsedUrl = new URL(rawPath, "http://localhost");
+
+    for (const paramName of SENSITIVE_QUERY_PARAMS) {
+      if (parsedUrl.searchParams.has(paramName)) {
+        parsedUrl.searchParams.set(paramName, "[redacted]");
+      }
+    }
+
+    const search = parsedUrl.searchParams.toString();
+    return `${parsedUrl.pathname}${search ? `?${search}` : ""}`;
+  } catch {
+    return rawPath;
+  }
+};
+
 export const requestContext = (
   req: Request,
   res: Response,
@@ -24,12 +51,13 @@ export const requestContext = (
   const existingRequestId = req.header("x-request-id");
   const requestId = existingRequestId || crypto.randomUUID();
   const startTime = process.hrtime.bigint();
+  const safePath = getSafeRequestPath(req);
 
   req.requestId = requestId;
   req.log = logger.child({
     requestId,
     method: req.method,
-    path: req.originalUrl || req.path,
+    path: safePath,
   });
 
   res.setHeader("x-request-id", requestId);
@@ -40,7 +68,7 @@ export const requestContext = (
     req.log?.info("HTTP request completed", {
       requestId,
       method: req.method,
-      path: req.originalUrl || req.path,
+      path: safePath,
       statusCode: res.statusCode,
       durationMs: Number(durationMs.toFixed(2)),
       companyId: req.user?.company_id ?? null,

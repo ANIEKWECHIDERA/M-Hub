@@ -291,7 +291,10 @@ export function ProjectDetail() {
           <TabsTrigger value="comments">Comments</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="mt-4 pb-2">
+        <TabsContent
+          className="mt-4 pb-2 max-sm:min-h-screen max-sm:flex-1 max-sm:overflow-y-auto"
+          value="overview"
+        >
           <Card className="app-surface">
             <CardHeader className="border-b pb-4">
               <CardTitle className="text-xl">Project Overview</CardTitle>
@@ -348,7 +351,10 @@ export function ProjectDetail() {
         </TabsContent>
 
         {!isTeamMember && (
-          <TabsContent value="tasks" className="mt-4">
+          <TabsContent
+            className="mt-4 max-sm:min-h-[40rem] max-sm:flex-1 max-sm:overflow-y-auto"
+            value="tasks"
+          >
             <Card className="app-surface">
               <CardHeader className="border-b pb-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -471,7 +477,7 @@ export function ProjectDetail() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="max-h-[32rem] overflow-y-auto pr-1">
+                  <div className="overflow-y-auto pr-1 sm:max-h-[32rem]">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -600,7 +606,10 @@ export function ProjectDetail() {
         )}
 
         {!isTeamMember && (
-          <TabsContent value="team" className="mt-4">
+          <TabsContent
+            className="mt-4 max-sm:min-h-[40rem] max-sm:flex-1 max-sm:overflow-y-auto"
+            value="team"
+          >
             <Card className="app-surface">
               <CardHeader className="border-b pb-4">
                 <CardTitle className="text-xl">Team Members</CardTitle>
@@ -657,7 +666,10 @@ export function ProjectDetail() {
           </TabsContent>
         )}
 
-        <TabsContent value="assets" className="mt-4">
+        <TabsContent
+          className="mt-4 max-sm:min-h-[40rem] max-sm:flex-1 max-sm:overflow-y-auto"
+          value="assets"
+        >
           <Card className="app-surface">
             <CardHeader className="border-b pb-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -774,6 +786,7 @@ export function ProjectDetail() {
             onCommentAdd={addComment}
             onCommentUpdate={updateComment}
             onCommentDelete={deleteComment}
+            compact
           />
         </TabsContent>
       </Tabs>
