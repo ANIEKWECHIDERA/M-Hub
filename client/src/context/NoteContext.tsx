@@ -301,6 +301,8 @@ export const NoteContextProvider = ({
           );
 
           delete detailCacheRef.current[tempId];
+          removeFromCache(tempId);
+          setNotes((previous) => previous.filter((item) => item.id !== tempId));
           replaceSummary(note);
           setCurrentNote((previous) => (previous?.id === tempId ? note : previous));
           toast.success("Note created");

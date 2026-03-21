@@ -116,7 +116,8 @@ export default function Notepad() {
 
   const [showArchived, setShowArchived] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [archiveTarget, setArchiveTarget] = useState<Note | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<NoteSummary | Note | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<NoteSummary | Note | null>(null);
   const [bulkMode, setBulkMode] = useState<"delete" | "archive" | "restore" | null>(null);
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [editorTitle, setEditorTitle] = useState("");
@@ -442,6 +443,25 @@ export default function Notepad() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    try {
+      setIsActionBusy(true);
+      await flushPendingSave();
+      await deleteNote(deleteTarget.id);
+      setDeleteTarget(null);
+      loadedNoteIdRef.current = null;
+      setMobileNoteOpen(false);
+    } catch (deleteError: any) {
+      toast.error(deleteError.message || "Failed to delete note");
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+
   const handleRestore = async (noteId: string) => {
     try {
       setIsActionBusy(true);
@@ -746,7 +766,73 @@ export default function Notepad() {
                               <Check className="h-3.5 w-3.5" />
                             ) : null}
                           </button>
-                        ) : null}
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 rounded-md"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Note actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleSelectNote(note);
+                                }}
+                              >
+                                Open note
+                              </DropdownMenuItem>
+                              {showArchived ? (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void handleRestore(note.id);
+                                    }}
+                                  >
+                                    Restore note
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setDeleteTarget(note);
+                                    }}
+                                  >
+                                    Delete note
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setArchiveTarget(note);
+                                    }}
+                                  >
+                                    Archive note
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setDeleteTarget(note);
+                                    }}
+                                  >
+                                    Delete note
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -986,6 +1072,30 @@ export default function Notepad() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => void handleArchive()}>
               Archive note
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete note</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the note and removes it from your workspace notes list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDelete()}>
+              Delete note
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

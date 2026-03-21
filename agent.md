@@ -790,6 +790,7 @@ Summary of recent changes:
   - note-tag writes must be idempotent under repeated saves
 - Notes should expose a visible destructive action in the editor header; do not hide the primary delete/archive action behind icon-only affordances
 - Notes bulk actions should live in the header next to the `Active` / `Archived` pills, not inside each note row
+- Per-note ellipsis actions are allowed in the Notes list again, but they must stop propagation so the full row still opens the note safely when users click outside the menu trigger
 - The Notes header control order should be `Active`, `Archived`, then the ellipsis button on the far right
 - The ellipsis trigger should stay visually aligned with the nav pills while showing only the icon, not the word `Actions`
 - `Mark to delete` and `Mark to archive` should enter a bulk-selection mode that reveals checkmarks in the note list for batch actions
@@ -858,3 +859,5 @@ Assumptions currently in use:
 - `server/src/app.ts`
 - `client/src/App.tsx`
 - the feature-specific service and API files for the task at hand
+
+- Local-first note creation must reconcile temp notes by removing the temp row from visible state and in-memory caches before inserting the real persisted note; otherwise one create can appear as two notes
