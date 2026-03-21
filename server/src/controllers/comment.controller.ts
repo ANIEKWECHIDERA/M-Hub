@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { CommentService } from "../services/comment.service";
 import admin from "../config/firebaseAdmin";
 import { NotificationService } from "../services/notification.service";
+import { EmailNotificationService } from "../services/emailNotification.service";
 import { commentRealtimeService } from "../services/commentRealtime.service";
 import { RequestCacheService } from "../services/requestCache.service";
 import { UserService } from "../services/user.service";
@@ -58,6 +59,21 @@ export const CommentController = {
         taskId: comment.task_id,
         commentText: comment.content,
         authorUserId: authorId,
+      });
+      void EmailNotificationService.sendCommentEmails({
+        companyId,
+        projectId: comment.project_id,
+        taskId: comment.task_id,
+        commentText: comment.content,
+        authorUserId: authorId,
+        commentCreatedAt: comment.timestamp,
+      }).catch((error: any) => {
+        logger.error("CommentController.createComment: comment email failed", {
+          companyId,
+          projectId: comment.project_id,
+          taskId: comment.task_id,
+          error: error.message,
+        });
       });
 
       return res.status(201).json(comment);

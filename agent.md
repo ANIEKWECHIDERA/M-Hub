@@ -141,6 +141,56 @@ Behavior notes:
 - in-app notification fetching and SSE subscription now respect `notifications_enabled`
 - Settings > Notifications should remain the single source of truth for user notification toggles
 
+### 4c. Outbound email now uses Resend
+
+Crevo now has a real outbound email layer on the backend.
+
+- Provider:
+  - Resend via the official `resend` Node SDK
+- Core files:
+  - `server/src/config/email.ts`
+  - `server/src/services/email.service.ts`
+  - `server/src/services/emailNotification.service.ts`
+- Local env keys:
+  - `RESEND_API_KEY`
+  - `EMAIL_FROM`
+  - `EMAIL_REPLY_TO`
+  - `EMAIL_BASE_URL`
+  - `APP_NAME`
+  - `APP_TAGLINE`
+  - `EMAIL_FOOTER_TEXT`
+  - `APP_SUPPORT_EMAIL`
+
+Current email triggers:
+
+- workspace invite email
+- invite accepted email to workspace admins
+- task assignment email
+- task/project comment email
+- project update email
+
+Preference rules:
+
+- workspace invite emails are transactional and send directly to the invited email
+- invite accepted emails respect `email_notifications_enabled`
+- task assignment emails respect:
+  - `email_notifications_enabled`
+  - `task_assignment_notifications`
+- comment emails respect:
+  - `email_notifications_enabled`
+  - `comment_notifications`
+- project update emails respect:
+  - `email_notifications_enabled`
+  - `project_update_notifications`
+
+Implementation notes:
+
+- outbound email is fire-and-log from controllers so core product actions still complete if the mail provider is temporarily unavailable
+- task assignment links currently deep-link to `/mytasks`
+- comment and project update emails deep-link to `/projectdetails/:id`
+- explicit `@mention` parsing is not implemented yet; current comment emails cover task/project comment activity rather than mention-specific targeting
+- email HTML uses a shared Crevo shell with the configured brand/footer values
+
 ### 4a. Notes are now a real personal feature, not mock UI
 
 The Notes feature is now backed by the real backend and is intentionally personal.

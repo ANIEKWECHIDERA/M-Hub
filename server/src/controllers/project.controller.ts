@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { ProjectService } from "../services/project.service";
+import { EmailNotificationService } from "../services/emailNotification.service";
 import { CreateProjectDTO, UpdateProjectDTO } from "../types/project.types";
 import { logger } from "../utils/logger";
 
@@ -157,6 +158,7 @@ export const ProjectController = {
         payload,
       });
 
+      const previousProject = await ProjectService.findById(id, companyId);
       const updatedProject = await ProjectService.update(
         id,
         companyId,
@@ -175,6 +177,37 @@ export const ProjectController = {
         id,
         companyId,
       });
+
+      const changedFields = Object.keys(payload).filter(
+        (key) => payload[key as keyof typeof payload] !== undefined,
+      );
+
+      if (previousProject && updatedProject && changedFields.length > 0) {
+        void EmailNotificationService.sendProjectUpdateEmails({
+          companyId,
+          projectId: id,
+          actorUserId: req.user.user_id,
+          previousProject: {
+            title: previousProject.title,
+            status: previousProject.status,
+            deadline: previousProject.deadline,
+            clientName: previousProject.client?.name ?? null,
+          },
+          updatedProject: {
+            title: updatedProject.title,
+            status: updatedProject.status,
+            deadline: updatedProject.deadline,
+            clientName: updatedProject.client?.name ?? null,
+          },
+          changedFields,
+        }).catch((error: any) => {
+          logger.error("ProjectController.updateProject: project update email failed", {
+            id,
+            companyId,
+            error: error.message,
+          });
+        });
+      }
 
       return res.json(updatedProject);
     } catch (error) {

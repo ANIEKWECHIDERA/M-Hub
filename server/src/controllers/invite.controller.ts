@@ -2,6 +2,7 @@
 import { Request, Response } from "express";
 import { InviteService } from "../services/invite.service";
 import { NotificationService } from "../services/notification.service";
+import { EmailNotificationService } from "../services/emailNotification.service";
 import { logger } from "../utils/logger";
 
 export const InviteController = {
@@ -39,20 +40,19 @@ export const InviteController = {
         email,
       });
 
-      // TODO: send email notification here
-
-      const frontendBaseUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
-      const inviteLink = `${frontendBaseUrl}/invite/accept/${token}`;
-
-      logger.info(`Simulated Mail:
-
-You have been invited to join a company on Crevo.
-
-Please use the link below to accept the invitation.
-The link expires in 24 hours.
-
-${inviteLink}
-`);
+      void EmailNotificationService.sendWorkspaceInviteEmail({
+        companyId: invite.company_id,
+        inviterUserId: userId,
+        invitedEmail: email,
+        role,
+        inviteToken: token,
+      }).catch((error: any) => {
+        logger.error("InviteController.sendInvite: invite email failed", {
+          inviteId: invite.id,
+          email,
+          error: error.message,
+        });
+      });
 
       return res.status(200).json({
         message: "invite sent successfully",
@@ -91,6 +91,18 @@ ${inviteLink}
         companyId: result.companyId,
         acceptedUserId: userId,
         acceptedEmail: req.user?.email ?? "A user",
+      });
+      void EmailNotificationService.sendInviteAcceptedEmails({
+        companyId: result.companyId,
+        acceptedUserId: userId,
+        role: result.role,
+        joinedAt: result.joinedAt,
+      }).catch((error: any) => {
+        logger.error("InviteController.acceptInvite: invite accepted email failed", {
+          companyId: result.companyId,
+          userId,
+          error: error.message,
+        });
       });
 
       return res.status(200).json({

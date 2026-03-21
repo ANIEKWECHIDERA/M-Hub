@@ -251,6 +251,8 @@ export const InviteService = {
 
       return {
         companyId: invite.company_id,
+        role: invite.role,
+        joinedAt: new Date().toISOString(),
       };
     });
 

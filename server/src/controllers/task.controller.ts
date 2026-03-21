@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { TaskService } from "../services/task.service";
 import { NotificationService } from "../services/notification.service";
+import { EmailNotificationService } from "../services/emailNotification.service";
 import { logger } from "../utils/logger";
 
 export const TaskController = {
@@ -87,6 +88,17 @@ export const TaskController = {
           teamMemberIds: req.body.team_member_ids,
           actorUserId,
         });
+        void EmailNotificationService.sendTaskAssignmentEmails({
+          companyId,
+          taskId: task.id,
+          teamMemberIds: req.body.team_member_ids,
+          actorUserId,
+        }).catch((error: any) => {
+          logger.error("TaskController.createTask: assignment email failed", {
+            taskId: task.id,
+            error: error.message,
+          });
+        });
       }
 
       return res.status(201).json(task);
@@ -122,6 +134,17 @@ export const TaskController = {
               taskTitle: updatedTask.title,
               teamMemberIds: newAssigneeIds,
               actorUserId,
+            });
+            void EmailNotificationService.sendTaskAssignmentEmails({
+              companyId,
+              taskId,
+              teamMemberIds: newAssigneeIds,
+              actorUserId,
+            }).catch((error: any) => {
+              logger.error("TaskController.updateTask: assignment email failed", {
+                taskId,
+                error: error.message,
+              });
             });
           }
         }
