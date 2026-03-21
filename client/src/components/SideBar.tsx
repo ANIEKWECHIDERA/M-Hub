@@ -100,10 +100,7 @@ function SidebarPanel({
 
     return chatSections.find((item) => item.id === section)?.id ?? "projects";
   }, [search]);
-  const totalChatUnread = useMemo(
-    () => totalUnreadCount,
-    [totalUnreadCount],
-  );
+  const totalChatUnread = useMemo(() => totalUnreadCount, [totalUnreadCount]);
   const settingsSections = getAllowedSettingsSections(isTeamMember);
   const activeSettingsSection = useMemo(() => {
     const params = new URLSearchParams(search);
@@ -227,11 +224,11 @@ function SidebarPanel({
         </div>
       </SidebarHeader>
 
-      <SidebarBody className={cn(!isExpanded && "px-2")}>
+      <SidebarBody className={cn(!isExpanded && "items-center px-2")}>
         <SidebarGroup>
           {isExpanded && <SidebarGroupLabel>Navigation</SidebarGroupLabel>}
-          <SidebarGroupContent>
-            <SidebarMenu>
+          <SidebarGroupContent className={cn(!isExpanded && "w-full")}>
+            <SidebarMenu className={cn(!isExpanded && "flex flex-col items-center")}>
               {navigation.map((item) => {
                 const isActive =
                   pathname === item.to ||
@@ -243,7 +240,7 @@ function SidebarPanel({
 
                   return (
                     <SidebarMenuItem key={item.name}>
-                      <div className="relative">
+                      <div className={cn("relative", !isExpanded && "w-10")}>
                         <SidebarMenuButton
                           asChild
                           isActive={isActive}
@@ -251,7 +248,7 @@ function SidebarPanel({
                           aria-label={item.name}
                           className={cn(
                             !isExpanded &&
-                              "mx-auto h-10 w-10 justify-center px-0",
+                              "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
                             isExpanded && chatOpen && "pr-10",
                           )}
                         >
@@ -349,7 +346,8 @@ function SidebarPanel({
                       tooltip={!isExpanded ? item.name : undefined}
                       aria-label={item.name}
                       className={cn(
-                        !isExpanded && "mx-auto h-10 w-10 justify-center px-0",
+                        !isExpanded &&
+                          "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
                       )}
                     >
                       <Link to={item.to} onClick={handleNavClick}>
@@ -368,7 +366,7 @@ function SidebarPanel({
 
                 return (
                   <SidebarMenuItem key={item.name}>
-                    <div className="relative">
+                    <div className={cn("relative", !isExpanded && "w-10")}>
                       <SidebarMenuButton
                         asChild
                         isActive={isActive}
@@ -376,7 +374,7 @@ function SidebarPanel({
                         aria-label={item.name}
                         className={cn(
                           !isExpanded &&
-                            "mx-auto h-10 w-10 justify-center px-0",
+                            "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
                           isExpanded && settingsOpen && "pr-10",
                         )}
                       >

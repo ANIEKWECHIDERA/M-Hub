@@ -73,7 +73,7 @@ import {
   normalizeNoteTitleClient,
   sanitizeNoteHtmlClient,
 } from "@/lib/notes";
-import { formatRelativeTimestamp } from "@/lib/datetime";
+import { formatRelativeTimestamp, formatShortDate } from "@/lib/datetime";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 const TEMP_NOTE_PREFIX = "temp-note:";
@@ -740,12 +740,12 @@ export default function Notepad() {
                           <p className="line-clamp-2 text-xs text-muted-foreground">
                             {note.plainTextPreview || "Empty note"}
                           </p>
+                          <div className="text-[11px] text-muted-foreground">
+                            {formatShortDate(note.updatedAt)}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-start gap-2">
-                        <div className="shrink-0 text-xs text-muted-foreground">
-                          {formatRelativeTimestamp(note.updatedAt)}
-                        </div>
+                      <div className="flex shrink-0 items-center self-start">
                         {bulkMode ? (
                           <button
                             type="button"
@@ -773,7 +773,7 @@ export default function Notepad() {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 rounded-md"
+                                className="h-6 w-6 rounded-md"
                                 onClick={(event) => event.stopPropagation()}
                               >
                                 <MoreHorizontal className="h-4 w-4" />

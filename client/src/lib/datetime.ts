@@ -66,3 +66,19 @@ export function formatShortTime(value: string | Date | null | undefined) {
     minute: "2-digit",
   });
 }
+
+export function formatShortDate(value: string | Date | null | undefined) {
+  const date = parseAppDate(value);
+
+  if (!date) {
+    return "Unknown";
+  }
+
+  const now = new Date();
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: now.getFullYear() === date.getFullYear() ? undefined : "numeric",
+  });
+}
