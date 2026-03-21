@@ -143,13 +143,10 @@ export function Header() {
     return (
       <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <SidebarTrigger className="lg:flex" />
-            <div className="hidden lg:block">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Workspace
-              </p>
-              <p className="text-sm font-semibold text-foreground">
+            <div className="hidden min-w-[140px] items-center  lg:flex">
+              <p className="text-sm font-semibold text-foreground text-center">
                 {activeWorkspaceName}
               </p>
             </div>
@@ -168,13 +165,10 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <SidebarTrigger className="lg:flex" />
-          <div className="hidden lg:block">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Workspace
-            </p>
-            <p className="text-sm font-semibold text-foreground">
+          <div className="hidden min-w-[140px] items-center lg:flex">
+            <p className="text-sm font-semibold text-foreground text-center">
               {activeWorkspaceName}
             </p>
           </div>
@@ -304,8 +298,12 @@ export function Header() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="mt-0.5 rounded-md border bg-background p-2">
                             {(() => {
-                              const Icon = getNotificationIcon(notification.type);
-                              return <Icon className="h-4 w-4 text-muted-foreground" />;
+                              const Icon = getNotificationIcon(
+                                notification.type,
+                              );
+                              return (
+                                <Icon className="h-4 w-4 text-muted-foreground" />
+                              );
                             })()}
                           </div>
                           <div className="space-y-1 flex-1 min-w-0">

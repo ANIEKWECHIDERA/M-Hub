@@ -138,19 +138,16 @@ function SidebarPanel({
       <SidebarHeader className={cn("space-y-3", !isExpanded && "px-2")}>
         <div
           className={cn(
-            "flex items-center gap-3",
+            "flex items-center justify-start gap-3",
             !isExpanded && "justify-center",
           )}
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground">
             <span className="text-lg font-bold">C</span>
           </div>
           {isExpanded && (
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                Crevo
-              </p>
-              <p className="text-base font-semibold">Creative Workspace</p>
+            <div className="flex items-center">
+              <p className="text-2xl font-semibold tracking-tight">Crevo</p>
             </div>
           )}
         </div>
@@ -228,7 +225,9 @@ function SidebarPanel({
         <SidebarGroup>
           {isExpanded && <SidebarGroupLabel>Navigation</SidebarGroupLabel>}
           <SidebarGroupContent className={cn(!isExpanded && "w-full")}>
-            <SidebarMenu className={cn(!isExpanded && "flex flex-col items-center")}>
+            <SidebarMenu
+              className={cn(!isExpanded && "flex flex-col items-center")}
+            >
               {navigation.map((item) => {
                 const isActive =
                   pathname === item.to ||

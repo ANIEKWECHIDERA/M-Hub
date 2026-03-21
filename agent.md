@@ -716,6 +716,7 @@ Frontend note:
 - API base URL is currently hardcoded in `client/src/lib/api.ts` as `http://localhost:5000`
 - Firebase web config is currently committed in `client/src/firebase/firebase.ts`
 - user-facing app branding is now `Crevo`; keep Firebase/Supabase/cloud storage identifiers unchanged unless infrastructure is actually being renamed too
+- user-facing and backend service naming should use `Crevo` / `crevo-backend`; only leave legacy `m-hub-*` values in place when they are real external infrastructure identifiers such as Firebase project IDs or buckets
 
 ## Project Conventions
 

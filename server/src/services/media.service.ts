@@ -26,7 +26,7 @@ export const MediaService = {
       const stream = cloudinary.uploader.upload_stream(
         {
           resource_type: "image",
-          folder: `m-hub/${safeFolder}`,
+          folder: `crevo/${safeFolder}`,
           public_id: safePublicId,
           overwrite: Boolean(safePublicId),
           transformation: [{ width: 800, height: 800, crop: "limit" }],

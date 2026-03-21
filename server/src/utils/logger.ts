@@ -83,7 +83,7 @@ const jsonFormat = winston.format.combine(
 export const logger = winston.createLogger({
   level: LOG_LEVEL,
   defaultMeta: {
-    service: "m-hub-backend",
+    service: "crevo-backend",
     environment: process.env.NODE_ENV ?? "development",
   },
   transports: [
