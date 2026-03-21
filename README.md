@@ -1,6 +1,6 @@
-# M-Hub
+# Crevo
 
-M-Hub is a full-stack internal project management app for teams that need shared project, task, note, file, and member management in one place.
+Crevo is a full-stack internal project management app for teams that need shared project, task, note, file, and member management in one place.
 
 This repository is split into:
 
@@ -18,7 +18,7 @@ This repository is split into:
 ## Repository Layout
 
 ```text
-M-Hub/
+Crevo/
 |- client/
 |  |- src/
 |  |- package.json

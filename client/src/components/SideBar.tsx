@@ -143,14 +143,14 @@ function SidebarPanel({
           )}
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground">
-            <span className="text-lg font-bold">M</span>
+            <span className="text-lg font-bold">C</span>
           </div>
           {isExpanded && (
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                M-Hub
+                Crevo
               </p>
-              <p className="text-base font-semibold">Workspace Hub</p>
+              <p className="text-base font-semibold">Creative Workspace</p>
             </div>
           )}
         </div>

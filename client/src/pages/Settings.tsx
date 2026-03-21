@@ -60,6 +60,7 @@ import {
   type SettingsSection,
 } from "@/config/settings-nav";
 import { useAuthContext } from "@/context/AuthContext";
+import { useSettingsContext } from "@/context/SettingsContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useUploadStatus } from "@/context/UploadStatusContext";
 import { useUser } from "@/context/UserContext";
@@ -94,6 +95,13 @@ export default function Settings() {
   } = useTeamContext();
   const { profile, updateProfile } = useUser();
   const { idToken, authStatus } = useAuthContext();
+  const {
+    theme,
+    toggleTheme,
+    preferences,
+    setPreferences,
+    saving: settingsSaving,
+  } = useSettingsContext();
   const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
@@ -447,25 +455,75 @@ export default function Settings() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
+              <div className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3">
+                <div className="space-y-0.5">
+                  <Label>Dark mode</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Persist your preferred theme across the app.
+                  </p>
+                </div>
+                <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
+              </div>
+
               {[
-                "Task Assignments",
-                "Project Updates",
-                "Comments",
-                "Email Notifications",
-              ].map((label, index) => (
+                {
+                  key: "notifications",
+                  label: "In-app notifications",
+                  description: "Allow Crevo to show notification updates in the app.",
+                },
+                {
+                  key: "taskAssignments",
+                  label: "Task assignments",
+                  description: "Get notified when tasks are assigned or updated for you.",
+                },
+                {
+                  key: "projectUpdates",
+                  label: "Project updates",
+                  description: "Receive project-level status and activity updates.",
+                },
+                {
+                  key: "commentNotifications",
+                  label: "Comments",
+                  description: "Get notified about new comments and conversation activity.",
+                },
+                {
+                  key: "emailNotifications",
+                  label: "Email notifications",
+                  description: "Prepare your account for email delivery once outbound email is enabled.",
+                },
+                {
+                  key: "compactMode",
+                  label: "Compact mode",
+                  description: "Use denser spacing in supported parts of the app.",
+                },
+              ].map((item) => (
                 <div
-                  key={label}
+                  key={item.key}
                   className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3"
                 >
                   <div className="space-y-0.5">
-                    <Label>{label}</Label>
+                    <Label>{item.label}</Label>
                     <p className="text-sm text-muted-foreground">
-                      Manage how you receive {label.toLowerCase()}.
+                      {item.description}
                     </p>
                   </div>
-                  <Switch defaultChecked={index < 3} />
+                  <Switch
+                    checked={Boolean(preferences[item.key as keyof typeof preferences])}
+                    onCheckedChange={(checked) =>
+                      setPreferences((prev) => ({
+                        ...prev,
+                        [item.key]: checked,
+                      }))
+                    }
+                  />
                 </div>
               ))}
+
+              <div className="rounded-xl border border-dashed bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+                {settingsSaving
+                  ? "Saving your notification preferences..."
+                  : "Preferences are saved automatically to your account."}
+              </div>
             </CardContent>
           </Card>
         )}

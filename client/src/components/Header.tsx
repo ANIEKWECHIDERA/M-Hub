@@ -14,10 +14,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useTheme } from "../hooks/useTheme";
 import { useNotificationContext } from "@/context/NotificationContext";
 import { useAuthContext } from "@/context/AuthContext";
 import { useUser } from "@/context/UserContext";
+import { useSettingsContext } from "@/context/SettingsContext";
+import { workspaceAPI } from "@/api/workspace.api";
 import {
   Bell,
   Trash2,
@@ -34,10 +35,10 @@ import {
 } from "@/lib/notifications";
 import { Link, useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export function Header() {
-  const { theme, setTheme } = useTheme();
+  const { toggleTheme, preferences } = useSettingsContext();
   const {
     notifications,
     markAsRead,
@@ -49,12 +50,53 @@ export function Header() {
     error: notificationsError,
     refreshNotifications,
   } = useNotificationContext();
-  const { logout, authStatus } = useAuthContext();
+  const { logout, authStatus, idToken } = useAuthContext();
   const { profile, loading: userLoading } = useUser();
   const navigate = useNavigate();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("Workspace");
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
+  const activeWorkspaceName = useMemo(
+    () => workspaceName || "Workspace",
+    [workspaceName],
+  );
+
+  useEffect(() => {
+    if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
+      setWorkspaceName("Workspace");
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadWorkspaceName = async () => {
+      try {
+        const response = await workspaceAPI.list(idToken);
+        if (cancelled) {
+          return;
+        }
+
+        const activeWorkspace =
+          response.workspaces.find((workspace) => workspace.isActive) ??
+          response.workspaces.find(
+            (workspace) => workspace.companyId === authStatus?.companyId,
+          );
+
+        setWorkspaceName(activeWorkspace?.name ?? "Workspace");
+      } catch {
+        if (!cancelled) {
+          setWorkspaceName("Workspace");
+        }
+      }
+    };
+
+    void loadWorkspaceName();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authStatus?.companyId, authStatus?.onboardingState, idToken]);
 
   // const [searchQuery, setSearchQuery] = useState("");
 
@@ -107,7 +149,9 @@ export function Header() {
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                 Workspace
               </p>
-              <p className="text-sm font-semibold text-foreground">M-Hub</p>
+              <p className="text-sm font-semibold text-foreground">
+                {activeWorkspaceName}
+              </p>
             </div>
           </div>
 
@@ -130,7 +174,9 @@ export function Header() {
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
               Workspace
             </p>
-            <p className="text-sm font-semibold text-foreground">M-Hub</p>
+            <p className="text-sm font-semibold text-foreground">
+              {activeWorkspaceName}
+            </p>
           </div>
         </div>
 
@@ -138,7 +184,7 @@ export function Header() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onClick={toggleTheme}
             aria-label="Toggle theme"
           >
             <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -160,6 +206,7 @@ export function Header() {
                 variant="ghost"
                 size="sm"
                 className="relative"
+                disabled={!preferences.notifications}
                 aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
               >
                 <Bell className="h-4 w-4" />
@@ -208,7 +255,16 @@ export function Header() {
                   </div>
                 </div>
                 <div className="space-y-2 max-h-80 overflow-y-auto">
-                  {notificationsLoading ? (
+                  {!preferences.notifications ? (
+                    <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                      <p className="font-medium text-foreground">
+                        Notifications are turned off
+                      </p>
+                      <p className="mt-1">
+                        Re-enable them in Settings to resume in-app alerts.
+                      </p>
+                    </div>
+                  ) : notificationsLoading ? (
                     <div className="space-y-2">
                       {Array.from({ length: 3 }).map((_, index) => (
                         <div

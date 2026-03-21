@@ -95,7 +95,7 @@ export default function AcceptInvitePage() {
 
           {!currentUser && !acceptedCompanyId && (
             <div className="rounded-lg border bg-muted/30 p-4 text-sm">
-              <p className="font-medium">No M-Hub account yet?</p>
+              <p className="font-medium">No Crevo account yet?</p>
               <p className="mt-1 text-muted-foreground">
                 Create an account or log in with the invited email address, then
                 come back here to accept the invite.

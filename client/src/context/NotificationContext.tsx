@@ -13,6 +13,7 @@ import {
   type NotificationRecord,
 } from "@/api/notifications.api";
 import { useAuthContext } from "./AuthContext";
+import { useSettingsContext } from "./SettingsContext";
 import { API_CONFIG } from "@/lib/api";
 import { sortNotifications } from "@/lib/notifications";
 
@@ -90,6 +91,7 @@ export const NotificationProvider = ({
   children: React.ReactNode;
 }) => {
   const { idToken, authStatus, currentUser } = useAuthContext();
+  const { preferences } = useSettingsContext();
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -134,7 +136,7 @@ export const NotificationProvider = ({
     async (options?: { silent?: boolean }) => {
       const activeToken = idTokenRef.current;
 
-      if (!activeToken || !scopeKey) {
+      if (!activeToken || !scopeKey || !preferences.notifications) {
         resetNotifications();
         return;
       }
@@ -179,7 +181,7 @@ export const NotificationProvider = ({
         }
       }
     },
-    [applyListResponse, resetNotifications, scopeKey],
+    [applyListResponse, preferences.notifications, resetNotifications, scopeKey],
   );
 
   const markAsRead = useCallback(
@@ -303,15 +305,15 @@ export const NotificationProvider = ({
     refreshRef.current = null;
     refreshScopeRef.current = null;
 
-    if (!scopeKey) {
+    if (!scopeKey || !preferences.notifications) {
       return;
     }
 
     refreshNotifications();
-  }, [scopeKey, refreshNotifications, resetNotifications]);
+  }, [preferences.notifications, scopeKey, refreshNotifications, resetNotifications]);
 
   useEffect(() => {
-    if (!scopeKey || !idTokenRef.current) {
+    if (!scopeKey || !idTokenRef.current || !preferences.notifications) {
       streamRef.current?.close();
       streamRef.current = null;
 
@@ -440,7 +442,7 @@ export const NotificationProvider = ({
       streamRef.current = null;
       stopFallbackPolling();
     };
-  }, [authStatus?.companyId, refreshNotifications, scopeKey]);
+  }, [authStatus?.companyId, preferences.notifications, refreshNotifications, scopeKey]);
 
   const value = useMemo<NotificationContextType>(
     () => ({

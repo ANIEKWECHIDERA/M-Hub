@@ -502,6 +502,10 @@ export interface CommentContextType {
 
 export interface Preferences {
   notifications: boolean;
+  emailNotifications: boolean;
+  taskAssignments: boolean;
+  projectUpdates: boolean;
+  commentNotifications: boolean;
   compactMode: boolean;
 }
 
@@ -515,6 +519,9 @@ export interface SettingsContextType {
 
   preferences: Preferences;
   setPreferences: React.Dispatch<React.SetStateAction<Preferences>>;
+  loading: boolean;
+  saving: boolean;
+  error: string | null;
 }
 
 //////////// NoteTypes //////////////////////

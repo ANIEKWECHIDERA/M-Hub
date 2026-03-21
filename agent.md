@@ -1,15 +1,15 @@
-# Agent Guide for M-Hub
+# Agent Guide for Crevo
 
 ## Purpose
 
-This repository contains M-Hub, a full-stack internal project management app with a separate frontend and backend.
+This repository contains Crevo, a full-stack internal project management app with a separate frontend and backend.
 
 Use this file as the quick-start guide before making code or documentation changes.
 
 ## Repository Shape
 
 ```text
-M-Hub/
+Crevo/
 |- client/   # React 19 + Vite frontend
 |- server/   # Express 5 + TypeScript backend
 ```
@@ -106,6 +106,40 @@ Before editing auth flows, inspect:
 The client uses multiple React context providers for project, task, note, asset, notification, settings, team member, client, and auth state.
 
 Before introducing new global state, check whether an existing context already owns it.
+
+### 4b. User settings are now backend-persisted
+
+Theme and notification preferences are no longer local-only convenience state.
+
+- Backend settings routes:
+  - `GET /api/user/settings`
+  - `PATCH /api/user/settings`
+- Backend implementation:
+  - `server/src/routes/userSettings.routes.ts`
+  - `server/src/controllers/userSettings.controller.ts`
+  - `server/src/services/userSettings.service.ts`
+- Frontend owner:
+  - `client/src/context/SettingsContext.tsx`
+  - `client/src/hooks/useSettings.ts`
+  - `client/src/api/user-settings.api.ts`
+
+Persisted settings currently include:
+
+- `theme`
+- `language`
+- `notifications_enabled`
+- `email_notifications_enabled`
+- `task_assignment_notifications`
+- `project_update_notifications`
+- `comment_notifications`
+- `compact_mode`
+
+Behavior notes:
+
+- theme updates should feel immediate in the UI and then persist in the background
+- the last chosen theme is also cached locally under `crevo-theme` so the shell paints correctly before the backend request settles
+- in-app notification fetching and SSE subscription now respect `notifications_enabled`
+- Settings > Notifications should remain the single source of truth for user notification toggles
 
 ### 4a. Notes are now a real personal feature, not mock UI
 
@@ -681,6 +715,7 @@ Frontend note:
 
 - API base URL is currently hardcoded in `client/src/lib/api.ts` as `http://localhost:5000`
 - Firebase web config is currently committed in `client/src/firebase/firebase.ts`
+- user-facing app branding is now `Crevo`; keep Firebase/Supabase/cloud storage identifiers unchanged unless infrastructure is actually being renamed too
 
 ## Project Conventions
 
@@ -703,6 +738,9 @@ Frontend note:
 - The authenticated shell should stay visually flat: minimal shadows, stronger borders, quieter surfaces
 - The authenticated shell should not scroll at the page level; keep scrolling inside content regions
 - Sticky page headers/toolbars should be preferred on dense screens where filters and actions matter
+- Header workspace identity should show the active workspace name, not a hardcoded app label
+- Sidebar branding should use the Crevo name and `C` mark in user-facing chrome
+- Persisted user-setting toggles should update optimistically in the UI and then sync through `PATCH /api/user/settings` without forcing full-page reloads
 
 ### Client quick-create convention
 

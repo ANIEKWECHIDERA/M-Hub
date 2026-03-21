@@ -46,7 +46,7 @@ export const InviteController = {
 
       logger.info(`Simulated Mail:
 
-You have been invited to join a company on M-Hub.
+You have been invited to join a company on Crevo.
 
 Please use the link below to accept the invitation.
 The link expires in 24 hours.

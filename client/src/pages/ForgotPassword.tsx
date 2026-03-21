@@ -132,10 +132,10 @@ export default function ForgotPasswordPage() {
         {/* Logo */}
         <div className="text-center">
           <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-xl font-bold text-primary-foreground">M</span>
+            <span className="text-xl font-bold text-primary-foreground">C</span>
           </div>
-          <h1 className="text-2xl font-bold">M-Hub</h1>
-          <p className="text-muted-foreground">Agency Workflow Management</p>
+          <h1 className="text-2xl font-bold">Crevo</h1>
+          <p className="text-muted-foreground">Creative Workflow Management</p>
         </div>
 
         <Card className="border-0 shadow-lg">
