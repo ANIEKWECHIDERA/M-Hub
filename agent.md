@@ -750,8 +750,8 @@ Important variables used directly in code:
 Backend logging note:
 
 - the backend now writes persistent structured JSON logs to:
-  - `server/logs/app.log`
-  - `server/logs/error.log`
+  - `server/logs/app.json`
+  - `server/logs/error.json`
 - console logs remain human-readable for local development
 - each request now gets an `x-request-id`, and request completion/error logs include that ID for correlation
 - sensitive metadata keys such as `authorization`, `token`, `password`, and `cookie` are redacted before logs are written

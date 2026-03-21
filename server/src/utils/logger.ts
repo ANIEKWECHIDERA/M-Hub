@@ -7,8 +7,8 @@ const LOG_DIR = process.env.LOG_DIR
   ? path.resolve(process.env.LOG_DIR)
   : path.resolve(process.cwd(), "logs");
 const LOG_LEVEL = process.env.LOG_LEVEL ?? "info";
-const APP_LOG_PATH = path.join(LOG_DIR, "app.log");
-const ERROR_LOG_PATH = path.join(LOG_DIR, "error.log");
+const APP_LOG_PATH = path.join(LOG_DIR, "app.json");
+const ERROR_LOG_PATH = path.join(LOG_DIR, "error.json");
 const SENSITIVE_KEYS = new Set([
   "authorization",
   "password",
