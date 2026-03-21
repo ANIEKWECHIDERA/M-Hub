@@ -278,35 +278,25 @@ export function ProjectDetail() {
         </div>
       </div>
 
-      <Tabs
-        defaultValue="overview"
-        className="flex min-h-0 flex-1 flex-col"
-      >
+      <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
         <TabsList
           className={`grid w-full shrink-0 overflow-x-auto ${
             isTeamMember ? "grid-cols-3" : "grid-cols-5"
           }`}
         >
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          {!isTeamMember && (
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          )}
-          {!isTeamMember && (
-            <TabsTrigger value="team">Team</TabsTrigger>
-          )}
+          {!isTeamMember && <TabsTrigger value="tasks">Tasks</TabsTrigger>}
+          {!isTeamMember && <TabsTrigger value="team">Team</TabsTrigger>}
           <TabsTrigger value="assets">Assets</TabsTrigger>
           <TabsTrigger value="comments">Comments</TabsTrigger>
         </TabsList>
 
-        <TabsContent
-          value="overview"
-          className="mt-4 pb-2"
-        >
+        <TabsContent value="overview" className="mt-4 pb-2">
           <Card className="app-surface">
             <CardHeader className="border-b pb-4">
               <CardTitle className="text-xl">Project Overview</CardTitle>
             </CardHeader>
-            <CardContent className="min-h-[32rem] space-y-6 p-6">
+            <CardContent className="min-h-[32rem] space-y-6 p-6 pb-3">
               <div className="space-y-2">
                 <p className="section-heading">Description</p>
                 <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
@@ -358,10 +348,7 @@ export function ProjectDetail() {
         </TabsContent>
 
         {!isTeamMember && (
-          <TabsContent
-            value="tasks"
-            className="mt-4"
-          >
+          <TabsContent value="tasks" className="mt-4">
             <Card className="app-surface">
               <CardHeader className="border-b pb-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -468,7 +455,7 @@ export function ProjectDetail() {
                 </div>
               </CardHeader>
 
-              <CardContent className="min-h-[32rem] p-6">
+              <CardContent className="min-h-[32rem] p-6 pb-0 pt-0">
                 {taskLoading ? (
                   <div className="overflow-y-auto">
                     <TaskListSkeleton />
@@ -497,104 +484,104 @@ export function ProjectDetail() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                      {filteredTasks.map((task) => {
-                        const isDone = task.status === "Done";
-                        const assignees =
-                          task.team_members && task.team_members.length > 0
-                            ? task.team_members.map((m) => m.name).join(", ")
-                            : "Unassigned";
+                        {filteredTasks.map((task) => {
+                          const isDone = task.status === "Done";
+                          const assignees =
+                            task.team_members && task.team_members.length > 0
+                              ? task.team_members.map((m) => m.name).join(", ")
+                              : "Unassigned";
 
-                        return (
-                          <TableRow
-                            key={task.id}
-                            className="cursor-pointer"
-                            onClick={() => setSelectedTask(task)}
-                          >
-                            <TableCell>
-                              <div className="flex items-start gap-3">
-                                <Checkbox
-                                  checked={isDone}
-                                  onCheckedChange={async (checked) => {
-                                    await updateTask(task.id, {
-                                      status: checked ? "Done" : "To-Do",
-                                    });
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <p
-                                    className={`truncate text-sm font-semibold ${
-                                      isDone
-                                        ? "text-muted-foreground line-through"
-                                        : "text-foreground"
-                                    }`}
-                                  >
-                                    {task.title}
-                                  </p>
-                                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                                    {task.description || "No description"}
-                                  </p>
+                          return (
+                            <TableRow
+                              key={task.id}
+                              className="cursor-pointer"
+                              onClick={() => setSelectedTask(task)}
+                            >
+                              <TableCell>
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    checked={isDone}
+                                    onCheckedChange={async (checked) => {
+                                      await updateTask(task.id, {
+                                        status: checked ? "Done" : "To-Do",
+                                      });
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <p
+                                      className={`truncate text-sm font-semibold ${
+                                        isDone
+                                          ? "text-muted-foreground line-through"
+                                          : "text-foreground"
+                                      }`}
+                                    >
+                                      {task.title}
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                                      {task.description || "No description"}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={
-                                  task.priority === "high"
-                                    ? "text-red-600"
-                                    : task.priority === "medium"
-                                      ? "text-yellow-600"
-                                      : "text-green-600"
-                                }
-                              >
-                                {task.priority?.[0]?.toUpperCase()}
-                                {task.priority?.slice(1)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="max-w-[16rem] truncate text-muted-foreground">
-                              {assignees}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {task.due_date
-                                ? new Date(task.due_date).toLocaleDateString()
-                                : "No date"}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{task.status}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingTask(task);
-                                    setIsTaskDialogOpen(true);
-                                  }}
-                                  aria-label={`Edit task ${task.title}`}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    task.priority === "high"
+                                      ? "text-red-600"
+                                      : task.priority === "medium"
+                                        ? "text-yellow-600"
+                                        : "text-green-600"
+                                  }
                                 >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-500 hover:text-red-700"
-                                  aria-label={`Delete task ${task.title}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setTaskToDelete(task);
-                                    setIsDeleteDialogOpen(true);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                                  {task.priority?.[0]?.toUpperCase()}
+                                  {task.priority?.slice(1)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="max-w-[16rem] truncate text-muted-foreground">
+                                {assignees}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {task.due_date
+                                  ? new Date(task.due_date).toLocaleDateString()
+                                  : "No date"}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{task.status}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingTask(task);
+                                      setIsTaskDialogOpen(true);
+                                    }}
+                                    aria-label={`Edit task ${task.title}`}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-700"
+                                    aria-label={`Delete task ${task.title}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setTaskToDelete(task);
+                                      setIsDeleteDialogOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -613,10 +600,7 @@ export function ProjectDetail() {
         )}
 
         {!isTeamMember && (
-          <TabsContent
-            value="team"
-            className="mt-4"
-          >
+          <TabsContent value="team" className="mt-4">
             <Card className="app-surface">
               <CardHeader className="border-b pb-4">
                 <CardTitle className="text-xl">Team Members</CardTitle>
@@ -673,10 +657,7 @@ export function ProjectDetail() {
           </TabsContent>
         )}
 
-        <TabsContent
-          value="assets"
-          className="mt-4"
-        >
+        <TabsContent value="assets" className="mt-4">
           <Card className="app-surface">
             <CardHeader className="border-b pb-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
