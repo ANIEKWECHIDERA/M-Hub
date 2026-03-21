@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/context/AuthContext";
 import { useChatContext } from "@/context/ChatContext";
 import { workspaceAPI, type Workspace } from "@/api/workspace.api";
+import { CrevoMark } from "@/components/CrevoMark";
 import { toast } from "sonner";
 import { chatSections, type ChatSection } from "@/config/chat-nav";
 import {
@@ -143,7 +144,7 @@ function SidebarPanel({
           )}
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground">
-            <span className="text-lg font-bold">C</span>
+            <CrevoMark className="h-6 w-6 text-sidebar-primary-foreground" />
           </div>
           {isExpanded && (
             <div className="flex items-center">
