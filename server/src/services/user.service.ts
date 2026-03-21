@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { CreateUserFromAuthDTO } from "../types/user.types";
 import { logger } from "../utils/logger";
 import { RequestCacheService } from "./requestCache.service";
+import { TeamMemberHttpError } from "./teamMemberErrors";
 
 export const UserService = {
   async findByFirebaseUid(firebaseUid: string) {
@@ -325,12 +326,56 @@ export const UserService = {
   },
 
   async deleteByFirebaseUid(firebaseUid: string) {
+    const user = await this.findByFirebaseUid(firebaseUid);
+    if (!user?.id) {
+      return;
+    }
+
+    const { count, error: superAdminError } = await supabaseAdmin
+      .from("team_members")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("access", "superAdmin")
+      .eq("status", "active");
+
+    if (superAdminError) throw superAdminError;
+
+    if ((count ?? 0) > 0) {
+      const { data: memberships, error: membershipsError } = await supabaseAdmin
+        .from("team_members")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .eq("access", "superAdmin")
+        .eq("status", "active");
+
+      if (membershipsError) throw membershipsError;
+
+      for (const membership of memberships ?? []) {
+        const { count: companySuperAdminCount, error: companyCountError } = await supabaseAdmin
+          .from("team_members")
+          .select("*", { count: "exact", head: true })
+          .eq("company_id", membership.company_id)
+          .eq("access", "superAdmin")
+          .eq("status", "active");
+
+        if (companyCountError) throw companyCountError;
+
+        if ((companySuperAdminCount ?? 0) <= 1) {
+          throw new TeamMemberHttpError(
+            409,
+            "You cannot delete your account while you are the last active super admin of a workspace",
+            "LAST_SUPERADMIN_ACCOUNT_DELETE_FORBIDDEN",
+          );
+        }
+      }
+    }
+
     const { error } = await supabaseAdmin
       .from("users")
       .delete()
       .eq("firebase_uid", firebaseUid);
 
     if (error) throw error;
-    RequestCacheService.invalidateUserContext({ firebaseUid });
+    RequestCacheService.invalidateUserContext({ firebaseUid, userId: user.id });
   },
 };

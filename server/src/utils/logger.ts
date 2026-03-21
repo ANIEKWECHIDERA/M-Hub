@@ -9,6 +9,7 @@ const LOG_DIR = process.env.LOG_DIR
 const LOG_LEVEL = process.env.LOG_LEVEL ?? "info";
 const APP_LOG_PATH = path.join(LOG_DIR, "app.json");
 const ERROR_LOG_PATH = path.join(LOG_DIR, "error.json");
+const FRONTEND_LOG_PATH = path.join(LOG_DIR, "frontend.json");
 const SENSITIVE_KEYS = new Set([
   "authorization",
   "password",
@@ -97,6 +98,20 @@ export const logger = winston.createLogger({
     new winston.transports.File({
       filename: ERROR_LOG_PATH,
       level: "error",
+      format: jsonFormat,
+    }),
+  ],
+});
+
+export const frontendLogger = winston.createLogger({
+  level: "info",
+  defaultMeta: {
+    service: "crevo-frontend",
+    environment: process.env.NODE_ENV ?? "development",
+  },
+  transports: [
+    new winston.transports.File({
+      filename: FRONTEND_LOG_PATH,
       format: jsonFormat,
     }),
   ],

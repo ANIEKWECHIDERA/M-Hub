@@ -23,8 +23,10 @@ import workspaceRoutes from "./routes/workspace.routes";
 import { apiLimiter } from "./middleware/rateLimiter";
 import cacheRoutes from "./routes/cache.routes";
 import chatRoutes from "./routes/chat.routes";
+import frontendLogRoutes from "./routes/frontendLog.routes";
 import { chatRealtimeService } from "./services/chatRealtime.service";
 import { requestContext } from "./middleware/requestContext.middleware";
+import { captureRequestException, isSentryEnabled, sentry } from "./observability/sentry";
 
 const app = express();
 chatRealtimeService.initialize();
@@ -44,6 +46,14 @@ app.use(express.json({}));
 app.use(express.urlencoded({ extended: true }));
 app.use("/api", apiLimiter);
 app.use(requestContext);
+app.use((req, _res, next) => {
+  if (isSentryEnabled()) {
+    sentry.setTag("request_id", req.requestId ?? "unknown");
+    sentry.setTag("http.path", req.originalUrl || req.path);
+  }
+
+  next();
+});
 
 // Mount routes
 app.use("/api/", authRoutes);
@@ -66,6 +76,7 @@ app.use("/api/", inviteRoutes);
 app.use("/api/", workspaceRoutes);
 app.use("/api/", cacheRoutes);
 app.use("/api/", chatRoutes);
+app.use("/api/", frontendLogRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {
@@ -81,9 +92,11 @@ app.use(
     next: express.NextFunction,
   ) => {
     const requestLogger = req.log ?? logger;
+    const sentryEventId = captureRequestException(err, req);
 
     requestLogger.error("Unhandled error", {
       requestId: req.requestId ?? null,
+      sentryEventId,
       message: err.message,
       stack: err.stack,
       path: req.originalUrl || req.path,

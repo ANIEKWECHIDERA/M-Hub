@@ -1846,6 +1846,14 @@ export const ChatService = {
             ? "unchanged"
             : "stale";
 
+      const loggedTargetLastReadAt = targetLastReadAt
+        ? new Date(targetLastReadAt).toISOString()
+        : null;
+      const loggedCurrentLastReadAt =
+        finalState?.last_read_at
+          ? new Date(finalState.last_read_at).toISOString()
+          : null;
+
       readCursorEventCount += 1;
       if (shouldSampleChatLog(readCursorEventCount, READ_CURSOR_LOG_SAMPLE_INTERVAL)) {
         logger.info(
@@ -1855,9 +1863,9 @@ export const ChatService = {
             conversationId: params.conversationId,
             userId: params.userId,
             lastReadMessageId: incomingMessageId,
-            lastReadAt: targetLastReadAt,
+            lastReadAt: loggedTargetLastReadAt,
             currentLastReadMessageId: finalState?.last_read_message_id ?? null,
-            currentLastReadAt: finalState?.last_read_at ?? null,
+            currentLastReadAt: loggedCurrentLastReadAt,
           },
         );
       }
@@ -1872,7 +1880,7 @@ export const ChatService = {
         conversationId: params.conversationId,
         userId: params.userId,
         lastReadMessageId: incomingMessageId,
-        lastReadAt: targetLastReadAt,
+        lastReadAt: targetLastReadAt ? new Date(targetLastReadAt).toISOString() : null,
       });
     }
 

@@ -10,6 +10,71 @@ import {
   TeamMemberResponseDTO,
 } from "../types/teamMember.types";
 import { logger } from "../utils/logger";
+import { TeamMemberHttpError } from "./teamMemberErrors";
+
+async function countActiveSuperAdmins(companyId: string) {
+  const { count, error } = await supabaseAdmin
+    .from("team_members")
+    .select("*", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .eq("access", "superAdmin")
+    .eq("status", "active");
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
+async function assertNotRemovingLastSuperAdmin(params: {
+  companyId: string;
+  memberId: string;
+  nextAccess?: string | null;
+  nextStatus?: string | null;
+  deleting?: boolean;
+}) {
+  const { data: existingMember, error } = await supabaseAdmin
+    .from("team_members")
+    .select("id, access, status")
+    .eq("company_id", params.companyId)
+    .eq("id", params.memberId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!existingMember) {
+    return;
+  }
+
+  const currentIsActiveSuperAdmin =
+    existingMember.access === "superAdmin" && existingMember.status === "active";
+  if (!currentIsActiveSuperAdmin) {
+    return;
+  }
+
+  const nextAccess = params.nextAccess ?? existingMember.access;
+  const nextStatus = params.nextStatus ?? existingMember.status;
+  const remainsActiveSuperAdmin =
+    !params.deleting &&
+    nextAccess === "superAdmin" &&
+    nextStatus === "active";
+
+  if (remainsActiveSuperAdmin) {
+    return;
+  }
+
+  const superAdminCount = await countActiveSuperAdmins(params.companyId);
+  if (superAdminCount <= 1) {
+    throw new TeamMemberHttpError(
+      409,
+      "At least one active super admin must remain in the workspace",
+      "LAST_SUPERADMIN_REQUIRED",
+    );
+  }
+}
 
 async function syncUserWorkspaceState(userId?: string | null) {
   if (!userId) {
@@ -170,6 +235,13 @@ export const TeamMemberService = {
   ): Promise<TeamMemberResponseDTO | null> {
     logger.info("TeamMemberService.update: start", { companyId, id });
 
+    await assertNotRemovingLastSuperAdmin({
+      companyId,
+      memberId: id,
+      nextAccess: payload.access ?? null,
+      nextStatus: payload.status ?? null,
+    });
+
     const { data: existingMember, error: existingMemberError } = await supabaseAdmin
       .from("team_members")
       .select("user_id")
@@ -218,6 +290,12 @@ export const TeamMemberService = {
 
   async deleteById(companyId: string, id: string): Promise<void> {
     logger.info("TeamMemberService.deleteById: start", { companyId, id });
+
+    await assertNotRemovingLastSuperAdmin({
+      companyId,
+      memberId: id,
+      deleting: true,
+    });
 
     const { data, error: lookupError } = await supabaseAdmin
       .from("team_members")

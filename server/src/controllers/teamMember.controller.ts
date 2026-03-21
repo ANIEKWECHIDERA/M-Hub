@@ -5,6 +5,7 @@ import {
   UpdateTeamMemberDTO,
 } from "../types/teamMember.types";
 import { logger } from "../utils/logger";
+import { isTeamMemberHttpError } from "../services/teamMemberErrors";
 
 export const TeamMemberController = {
   async getTeamMembers(req: any, res: Response) {
@@ -69,6 +70,12 @@ export const TeamMemberController = {
 
       return res.json(member);
     } catch (error) {
+      if (isTeamMemberHttpError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+          code: error.code,
+        });
+      }
       logger.error("updateTeamMember failed", { error });
       return res.status(500).json({ error: "Failed to update team member" });
     }
@@ -82,6 +89,12 @@ export const TeamMemberController = {
       await TeamMemberService.deleteById(companyId, id);
       return res.json({ success: true });
     } catch (error) {
+      if (isTeamMemberHttpError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+          code: error.code,
+        });
+      }
       logger.error("deleteTeamMember failed", { error });
       return res.status(500).json({ error: "Failed to delete team member" });
     }

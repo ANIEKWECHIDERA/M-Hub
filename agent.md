@@ -155,11 +155,22 @@ Crevo now has a real outbound email layer on the backend.
   - `RESEND_API_KEY`
   - `EMAIL_FROM`
   - `EMAIL_REPLY_TO`
-  - `EMAIL_BASE_URL`
-  - `APP_NAME`
-  - `APP_TAGLINE`
-  - `EMAIL_FOOTER_TEXT`
-  - `APP_SUPPORT_EMAIL`
+- `EMAIL_BASE_URL`
+- `APP_NAME`
+- `APP_TAGLINE`
+- `EMAIL_FOOTER_TEXT`
+- `APP_SUPPORT_EMAIL`
+- `SENTRY_DSN`
+- `SENTRY_ENVIRONMENT`
+- `SENTRY_RELEASE`
+- `SENTRY_TRACES_SAMPLE_RATE`
+- `SENTRY_PROFILES_SAMPLE_RATE`
+- `OBSERVABILITY_PROVIDER`
+- `OBSERVABILITY_DSN`
+- `OBSERVABILITY_ENVIRONMENT`
+- `OBSERVABILITY_RELEASE`
+- `OBSERVABILITY_TRACES_SAMPLE_RATE`
+- `OBSERVABILITY_PROFILES_SAMPLE_RATE`
 
 Current email triggers:
 
@@ -752,14 +763,43 @@ Backend logging note:
 - the backend now writes persistent structured JSON logs to:
   - `server/logs/app.json`
   - `server/logs/error.json`
+  - `server/logs/frontend.json`
 - console logs remain human-readable for local development
 - each request now gets an `x-request-id`, and request completion/error logs include that ID for correlation
 - sensitive metadata keys such as `authorization`, `token`, `password`, and `cookie` are redacted before logs are written
 - request-path logging now also redacts sensitive query parameters like `token`, `authorization`, `access_token`, `id_token`, and `refresh_token` so SSE/stream URLs do not leak bearer tokens into persisted logs
+- chat read-cursor logs now serialize `lastReadAt` and `currentLastReadAt` as ISO timestamps instead of opaque objects, so read-state investigations are easier in `app.json`
+- the frontend now reports browser runtime errors, unhandled promise rejections, and `console.error` events to `POST /api/frontend-logs`, which is rate-limited and persisted to `server/logs/frontend.json`
+- frontend log reporting is deduped client-side over a short window so the file stays useful during repeated failures
+- frontend log capture is now environment-gated:
+  - client side: enabled by default in development, or in production when `VITE_ENABLE_FRONTEND_LOGGING=true`
+  - server side ingest: enabled by default outside production, or explicitly with `ENABLE_FRONTEND_LOG_INGEST=true`
+  - server-side sampling can be reduced in production with `FRONTEND_LOG_SAMPLE_RATE` (defaults to `0.25` in production, `1` otherwise)
+- backend observability is now Sentry-compatible and provider-configurable:
+  - current SDK: `@sentry/node`
+  - can send to Sentry or compatible backends like GlitchTip by env change only
+  - generic envs are preferred: `OBSERVABILITY_PROVIDER`, `OBSERVABILITY_DSN`, `OBSERVABILITY_ENVIRONMENT`, `OBSERVABILITY_RELEASE`
+  - legacy `SENTRY_*` envs still work as fallback for compatibility
+- backend Sentry captures:
+  - startup failures
+  - unhandled Express request errors through the shared error middleware
+  - request, user, company, and `x-request-id` context on captured backend exceptions
+  - performance traces through Sentry's Express integration
+- backend Sentry intentionally filters common noisy auth failures like expired Firebase ID tokens so they do not dominate issue lists
 - use the file logs for concrete backend health analysis, especially around:
   - request volume and latency by path
   - chat/cache/auth hot paths
   - repeated errors tied to a single request ID
+
+Workspace ownership safety note:
+
+- the backend now protects the last active `superAdmin` in a workspace from accidental lockout
+- a `superAdmin` cannot be demoted, deactivated, removed, or have their account deleted if they are the last active `superAdmin` for that workspace
+- this protection is enforced server-side on:
+  - team member update
+  - team member delete
+  - user account delete
+- if a workspace needs to transfer ownership, create or promote another `superAdmin` first, then demote/remove/delete the original one
 
 Frontend note:
 

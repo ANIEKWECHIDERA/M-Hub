@@ -4,6 +4,7 @@ import { MediaService } from "../services/media.service";
 import { logger } from "../utils/logger";
 import { AuthenticatedRequest } from "../types/express";
 import { CreateUserDTO, UpdateUserDTO } from "../dtos/user.dto";
+import { isTeamMemberHttpError } from "../services/teamMemberErrors";
 
 export const UserController = {
   async getUser(req: AuthenticatedRequest, res: Response) {
@@ -86,13 +87,24 @@ export const UserController = {
   },
 
   async deleteUser(req: AuthenticatedRequest, res: Response) {
-    await UserService.deleteByFirebaseUid(req.user.uid);
+    try {
+      await UserService.deleteByFirebaseUid(req.user.uid);
 
-    logger.info("User deleted", {
-      firebase_uid: req.user.uid,
-    });
+      logger.info("User deleted", {
+        firebase_uid: req.user.uid,
+      });
 
-    return res.json({ success: true });
+      return res.json({ success: true });
+    } catch (error) {
+      if (isTeamMemberHttpError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+          code: error.code,
+        });
+      }
+
+      throw error;
+    }
   },
 
   async createUser(req: AuthenticatedRequest, res: Response) {

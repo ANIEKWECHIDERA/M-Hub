@@ -95,3 +95,12 @@ export const chatTypingLimiter = rateLimit({
   keyGenerator: userAwareKeyGenerator,
   message: { error: "Too many typing events, slow down and try again" },
 });
+
+export const frontendLogLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: ipOnlyKeyGenerator,
+  message: { error: "Too many frontend log events, slow down and try again" },
+});
