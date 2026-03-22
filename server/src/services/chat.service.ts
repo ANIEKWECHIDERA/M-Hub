@@ -10,10 +10,12 @@ import {
   ChatMessageListItem,
   ChatMessageRecord,
   ChatMessageSummary,
+  ChatMessageTag,
   ChatMessageType,
   CreateChatMessageDTO,
   CreateDirectConversationDTO,
   CreateGroupConversationDTO,
+  UpdateChatMessageTagsDTO,
 } from "../types/chat.types";
 import { ChatAuthorizationService } from "./chatAuthorization.service";
 import { ChatHttpError } from "./chatErrors";
@@ -101,6 +103,25 @@ function normalizeIsoTimestamp(value?: string | null) {
 
 function clampLimit(limit: number | undefined, fallback = 50) {
   return Math.min(100, Math.max(1, Math.trunc(limit ?? fallback)));
+}
+
+function normalizeMessageTags(tags?: string[]) {
+  const uniqueTags = tags?.length
+    ? [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))]
+    : [];
+  const invalidTags = uniqueTags.filter(
+    (tag) => !CHAT_MESSAGE_TAGS.includes(tag as ChatMessageTag),
+  );
+
+  if (invalidTags.length) {
+    throw new ChatHttpError(
+      400,
+      "One or more message tags are invalid",
+      "CHAT_INVALID_TAGS",
+    );
+  }
+
+  return uniqueTags;
 }
 
 function parseJsonArray<T>(value: unknown): T[] {
@@ -589,6 +610,78 @@ async function getMessageListItemById(messageId: string) {
   return rows[0] ? mapMessageListItem(rows[0]) : null;
 }
 
+async function getMessageTagContext(params: {
+  messageId: string;
+  companyId: string;
+  requesterUserId: string;
+}) {
+  const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+    SELECT
+      m.id,
+      m.conversation_id,
+      m.message_type,
+      m.deleted_at,
+      c.type AS conversation_type,
+      c.archived_at,
+      EXISTS (
+        SELECT 1
+        FROM chat_conversation_members cm
+        WHERE cm.conversation_id = m.conversation_id
+          AND cm.user_id = ${params.requesterUserId}::uuid
+          AND cm.removed_at IS NULL
+      ) AS requester_is_member,
+      COALESCE(tags.tags, '[]'::json) AS tags
+    FROM chat_messages m
+    INNER JOIN chat_conversations c ON c.id = m.conversation_id
+    LEFT JOIN LATERAL (
+      SELECT json_agg(t.tag ORDER BY t.tag ASC) AS tags
+      FROM chat_message_tags t
+      WHERE t.message_id = m.id
+    ) tags ON TRUE
+    WHERE m.id = ${params.messageId}::uuid
+      AND c.company_id = ${params.companyId}::uuid
+      AND c.archived_at IS NULL
+    LIMIT 1`;
+
+  const row = rows[0];
+  if (!row) {
+    throw new ChatHttpError(404, "Message not found", "CHAT_MESSAGE_NOT_FOUND");
+  }
+  if (!row.requester_is_member) {
+    throw new ChatHttpError(
+      403,
+      "You do not have access to this conversation",
+      "CHAT_ACCESS_DENIED",
+    );
+  }
+  if (row.conversation_type !== "group") {
+    throw new ChatHttpError(
+      400,
+      "Message tagging is only available in group chats",
+      "CHAT_GROUP_TAGGING_ONLY",
+    );
+  }
+  if (row.deleted_at) {
+    throw new ChatHttpError(
+      400,
+      "Deleted messages cannot be tagged",
+      "CHAT_TAG_DELETED_MESSAGE_FORBIDDEN",
+    );
+  }
+  if (row.message_type === "system") {
+    throw new ChatHttpError(
+      400,
+      "System messages cannot be tagged",
+      "CHAT_TAG_SYSTEM_MESSAGE_FORBIDDEN",
+    );
+  }
+
+  return {
+    ...row,
+    tags: parseJsonArray<string>(row.tags),
+  };
+}
+
 function mapConversationListItem(row: Record<string, any>): ChatConversationListItem {
   return {
     ...mapConversation(row),
@@ -1000,6 +1093,101 @@ export const ChatService = {
             AND m.company_id = ${params.companyId}::uuid
           ORDER BY m.created_at DESC, m.id DESC
           LIMIT ${limit}`;
+
+    return rows.map(mapMessageListItem);
+  },
+
+  async listTaggedMessages(params: {
+    conversationId: string;
+    companyId: string;
+    userId: string;
+    limit?: number;
+    tag?: string | null;
+    requestPath?: string;
+  }) {
+    const context = await ChatAuthorizationService.assertCanViewConversation({
+      conversationId: params.conversationId,
+      companyId: params.companyId,
+      userId: params.userId,
+      requestPath: params.requestPath,
+    });
+
+    if (context.type !== "group") {
+      throw new ChatHttpError(
+        400,
+        "Tagged summaries are only available in group chats",
+        "CHAT_GROUP_TAGGING_ONLY",
+      );
+    }
+
+    const limit = clampLimit(params.limit, 50);
+    const filterTag = params.tag?.trim() || null;
+    if (
+      filterTag &&
+      !CHAT_MESSAGE_TAGS.includes(filterTag as ChatMessageTag)
+    ) {
+      throw new ChatHttpError(
+        400,
+        "One or more message tags are invalid",
+        "CHAT_INVALID_TAGS",
+      );
+    }
+
+    const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+      SELECT
+        m.*,
+        tm.user_id AS sender_user_id,
+        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email) AS sender_name,
+        COALESCE(u.avatar, u.photo_url) AS sender_avatar,
+        COALESCE(tags.tags, '[]'::json) AS tags,
+        COALESCE(reply.reply_to_message, 'null'::json) AS reply_to_message
+      FROM chat_messages m
+      LEFT JOIN team_members tm ON tm.id = m.sender_team_member_id
+      LEFT JOIN users u ON u.id = tm.user_id
+      LEFT JOIN LATERAL (
+        SELECT json_agg(t.tag ORDER BY t.tag ASC) AS tags
+        FROM chat_message_tags t
+        WHERE t.message_id = m.id
+      ) tags ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT json_build_object(
+          'id', rm.id,
+          'body', rm.body,
+          'message_type', rm.message_type,
+          'created_at', rm.created_at,
+          'edited_at', rm.edited_at,
+          'deleted_at', rm.deleted_at,
+          'sender_team_member_id', rm.sender_team_member_id,
+          'sender_user_id', rtm.user_id,
+          'sender_name', COALESCE(NULLIF(TRIM(CONCAT(COALESCE(ru.first_name, ''), ' ', COALESCE(ru.last_name, ''))), ''), ru.display_name, rtm.email),
+          'sender_avatar', COALESCE(ru.avatar, ru.photo_url)
+        ) AS reply_to_message
+        FROM chat_messages rm
+        LEFT JOIN team_members rtm ON rtm.id = rm.sender_team_member_id
+        LEFT JOIN users ru ON ru.id = rtm.user_id
+        WHERE rm.id = m.reply_to_message_id
+      ) reply ON TRUE
+      WHERE m.conversation_id = ${params.conversationId}::uuid
+        AND m.deleted_at IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM chat_message_tags filtered_tags
+          WHERE filtered_tags.message_id = m.id
+            AND (${filterTag}::text IS NULL OR filtered_tags.tag = ${filterTag})
+        )
+      ORDER BY
+        CASE
+          WHEN EXISTS (
+            SELECT 1
+            FROM chat_message_tags decision_tags
+            WHERE decision_tags.message_id = m.id
+              AND decision_tags.tag = ${"decision"}
+          ) THEN 0
+          ELSE 1
+        END,
+        m.created_at DESC,
+        m.id DESC
+      LIMIT ${limit}`;
 
     return rows.map(mapMessageListItem);
   },
@@ -1470,6 +1658,7 @@ export const ChatService = {
       requestPath?: string;
     },
   ) {
+    const uniqueTags = normalizeMessageTags(params.tags);
     await ChatAuthorizationService.assertCanSendMessages({
       conversationId: params.conversation_id,
       companyId: params.company_id,
@@ -1477,7 +1666,9 @@ export const ChatService = {
       requestPath: params.requestPath,
     });
 
-    const messageType = (params.message_type ?? "text") as ChatMessageType;
+    const baseMessageType = (params.message_type ?? "text") as ChatMessageType;
+    const messageType =
+      uniqueTags.length && baseMessageType === "text" ? "tagged" : baseMessageType;
     const body = params.body.trim();
 
     if (!body) {
@@ -1485,19 +1676,6 @@ export const ChatService = {
     }
     if (messageType === "system") {
       throw new ChatHttpError(403, "System messages can only be created by the server", "CHAT_SYSTEM_MESSAGE_FORBIDDEN");
-    }
-
-    const uniqueTags = params.tags?.length
-      ? [...new Set(params.tags.map((tag) => tag.trim()).filter(Boolean))]
-      : [];
-    const invalidTags = uniqueTags.filter(
-      (tag) => !CHAT_MESSAGE_TAGS.includes(tag as (typeof CHAT_MESSAGE_TAGS)[number]),
-    );
-    if (invalidTags.length) {
-      throw new ChatHttpError(400, "One or more message tags are invalid", "CHAT_INVALID_TAGS");
-    }
-    if (uniqueTags.includes("announcement")) {
-      ChatAuthorizationService.assertCanModerateWorkspace(params.requesterAccess);
     }
 
     const rows = await prisma.$transaction(async (tx) => {
@@ -1562,6 +1740,79 @@ export const ChatService = {
     });
 
     return (await getMessageListItemById(rows[0].id)) ?? mapMessageListItem(rows[0]);
+  },
+
+  async updateMessageTags(params: {
+    messageId: string;
+    companyId: string;
+    requesterUserId: string;
+    requesterAccess?: string | null;
+    tags: UpdateChatMessageTagsDTO["tags"];
+    requestPath?: string;
+  }) {
+    const message = await getMessageTagContext({
+      messageId: params.messageId,
+      companyId: params.companyId,
+      requesterUserId: params.requesterUserId,
+    });
+
+    const nextTags = normalizeMessageTags(params.tags).sort();
+    const currentTags = [...message.tags].sort();
+    if (currentTags.join("|") === nextTags.join("|")) {
+      return (await getMessageListItemById(params.messageId)) ?? null;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        DELETE FROM chat_message_tags
+        WHERE message_id = ${params.messageId}::uuid`;
+
+      for (const tag of nextTags) {
+        await tx.$executeRaw`
+          INSERT INTO chat_message_tags (message_id, tag, created_at, created_by)
+          VALUES (${params.messageId}::uuid, ${tag}, NOW(), ${params.requesterUserId}::uuid)
+          ON CONFLICT (message_id, tag) DO NOTHING`;
+      }
+
+      const rows = await tx.$queryRaw<Array<Record<string, any>>>`
+        UPDATE chat_messages
+        SET message_type = CASE
+              WHEN message_type IN (${ "text" }, ${ "tagged" })
+                THEN ${nextTags.length ? "tagged" : "text"}
+              ELSE message_type
+            END,
+            updated_at = NOW()
+        WHERE id = ${params.messageId}::uuid
+        RETURNING *`;
+
+      return rows[0];
+    });
+
+    logger.info("ChatService.updateMessageTags: message tags updated", {
+      companyId: params.companyId,
+      conversationId: updated.conversation_id,
+      messageId: updated.id,
+      requesterUserId: params.requesterUserId,
+      tagCount: nextTags.length,
+    });
+
+    await emitConversationEvent({
+      type: "chat.message.updated",
+      company_id: params.companyId,
+      conversation_id: updated.conversation_id,
+      message_id: updated.id,
+    });
+
+    const updatedMessage = await getMessageListItemById(updated.id);
+    if (!updatedMessage) {
+      throw new ChatHttpError(
+        500,
+        "Failed to reload the updated message tags",
+        "CHAT_TAG_RELOAD_FAILED",
+      );
+    }
+
+    return updatedMessage;
   },
 
   async editMessage(params: {

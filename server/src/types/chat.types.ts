@@ -11,11 +11,12 @@ export const CHAT_MESSAGE_TYPES = [
 export type ChatMessageType = (typeof CHAT_MESSAGE_TYPES)[number];
 
 export const CHAT_MESSAGE_TAGS = [
-  "urgent",
-  "blocker",
-  "announcement",
-  "follow-up",
   "decision",
+  "action-item",
+  "blocker",
+  "update",
+  "question",
+  "follow-up",
 ] as const;
 export type ChatMessageTag = (typeof CHAT_MESSAGE_TAGS)[number];
 
@@ -194,6 +195,10 @@ export type UpdateChatMessageDTO = {
 export type MarkConversationReadDTO = {
   last_read_message_id?: string | null;
   last_read_at?: string | null;
+};
+
+export type UpdateChatMessageTagsDTO = {
+  tags: string[];
 };
 
 export type ChatRealtimeEvent =

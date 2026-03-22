@@ -7,19 +7,23 @@ import {
   BellOff,
   Check,
   Crown,
+  Flag,
   Hash,
   Loader2,
+  ListFilter,
   Mail,
   MessageSquare,
   MoreHorizontal,
   Pencil,
   Plus,
+  Tag,
   Search,
   Send,
   ShieldCheck,
   Trash2,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,6 +53,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -59,13 +72,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const MESSAGE_TAGS = [
-  "urgent",
-  "blocker",
-  "announcement",
-  "follow-up",
-  "decision",
-] as const;
+const MESSAGE_TAG_CONFIG = {
+  decision: {
+    label: "Decision",
+    chipClassName:
+      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300",
+  },
+  "action-item": {
+    label: "Action Item",
+    chipClassName:
+      "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300",
+  },
+  blocker: {
+    label: "Blocker",
+    chipClassName:
+      "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300",
+  },
+  update: {
+    label: "Update",
+    chipClassName:
+      "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300",
+  },
+  question: {
+    label: "Question",
+    chipClassName:
+      "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-300",
+  },
+  "follow-up": {
+    label: "Follow-up",
+    chipClassName:
+      "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300",
+  },
+} as const;
+
+const MESSAGE_TAGS = Object.keys(MESSAGE_TAG_CONFIG) as Array<
+  keyof typeof MESSAGE_TAG_CONFIG
+>;
+type MessageTag = (typeof MESSAGE_TAGS)[number];
 
 function useIsMobileScreen() {
   const [isMobile, setIsMobile] = useState(false);
@@ -89,6 +132,17 @@ function getInitials(name?: string | null, email?: string | null) {
     .map((part) => part[0]?.toUpperCase())
     .join("")
     .slice(0, 2);
+}
+
+function getMessageTagConfig(tag: string) {
+  const config = MESSAGE_TAG_CONFIG[tag as MessageTag];
+  return (
+    config ?? {
+      label: tag,
+      chipClassName:
+        "border-border bg-muted/60 text-muted-foreground",
+    }
+  );
 }
 
 function AvatarVisual({
@@ -276,55 +330,25 @@ function ActionMenu({
   children: (controls: { close: () => void }) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (
-        rootRef.current &&
-        !rootRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
 
   return (
-    <div ref={rootRef} className="relative">
-      {trigger({
-        open,
-        toggle: () => setOpen((previous) => !previous),
-        close: () => setOpen(false),
-      })}
-      {open && (
-        <div
-          className={cn(
-            "absolute top-full z-20 mt-2 min-w-[13rem] rounded-xl border bg-background p-1 shadow-lg",
-            align === "end" ? "right-0" : "left-0",
-          )}
-        >
-          {children({ close: () => setOpen(false) })}
-        </div>
-      )}
-    </div>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        {trigger({
+          open,
+          toggle: () => setOpen((previous) => !previous),
+          close: () => setOpen(false),
+        })}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align={align}
+        sideOffset={8}
+        collisionPadding={16}
+        className="min-w-[14rem] rounded-xl p-1"
+      >
+        {children({ close: () => setOpen(false) })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -343,41 +367,66 @@ function ActionMenuItem({
   checked?: boolean;
   keepOpen?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
-        destructive && "text-red-600 hover:bg-red-50 hover:text-red-600",
-      )}
-      onClick={onSelect}
-      data-keep-open={keepOpen ? "true" : undefined}
-    >
+  const content = (
+    <>
       <span className="flex h-4 w-4 items-center justify-center">
-        {checked ? <Check className="h-4 w-4" /> : Icon ? <Icon className="h-4 w-4" /> : null}
+        {Icon ? <Icon className="h-4 w-4" /> : null}
       </span>
       <span className="flex-1">{label}</span>
-    </button>
+    </>
+  );
+
+  if (keepOpen || checked) {
+    return (
+      <DropdownMenuCheckboxItem
+        checked={checked}
+        className={cn(destructive && "text-red-600 focus:text-red-600")}
+        onSelect={(event) => {
+          if (keepOpen) {
+            event.preventDefault();
+          }
+          onSelect();
+        }}
+        onCheckedChange={() => undefined}
+      >
+        {content}
+      </DropdownMenuCheckboxItem>
+    );
+  }
+
+  return (
+    <DropdownMenuItem
+      className={cn(
+        destructive && "text-red-600 focus:bg-red-50 focus:text-red-600",
+      )}
+      onSelect={onSelect}
+    >
+      {content}
+    </DropdownMenuItem>
   );
 }
 
 function ActionMenuSeparator() {
-  return <div className="my-1 h-px bg-border" />;
+  return <DropdownMenuSeparator />;
 }
 
 function MessageBubble({
   message,
   isCurrentUser,
   canDeleteModeration,
+  canTagMessage,
   onEdit,
   onDelete,
+  onToggleTag,
   onPreviewProfile,
 }: {
   message: ChatMessage;
   isCurrentUser: boolean;
   canDeleteModeration: boolean;
+  canTagMessage: boolean;
   onEdit: (message: ChatMessage) => void;
   onDelete: (message: ChatMessage) => void;
+  onToggleTag: (message: ChatMessage, tag: MessageTag) => void;
   onPreviewProfile: (message: ChatMessage) => void;
 }) {
   const canDelete = isCurrentUser || canDeleteModeration;
@@ -402,6 +451,7 @@ function MessageBubble({
 
   return (
     <div
+      id={`chat-message-${message.id}`}
       className={cn(
         "group flex gap-3",
         isCurrentUser ? "justify-end" : "justify-start",
@@ -429,32 +479,63 @@ function MessageBubble({
             <span>{message.sender.name || "Unknown"}</span>
             <span>{formatShortTime(message.created_at)}</span>
             {message.is_edited && <span>edited</span>}
-            {(isCurrentUser || canDelete) && !message.id.startsWith("optimistic-") && (
-              <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                {!message.is_deleted && isCurrentUser && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => onEdit(message)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    <span className="sr-only">Edit message</span>
-                  </Button>
-                )}
-                {canDelete && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-red-600 hover:text-red-600"
-                    onClick={() => onDelete(message)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete message</span>
-                  </Button>
-                )}
+            {!message.id.startsWith("optimistic-") && (
+              <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                <ActionMenu
+                  align={isCurrentUser ? "end" : "start"}
+                  trigger={() => (
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent bg-background/80 transition-colors hover:border-input hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                      <span className="sr-only">Message actions</span>
+                    </button>
+                  )}
+                >
+                  {({ close }) => (
+                    <>
+                      {canTagMessage && !message.is_deleted && (
+                        <>
+                          <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                            Capture signal
+                          </DropdownMenuLabel>
+                          {MESSAGE_TAGS.map((tag) => (
+                            <ActionMenuItem
+                              key={tag}
+                              label={getMessageTagConfig(tag).label}
+                              checked={message.tags.includes(tag)}
+                              keepOpen
+                              onSelect={() => onToggleTag(message, tag)}
+                            />
+                          ))}
+                          {(isCurrentUser || canDelete) && <ActionMenuSeparator />}
+                        </>
+                      )}
+                      {!message.is_deleted && isCurrentUser && (
+                        <ActionMenuItem
+                          label="Edit message"
+                          icon={Pencil}
+                          onSelect={() => {
+                            close();
+                            onEdit(message);
+                          }}
+                        />
+                      )}
+                      {canDelete && (
+                        <ActionMenuItem
+                          label="Delete message"
+                          icon={Trash2}
+                          destructive
+                          onSelect={() => {
+                            close();
+                            onDelete(message);
+                          }}
+                        />
+                      )}
+                    </>
+                  )}
+                </ActionMenu>
               </div>
             )}
           </div>
@@ -483,6 +564,30 @@ function MessageBubble({
             )}
             {message.body}
           </div>
+          {!!message.tags.length && (
+            <div
+              className={cn(
+                "flex flex-wrap gap-2",
+                isCurrentUser && "justify-end",
+              )}
+            >
+              {message.tags.map((tag) => {
+                const config = getMessageTagConfig(tag);
+                return (
+                  <span
+                    key={`${message.id}-${tag}`}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                      config.chipClassName,
+                    )}
+                  >
+                    <Flag className="h-3 w-3" />
+                    {config.label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
       </div>
 
       {isCurrentUser && (
@@ -506,8 +611,10 @@ export default function Chat() {
     activeConversation,
     conversationDetails,
     messages,
+    taggedMessages,
     loadingConversations,
     loadingMessages,
+    loadingTaggedMessages,
     loadingWorkspaceMembers,
     loadingOlderMessages,
     hasMoreMessages,
@@ -525,6 +632,7 @@ export default function Chat() {
     updateConversationPreferences,
     editMessage,
     deleteMessage,
+    updateMessageTags,
     typingUserIds,
     presenceByUserId,
   } = useChatContext();
@@ -561,6 +669,8 @@ export default function Chat() {
   const [selectedTags, setSelectedTags] = useState<
     Array<(typeof MESSAGE_TAGS)[number]>
   >([]);
+  const [activeTagFilter, setActiveTagFilter] = useState<MessageTag | "all">("all");
+  const [chatPanelMode, setChatPanelMode] = useState<"messages" | "summary">("messages");
   const typingTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
   const messageScrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -683,6 +793,8 @@ export default function Chat() {
     hasCompletedInitialScrollRef.current = false;
     previousMessageCountRef.current = 0;
     setShowNewMessageJump(false);
+    setChatPanelMode("messages");
+    setActiveTagFilter("all");
   }, [activeConversationId]);
 
   useEffect(() => {
@@ -720,9 +832,17 @@ export default function Chat() {
   const deleteConversationTargetName = deleteConversationTarget
     ? getConversationDisplayName(deleteConversationTarget, profile?.id)
     : "";
+  const currentChatIsGroup = currentChat?.type === "group";
   const typingNames = typingUserIds
     .map((userId) => currentMembers.find((member) => member.user_id === userId)?.name)
     .filter(Boolean) as string[];
+  const filteredTaggedMessages = useMemo(() => {
+    if (activeTagFilter === "all") {
+      return taggedMessages;
+    }
+
+    return taggedMessages.filter((message) => message.tags.includes(activeTagFilter));
+  }, [activeTagFilter, taggedMessages]);
 
   const availableMembersToAdd = useMemo(() => {
     const activeUserIds = new Set(currentMembers.map((member) => member.user_id));
@@ -1078,6 +1198,43 @@ export default function Chat() {
     );
   };
 
+  const handleRemoveSelectedTag = (tag: MessageTag) => {
+    setSelectedTags((prev) => prev.filter((item) => item !== tag));
+  };
+
+  const handleUpdateMessageTag = async (message: ChatMessage, tag: MessageTag) => {
+    const nextTags = message.tags.includes(tag)
+      ? message.tags.filter((item) => item !== tag)
+      : [...message.tags, tag];
+
+    try {
+      await updateMessageTags(message.id, nextTags);
+      toast.success(
+        nextTags.includes(tag)
+          ? `${getMessageTagConfig(tag).label} added`
+          : `${getMessageTagConfig(tag).label} removed`,
+      );
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to update message tag");
+    }
+  };
+
+  const jumpToMessage = (messageId: string) => {
+    setChatPanelMode("messages");
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const target = document.getElementById(`chat-message-${messageId}`);
+        if (!target) {
+          toast.message("That tagged message is outside the loaded chat history.");
+          return;
+        }
+
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+  };
+
   useEffect(() => {
     const container = messageScrollContainerRef.current;
     if (!container || !currentChat) {
@@ -1138,11 +1295,10 @@ export default function Chat() {
                 <div className="flex items-center gap-2">
                   <ActionMenu
                     align="end"
-                    trigger={({ toggle }) => (
+                    trigger={() => (
                       <button
                         type="button"
                         className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent bg-primary text-primary-foreground transition-colors hover:bg-primary/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                        onClick={toggle}
                       >
                         <Plus className="h-4 w-4" />
                         <span className="sr-only">Create conversation</span>
@@ -1412,11 +1568,10 @@ export default function Chat() {
                   <div className="flex items-center gap-2">
                     <ActionMenu
                       align="end"
-                      trigger={({ toggle }) => (
+                      trigger={() => (
                         <button
                           type="button"
                           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                          onClick={toggle}
                         >
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Conversation actions</span>
@@ -1517,6 +1672,66 @@ export default function Chat() {
               )}
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+              {currentChat?.type === "group" && (
+                <div className="border-b px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={chatPanelMode === "messages" ? "default" : "outline"}
+                      onClick={() => setChatPanelMode("messages")}
+                    >
+                      Messages
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={chatPanelMode === "summary" ? "default" : "outline"}
+                      onClick={() => setChatPanelMode("summary")}
+                    >
+                      <ListFilter className="mr-2 h-4 w-4" />
+                      Key decisions
+                      <Badge
+                        variant="secondary"
+                        className="ml-2 rounded-full px-2 py-0 text-[10px]"
+                      >
+                        {taggedMessages.length}
+                      </Badge>
+                    </Button>
+                  </div>
+                  {chatPanelMode === "summary" && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={activeTagFilter === "all" ? "default" : "outline"}
+                        onClick={() => setActiveTagFilter("all")}
+                      >
+                        All signals
+                      </Button>
+                      {MESSAGE_TAGS.map((tag) => {
+                        const config = getMessageTagConfig(tag);
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                              activeTagFilter === tag
+                                ? config.chipClassName
+                                : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                            )}
+                            onClick={() => setActiveTagFilter(tag)}
+                          >
+                            <Flag className="h-3 w-3" />
+                            {config.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="relative flex-1 min-h-0">
                 {showNewMessageJump && (
                   <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
@@ -1539,7 +1754,80 @@ export default function Chat() {
                   }
                 }}
               >
-                {loadingMessages && currentChat ? (
+                {chatPanelMode === "summary" && currentChat?.type === "group" ? (
+                  loadingTaggedMessages ? (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading tagged messages...
+                    </div>
+                  ) : filteredTaggedMessages.length ? (
+                    <div className="space-y-3">
+                      {filteredTaggedMessages.map((message) => (
+                        <div
+                          key={`summary-${message.id}`}
+                          className="rounded-2xl border bg-card p-4 shadow-sm"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold">
+                                {message.sender.name || "Unknown"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(message.created_at).toLocaleString([], {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => jumpToMessage(message.id)}
+                            >
+                              Jump to message
+                            </Button>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {message.tags.map((tag) => {
+                              const config = getMessageTagConfig(tag);
+                              return (
+                                <span
+                                  key={`${message.id}-${tag}`}
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                                    config.chipClassName,
+                                  )}
+                                >
+                                  <Flag className="h-3 w-3" />
+                                  {config.label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+                            {message.body}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <Empty className="min-h-[28rem] border-none bg-transparent">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <Flag />
+                        </EmptyMedia>
+                        <EmptyTitle>No tagged decisions yet</EmptyTitle>
+                        <EmptyDescription>
+                          Use tags like Decision, Action Item, or Blocker to
+                          capture the important moments from this group chat.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  )
+                ) : loadingMessages && currentChat ? (
                   <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Loading messages...
@@ -1575,8 +1863,12 @@ export default function Chat() {
                           canDeleteModeration={
                             canModerateMessages && currentChat.type === "group"
                           }
+                          canTagMessage={currentChat.type === "group"}
                           onEdit={setEditingMessage}
                           onDelete={setDeleteTarget}
+                          onToggleTag={(target, tag) => {
+                            void handleUpdateMessageTag(target, tag);
+                          }}
                           onPreviewProfile={(target) =>
                             setProfilePreviewMember({
                               name: target.sender.name,
@@ -1621,61 +1913,96 @@ export default function Chat() {
                   </p>
                 )}
 
-                <div className="flex gap-2">
-                  <Textarea
-                    placeholder={
-                      currentChat
-                        ? `Message ${currentConversationName}...`
-                        : "Select a conversation..."
-                    }
-                    value={newMessage}
-                    onChange={(event) => {
-                      void handleMessageChange(event.target.value);
-                    }}
-                    onKeyDown={(event) => {
-                      void handleKeyPress(event);
-                    }}
-                    className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto"
-                    disabled={!currentChat}
-                  />
-                  {currentChat?.type === "group" && (
-                    <ActionMenu
-                      align="end"
-                      trigger={({ toggle }) => (
-                        <button
-                          type="button"
-                          className="inline-flex h-9 w-9 self-end items-center justify-center rounded-lg border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                          onClick={toggle}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Message options</span>
-                        </button>
-                      )}
-                    >
-                      {() => (
-                        <>
-                          {MESSAGE_TAGS.map((tag) => (
-                            <ActionMenuItem
-                              key={tag}
-                              label={tag}
-                              checked={selectedTags.includes(tag)}
-                              keepOpen
-                              onSelect={() => handleToggleTag(tag)}
-                            />
-                          ))}
-                        </>
-                      )}
-                    </ActionMenu>
+                <div className="space-y-3">
+                  {!!selectedTags.length && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTags.map((tag) => {
+                        const config = getMessageTagConfig(tag);
+                        return (
+                          <span
+                            key={`composer-${tag}`}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium",
+                              config.chipClassName,
+                            )}
+                          >
+                            <Flag className="h-3 w-3" />
+                            {config.label}
+                            <button
+                              type="button"
+                              className="rounded-full p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/10"
+                              onClick={() => handleRemoveSelectedTag(tag)}
+                            >
+                              <X className="h-3 w-3" />
+                              <span className="sr-only">
+                                Remove {config.label} tag
+                              </span>
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
                   )}
-                  <Button
-                    className="self-end"
-                    onClick={() => {
-                      void handleSendMessage();
-                    }}
-                    disabled={!newMessage.trim() || !currentChat}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+
+                  <div className="flex items-end gap-2">
+                    {currentChat?.type === "group" && (
+                      <ActionMenu
+                        align="start"
+                        trigger={() => (
+                          <button
+                            type="button"
+                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                          >
+                            <Tag className="h-4 w-4" />
+                            <span className="sr-only">Tag message before sending</span>
+                          </button>
+                        )}
+                      >
+                        {() => (
+                          <>
+                            <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                              Capture signal
+                            </DropdownMenuLabel>
+                            {MESSAGE_TAGS.map((tag) => (
+                              <ActionMenuItem
+                                key={tag}
+                                label={getMessageTagConfig(tag).label}
+                                checked={selectedTags.includes(tag)}
+                                keepOpen
+                                onSelect={() => handleToggleTag(tag)}
+                              />
+                            ))}
+                          </>
+                        )}
+                      </ActionMenu>
+                    )}
+                    <Textarea
+                      placeholder={
+                        currentChat
+                          ? `Message ${currentConversationName}...`
+                          : "Select a conversation..."
+                      }
+                      value={newMessage}
+                      onChange={(event) => {
+                        void handleMessageChange(event.target.value);
+                      }}
+                      onKeyDown={(event) => {
+                        void handleKeyPress(event);
+                      }}
+                      className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto"
+                      disabled={!currentChat}
+                    />
+                    <Button
+                      className="h-11 w-11 shrink-0 rounded-xl p-0"
+                      onClick={() => {
+                        void handleSendMessage();
+                      }}
+                      disabled={!newMessage.trim() || !currentChat}
+                    >
+                      <Send className="h-4 w-4" />
+                      <span className="sr-only">Send message</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>

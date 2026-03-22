@@ -339,8 +339,8 @@ Current Phase 2 authorization rules:
     - workspace `admin` or `superAdmin` access
 - moderation-sensitive behavior:
   - system messages cannot be created by clients
-  - `announcement` message tags are restricted to `admin` and `superAdmin`
   - message edits are limited to the original sender's active workspace membership
+  - manual message tagging is only available to active group members inside their current company/workspace scope
 
 Current MVP endpoints:
 
@@ -348,6 +348,7 @@ Current MVP endpoints:
 - `GET /api/chat/conversations`
 - `GET /api/chat/conversations/:conversationId`
 - `GET /api/chat/conversations/:conversationId/messages`
+- `GET /api/chat/conversations/:conversationId/tagged-messages`
 - `POST /api/chat/conversations/direct`
 - `POST /api/chat/conversations/group`
 - `POST /api/chat/conversations/:conversationId/messages`
@@ -355,6 +356,7 @@ Current MVP endpoints:
 - `POST /api/chat/conversations/:conversationId/read`
 - `PATCH /api/chat/conversations/:conversationId/preferences`
 - `PATCH /api/chat/messages/:messageId`
+- `PATCH /api/chat/messages/:messageId/tags`
 - `DELETE /api/chat/messages/:messageId`
 - `POST /api/chat/conversations/:conversationId/members`
 - `DELETE /api/chat/conversations/:conversationId/members/:userId`
@@ -512,6 +514,17 @@ Current limitations / deferred chat items:
   - admin and superAdmin members now use special badge/icon treatment in the chat UI
   - member avatars are previewable from chat using the same dialog pattern used in `Settings.tsx`
   - backend-supported message tags are now surfaced in the composer and rendered on messages
+- group chat tags were later expanded into a manual decision-capture layer:
+  - supported tags are now `Decision`, `Action Item`, `Blocker`, `Update`, `Question`, and `Follow-up`
+  - tags can be chosen before send in the group-chat composer and are shown as removable color-coded chips before the message is sent
+  - any active group member can add or remove tags on any non-system, non-deleted group message after send
+  - tagged messages are color-coded in the thread so important signals are visible without leaving the conversation
+  - group chats now expose a `Key decisions` mode that summarizes tagged messages separately from the noisy main stream
+  - summary items show sender, timestamp, tags, message body, and a jump-back action to the original message when it is already in the loaded thread
+  - the composer tag picker and message action menus now use a portalled dropdown, which keeps the menu inside the viewport even when the trigger sits near the bottom edge of the chat window
+  - the composer row keeps the tag button, textarea, and send button aligned horizontally instead of shifting vertically during typing/tagging
+  - message-tag updates use the existing `chat.message.updated` realtime signal so summary and message views reconcile through the normal chat refresh path
+  - the current architecture stays future-ready for AI assistance because the summary layer is still driven by explicit message-level signals rather than a hardcoded one-off decision widget
 - chat UX was later tightened further:
   - system messages now render as centered badge-like timeline events instead of regular chat bubbles
   - chat page section pills were removed; section navigation now stays in the main sidebar submenu
@@ -563,6 +576,8 @@ Current limitations / deferred chat items:
 - moderation hide/delete flows beyond the current backend soft-delete rules are not implemented yet
 - direct/group/project conversation creation strategy on the frontend is still pending product UI work
 - the new `chat_membership` cache is still process-local; in a multi-instance deployment it should move to Redis or another shared cache so read/typing authorization hits are shared across nodes
+- the `Key decisions` jump-back action currently works best for tagged messages already present in the loaded chat window; older tagged items may still require loading earlier history before their exact message anchor is available
+- Playwright MCP verification was attempted for the viewport/menu behavior and end-to-end tagging flow, but the MCP transport closed during this session before those browser checks could complete
 
 ### 11. Notes implementation details
 

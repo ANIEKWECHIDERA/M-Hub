@@ -35,8 +35,10 @@ type ChatContextType = {
   activeConversation: ChatConversation | null;
   conversationDetails: ChatConversationDetails | null;
   messages: ChatMessage[];
+  taggedMessages: ChatMessage[];
   loadingConversations: boolean;
   loadingMessages: boolean;
+  loadingTaggedMessages: boolean;
   loadingWorkspaceMembers: boolean;
   loadingOlderMessages: boolean;
   hasMoreMessages: boolean;
@@ -44,6 +46,7 @@ type ChatContextType = {
   setActiveConversationId: (conversationId: string | null) => void;
   refreshConversations: (options?: { silent?: boolean }) => Promise<void>;
   refreshActiveConversation: (options?: { silent?: boolean }) => Promise<void>;
+  refreshTaggedMessages: (options?: { silent?: boolean }) => Promise<void>;
   refreshWorkspaceMembers: () => Promise<void>;
   loadOlderMessages: () => Promise<void>;
   sendMessage: (body: string, options?: { tags?: string[] }) => Promise<void>;
@@ -68,6 +71,7 @@ type ChatContextType = {
   updateConversationPreferences: (notificationsMuted: boolean) => Promise<void>;
   editMessage: (messageId: string, body: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
+  updateMessageTags: (messageId: string, tags: string[]) => Promise<void>;
   typingUserIds: string[];
   presenceByUserId: Record<string, boolean>;
   totalUnreadCount: number;
@@ -142,8 +146,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [conversationDetails, setConversationDetails] =
     useState<ChatConversationDetails | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [taggedMessages, setTaggedMessages] = useState<ChatMessage[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingTaggedMessages, setLoadingTaggedMessages] = useState(false);
   const [loadingWorkspaceMembers, setLoadingWorkspaceMembers] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +170,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const conversationsRefreshRef = useRef<Promise<void> | null>(null);
   const activeRefreshRef = useRef<Promise<void> | null>(null);
   const activeRefreshKeyRef = useRef<string | null>(null);
+  const taggedRefreshRef = useRef<Promise<void> | null>(null);
+  const taggedRefreshKeyRef = useRef<string | null>(null);
   const scopeKey =
     Boolean(idToken) &&
     Boolean(currentUser) &&
@@ -192,17 +200,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setActiveConversationId(null);
     setConversationDetails(null);
     setMessages([]);
+    setTaggedMessages([]);
     setTypingMap({});
     setPresenceByUserId({});
     setNextMessageCursor(null);
     setError(null);
     setLoadingConversations(false);
     setLoadingMessages(false);
+    setLoadingTaggedMessages(false);
     setLoadingWorkspaceMembers(false);
     setLoadingOlderMessages(false);
     conversationsRefreshRef.current = null;
     activeRefreshRef.current = null;
     activeRefreshKeyRef.current = null;
+    taggedRefreshRef.current = null;
+    taggedRefreshKeyRef.current = null;
     if (conversationsRefreshTimeoutRef.current) {
       window.clearTimeout(conversationsRefreshTimeoutRef.current);
       conversationsRefreshTimeoutRef.current = null;
@@ -312,6 +324,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       if (!token || !requestScope || !conversationId) {
         setConversationDetails(null);
         setMessages([]);
+        setTaggedMessages([]);
         setNextMessageCursor(null);
         lastReadMessageIdRef.current = null;
         activeRefreshKeyRef.current = null;
@@ -331,12 +344,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const request = (async () => {
         if (!silent) {
           setLoadingMessages(true);
+          setLoadingTaggedMessages(true);
         }
 
         try {
-          const [detailsResponse, messagesResponse] = await Promise.all([
-            chatAPI.getConversation(conversationId, token),
+          const detailsResponse = await chatAPI.getConversation(conversationId, token);
+          const [messagesResponse, taggedResponse] = await Promise.all([
             chatAPI.listMessages(conversationId, token),
+            detailsResponse.conversation.type === "group"
+              ? chatAPI.listTaggedMessages(conversationId, token)
+              : Promise.resolve({ messages: [] }),
           ]);
 
           if (
@@ -353,6 +370,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               messagesResponse.messages ?? [],
             ),
           );
+          setTaggedMessages(taggedResponse.messages ?? []);
           setNextMessageCursor(messagesResponse.nextCursor);
           setConversations((prev) =>
             sortConversations(
@@ -382,6 +400,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         } finally {
           if (!silent) {
             setLoadingMessages(false);
+            setLoadingTaggedMessages(false);
           }
         }
       })();
@@ -398,6 +417,78 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [],
+  );
+
+  const refreshTaggedMessages = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const token = idTokenRef.current;
+      const conversationId = activeConversationIdRef.current;
+      const requestScope = scopeKeyRef.current;
+
+      if (!token || !requestScope || !conversationId) {
+        setTaggedMessages([]);
+        taggedRefreshKeyRef.current = null;
+        return;
+      }
+
+      const conversationType =
+        conversationDetails?.id === conversationId
+          ? conversationDetails.type
+          : conversations.find((conversation) => conversation.id === conversationId)?.type;
+      if (conversationType !== "group") {
+        setTaggedMessages([]);
+        taggedRefreshKeyRef.current = null;
+        return;
+      }
+
+      const refreshKey = `${requestScope}:${conversationId}`;
+      if (
+        taggedRefreshRef.current &&
+        taggedRefreshKeyRef.current === refreshKey
+      ) {
+        return taggedRefreshRef.current;
+      }
+
+      const silent = options?.silent ?? false;
+      const request = (async () => {
+        if (!silent) {
+          setLoadingTaggedMessages(true);
+        }
+
+        try {
+          const response = await chatAPI.listTaggedMessages(conversationId, token);
+          if (
+            scopeKeyRef.current !== requestScope ||
+            activeConversationIdRef.current !== conversationId
+          ) {
+            return;
+          }
+
+          setTaggedMessages(response.messages ?? []);
+          setError(null);
+        } catch (chatError: any) {
+          if (scopeKeyRef.current === requestScope) {
+            setError(chatError.message || "Failed to load tagged messages");
+          }
+        } finally {
+          if (!silent) {
+            setLoadingTaggedMessages(false);
+          }
+        }
+      })();
+
+      taggedRefreshRef.current = request;
+      taggedRefreshKeyRef.current = refreshKey;
+      try {
+        await request;
+      } finally {
+        if (taggedRefreshRef.current === request) {
+          taggedRefreshRef.current = null;
+          taggedRefreshKeyRef.current = null;
+        }
+      }
+    },
+    [conversationDetails, conversations],
   );
 
   const scheduleRefreshConversations = useCallback(
@@ -851,6 +942,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             [response.message],
           ),
         );
+        if (response.message.tags.length) {
+          setTaggedMessages((prev) =>
+            mergeMessages(
+              prev.filter((message) => message.id !== optimisticId),
+              [response.message],
+            ),
+          );
+        }
         setConversations((prev) =>
           updateConversationById(prev, conversationId, (conversation) => ({
             ...conversation,
@@ -864,6 +963,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         lastReadMessageIdRef.current = response.message.id;
       } catch (chatError: any) {
         setMessages((prev) =>
+          prev.filter((message) => message.id !== optimisticId),
+        );
+        setTaggedMessages((prev) =>
           prev.filter((message) => message.id !== optimisticId),
         );
         throw chatError;
@@ -901,6 +1003,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await chatAPI.editMessage(messageId, body, token);
       setMessages((prev) =>
+        mergeMessages(
+          prev.map((message) =>
+            message.id === messageId ? response.message : message,
+          ),
+          [],
+        ),
+      );
+      setTaggedMessages((prev) =>
         mergeMessages(
           prev.map((message) =>
             message.id === messageId ? response.message : message,
@@ -948,6 +1058,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await chatAPI.deleteMessage(messageId, token);
+      setTaggedMessages((prev) =>
+        prev.filter((message) => message.id !== messageId),
+      );
       scheduleRefreshConversations({ silent: true });
     } catch (error) {
       if (previousMessage) {
@@ -975,6 +1088,87 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const updateMessageTags = useCallback(
+    async (messageId: string, tags: string[]) => {
+      const token = idTokenRef.current;
+      if (!token) {
+        return;
+      }
+
+      const normalizedTags = [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
+      const previousMessage =
+        messages.find((message) => message.id === messageId) ??
+        taggedMessages.find((message) => message.id === messageId) ??
+        null;
+
+      if (previousMessage) {
+        const optimisticMessage: ChatMessage = {
+          ...previousMessage,
+          tags: normalizedTags,
+          message_type:
+            normalizedTags.length && previousMessage.message_type === "text"
+              ? "tagged"
+              : !normalizedTags.length && previousMessage.message_type === "tagged"
+                ? "text"
+                : previousMessage.message_type,
+          updated_at: new Date().toISOString(),
+        };
+        setMessages((prev) =>
+          mergeMessages(
+            prev.map((message) =>
+              message.id === messageId ? optimisticMessage : message,
+            ),
+            [],
+          ),
+        );
+        setTaggedMessages((prev) => {
+          const withoutMessage = prev.filter((message) => message.id !== messageId);
+          return normalizedTags.length
+            ? mergeMessages(withoutMessage, [optimisticMessage])
+            : withoutMessage;
+        });
+      }
+
+      try {
+        const response = await chatAPI.updateMessageTags(messageId, normalizedTags, token);
+        setMessages((prev) =>
+          mergeMessages(
+            prev.map((message) =>
+              message.id === messageId ? response.message : message,
+            ),
+            [],
+          ),
+        );
+        setTaggedMessages((prev) => {
+          const withoutMessage = prev.filter((message) => message.id !== messageId);
+          return response.message.tags.length
+            ? mergeMessages(withoutMessage, [response.message])
+            : withoutMessage;
+        });
+        scheduleRefreshConversations({ silent: true });
+      } catch (error) {
+        if (previousMessage) {
+          setMessages((prev) =>
+            mergeMessages(
+              prev.map((message) =>
+                message.id === messageId ? previousMessage : message,
+              ),
+              [],
+            ),
+          );
+          setTaggedMessages((prev) => {
+            const withoutMessage = prev.filter((message) => message.id !== messageId);
+            return previousMessage.tags.length
+              ? mergeMessages(withoutMessage, [previousMessage])
+              : withoutMessage;
+          });
+        }
+        throw error;
+      }
+    },
+    [messages, scheduleRefreshConversations, taggedMessages],
+  );
+
   useEffect(() => {
     resetState();
     if (!scopeKey) {
@@ -988,6 +1182,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (!scopeKey || !activeConversationId) {
       setConversationDetails(null);
       setMessages([]);
+      setTaggedMessages([]);
       setNextMessageCursor(null);
       lastReadMessageIdRef.current = null;
       return;
@@ -995,6 +1190,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     setConversationDetails(null);
     setMessages([]);
+    setTaggedMessages([]);
     setNextMessageCursor(null);
     lastReadMessageIdRef.current = null;
     void refreshActiveConversation();
@@ -1139,8 +1335,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       activeConversation,
       conversationDetails,
       messages,
+      taggedMessages,
       loadingConversations,
       loadingMessages,
+      loadingTaggedMessages,
       loadingWorkspaceMembers,
       loadingOlderMessages,
       hasMoreMessages: Boolean(nextMessageCursor),
@@ -1148,6 +1346,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setActiveConversationId,
       refreshConversations,
       refreshActiveConversation,
+      refreshTaggedMessages,
       refreshWorkspaceMembers,
       loadOlderMessages,
       sendMessage,
@@ -1161,6 +1360,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       updateConversationPreferences,
       editMessage,
       deleteMessage,
+      updateMessageTags,
       typingUserIds,
       presenceByUserId,
       totalUnreadCount,
@@ -1173,14 +1373,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       activeConversation,
       conversationDetails,
       messages,
+      taggedMessages,
       loadingConversations,
       loadingMessages,
+      loadingTaggedMessages,
       loadingWorkspaceMembers,
       loadingOlderMessages,
       nextMessageCursor,
       error,
       refreshConversations,
       refreshActiveConversation,
+      refreshTaggedMessages,
       refreshWorkspaceMembers,
       loadOlderMessages,
       sendMessage,
@@ -1194,6 +1397,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       updateConversationPreferences,
       editMessage,
       deleteMessage,
+      updateMessageTags,
       typingUserIds,
       presenceByUserId,
       totalUnreadCount,
