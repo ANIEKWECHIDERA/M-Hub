@@ -105,6 +105,7 @@ export default function Settings() {
   const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
+  const isSuperAdmin = authStatus?.access === "superAdmin";
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -873,6 +874,7 @@ export default function Settings() {
             </DialogHeader>
             <TeamMemberForm
               member={teamMembers.find((member: any) => member.id === editingUserId)}
+              canAssignSuperAdmin={isSuperAdmin}
               onSave={async (data) => {
                 if (!editingUserId) return;
                 await updateTeamMember(editingUserId, data);
@@ -895,6 +897,8 @@ export default function Settings() {
               <AlertDialogDescription>
                 Are you sure you want to remove{" "}
                 <strong>{memberToDelete?.name}</strong> from this workspace?
+                {" "}If this person is your last active super admin, you'll need to
+                promote another super admin first.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="flex justify-end gap-2 pt-4">

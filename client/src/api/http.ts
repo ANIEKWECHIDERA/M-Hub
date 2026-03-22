@@ -1,6 +1,20 @@
 import { API_CONFIG } from "@/lib/api";
 import { auth } from "@/firebase/firebase";
 
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  details?: unknown;
+
+  constructor(message: string, status: number, code?: string, details?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
 export async function apiFetch<T>(
   url: string,
   options: RequestInit = {},
@@ -40,8 +54,11 @@ export async function apiFetch<T>(
   const data = raw ? JSON.parse(raw) : null;
 
   if (!res.ok) {
-    throw new Error(
+    throw new ApiError(
       data?.error || data?.message || `Request failed (${res.status})`,
+      res.status,
+      data?.code,
+      data?.details,
     );
   }
 

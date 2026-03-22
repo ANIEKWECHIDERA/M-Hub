@@ -1,5 +1,6 @@
 import { teamMembersAPI } from "@/api/teamMember.api";
 import { inviteAPI } from "@/api/invite.api";
+import { ApiError } from "@/api/http";
 import type { TeamMember } from "@/Types/types";
 import { createContext, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -7,6 +8,25 @@ import { useAuthContext } from "./AuthContext";
 import { useUser } from "./UserContext";
 
 const TeamContext = createContext<any>(null);
+
+const getFriendlyTeamMemberError = (error: unknown, fallback: string) => {
+  if (error instanceof ApiError) {
+    if (
+      error.code === "LAST_SUPERADMIN_REQUIRED" ||
+      error.code === "LAST_SUPERADMIN_ACCOUNT_DELETE_FORBIDDEN"
+    ) {
+      return "Promote another super admin before changing this super admin's access or removing the account.";
+    }
+
+    return error.message || fallback;
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  return fallback;
+};
 
 export const useTeamContext = () => {
   const context = useContext(TeamContext);
@@ -84,7 +104,8 @@ export const TeamContextProvider = ({
     toast.promise(promise, {
       loading: "Updating team member...",
       success: "Team member updated",
-      error: "Failed to update team member",
+      error: (error) =>
+        getFriendlyTeamMemberError(error, "Failed to update team member"),
     });
 
     const updated = await promise;
@@ -105,7 +126,8 @@ export const TeamContextProvider = ({
     toast.promise(promise, {
       loading: "Removing team member...",
       success: "Team member deleted",
-      error: "Failed to delete team member",
+      error: (error) =>
+        getFriendlyTeamMemberError(error, "Failed to delete team member"),
     });
 
     await promise;

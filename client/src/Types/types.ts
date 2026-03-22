@@ -152,6 +152,7 @@ export interface TeamContextType {
 
 export interface TeamMemberFormProps {
   member?: Partial<TeamMember>;
+  canAssignSuperAdmin?: boolean;
   onSave: (data: Partial<TeamMember>) => void;
   onCancel: () => void;
 }

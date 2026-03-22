@@ -13,6 +13,7 @@ import type { TeamMemberFormProps } from "@/Types/types";
 
 const TeamMemberForm = ({
   member = {},
+  canAssignSuperAdmin = false,
   onSave,
   onCancel,
 }: TeamMemberFormProps) => {
@@ -95,6 +96,9 @@ const TeamMemberForm = ({
             <SelectValue placeholder="Select access level" />
           </SelectTrigger>
           <SelectContent>
+            {canAssignSuperAdmin && (
+              <SelectItem value="superAdmin">Super Admin</SelectItem>
+            )}
             <SelectItem value="admin">Admin</SelectItem>
             <SelectItem value="team_member">Team Member</SelectItem>
           </SelectContent>
