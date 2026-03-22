@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { inviteAPI } from "@/api/invite.api";
 import { workspaceAPI } from "@/api/workspace.api";
 import { useAuthContext } from "@/context/AuthContext";
+import { CrevoMark } from "@/components/CrevoMark";
 
 export default function AcceptInvitePage() {
   const { token } = useParams();
@@ -79,35 +80,52 @@ export default function AcceptInvitePage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50 p-6">
-      <Card className="w-full max-w-lg shadow-xl">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50 px-4 py-5 sm:p-6">
+      <Card className="premium-interactive w-full max-w-lg shadow-xl">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
-            <MailCheck className="h-8 w-8 text-amber-700" />
+          <div className="mb-4 flex items-center justify-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm sm:h-14 sm:w-14">
+              <CrevoMark className="h-7 w-7 sm:h-8 sm:w-8" />
+            </div>
+            <div className="text-left">
+              <p className="text-lg font-semibold tracking-tight sm:text-xl">
+                Crevo
+              </p>
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Invitation flow
+              </p>
+            </div>
           </div>
-          <CardTitle>Workspace Invite</CardTitle>
+          <div className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+            <MailCheck className="h-6 w-6 text-amber-700" />
+          </div>
+          <CardTitle className="text-xl sm:text-2xl">Workspace Invite</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+        <CardContent className="space-y-3 sm:space-y-4">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Accept this invite to join another workspace. You can keep your
             existing workspace and switch between them later.
           </p>
 
           {!currentUser && !acceptedCompanyId && (
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+            <div className="rounded-lg border bg-muted/30 p-3 text-xs sm:p-4 sm:text-sm">
               <p className="font-medium">No Crevo account yet?</p>
               <p className="mt-1 text-muted-foreground">
                 Create an account or log in with the invited email address, then
                 come back here to accept the invite.
               </p>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Button
                   variant="outline"
                   onClick={() => navigate("/login", { replace: true })}
+                  className="w-full sm:w-auto"
                 >
                   Log In
                 </Button>
-                <Button onClick={() => navigate("/signup", { replace: true })}>
+                <Button
+                  onClick={() => navigate("/signup", { replace: true })}
+                  className="w-full sm:w-auto"
+                >
                   <UserPlus className="mr-2 h-4 w-4" />
                   Sign Up
                 </Button>

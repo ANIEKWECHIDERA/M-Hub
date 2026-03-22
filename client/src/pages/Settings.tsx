@@ -27,6 +27,7 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -997,7 +998,7 @@ export default function Settings() {
                 promote another super admin first.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="flex justify-end gap-2 pt-4">
+            <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setMemberToDelete(null)}>
                 Cancel
               </AlertDialogCancel>
@@ -1007,7 +1008,7 @@ export default function Settings() {
               >
                 Remove
               </AlertDialogAction>
-            </div>
+            </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       )}
@@ -1030,7 +1031,7 @@ export default function Settings() {
                 record and the old link will stop working.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="flex justify-end gap-2 pt-4">
+            <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setInviteToDelete(null)}>
                 Cancel
               </AlertDialogCancel>
@@ -1044,7 +1045,7 @@ export default function Settings() {
               >
                 Delete invite
               </AlertDialogAction>
-            </div>
+            </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       )}

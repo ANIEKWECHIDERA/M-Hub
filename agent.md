@@ -1165,6 +1165,7 @@ Assumptions currently in use:
   - label it as `Workspace Logo`, not branding/photo
   - clicking the current logo should open a preview dialog
   - the file-action button should read `Upload Logo`
+- Do not add collapse toggles to `Workspace Details` or `Delete Workspace`; keep those sections immediately readable
 - Workspace Manager loading should use skeletons, not generic spinners, for:
   - workspace details
   - team workload
@@ -1198,4 +1199,17 @@ Assumptions currently in use:
   - smaller card and button padding on mobile
   - narrower Sonner toasts
   - smaller base mobile typography, especially in editor-heavy views like Notes
+  - inputs, dialogs, and alert dialogs should also scale down slightly on small screens
+- Auth and invite acceptance surfaces should use the official Crevo mark instead of a plain `C`
+  - on small screens, keep the mark and the `Crevo` name side by side
+- Chat mobile polish:
+  - reduce header spacing and avatar/button sizes slightly on phones
+  - reduce message bubble padding/text size slightly on phones without hurting readability
+  - keep group-tagging and send actions intact while making the composer denser
+- Toasts should prefer content-fit width rather than stretching wide across the viewport
+- The sidebar footer should be treated as a retention surface, not static instructional copy
+  - current experiment is `Retention Lab` with three selectable concept cards:
+    - `Team Pulse`
+    - `Win Streaks`
+    - `Friday Wrap`
 - Mobile sidebar sheet content now includes hidden title/description so Playwright/browser a11y checks stay clean
