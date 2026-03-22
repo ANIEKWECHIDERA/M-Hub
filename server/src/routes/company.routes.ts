@@ -15,7 +15,7 @@ router.get(
   verifyFirebaseToken,
   profileSync,
   requireAppUser,
-  authorize(["superAdmin"]),
+  authorize(["admin", "superAdmin"]),
   CompanyController.getCompany,
 );
 

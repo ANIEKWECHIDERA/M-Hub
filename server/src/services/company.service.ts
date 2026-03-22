@@ -20,6 +20,22 @@ function toCompanyResponseDTO(row: any): CompanyResponseDTO {
   };
 }
 
+async function findOwnedWorkspace(tx: any, userId: string) {
+  const ownedWorkspaces = await tx.$queryRaw<Array<Record<string, any>>>`
+    SELECT c.id, c.name, c.description, c.logo_url, c.created_at
+    FROM team_members tm
+    INNER JOIN companies c ON c.id = tm.company_id
+    WHERE tm.user_id = ${userId}::uuid
+      AND tm.access = ${"superAdmin"}
+      AND tm.role = ${"owner"}
+      AND tm.status = ${"active"}
+    ORDER BY tm.created_at ASC
+    LIMIT 1
+    FOR UPDATE`;
+
+  return ownedWorkspaces[0] ?? null;
+}
+
 export const CompanyService = {
   async findById(companyId: string): Promise<CompanyResponseDTO | null> {
     logger.info("CompanyService.findById: start", { companyId });
@@ -137,6 +153,94 @@ export const CompanyService = {
     await ChatService.ensureGeneralConversation(company.id);
 
     return toCompanyResponseDTO(company);
+  },
+
+  async ensurePersonalWorkspace(user: {
+    id: string;
+    email: string;
+    firebase_uid: string;
+  }) {
+    logger.info("CompanyService.ensurePersonalWorkspace:start", {
+      userId: user.id,
+      email: user.email,
+    });
+
+    const company = await prisma.$transaction(async (tx) => {
+      const lockedUsers = await tx.$queryRaw<Array<Record<string, any>>>`
+        SELECT id, company_id, has_company
+        FROM users
+        WHERE id = ${user.id}::uuid
+        FOR UPDATE`;
+
+      const lockedUser = lockedUsers[0];
+
+      if (!lockedUser) {
+        throw new Error("User not found");
+      }
+
+      const existingOwnedWorkspace = await findOwnedWorkspace(tx, user.id);
+
+      if (existingOwnedWorkspace) {
+        await tx.$executeRaw`
+          UPDATE users
+          SET has_company = ${true},
+              company_id = COALESCE(company_id, ${existingOwnedWorkspace.id}::uuid),
+              updated_at = NOW()
+          WHERE id = ${user.id}::uuid`;
+
+        return {
+          company: existingOwnedWorkspace,
+          created: false,
+        };
+      }
+
+      const insertedCompanies = await tx.$queryRaw<Array<Record<string, any>>>`
+        INSERT INTO companies (name, description, logo_url)
+        VALUES (${"My Workspace"}, ${null}, ${null})
+        RETURNING id, name, description, logo_url, created_at`;
+
+      const personalWorkspace = insertedCompanies[0];
+
+      await tx.$executeRaw`
+        INSERT INTO team_members (user_id, company_id, email, role, access, status)
+        VALUES (
+          ${user.id}::uuid,
+          ${personalWorkspace.id}::uuid,
+          ${user.email},
+          ${"owner"},
+          ${"superAdmin"},
+          ${"active"}
+        )`;
+
+      await tx.$executeRaw`
+        UPDATE users
+        SET has_company = ${true},
+            company_id = COALESCE(company_id, ${personalWorkspace.id}::uuid),
+            updated_at = NOW()
+        WHERE id = ${user.id}::uuid`;
+
+      return {
+        company: personalWorkspace,
+        created: true,
+      };
+    });
+
+    RequestCacheService.invalidateUserContext({
+      userId: user.id,
+      firebaseUid: user.firebase_uid,
+    });
+    await ChatService.ensureGeneralConversation(company.company.id);
+
+    logger.info("CompanyService.ensurePersonalWorkspace:success", {
+      userId: user.id,
+      companyId: company.company.id,
+      created: company.created,
+    });
+
+    return {
+      company: toCompanyResponseDTO(company.company),
+      created: company.created,
+    };
   },
 
   async update(

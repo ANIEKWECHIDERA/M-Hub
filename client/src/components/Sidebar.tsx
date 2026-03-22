@@ -59,8 +59,8 @@ const baseNavigation: NavItem[] = [
   { name: "Notes", to: "/notepad", icon: FileText },
 ];
 
-const adminNavigation: NavItem[] = [
-  { name: "Settings", to: "/settings", icon: Settings },
+const workspaceManagerNavigation: NavItem[] = [
+  { name: "Workspace Manager", to: "/workspace-manager", icon: Building2 },
 ];
 
 interface SidebarPanelProps {
@@ -359,7 +359,34 @@ function SidebarPanel({
                 );
               })}
 
-              {adminNavigation.map((item) => {
+              {!isTeamMember &&
+                workspaceManagerNavigation.map((item) => {
+                  const isActive =
+                    pathname === item.to ||
+                    pathname.startsWith(item.to + "/");
+
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={!isExpanded ? item.name : undefined}
+                        aria-label={item.name}
+                        className={cn(
+                          !isExpanded &&
+                            "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
+                        )}
+                      >
+                        <Link to={item.to} onClick={handleNavClick}>
+                          <item.icon className="h-5 w-5" />
+                          {isExpanded && <span>{item.name}</span>}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+
+              {[{ name: "Settings", to: "/settings", icon: Settings }].map((item) => {
                 const isSettingsRoute = pathname === item.to;
                 const isActive = isSettingsRoute;
                 const settingsLink = `/settings?section=${activeSettingsSection}`;

@@ -49,4 +49,24 @@ export const WorkspaceController = {
       return res.status(400).json({ error: error.message });
     }
   },
+
+  async manager(req: Request, res: Response) {
+    const companyId = req.user?.company_id;
+
+    if (!companyId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const snapshot = await WorkspaceService.getManagerSnapshot(companyId);
+      return res.json(snapshot);
+    } catch (error: any) {
+      logger.error("WorkspaceController.manager:error", {
+        error: error.message,
+        companyId,
+        userId: req.user?.id ?? null,
+      });
+      return res.status(500).json({ error: error.message || "Failed to load workspace manager" });
+    }
+  },
 };

@@ -110,6 +110,36 @@ export type Company = {
   logoUrl?: string; // URL to the logo, if available
 };
 
+export type WorkspaceManagerSnapshot = {
+  workspace: {
+    id: string;
+    name: string;
+    description: string | null;
+    logoUrl: string | null;
+    createdAt: string;
+    memberCount: number;
+  };
+  owner: {
+    id: string | null;
+    name: string;
+    email: string;
+    avatar: string | null;
+  } | null;
+  workload: Array<{
+    id: string;
+    userId: string | null;
+    name: string;
+    email: string;
+    access: string;
+    avatar: string | null;
+    assignedTaskCount: number;
+    completedTaskCount: number;
+    overdueTaskCount: number;
+    inProgressTaskCount: number;
+    capacityStatus: "free" | "balanced" | "overloaded" | "behind";
+  }>;
+};
+
 //////////////// TeamContextTypes ////////////////
 export interface TeamMember {
   id: string;

@@ -101,6 +101,127 @@ Before editing auth flows, inspect:
 - `client/src/components/auth/AuthGuard.tsx`
 - `client/src/App.tsx`
 
+### 3b. Personal workspace creation is now automatic
+
+Crevo now guarantees that a newly completed user profile cannot remain workspace-less.
+
+- When a user completes signup/profile and still has `has_company = false`, the backend automatically creates a personal default workspace named `My Workspace`
+- The user is added to that workspace as:
+  - `role = owner`
+  - `access = superAdmin`
+- This creation is backend-enforced and idempotent
+- Repeat calls reuse an existing owned workspace rather than creating duplicates
+- Invite acceptance now ensures this personal workspace exists before the invite is linked, so a user cannot get stranded with only an invited workspace
+
+Relevant backend files:
+
+- `server/src/services/company.service.ts`
+- `server/src/services/user.service.ts`
+- `server/src/services/invite.service.ts`
+
+Important behavior:
+
+- the personal workspace is created invisibly for the user
+- if the user later accepts another workspace invite, they can switch between workspaces without losing their own default workspace
+- current workspace selection should not be assumed to equal “personal workspace”; the owned `superAdmin/owner` membership is the durable signal
+
+### 3c. Workspace Manager and workspace branding permissions
+
+Crevo now has a dedicated Workspace Manager surface.
+
+- Frontend route:
+  - `/workspace-manager`
+- Sidebar visibility:
+  - visible only to `admin` and `superAdmin`
+- Frontend route access:
+  - blocked for `team_member` / `member`
+- Backend data route:
+  - `GET /api/workspaces/manager`
+  - restricted to `admin` and `superAdmin`
+
+Workspace Manager shows:
+
+- workspace name
+- description
+- logo/avatar
+- member count
+- workspace owner
+- workload/capacity cues for active members
+
+Branding/edit rules:
+
+- only `superAdmin` can update workspace branding/details
+- admins can view Workspace Manager but cannot rename the workspace or change the workspace photo
+- current backend company update route remains `superAdmin`-only, so description editing is also effectively restricted to `superAdmin` for now
+
+Relevant files:
+
+- `client/src/pages/WorkspaceManager.tsx`
+- `client/src/components/Sidebar.tsx`
+- `client/src/App.tsx`
+- `server/src/routes/workspace.routes.ts`
+- `server/src/controllers/workspace.controller.ts`
+- `server/src/services/workspace.service.ts`
+- `server/src/routes/company.routes.ts`
+
+### 3d. Invite management now supports copy/resend/delete actions
+
+Invite handling in Settings is no longer cancel-only.
+
+Current per-invite actions:
+
+- Copy invite link
+- Resend invite
+- Delete invite
+
+Implementation notes:
+
+- the invite row now uses an ellipsis menu in Settings
+- copy-link and resend both refresh the invite token/hash and expiration, then:
+  - copy returns a valid accept URL
+  - resend sends a new email with the refreshed token
+- delete now removes the invite record entirely instead of only marking it cancelled
+- accepted invites cannot be resent
+
+Relevant files:
+
+- `client/src/pages/Settings.tsx`
+- `client/src/api/invite.api.ts`
+- `server/src/controllers/invite.controller.ts`
+- `server/src/routes/invite.routes.ts`
+- `server/src/services/invite.service.ts`
+
+### 3e. Workspace workload/capacity cues
+
+Workspace Manager now exposes lightweight capacity signals for active members in the current workspace.
+
+Per-member metrics:
+
+- assigned task count
+- completed task count
+- overdue task count
+- in-progress task count
+
+Capacity cue values:
+
+- `free`
+- `balanced`
+- `overloaded`
+- `behind`
+
+These are operational cues only, not deep workforce analytics.
+
+Scoping and access rules:
+
+- metrics are computed per active workspace/company
+- only `admin` and `superAdmin` can fetch them
+- only active team members are included
+
+Known limitations:
+
+- capacity thresholds are heuristic and currently hardcoded in `workspace.service.ts`
+- workload counts are task-assignment based and do not attempt to measure effort sizing or subtasks as separate capacity units
+
 ### 4. Context-heavy frontend
 
 The client uses multiple React context providers for project, task, note, asset, notification, settings, team member, client, and auth state.

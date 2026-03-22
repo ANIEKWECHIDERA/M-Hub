@@ -45,7 +45,27 @@ router.delete(
   inviteLimiter,
   requireAppUser,
   authorize(["admin", "superAdmin"]),
-  InviteController.cancelInvite,
+  InviteController.deleteInvite,
+);
+
+router.post(
+  "/invite/:inviteId/link",
+  verifyFirebaseToken,
+  profileSync,
+  inviteLimiter,
+  requireAppUser,
+  authorize(["admin", "superAdmin"]),
+  InviteController.getInviteLink,
+);
+
+router.post(
+  "/invite/:inviteId/resend",
+  verifyFirebaseToken,
+  profileSync,
+  inviteLimiter,
+  requireAppUser,
+  authorize(["admin", "superAdmin"]),
+  InviteController.resendInvite,
 );
 
 router.delete(

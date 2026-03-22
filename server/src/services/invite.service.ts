@@ -5,6 +5,8 @@ import { RequestCacheService } from "./requestCache.service";
 import { generateInviteToken } from "../utils/token";
 import { logger } from "../utils/logger";
 import { ChatService } from "./chat.service";
+import { CompanyService } from "./company.service";
+import { emailConfig } from "../config/email";
 
 async function getActiveMembershipContext(userId: string) {
   const { data: user, error: userError } = await supabaseAdmin
@@ -160,6 +162,24 @@ export const InviteService = {
       throw new Error("Invalid invite token");
     }
 
+    const { data: userRecord, error: userLookupError } = await supabaseAdmin
+      .from("users")
+      .select("id, email, firebase_uid, has_company")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (userLookupError || !userRecord) {
+      throw new Error("User not found");
+    }
+
+    if (!userRecord.has_company) {
+      await CompanyService.ensurePersonalWorkspace({
+        id: userRecord.id,
+        email: userRecord.email,
+        firebase_uid: userRecord.firebase_uid,
+      });
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const invites = await tx.$queryRaw<Array<Record<string, any>>>`
         SELECT *
@@ -261,6 +281,84 @@ export const InviteService = {
 
     logger.info("InviteService.acceptInvite:success", result);
     return result;
+  },
+
+  async refreshInvite(inviteId: string, userId: string) {
+    const membership = await getActiveMembershipContext(userId);
+
+    if (!membership) {
+      throw new Error("Failed to verify membership");
+    }
+
+    if (membership.access !== "admin" && membership.access !== "superAdmin") {
+      throw new Error("You do not have permission to manage invites");
+    }
+
+    const { data: invite, error: inviteLookupError } = await supabaseAdmin
+      .from("company_invite")
+      .select("*")
+      .eq("id", inviteId)
+      .eq("company_id", membership.company_id)
+      .maybeSingle();
+
+    if (inviteLookupError || !invite) {
+      throw new Error("Invite not found");
+    }
+
+    if (invite.status === "ACCEPTED") {
+      throw new Error("Accepted invites cannot be resent");
+    }
+
+    const { token, hashedToken } = generateInviteToken();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: refreshedInvite, error: refreshError } = await supabaseAdmin
+      .from("company_invite")
+      .update({
+        token_hash: hashedToken,
+        expires_at: expiresAt,
+        status: "PENDING",
+        accepted_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", inviteId)
+      .eq("company_id", membership.company_id)
+      .select()
+      .maybeSingle();
+
+    if (refreshError || !refreshedInvite) {
+      throw new Error("Failed to refresh invite");
+    }
+
+    return {
+      invite: refreshedInvite,
+      token,
+      link: `${emailConfig.baseUrl}/invite/accept/${token}`,
+    };
+  },
+
+  async deleteInvite(inviteId: string, userId: string) {
+    const membership = await getActiveMembershipContext(userId);
+
+    if (!membership) {
+      throw new Error("Failed to verify membership");
+    }
+
+    if (membership.access !== "admin" && membership.access !== "superAdmin") {
+      throw new Error("You do not have permission to delete invites");
+    }
+
+    const { error } = await supabaseAdmin
+      .from("company_invite")
+      .delete()
+      .eq("id", inviteId)
+      .eq("company_id", membership.company_id);
+
+    if (error) {
+      throw new Error("Failed to delete invite");
+    }
+
+    return { success: true };
   },
 
   async declineInvite(token: string) {

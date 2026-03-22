@@ -249,4 +249,105 @@ export const InviteController = {
       });
     }
   },
+
+  async getInviteLink(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const { inviteId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!inviteId) {
+      return res.status(400).json({ error: "Invite ID is required" });
+    }
+
+    try {
+      const result = await InviteService.refreshInvite(inviteId, userId);
+      return res.status(200).json({
+        message: "Invite link generated",
+        link: result.link,
+      });
+    } catch (error: any) {
+      logger.error("InviteController.getInviteLink: error", {
+        error: error.message,
+        userId,
+        inviteId,
+      });
+
+      return res.status(400).json({ error: error.message });
+    }
+  },
+
+  async resendInvite(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const { inviteId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!inviteId) {
+      return res.status(400).json({ error: "Invite ID is required" });
+    }
+
+    try {
+      const result = await InviteService.refreshInvite(inviteId, userId);
+
+      void EmailNotificationService.sendWorkspaceInviteEmail({
+        companyId: result.invite.company_id,
+        inviterUserId: userId,
+        invitedEmail: result.invite.email,
+        role: result.invite.role,
+        inviteToken: result.token,
+      }).catch((error: any) => {
+        logger.error("InviteController.resendInvite: invite email failed", {
+          inviteId,
+          userId,
+          error: error.message,
+        });
+      });
+
+      return res.status(200).json({
+        message: "Invite resent successfully",
+      });
+    } catch (error: any) {
+      logger.error("InviteController.resendInvite: error", {
+        error: error.message,
+        userId,
+        inviteId,
+      });
+
+      return res.status(400).json({ error: error.message });
+    }
+  },
+
+  async deleteInvite(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const { inviteId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!inviteId) {
+      return res.status(400).json({ error: "Invite ID is required" });
+    }
+
+    try {
+      await InviteService.deleteInvite(inviteId, userId);
+
+      return res.status(200).json({
+        message: "Invite deleted successfully",
+      });
+    } catch (error: any) {
+      logger.error("InviteController.deleteInvite: error", {
+        error: error.message,
+        userId,
+        inviteId,
+      });
+
+      return res.status(400).json({ error: error.message });
+    }
+  },
 };

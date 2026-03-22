@@ -6,13 +6,8 @@ import { apiFetch } from "./http";
 
 export const CompanyAPI = {
   // Fetch all companies
-  getAll(idToken: string) {
-    return apiFetch<Company[]>("/api/company", undefined, idToken);
-  },
-
-  // Fetch company by ID
-  getById(id: string, idToken: string) {
-    return apiFetch<Company>(`/api/company/${id}`, undefined, idToken);
+  getCurrent(idToken: string) {
+    return apiFetch<Company>("/api/company", undefined, idToken);
   },
 
   // Create a new company
@@ -32,7 +27,7 @@ export const CompanyAPI = {
   },
 
   // Update company details
-  update(id: string, payload: UpdateCompanyDTO, idToken: string | null) {
+  updateCurrent(payload: UpdateCompanyDTO, idToken: string | null) {
     if (!idToken) {
       throw new Error("Missing ID token");
     }
@@ -43,7 +38,7 @@ export const CompanyAPI = {
     if (payload.logo) formData.append("logo", payload.logo);
 
     return apiFetch<Company>(
-      `/api/company/${id}`,
+      "/api/company",
       {
         method: "PATCH",
         body: formData, // Sending formData for file upload
@@ -53,12 +48,12 @@ export const CompanyAPI = {
   },
 
   // Delete a company
-  delete(id: string, idToken: string | null) {
+  deleteCurrent(idToken: string | null) {
     if (!idToken) {
       throw new Error("Missing ID token");
     }
     return apiFetch<{ success: true }>(
-      `/api/company/${id}`,
+      "/api/company",
       {
         method: "DELETE",
       },

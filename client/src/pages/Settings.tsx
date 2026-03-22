@@ -3,11 +3,15 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Bell,
+  Copy,
+  Ellipsis,
   KeyRound,
   Loader,
   Mail,
   Plus,
+  RefreshCw,
   Shield,
+  Trash2,
   Upload,
   User,
   Users,
@@ -37,6 +41,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -112,6 +122,7 @@ export default function Settings() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
+  const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
@@ -282,15 +293,39 @@ export default function Settings() {
     setIsUserDialogOpen(false);
   };
 
-  const handleCancelInvite = async (inviteId: string) => {
+  const handleDeleteInvite = async (inviteId: string) => {
     if (!idToken) return;
 
-    const promise = inviteAPI.cancel(inviteId, idToken);
+    const promise = inviteAPI.remove(inviteId, idToken);
 
     toast.promise(promise, {
-      loading: "Cancelling invite...",
-      success: "Invite cancelled",
-      error: "Failed to cancel invite",
+      loading: "Deleting invite...",
+      success: "Invite deleted",
+      error: "Failed to delete invite",
+    });
+
+    await promise;
+    await loadInvites();
+  };
+
+  const handleCopyInviteLink = async (inviteId: string) => {
+    if (!idToken) return;
+
+    const result = await inviteAPI.copyLink(inviteId, idToken);
+    await navigator.clipboard.writeText(result.link);
+    toast.success("Invite link copied");
+    await loadInvites();
+  };
+
+  const handleResendInvite = async (inviteId: string) => {
+    if (!idToken) return;
+
+    const promise = inviteAPI.resend(inviteId, idToken);
+
+    toast.promise(promise, {
+      loading: "Resending invite...",
+      success: "Invite resent",
+      error: "Failed to resend invite",
     });
 
     await promise;
@@ -823,7 +858,7 @@ export default function Settings() {
                           <TableHead>Access</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Expires</TableHead>
-                          <TableHead className="text-right">Action</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -837,16 +872,36 @@ export default function Settings() {
                             </TableCell>
                             <TableCell>{formatRelativeTimestamp(invite.expires_at)}</TableCell>
                             <TableCell className="text-right">
-                              {invite.status === "PENDING" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-500"
-                                  onClick={() => handleCancelInvite(invite.id)}
-                                >
-                                  Cancel
-                                </Button>
-                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <Ellipsis className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => handleCopyInviteLink(invite.id)}
+                                  >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Copy invite link
+                                  </DropdownMenuItem>
+                                  {invite.status !== "ACCEPTED" && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleResendInvite(invite.id)}
+                                    >
+                                      <RefreshCw className="mr-2 h-4 w-4" />
+                                      Resend invite
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600"
+                                    onClick={() => setInviteToDelete(invite)}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete invite
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -910,6 +965,43 @@ export default function Settings() {
                 className="bg-red-600 hover:bg-red-700"
               >
                 Remove
+              </AlertDialogAction>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {!isTeamMember && (
+        <AlertDialog
+          open={Boolean(inviteToDelete)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setInviteToDelete(null);
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Invite</AlertDialogTitle>
+              <AlertDialogDescription>
+                Permanently delete the invite for{" "}
+                <strong>{inviteToDelete?.email}</strong>? This removes the invite
+                record and the old link will stop working.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex justify-end gap-2 pt-4">
+              <AlertDialogCancel onClick={() => setInviteToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                onClick={async () => {
+                  if (!inviteToDelete) return;
+                  await handleDeleteInvite(inviteToDelete.id);
+                  setInviteToDelete(null);
+                }}
+              >
+                Delete invite
               </AlertDialogAction>
             </div>
           </AlertDialogContent>
