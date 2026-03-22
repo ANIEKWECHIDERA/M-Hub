@@ -6,7 +6,10 @@ export function Breadcrumb({ className, ...props }: React.HTMLAttributes<HTMLEle
   return <nav aria-label="breadcrumb" className={cn("w-full", className)} {...props} />;
 }
 
-export function BreadcrumbList({ className, ...props }: React.HTMLAttributes<ol>) {
+export function BreadcrumbList({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLOListElement>) {
   return <ol className={cn("flex items-center text-sm text-muted-foreground", className)} {...props} />;
 }
 

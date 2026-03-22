@@ -1,5 +1,4 @@
 import type {
-  CreateCompanyDTO,
   Company,
   UpdateCompanyDTO,
 } from "@/Types/types";
