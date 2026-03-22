@@ -1149,3 +1149,40 @@ Assumptions currently in use:
 - the feature-specific service and API files for the task at hand
 
 - Local-first note creation must reconcile temp notes by removing the temp row from visible state and in-memory caches before inserting the real persisted note; otherwise one create can appear as two notes
+
+### Workspace management refinement notes
+
+- Workspace Manager now behaves like a real submenu section in the main sidebar:
+  - parent label click expands/collapses the section instead of navigating immediately
+  - child routes live under `/workspace-manager?section=details|workload|delete`
+  - `Delete Workspace` is only shown to `superAdmin`
+- Shared workspace state is now centralized in `client/src/context/WorkspaceContext.tsx`
+  - sidebar, header, and workspace manager should read from the same workspace list/current workspace source
+  - workspace branding changes should update shared workspace state immediately without waiting for a full hard refresh
+  - workspace-manager snapshots are cached per active workspace and reused on repeat opens
+  - invalidate that cache only after real mutations such as rename/photo changes or workspace deletion
+- Workspace Manager loading should use skeletons, not generic spinners, for:
+  - workspace details
+  - team workload
+  - delete workspace section
+- Team Workload should display `role`, not `access`
+- Invite actions in Settings now rely on the per-row ellipsis menu for:
+  - copy invite link
+  - resend invite
+  - delete invite
+- Copy invite link should use a clipboard fallback, not only `navigator.clipboard.writeText`, so the action still works in stricter browser contexts
+- Delete workspace UX rules:
+  - only `superAdmin` can access the destructive action
+  - require exact workspace-name confirmation before submitting
+  - warning copy must clearly communicate that the action is permanent
+- Backend workspace deletion should update impacted users so they are not left pointing at a deleted workspace:
+  - switch them to another remaining active workspace if one exists
+  - otherwise set `has_company = false` and clear `company_id`
+- Playwright refinement pass verified:
+  - workspace submenu expands without routing on parent click
+  - invite ellipsis menu opens correctly
+  - copy invite link succeeds and shows success feedback
+  - resend invite succeeds and updates UI cleanly
+  - delete invite succeeds and removes the row
+  - workload section renders `role`
+  - mobile viewport shows the new workspace-manager skeleton/loading treatment cleanly

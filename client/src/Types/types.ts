@@ -130,7 +130,7 @@ export type WorkspaceManagerSnapshot = {
     userId: string | null;
     name: string;
     email: string;
-    access: string;
+    role: string;
     avatar: string | null;
     assignedTaskCount: number;
     completedTaskCount: number;

@@ -13,6 +13,7 @@ import { AppContextProvider } from "./context/AppProvider";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignupPage";
 import { AuthProvider } from "./context/AuthContext";
+import { WorkspaceProvider } from "./context/WorkspaceContext";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import CompleteProfile from "./pages/CompleteProfile";
 import { UserProvider } from "./context/UserContext";
@@ -113,9 +114,11 @@ function App() {
 
 function AppProvidersLayout() {
   return (
-    <AppContextProvider>
-      <Layout />
-    </AppContextProvider>
+    <WorkspaceProvider>
+      <AppContextProvider>
+        <Layout />
+      </AppContextProvider>
+    </WorkspaceProvider>
   );
 }
 

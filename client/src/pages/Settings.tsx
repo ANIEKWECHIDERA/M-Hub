@@ -57,6 +57,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -89,6 +90,33 @@ type SecurityFormState = {
   newPassword: string;
   confirmPassword: string;
 };
+
+async function copyTextToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall through to legacy copy.
+    }
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  textArea.style.pointerEvents = "none";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  try {
+    return document.execCommand("copy");
+  } finally {
+    document.body.removeChild(textArea);
+  }
+}
 
 export default function Settings() {
   const {
@@ -312,7 +340,12 @@ export default function Settings() {
     if (!idToken) return;
 
     const result = await inviteAPI.copyLink(inviteId, idToken);
-    await navigator.clipboard.writeText(result.link);
+    const copied = await copyTextToClipboard(result.link);
+
+    if (!copied) {
+      throw new Error("We couldn't copy the invite link. Try again.");
+    }
+
     toast.success("Invite link copied");
     await loadInvites();
   };
@@ -831,9 +864,17 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 {invitesLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader className="h-4 w-4 animate-spin" />
-                    Loading invites...
+                  <div className="space-y-3 rounded-xl border p-4">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <div
+                        key={index}
+                        className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_1fr_40px]"
+                      >
+                        {Array.from({ length: 6 }).map((__, cellIndex) => (
+                          <Skeleton key={cellIndex} className="h-9 w-full" />
+                        ))}
+                      </div>
+                    ))}
                   </div>
                 ) : invites.length === 0 ? (
                   <Empty className="border-dashed py-10">

@@ -18,6 +18,9 @@ import {
   Building2,
   Loader2,
   ChevronDown,
+  Trash2,
+  BriefcaseBusiness,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/context/AuthContext";
@@ -44,6 +47,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { useWorkspaceContext } from "@/context/WorkspaceContext";
 
 interface NavItem {
   name: string;
@@ -59,9 +63,29 @@ const baseNavigation: NavItem[] = [
   { name: "Notes", to: "/notepad", icon: FileText },
 ];
 
-const workspaceManagerNavigation: NavItem[] = [
-  { name: "Workspace Manager", to: "/workspace-manager", icon: Building2 },
-];
+const workspaceManagerSections: Array<{
+  id: "details" | "workload" | "delete";
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  superAdminOnly?: boolean;
+}> = [
+  {
+    id: "details",
+    label: "Workspace Details",
+    icon: BriefcaseBusiness,
+  },
+  {
+    id: "workload",
+    label: "Team Workload",
+    icon: Users,
+  },
+  {
+    id: "delete",
+    label: "Delete Workspace",
+    icon: Trash2,
+    superAdminOnly: true,
+  },
+] as const;
 
 interface SidebarPanelProps {
   collapsed: boolean;
@@ -82,6 +106,7 @@ function SidebarPanel({
   pathname,
   search,
 }: SidebarPanelProps) {
+  const navigate = useNavigate();
   const isExpanded = !collapsed;
   const { isMobile, setOpenMobile } = useSidebar();
   const { authStatus } = useAuthContext();
@@ -115,8 +140,16 @@ function SidebarPanel({
   }, [search, settingsSections]);
   const chatOpenByDefault = pathname === "/chat";
   const settingsOpenByDefault = pathname === "/settings";
+  const workspaceManagerOpenByDefault = pathname === "/workspace-manager";
   const [chatOpen, setChatOpen] = useState(chatOpenByDefault);
   const [settingsOpen, setSettingsOpen] = useState(settingsOpenByDefault);
+  const [workspaceManagerOpen, setWorkspaceManagerOpen] = useState(
+    workspaceManagerOpenByDefault,
+  );
+  const activeWorkspaceSection = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.get("section") ?? "details";
+  }, [search]);
 
   useEffect(() => {
     if (pathname === "/chat") {
@@ -125,6 +158,10 @@ function SidebarPanel({
 
     if (pathname === "/settings") {
       setSettingsOpen(true);
+    }
+
+    if (pathname === "/workspace-manager") {
+      setWorkspaceManagerOpen(true);
     }
   }, [pathname]);
 
@@ -359,32 +396,92 @@ function SidebarPanel({
                 );
               })}
 
-              {!isTeamMember &&
-                workspaceManagerNavigation.map((item) => {
-                  const isActive =
-                    pathname === item.to ||
-                    pathname.startsWith(item.to + "/");
+              {!isTeamMember && (
+                <SidebarMenuItem>
+                  <div className={cn("relative", !isExpanded && "w-10")}>
+                    <SidebarMenuButton
+                      isActive={pathname === "/workspace-manager"}
+                      tooltip={!isExpanded ? "Workspace Manager" : undefined}
+                      aria-label="Workspace Manager"
+                      className={cn(
+                        !isExpanded &&
+                          "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
+                        isExpanded && workspaceManagerOpen && "pr-10",
+                      )}
+                      onClick={() => {
+                        if (!isExpanded) {
+                          navigate("/workspace-manager?section=details");
+                          handleNavClick();
+                          return;
+                        }
 
-                  return (
-                    <SidebarMenuItem key={item.name}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActive}
-                        tooltip={!isExpanded ? item.name : undefined}
-                        aria-label={item.name}
-                        className={cn(
-                          !isExpanded &&
-                            "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
-                        )}
+                        setWorkspaceManagerOpen((value) => !value);
+                      }}
+                    >
+                      <Building2 className="h-5 w-5" />
+                      {isExpanded && <span>Workspace Manager</span>}
+                    </SidebarMenuButton>
+
+                    {isExpanded && (
+                      <button
+                        type="button"
+                        aria-label={
+                          workspaceManagerOpen
+                            ? "Collapse workspace manager menu"
+                            : "Expand workspace manager menu"
+                        }
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setWorkspaceManagerOpen((value) => !value);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                       >
-                        <Link to={item.to} onClick={handleNavClick}>
-                          <item.icon className="h-5 w-5" />
-                          {isExpanded && <span>{item.name}</span>}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 transition-transform",
+                            workspaceManagerOpen && "rotate-180",
+                          )}
+                        />
+                      </button>
+                    )}
+                  </div>
+
+                  {isExpanded && workspaceManagerOpen && (
+                    <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                      {workspaceManagerSections
+                        .filter(
+                          (section) => !section.superAdminOnly || authStatus?.access === "superAdmin",
+                        )
+                        .map((section) => {
+                          const Icon = section.icon;
+                          const isSectionActive =
+                            pathname === "/workspace-manager" &&
+                            activeWorkspaceSection === section.id;
+
+                          return (
+                            <Link
+                              key={section.id}
+                              to={`/workspace-manager?section=${section.id}`}
+                              onClick={handleNavClick}
+                              className={cn(
+                                "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
+                                isSectionActive
+                                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                  : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                                section.id === "delete" &&
+                                  "text-red-600 hover:text-red-700",
+                              )}
+                            >
+                              <Icon className="h-4 w-4" />
+                              <span>{section.label}</span>
+                            </Link>
+                          );
+                        })}
+                    </div>
+                  )}
+                </SidebarMenuItem>
+              )}
 
               {[{ name: "Settings", to: "/settings", icon: Settings }].map((item) => {
                 const isSettingsRoute = pathname === item.to;
@@ -511,39 +608,12 @@ export function Sidebar() {
     finishWorkspaceSwitch,
   } = useAuthContext();
   const { open } = useSidebar();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
-
-  const currentWorkspace = useMemo(
-    () =>
-      workspaces.find((workspace) => workspace.isActive) ??
-      workspaces.find(
-        (workspace) => workspace.companyId === authStatus?.companyId,
-      ) ??
-      workspaces[0] ??
-      null,
-    [workspaces, authStatus?.companyId],
-  );
-
-  const loadWorkspaces = async () => {
-    if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
-      return;
-    }
-
-    try {
-      setLoadingWorkspaces(true);
-      const response = await workspaceAPI.list(idToken);
-      setWorkspaces(response.workspaces);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load workspaces");
-    } finally {
-      setLoadingWorkspaces(false);
-    }
-  };
-
-  useEffect(() => {
-    loadWorkspaces();
-  }, [idToken, authStatus?.companyId, authStatus?.onboardingState]);
+  const {
+    workspaces,
+    currentWorkspace,
+    loadingWorkspaces,
+    refreshWorkspaces,
+  } = useWorkspaceContext();
 
   const handleSwitchWorkspace = async (companyId: string) => {
     if (!idToken || companyId === authStatus?.companyId) {
@@ -554,7 +624,7 @@ export function Sidebar() {
       startWorkspaceSwitch(companyId);
       await workspaceAPI.switch(companyId, idToken);
       await refreshStatus();
-      await loadWorkspaces();
+      await refreshWorkspaces({ force: true });
       navigate(
         authStatus?.access === "team_member" || authStatus?.access === "member"
           ? "/mytasks"

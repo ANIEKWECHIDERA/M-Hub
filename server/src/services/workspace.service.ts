@@ -33,7 +33,7 @@ type WorkspaceManagerSnapshot = {
     userId: string | null;
     name: string;
     email: string;
-    access: string;
+    role: string;
     avatar: string | null;
     assignedTaskCount: number;
     completedTaskCount: number;
@@ -201,7 +201,7 @@ export const WorkspaceService = {
         tm.id,
         tm.user_id,
         tm.email,
-        tm.access,
+        tm.role,
         COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email) AS name,
         COALESCE(u.avatar, u.photo_url) AS avatar,
         COUNT(DISTINCT t.id) AS assigned_task_count,
@@ -214,7 +214,7 @@ export const WorkspaceService = {
       LEFT JOIN tasks t ON t.id = ta.task_id AND t.company_id = ${companyId}::uuid
       WHERE tm.company_id = ${companyId}::uuid
         AND tm.status = 'active'
-      GROUP BY tm.id, tm.user_id, tm.email, tm.access, u.first_name, u.last_name, u.display_name, u.avatar, u.photo_url
+      GROUP BY tm.id, tm.user_id, tm.email, tm.role, u.first_name, u.last_name, u.display_name, u.avatar, u.photo_url
       ORDER BY name ASC`;
 
     const workload = workloadRows.map((row: Record<string, any>) => {
@@ -237,7 +237,7 @@ export const WorkspaceService = {
         userId: row.user_id ?? null,
         name: row.name,
         email: row.email,
-        access: row.access,
+        role: row.role,
         avatar: row.avatar ?? null,
         assignedTaskCount,
         completedTaskCount,
