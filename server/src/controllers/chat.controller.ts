@@ -11,7 +11,9 @@ import {
   MarkConversationReadDTO,
   RenameConversationDTO,
   SendMessageDTO,
+  TaggedMessageListQueryDTO,
   TypingIndicatorDTO,
+  UpdateMessageTagsDTO,
   UpdateConversationPreferencesDTO,
 } from "../dtos/chat.dto";
 import admin from "../config/firebaseAdmin";
@@ -134,6 +136,30 @@ export const ChatController = {
     } catch (error) {
       logger.error("ChatController.listMessages failed", { error });
       return handleChatControllerError(res, error, "Failed to fetch messages");
+    }
+  },
+
+  async listTaggedMessages(req: any, res: Response) {
+    try {
+      const { companyId, userId } = getChatRequestContext(req);
+      const query = TaggedMessageListQueryDTO.parse(req.query);
+      const messages = await ChatService.listTaggedMessages({
+        conversationId: req.params.conversationId,
+        companyId,
+        userId,
+        limit: query.limit ?? 50,
+        tag: query.tag ?? null,
+        requestPath: req.path,
+      });
+
+      return res.json({ messages });
+    } catch (error) {
+      logger.error("ChatController.listTaggedMessages failed", { error });
+      return handleChatControllerError(
+        res,
+        error,
+        "Failed to fetch tagged messages",
+      );
     }
   },
 
@@ -320,6 +346,26 @@ export const ChatController = {
     }
   },
 
+  async updateMessageTags(req: any, res: Response) {
+    try {
+      const { companyId, userId, access } = getChatRequestContext(req);
+      const body = UpdateMessageTagsDTO.parse(req.body);
+      const message = await ChatService.updateMessageTags({
+        messageId: req.params.messageId,
+        companyId,
+        requesterUserId: userId,
+        requesterAccess: access,
+        tags: body.tags,
+        requestPath: req.path,
+      });
+
+      return res.json({ message });
+    } catch (error) {
+      logger.error("ChatController.updateMessageTags failed", { error });
+      return handleChatControllerError(res, error, "Failed to update message tags");
+    }
+  },
+
   async deleteMessage(req: any, res: Response) {
     try {
       const { companyId, userId, teamMemberId, access } = getChatRequestContext(req);
@@ -488,7 +534,15 @@ export const ChatController = {
 
       return res.json(result);
     } catch (error) {
-      logger.error("ChatController.sendTypingIndicator failed", { error });
+      logger.error("ChatController.sendTypingIndicator failed", {
+        error,
+        conversationId: req.params?.conversationId ?? null,
+        path: req.path,
+        userId: req.user?.id ?? null,
+        companyId: req.user?.company_id ?? null,
+        isTyping:
+          typeof req.body?.isTyping === "boolean" ? req.body.isTyping : null,
+      });
       return handleChatControllerError(
         res,
         error,

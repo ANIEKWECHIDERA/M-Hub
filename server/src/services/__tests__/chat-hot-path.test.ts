@@ -226,5 +226,47 @@ describe("chat hot path protections", () => {
       });
       expect(invalidateSpy).not.toHaveBeenCalled();
     });
+
+    it("degrades safely when recipient lookup fails", async () => {
+      prismaMock.$queryRaw.mockRejectedValueOnce(new Error("lookup failed"));
+
+      await expect(
+        ChatService.emitTypingIndicator({
+          conversationId: "conversation-1",
+          companyId: "company-1",
+          userId: "user-1",
+          isTyping: true,
+          requestPath: "/chat/conversations/conversation-1/typing",
+        }),
+      ).resolves.toEqual({ success: true });
+
+      expect(chatRealtimeService.sendTypingIndicator).toHaveBeenCalledWith({
+        companyId: "company-1",
+        conversationId: "conversation-1",
+        userId: "user-1",
+        userIds: ["user-1"],
+        isTyping: true,
+      });
+    });
+
+    it("degrades safely when realtime broadcast fails", async () => {
+      prismaMock.$queryRaw.mockResolvedValueOnce([
+        { user_id: "user-1" },
+        { user_id: "user-2" },
+      ]);
+      (chatRealtimeService.sendTypingIndicator as jest.Mock).mockRejectedValueOnce(
+        new Error("realtime failed"),
+      );
+
+      await expect(
+        ChatService.emitTypingIndicator({
+          conversationId: "conversation-1",
+          companyId: "company-1",
+          userId: "user-1",
+          isTyping: false,
+          requestPath: "/chat/conversations/conversation-1/typing",
+        }),
+      ).resolves.toEqual({ success: true });
+    });
   });
 });

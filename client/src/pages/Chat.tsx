@@ -7,23 +7,27 @@ import {
   BellOff,
   Check,
   Crown,
+  Flag,
   Hash,
   Loader2,
+  ListFilter,
   Mail,
   MessageSquare,
   MoreHorizontal,
   Pencil,
   Plus,
+  Tag,
   Search,
   Send,
   ShieldCheck,
   Trash2,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import type { ChatMessage, ChatMember } from "@/api/chat.api";
+import type { ChatConversation, ChatMessage, ChatMember } from "@/api/chat.api";
 import type { TeamMember } from "@/Types/types";
 import { chatSections, type ChatSection } from "@/config/chat-nav";
 import { useChatContext } from "@/context/ChatContext";
@@ -49,6 +53,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -59,13 +72,45 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const MESSAGE_TAGS = [
-  "urgent",
-  "blocker",
-  "announcement",
-  "follow-up",
-  "decision",
-] as const;
+const MESSAGE_TAG_CONFIG = {
+  decision: {
+    label: "Decision",
+    chipClassName:
+      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300",
+  },
+  "action-item": {
+    label: "Action Item",
+    chipClassName:
+      "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300",
+  },
+  blocker: {
+    label: "Blocker",
+    chipClassName:
+      "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300",
+  },
+  update: {
+    label: "Update",
+    chipClassName:
+      "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300",
+  },
+  question: {
+    label: "Question",
+    chipClassName:
+      "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-300",
+  },
+  "follow-up": {
+    label: "Follow-up",
+    chipClassName:
+      "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300",
+  },
+} as const;
+
+const MESSAGE_TAGS = Object.keys(MESSAGE_TAG_CONFIG) as Array<
+  keyof typeof MESSAGE_TAG_CONFIG
+>;
+type MessageTag = (typeof MESSAGE_TAGS)[number];
+const CHAT_EDIT_WINDOW_MINUTES = 15;
+const CHAT_EDIT_BUTTON_HIDE_BUFFER_SECONDS = 30;
 
 function useIsMobileScreen() {
   const [isMobile, setIsMobile] = useState(false);
@@ -89,6 +134,16 @@ function getInitials(name?: string | null, email?: string | null) {
     .map((part) => part[0]?.toUpperCase())
     .join("")
     .slice(0, 2);
+}
+
+function getMessageTagConfig(tag: string) {
+  const config = MESSAGE_TAG_CONFIG[tag as MessageTag];
+  return (
+    config ?? {
+      label: tag,
+      chipClassName: "border-border bg-muted/60 text-muted-foreground",
+    }
+  );
 }
 
 function AvatarVisual({
@@ -222,8 +277,12 @@ function ProfilePreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl overflow-hidden p-0">
         <DialogHeader className="px-6 pt-6">
-          <DialogTitle>{member?.name || member?.email || "Profile photo"}</DialogTitle>
-          <DialogDescription>Preview the member profile image.</DialogDescription>
+          <DialogTitle>
+            {member?.name || member?.email || "Profile photo"}
+          </DialogTitle>
+          <DialogDescription>
+            Preview the member profile image.
+          </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-6 pt-2">
           {member?.avatar ? (
@@ -264,10 +323,12 @@ function ProfilePreviewDialog({
 
 function ActionMenu({
   align = "end",
+  closeOnPointerLeave = false,
   trigger,
   children,
 }: {
   align?: "start" | "end";
+  closeOnPointerLeave?: boolean;
   trigger: (controls: {
     open: boolean;
     toggle: () => void;
@@ -276,55 +337,30 @@ function ActionMenu({
   children: (controls: { close: () => void }) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (
-        rootRef.current &&
-        !rootRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
 
   return (
-    <div ref={rootRef} className="relative">
-      {trigger({
-        open,
-        toggle: () => setOpen((previous) => !previous),
-        close: () => setOpen(false),
-      })}
-      {open && (
-        <div
-          className={cn(
-            "absolute top-full z-20 mt-2 min-w-[13rem] rounded-xl border bg-background p-1 shadow-lg",
-            align === "end" ? "right-0" : "left-0",
-          )}
-        >
-          {children({ close: () => setOpen(false) })}
-        </div>
-      )}
-    </div>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        {trigger({
+          open,
+          toggle: () => setOpen((previous) => !previous),
+          close: () => setOpen(false),
+        })}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align={align}
+        sideOffset={8}
+        collisionPadding={16}
+        className="min-w-[14rem] rounded-xl p-1"
+        onPointerLeave={() => {
+          if (closeOnPointerLeave) {
+            setOpen(false);
+          }
+        }}
+      >
+        {children({ close: () => setOpen(false) })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -343,44 +379,78 @@ function ActionMenuItem({
   checked?: boolean;
   keepOpen?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
-        destructive && "text-red-600 hover:bg-red-50 hover:text-red-600",
-      )}
-      onClick={onSelect}
-      data-keep-open={keepOpen ? "true" : undefined}
-    >
+  const content = (
+    <>
       <span className="flex h-4 w-4 items-center justify-center">
-        {checked ? <Check className="h-4 w-4" /> : Icon ? <Icon className="h-4 w-4" /> : null}
+        {Icon ? <Icon className="h-4 w-4" /> : null}
       </span>
       <span className="flex-1">{label}</span>
-    </button>
+    </>
+  );
+
+  if (keepOpen || checked) {
+    return (
+      <DropdownMenuCheckboxItem
+        checked={checked}
+        className={cn(destructive && "text-red-600 focus:text-red-600")}
+        onSelect={(event) => {
+          if (keepOpen) {
+            event.preventDefault();
+          }
+          onSelect();
+        }}
+        onCheckedChange={() => undefined}
+      >
+        {content}
+      </DropdownMenuCheckboxItem>
+    );
+  }
+
+  return (
+    <DropdownMenuItem
+      className={cn(
+        destructive && "text-red-600 focus:bg-red-50 focus:text-red-600",
+      )}
+      onSelect={onSelect}
+    >
+      {content}
+    </DropdownMenuItem>
   );
 }
 
 function ActionMenuSeparator() {
-  return <div className="my-1 h-px bg-border" />;
+  return <DropdownMenuSeparator />;
 }
 
 function MessageBubble({
   message,
   isCurrentUser,
   canDeleteModeration,
+  canTagMessage,
   onEdit,
   onDelete,
+  onToggleTag,
   onPreviewProfile,
 }: {
   message: ChatMessage;
   isCurrentUser: boolean;
   canDeleteModeration: boolean;
+  canTagMessage: boolean;
   onEdit: (message: ChatMessage) => void;
   onDelete: (message: ChatMessage) => void;
+  onToggleTag: (message: ChatMessage, tag: MessageTag) => void;
   onPreviewProfile: (message: ChatMessage) => void;
 }) {
   const canDelete = isCurrentUser || canDeleteModeration;
+  const messageAgeMs = Date.now() - new Date(message.created_at).getTime();
+  const editWindowMs =
+    (CHAT_EDIT_WINDOW_MINUTES * 60 - CHAT_EDIT_BUTTON_HIDE_BUFFER_SECONDS) *
+    1000;
+  const canShowEditButton =
+    isCurrentUser &&
+    !message.is_deleted &&
+    !message.id.startsWith("optimistic-") &&
+    messageAgeMs < editWindowMs;
 
   if (message.message_type === "system") {
     return (
@@ -402,6 +472,7 @@ function MessageBubble({
 
   return (
     <div
+      id={`chat-message-${message.id}`}
       className={cn(
         "group flex gap-3",
         isCurrentUser ? "justify-end" : "justify-start",
@@ -420,69 +491,129 @@ function MessageBubble({
           isCurrentUser ? "items-end text-right" : "",
         )}
       >
+        <div
+          className={cn(
+            "flex items-center gap-2 text-xs text-muted-foreground",
+            isCurrentUser && "justify-end",
+          )}
+        >
+          <span>{message.sender.name || "Unknown"}</span>
+          <span>{formatShortTime(message.created_at)}</span>
+          {message.is_edited && <span>edited</span>}
+          {!message.id.startsWith("optimistic-") && (
+            <div className="opacity-0 transition-opacity group-hover:opacity-100">
+              <ActionMenu
+                align={isCurrentUser ? "end" : "start"}
+                closeOnPointerLeave
+                trigger={() => (
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent bg-background/80 transition-colors hover:border-input hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                    <span className="sr-only">Message actions</span>
+                  </button>
+                )}
+              >
+                {({ close }) => (
+                  <>
+                    {canTagMessage && !message.is_deleted && (
+                      <>
+                        <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                          Capture signal
+                        </DropdownMenuLabel>
+                        {MESSAGE_TAGS.map((tag) => (
+                          <ActionMenuItem
+                            key={tag}
+                            label={getMessageTagConfig(tag).label}
+                            checked={message.tags.includes(tag)}
+                            keepOpen
+                            onSelect={() => onToggleTag(message, tag)}
+                          />
+                        ))}
+                        {(isCurrentUser || canDelete) && (
+                          <ActionMenuSeparator />
+                        )}
+                      </>
+                    )}
+                    {canShowEditButton && (
+                      <ActionMenuItem
+                        label="Edit message"
+                        icon={Pencil}
+                        onSelect={() => {
+                          close();
+                          onEdit(message);
+                        }}
+                      />
+                    )}
+                    {canDelete && (
+                      <ActionMenuItem
+                        label="Delete message"
+                        icon={Trash2}
+                        destructive
+                        onSelect={() => {
+                          close();
+                          onDelete(message);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+              </ActionMenu>
+            </div>
+          )}
+        </div>
+
+        <div
+          className={cn(
+            "rounded-2xl border px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+            isCurrentUser
+              ? "border-primary bg-primary text-primary-foreground"
+              : "bg-muted/60",
+            message.is_deleted && "italic opacity-80",
+          )}
+        >
+          {message.reply_to && !message.is_deleted && (
+            <div
+              className={cn(
+                "mb-2 rounded-xl border px-3 py-2 text-xs",
+                isCurrentUser
+                  ? "border-primary-foreground/20 bg-primary-foreground/10"
+                  : "border-border bg-background/70",
+              )}
+            >
+              <div className="font-medium">
+                {message.reply_to.sender.name || "Reply"}
+              </div>
+              <div className="truncate">{message.reply_to.body}</div>
+            </div>
+          )}
+          {message.body}
+        </div>
+        {!!message.tags.length && (
           <div
             className={cn(
-              "flex items-center gap-2 text-xs text-muted-foreground",
+              "flex flex-wrap gap-2",
               isCurrentUser && "justify-end",
             )}
           >
-            <span>{message.sender.name || "Unknown"}</span>
-            <span>{formatShortTime(message.created_at)}</span>
-            {message.is_edited && <span>edited</span>}
-            {(isCurrentUser || canDelete) && !message.id.startsWith("optimistic-") && (
-              <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                {!message.is_deleted && isCurrentUser && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => onEdit(message)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    <span className="sr-only">Edit message</span>
-                  </Button>
-                )}
-                {canDelete && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-red-600 hover:text-red-600"
-                    onClick={() => onDelete(message)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete message</span>
-                  </Button>
-                )}
-              </div>
-            )}
+            {message.tags.map((tag) => {
+              const config = getMessageTagConfig(tag);
+              return (
+                <span
+                  key={`${message.id}-${tag}`}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                    config.chipClassName,
+                  )}
+                >
+                  <Flag className="h-3 w-3" />
+                  {config.label}
+                </span>
+              );
+            })}
           </div>
-
-          <div
-            className={cn(
-              "rounded-2xl border px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-              isCurrentUser
-                ? "border-primary bg-primary text-primary-foreground"
-                : "bg-muted/60",
-              message.is_deleted && "italic opacity-80",
-            )}
-          >
-            {message.reply_to && !message.is_deleted && (
-              <div
-                className={cn(
-                  "mb-2 rounded-xl border px-3 py-2 text-xs",
-                  isCurrentUser
-                    ? "border-primary-foreground/20 bg-primary-foreground/10"
-                    : "border-border bg-background/70",
-                )}
-              >
-                <div className="font-medium">{message.reply_to.sender.name || "Reply"}</div>
-                <div className="truncate">{message.reply_to.body}</div>
-              </div>
-            )}
-            {message.body}
-          </div>
+        )}
       </div>
 
       {isCurrentUser && (
@@ -506,8 +637,10 @@ export default function Chat() {
     activeConversation,
     conversationDetails,
     messages,
+    taggedMessages,
     loadingConversations,
     loadingMessages,
+    loadingTaggedMessages,
     loadingWorkspaceMembers,
     loadingOlderMessages,
     hasMoreMessages,
@@ -525,6 +658,7 @@ export default function Chat() {
     updateConversationPreferences,
     editMessage,
     deleteMessage,
+    updateMessageTags,
     typingUserIds,
     presenceByUserId,
   } = useChatContext();
@@ -544,10 +678,13 @@ export default function Chat() {
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [isManageMembersOpen, setIsManageMembersOpen] = useState(false);
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
-  const [isDeleteConversationOpen, setIsDeleteConversationOpen] = useState(false);
+  const [isDeleteConversationOpen, setIsDeleteConversationOpen] =
+    useState(false);
   const [deleteConversationTarget, setDeleteConversationTarget] =
     useState<ChatConversation | null>(null);
-  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(
+    null,
+  );
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [directMemberSearch, setDirectMemberSearch] = useState("");
@@ -555,12 +692,19 @@ export default function Chat() {
   const [directorySearch, setDirectorySearch] = useState("");
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
-  const [selectedGroupMembers, setSelectedGroupMembers] = useState<string[]>([]);
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState<string[]>(
+    [],
+  );
   const [selectedAddMembers, setSelectedAddMembers] = useState<string[]>([]);
   const [editValue, setEditValue] = useState("");
-  const [selectedTags, setSelectedTags] = useState<
-    Array<(typeof MESSAGE_TAGS)[number]>
-  >([]);
+  const [selectedTagsByConversation, setSelectedTagsByConversation] =
+    useState<Record<string, MessageTag[]>>({});
+  const [activeTagFilter, setActiveTagFilter] = useState<MessageTag | "all">(
+    "all",
+  );
+  const [chatPanelMode, setChatPanelMode] = useState<"messages" | "summary">(
+    "messages",
+  );
   const typingTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
   const messageScrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -637,7 +781,9 @@ export default function Chat() {
       .filter((member) => member.user_id !== profile?.id)
       .map((member) => ({
         ...member,
-        online: member.user_id ? Boolean(presenceByUserId[member.user_id]) : false,
+        online: member.user_id
+          ? Boolean(presenceByUserId[member.user_id])
+          : false,
       }));
   }, [presenceByUserId, profile?.id, workspaceMembers]);
 
@@ -664,7 +810,9 @@ export default function Chat() {
 
     if (
       activeConversationId &&
-      filteredChats.some((conversation) => conversation.id === activeConversationId)
+      filteredChats.some(
+        (conversation) => conversation.id === activeConversationId,
+      )
     ) {
       return;
     }
@@ -683,6 +831,8 @@ export default function Chat() {
     hasCompletedInitialScrollRef.current = false;
     previousMessageCountRef.current = 0;
     setShowNewMessageJump(false);
+    setChatPanelMode("messages");
+    setActiveTagFilter("all");
   }, [activeConversationId]);
 
   useEffect(() => {
@@ -700,14 +850,18 @@ export default function Chat() {
 
   const currentChat =
     activeConversation ??
-    filteredChats.find((conversation) => conversation.id === activeConversationId) ??
+    filteredChats.find(
+      (conversation) => conversation.id === activeConversationId,
+    ) ??
     filteredChats[0] ??
     null;
 
-  const currentMembers = conversationDetails?.members ?? currentChat?.members ?? [];
+  const currentMembers =
+    conversationDetails?.members ?? currentChat?.members ?? [];
   const directConversationMember =
     currentChat?.type === "direct"
-      ? currentMembers.find((member) => member.user_id !== profile?.id) ?? null
+      ? (currentMembers.find((member) => member.user_id !== profile?.id) ??
+        null)
       : null;
   const currentConversationName = currentChat
     ? getConversationDisplayName(currentChat, profile?.id)
@@ -720,12 +874,30 @@ export default function Chat() {
   const deleteConversationTargetName = deleteConversationTarget
     ? getConversationDisplayName(deleteConversationTarget, profile?.id)
     : "";
+  const currentChatIsGroup = currentChat?.type === "group";
+  const selectedTags = currentChat?.id
+    ? selectedTagsByConversation[currentChat.id] ?? []
+    : [];
   const typingNames = typingUserIds
-    .map((userId) => currentMembers.find((member) => member.user_id === userId)?.name)
+    .map(
+      (userId) =>
+        currentMembers.find((member) => member.user_id === userId)?.name,
+    )
     .filter(Boolean) as string[];
+  const filteredTaggedMessages = useMemo(() => {
+    if (activeTagFilter === "all") {
+      return taggedMessages;
+    }
+
+    return taggedMessages.filter((message) =>
+      message.tags.includes(activeTagFilter),
+    );
+  }, [activeTagFilter, taggedMessages]);
 
   const availableMembersToAdd = useMemo(() => {
-    const activeUserIds = new Set(currentMembers.map((member) => member.user_id));
+    const activeUserIds = new Set(
+      currentMembers.map((member) => member.user_id),
+    );
     return workspaceDirectoryMembers.filter(
       (member) => !member.user_id || !activeUserIds.has(member.user_id),
     );
@@ -764,9 +936,14 @@ export default function Chat() {
   const canManageMembers = Boolean(activePermissions?.can_manage_members);
   const canRenameGroup = Boolean(activePermissions?.can_rename_group);
   const canModerateMessages = Boolean(activePermissions?.can_moderate_messages);
-  const canDeleteConversation = Boolean(activePermissions?.can_delete_conversation);
+  const canDeleteConversation = Boolean(
+    activePermissions?.can_delete_conversation,
+  );
   const notificationsMuted = Boolean(activeConversation?.notifications_muted);
-  const visibleMemberCount = conversationDetails?.member_count ?? currentChat?.member_count ?? currentMembers.length;
+  const visibleMemberCount =
+    conversationDetails?.member_count ??
+    currentChat?.member_count ??
+    currentMembers.length;
   const memberLabel = visibleMemberCount === 1 ? "member" : "members";
 
   const showInboxPane = !isMobile || !mobileConversationOpen;
@@ -832,7 +1009,12 @@ export default function Chat() {
 
   const clearComposer = async () => {
     setNewMessage("");
-    setSelectedTags([]);
+    if (currentChat?.id) {
+      setSelectedTagsByConversation((prev) => ({
+        ...prev,
+        [currentChat.id]: [],
+      }));
+    }
     if (typingTimeoutRef.current) {
       window.clearTimeout(typingTimeoutRef.current);
     }
@@ -862,7 +1044,12 @@ export default function Chat() {
       });
     } catch (chatError: any) {
       setNewMessage(outgoingMessage);
-      setSelectedTags(outgoingTags);
+      if (currentChat?.id) {
+        setSelectedTagsByConversation((prev) => ({
+          ...prev,
+          [currentChat.id]: outgoingTags,
+        }));
+      }
       toast.error(chatError.message || "Failed to send message");
     }
   };
@@ -1073,9 +1260,70 @@ export default function Chat() {
   };
 
   const handleToggleTag = (tag: (typeof MESSAGE_TAGS)[number]) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag],
-    );
+    if (!currentChat?.id) {
+      return;
+    }
+
+    setSelectedTagsByConversation((prev) => {
+      const currentTags = prev[currentChat.id] ?? [];
+      return {
+        ...prev,
+        [currentChat.id]: currentTags.includes(tag)
+          ? currentTags.filter((item) => item !== tag)
+          : [...currentTags, tag],
+      };
+    });
+  };
+
+  const handleRemoveSelectedTag = (tag: MessageTag) => {
+    if (!currentChat?.id) {
+      return;
+    }
+
+    setSelectedTagsByConversation((prev) => ({
+      ...prev,
+      [currentChat.id]: (prev[currentChat.id] ?? []).filter(
+        (item) => item !== tag,
+      ),
+    }));
+  };
+
+  const handleUpdateMessageTag = async (
+    message: ChatMessage,
+    tag: MessageTag,
+  ) => {
+    const nextTags = message.tags.includes(tag)
+      ? message.tags.filter((item) => item !== tag)
+      : [...message.tags, tag];
+
+    try {
+      await updateMessageTags(message.id, nextTags);
+      toast.success(
+        nextTags.includes(tag)
+          ? `${getMessageTagConfig(tag).label} added`
+          : `${getMessageTagConfig(tag).label} removed`,
+      );
+    } catch (chatError: any) {
+      toast.error(chatError.message || "Failed to update message tag");
+    }
+  };
+
+  const jumpToMessage = (messageId: string) => {
+    setChatPanelMode("messages");
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const target = document.getElementById(`chat-message-${messageId}`);
+        if (!target) {
+          toast.message(
+            "That tagged message is outside the loaded chat history.",
+          );
+          return;
+        }
+
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
   };
 
   useEffect(() => {
@@ -1131,18 +1379,18 @@ export default function Chat() {
                 <div className="space-y-1">
                   <CardTitle className="text-lg">Messages</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Start direct conversations, create groups, and keep track of live workspace activity.
+                    Start direct conversations, create groups, and keep track of
+                    live workspace activity.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <ActionMenu
                     align="end"
-                    trigger={({ toggle }) => (
+                    trigger={() => (
                       <button
                         type="button"
                         className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent bg-primary text-primary-foreground transition-colors hover:bg-primary/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                        onClick={toggle}
                       >
                         <Plus className="h-4 w-4" />
                         <span className="sr-only">Create conversation</span>
@@ -1195,18 +1443,22 @@ export default function Chat() {
                 {chatSections.map((section) => (
                   <Button
                     key={section.id}
-                    variant={activeSection === section.id ? "default" : "outline"}
+                    variant={
+                      activeSection === section.id ? "default" : "outline"
+                    }
                     size="sm"
                     className="rounded-md px-3"
                     onClick={() =>
-                      setSearchParams({ section: section.id }, { replace: true })
+                      setSearchParams(
+                        { section: section.id },
+                        { replace: true },
+                      )
                     }
                   >
                     {section.label}
                   </Button>
                 ))}
               </div>
-
             </CardHeader>
 
             <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
@@ -1241,7 +1493,10 @@ export default function Chat() {
                       conversation,
                       profile?.id,
                     );
-                    const avatar = getConversationAvatar(conversation, profile?.id);
+                    const avatar = getConversationAvatar(
+                      conversation,
+                      profile?.id,
+                    );
                     const otherMember =
                       conversation.type === "direct"
                         ? conversation.members.find(
@@ -1275,9 +1530,10 @@ export default function Chat() {
                                 avatar={avatar || null}
                               />
                             )}
-                            {conversation.type === "direct" && otherMember?.online && (
-                              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
-                            )}
+                            {conversation.type === "direct" &&
+                              otherMember?.online && (
+                                <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
+                              )}
                           </div>
 
                           <div className="min-w-0 flex-1">
@@ -1287,7 +1543,8 @@ export default function Chat() {
                               </span>
                               <span className="shrink-0 text-[11px] text-muted-foreground">
                                 {formatShortTime(
-                                  conversation.last_message_at ?? conversation.created_at,
+                                  conversation.last_message_at ??
+                                    conversation.created_at,
                                 )}
                               </span>
                               {conversation.unread_count > 0 && (
@@ -1303,7 +1560,9 @@ export default function Chat() {
                             {conversation.type === "group" && (
                               <p className="mt-1 text-xs text-muted-foreground">
                                 {conversation.member_count}{" "}
-                                {conversation.member_count === 1 ? "member" : "members"}
+                                {conversation.member_count === 1
+                                  ? "member"
+                                  : "members"}
                               </p>
                             )}
 
@@ -1312,7 +1571,8 @@ export default function Chat() {
                               conversation.last_message?.sender.name
                                 ? `${conversation.last_message.sender.name}: `
                                 : ""}
-                              {conversation.last_message?.body || "No messages yet"}
+                              {conversation.last_message?.body ||
+                                "No messages yet"}
                             </p>
 
                             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -1356,7 +1616,8 @@ export default function Chat() {
                           name={currentConversationName}
                           email={directConversationMember?.email}
                           avatar={
-                            getConversationAvatar(currentChat, profile?.id) || null
+                            getConversationAvatar(currentChat, profile?.id) ||
+                            null
                           }
                         />
                         {directConversationMember?.online && (
@@ -1412,11 +1673,10 @@ export default function Chat() {
                   <div className="flex items-center gap-2">
                     <ActionMenu
                       align="end"
-                      trigger={({ toggle }) => (
+                      trigger={() => (
                         <button
                           type="button"
                           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                          onClick={toggle}
                         >
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Conversation actions</span>
@@ -1425,21 +1685,22 @@ export default function Chat() {
                     >
                       {({ close }) => (
                         <>
-                          {currentChat.type === "direct" && directConversationMember && (
-                            <ActionMenuItem
-                              label="View profile"
-                              onSelect={() => {
-                                close();
-                                setProfilePreviewMember({
-                                  name: directConversationMember.name,
-                                  email: directConversationMember.email,
-                                  avatar: directConversationMember.avatar,
-                                  role: directConversationMember.role,
-                                  access: directConversationMember.access,
-                                });
-                              }}
-                            />
-                          )}
+                          {currentChat.type === "direct" &&
+                            directConversationMember && (
+                              <ActionMenuItem
+                                label="View profile"
+                                onSelect={() => {
+                                  close();
+                                  setProfilePreviewMember({
+                                    name: directConversationMember.name,
+                                    email: directConversationMember.email,
+                                    avatar: directConversationMember.avatar,
+                                    role: directConversationMember.role,
+                                    access: directConversationMember.access,
+                                  });
+                                }}
+                              />
+                            )}
                           {currentChat.type === "group" && (
                             <ActionMenuItem
                               label="Show group info"
@@ -1517,6 +1778,72 @@ export default function Chat() {
               )}
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+              {currentChat?.type === "group" && (
+                <div className="border-b px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={
+                        chatPanelMode === "messages" ? "default" : "outline"
+                      }
+                      onClick={() => setChatPanelMode("messages")}
+                    >
+                      Messages
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={
+                        chatPanelMode === "summary" ? "default" : "outline"
+                      }
+                      onClick={() => setChatPanelMode("summary")}
+                    >
+                      <ListFilter className="mr-2 h-4 w-4" />
+                      Key decisions
+                      <Badge
+                        variant="secondary"
+                        className="ml-2 rounded-full px-2 py-0 text-[10px]"
+                      >
+                        {taggedMessages.length}
+                      </Badge>
+                    </Button>
+                  </div>
+                  {chatPanelMode === "summary" && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={
+                          activeTagFilter === "all" ? "default" : "outline"
+                        }
+                        onClick={() => setActiveTagFilter("all")}
+                      >
+                        All signals
+                      </Button>
+                      {MESSAGE_TAGS.map((tag) => {
+                        const config = getMessageTagConfig(tag);
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                              activeTagFilter === tag
+                                ? config.chipClassName
+                                : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                            )}
+                            onClick={() => setActiveTagFilter(tag)}
+                          >
+                            <Flag className="h-3 w-3" />
+                            {config.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="relative flex-1 min-h-0">
                 {showNewMessageJump && (
                   <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
@@ -1530,152 +1857,279 @@ export default function Chat() {
                     </button>
                   </div>
                 )}
-              <div
-                ref={messageScrollContainerRef}
-                className="h-full overflow-y-auto p-4"
-                onScroll={() => {
-                  if (!isScrolledFarFromBottom()) {
-                    setShowNewMessageJump(false);
-                  }
-                }}
-              >
-                {loadingMessages && currentChat ? (
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading messages...
-                  </div>
-                ) : currentChat ? (
-                  <div className="space-y-4">
-                    {hasMoreMessages && (
-                      <div className="flex justify-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void loadOlderMessages()}
-                          disabled={loadingOlderMessages}
-                        >
-                          {loadingOlderMessages ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Loading earlier messages...
-                            </>
-                          ) : (
-                            "Load earlier messages"
-                          )}
-                        </Button>
+                <div
+                  ref={messageScrollContainerRef}
+                  className="h-full overflow-y-auto p-4"
+                  onScroll={() => {
+                    if (!isScrolledFarFromBottom()) {
+                      setShowNewMessageJump(false);
+                    }
+                  }}
+                >
+                  {chatPanelMode === "summary" &&
+                  currentChat?.type === "group" ? (
+                    loadingTaggedMessages ? (
+                      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading tagged messages...
                       </div>
-                    )}
-
-                    {messages.length ? (
-                      messages.map((message) => (
-                        <MessageBubble
-                          key={message.id}
-                          message={message}
-                          isCurrentUser={message.sender.user_id === profile?.id}
-                          canDeleteModeration={
-                            canModerateMessages && currentChat.type === "group"
-                          }
-                          onEdit={setEditingMessage}
-                          onDelete={setDeleteTarget}
-                          onPreviewProfile={(target) =>
-                            setProfilePreviewMember({
-                              name: target.sender.name,
-                              avatar: target.sender.avatar,
-                            })
-                          }
-                        />
-                      ))
+                    ) : filteredTaggedMessages.length ? (
+                      <div className="space-y-3">
+                        {filteredTaggedMessages.map((message) => (
+                          <div
+                            key={`summary-${message.id}`}
+                            className="rounded-2xl border bg-card p-4 shadow-sm"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold">
+                                  {message.sender.name || "Unknown"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(message.created_at).toLocaleString(
+                                    [],
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                    },
+                                  )}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => jumpToMessage(message.id)}
+                              >
+                                Jump to message
+                              </Button>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {message.tags.map((tag) => {
+                                const config = getMessageTagConfig(tag);
+                                return (
+                                  <span
+                                    key={`${message.id}-${tag}`}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                                      config.chipClassName,
+                                    )}
+                                  >
+                                    <Flag className="h-3 w-3" />
+                                    {config.label}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                            <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+                              {message.body}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <Empty className="min-h-[28rem] border-none bg-transparent">
                         <EmptyHeader>
                           <EmptyMedia variant="icon">
-                            {currentChat.type === "direct" ? <Hash /> : <Users />}
+                            <Flag />
                           </EmptyMedia>
-                          <EmptyTitle>
-                            {currentChat.type === "group"
-                              ? "No group messages yet"
-                              : "No personal messages yet"}
-                          </EmptyTitle>
+                          <EmptyTitle>No tagged decisions yet</EmptyTitle>
                           <EmptyDescription>
-                            {currentChat.type === "group"
-                              ? `Start the first group message in ${currentConversationName}.`
-                              : `Start the first personal message in ${currentConversationName}.`}
+                            Use tags like Decision, Action Item, or Blocker to
+                            capture the important moments from this group chat.
                           </EmptyDescription>
                         </EmptyHeader>
                       </Empty>
-                    )}
-                    <div ref={messageBottomRef} />
-                  </div>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    {error || "Try another chat section or search term."}
-                  </div>
-                )}
-              </div>
+                    )
+                  ) : loadingMessages && currentChat ? (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading messages...
+                    </div>
+                  ) : currentChat ? (
+                    <div className="space-y-4">
+                      {hasMoreMessages && (
+                        <div className="flex justify-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void loadOlderMessages()}
+                            disabled={loadingOlderMessages}
+                          >
+                            {loadingOlderMessages ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading earlier messages...
+                              </>
+                            ) : (
+                              "Load earlier messages"
+                            )}
+                          </Button>
+                        </div>
+                      )}
+
+                      {messages.length ? (
+                        messages.map((message) => (
+                          <MessageBubble
+                            key={message.id}
+                            message={message}
+                            isCurrentUser={
+                              message.sender.user_id === profile?.id
+                            }
+                            canDeleteModeration={
+                              canModerateMessages &&
+                              currentChat.type === "group"
+                            }
+                            canTagMessage={currentChat.type === "group"}
+                            onEdit={setEditingMessage}
+                            onDelete={setDeleteTarget}
+                            onToggleTag={(target, tag) => {
+                              void handleUpdateMessageTag(target, tag);
+                            }}
+                            onPreviewProfile={(target) =>
+                              setProfilePreviewMember({
+                                name: target.sender.name,
+                                avatar: target.sender.avatar,
+                              })
+                            }
+                          />
+                        ))
+                      ) : (
+                        <Empty className="min-h-[28rem] border-none bg-transparent">
+                          <EmptyHeader>
+                            <EmptyMedia variant="icon">
+                              {currentChat.type === "direct" ? (
+                                <Hash />
+                              ) : (
+                                <Users />
+                              )}
+                            </EmptyMedia>
+                            <EmptyTitle>
+                              {currentChat.type === "group"
+                                ? "No group messages yet"
+                                : "No personal messages yet"}
+                            </EmptyTitle>
+                            <EmptyDescription>
+                              {currentChat.type === "group"
+                                ? `Start the first group message in ${currentConversationName}.`
+                                : `Start the first personal message in ${currentConversationName}.`}
+                            </EmptyDescription>
+                          </EmptyHeader>
+                        </Empty>
+                      )}
+                      <div ref={messageBottomRef} />
+                    </div>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      {error || "Try another chat section or search term."}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="border-t p-4">
                 {currentChat?.last_message_at && (
                   <p className="mb-2 text-xs text-muted-foreground">
-                    Updated {formatRelativeTimestamp(currentChat.last_message_at)}
+                    Updated{" "}
+                    {formatRelativeTimestamp(currentChat.last_message_at)}
                   </p>
                 )}
 
-                <div className="flex gap-2">
-                  <Textarea
-                    placeholder={
-                      currentChat
-                        ? `Message ${currentConversationName}...`
-                        : "Select a conversation..."
-                    }
-                    value={newMessage}
-                    onChange={(event) => {
-                      void handleMessageChange(event.target.value);
-                    }}
-                    onKeyDown={(event) => {
-                      void handleKeyPress(event);
-                    }}
-                    className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto"
-                    disabled={!currentChat}
-                  />
-                  {currentChat?.type === "group" && (
-                    <ActionMenu
-                      align="end"
-                      trigger={({ toggle }) => (
-                        <button
-                          type="button"
-                          className="inline-flex h-9 w-9 self-end items-center justify-center rounded-lg border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                          onClick={toggle}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Message options</span>
-                        </button>
-                      )}
-                    >
-                      {() => (
-                        <>
-                          {MESSAGE_TAGS.map((tag) => (
-                            <ActionMenuItem
-                              key={tag}
-                              label={tag}
-                              checked={selectedTags.includes(tag)}
-                              keepOpen
-                              onSelect={() => handleToggleTag(tag)}
-                            />
-                          ))}
-                        </>
-                      )}
-                    </ActionMenu>
+                <div className="space-y-3">
+                  {!!selectedTags.length && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTags.map((tag) => {
+                        const config = getMessageTagConfig(tag);
+                        return (
+                          <span
+                            key={`composer-${tag}`}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium",
+                              config.chipClassName,
+                            )}
+                          >
+                            <Flag className="h-3 w-3" />
+                            {config.label}
+                            <button
+                              type="button"
+                              className="rounded-full p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/10"
+                              onClick={() => handleRemoveSelectedTag(tag)}
+                            >
+                              <X className="h-3 w-3" />
+                              <span className="sr-only">
+                                Remove {config.label} tag
+                              </span>
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
                   )}
-                  <Button
-                    className="self-end"
-                    onClick={() => {
-                      void handleSendMessage();
-                    }}
-                    disabled={!newMessage.trim() || !currentChat}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    <Textarea
+                      placeholder={
+                        currentChat
+                          ? `Message ${currentConversationName}...`
+                          : "Select a conversation..."
+                      }
+                      value={newMessage}
+                      onChange={(event) => {
+                        void handleMessageChange(event.target.value);
+                      }}
+                      onKeyDown={(event) => {
+                        void handleKeyPress(event);
+                      }}
+                      className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto"
+                      disabled={!currentChat}
+                    />
+                    {currentChat?.type === "group" && (
+                      <ActionMenu
+                        align="end"
+                        closeOnPointerLeave
+                        trigger={() => (
+                          <button
+                            type="button"
+                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                          >
+                            <Tag className="h-4 w-4" />
+                            <span className="sr-only">
+                              Tag message before sending
+                            </span>
+                          </button>
+                        )}
+                      >
+                        {() => (
+                          <>
+                            <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                              Capture signal
+                            </DropdownMenuLabel>
+                            {MESSAGE_TAGS.map((tag) => (
+                              <ActionMenuItem
+                                key={tag}
+                                label={getMessageTagConfig(tag).label}
+                                checked={selectedTags.includes(tag)}
+                                keepOpen
+                                onSelect={() => handleToggleTag(tag)}
+                              />
+                            ))}
+                          </>
+                        )}
+                      </ActionMenu>
+                    )}
+                    <Button
+                      className="h-11 w-11 shrink-0 rounded-xl p-0"
+                      onClick={() => {
+                        void handleSendMessage();
+                      }}
+                      disabled={!newMessage.trim() || !currentChat}
+                    >
+                      <Send className="h-4 w-4" />
+                      <span className="sr-only">Send message</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -1688,7 +2142,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Start direct conversation</DialogTitle>
             <DialogDescription>
-              Everyone in the current workspace is listed here so you can start a direct chat quickly.
+              Everyone in the current workspace is listed here so you can start
+              a direct chat quickly.
             </DialogDescription>
           </DialogHeader>
 
@@ -1716,7 +2171,9 @@ export default function Chat() {
                       <Users />
                     </EmptyMedia>
                     <EmptyTitle>No matching members</EmptyTitle>
-                    <EmptyDescription>Try another search term.</EmptyDescription>
+                    <EmptyDescription>
+                      Try another search term.
+                    </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               ) : (
@@ -1734,16 +2191,25 @@ export default function Chat() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="truncate font-medium">{member.name}</p>
-                          <PersonBadge access={member.access} role={member.role} />
+                          <PersonBadge
+                            access={member.access}
+                            role={member.role}
+                          />
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span className="truncate">{member.email}</span>
-                          {member.online && <span className="text-emerald-600">Online</span>}
+                          {member.online && (
+                            <span className="text-emerald-600">Online</span>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    <Button onClick={() => void handleCreateDirectConversation(member)}>
+                    <Button
+                      onClick={() =>
+                        void handleCreateDirectConversation(member)
+                      }
+                    >
                       <MessageSquare className="mr-2 h-4 w-4" />
                       Chat
                     </Button>
@@ -1771,7 +2237,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Create group chat</DialogTitle>
             <DialogDescription>
-              Name the group, choose members from this workspace, and start collaborating.
+              Name the group, choose members from this workspace, and start
+              collaborating.
             </DialogDescription>
           </DialogHeader>
 
@@ -1834,7 +2301,10 @@ export default function Chat() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="truncate font-medium">{member.name}</p>
-                          <PersonBadge access={member.access} role={member.role} />
+                          <PersonBadge
+                            access={member.access}
+                            role={member.role}
+                          />
                         </div>
                         <p className="truncate text-sm text-muted-foreground">
                           {member.email}
@@ -1853,7 +2323,10 @@ export default function Chat() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateGroupOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateGroupOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={() => void handleCreateGroupConversation()}>
@@ -1915,7 +2388,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Workspace people</DialogTitle>
             <DialogDescription>
-              See everyone in this workspace, their roles, and start a conversation from one place.
+              See everyone in this workspace, their roles, and start a
+              conversation from one place.
             </DialogDescription>
           </DialogHeader>
 
@@ -1945,7 +2419,10 @@ export default function Chat() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="truncate font-medium">{member.name}</p>
-                        <PersonBadge access={member.access} role={member.role} />
+                        <PersonBadge
+                          access={member.access}
+                          role={member.role}
+                        />
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Mail className="h-3.5 w-3.5" />
@@ -1956,13 +2433,18 @@ export default function Chat() {
 
                   <div className="flex items-center gap-2">
                     {member.online && (
-                      <Badge variant="outline" className="rounded-full text-emerald-600">
+                      <Badge
+                        variant="outline"
+                        className="rounded-full text-emerald-600"
+                      >
                         Online
                       </Badge>
                     )}
                     <Button
                       variant="outline"
-                      onClick={() => void handleCreateDirectConversation(member)}
+                      onClick={() =>
+                        void handleCreateDirectConversation(member)
+                      }
                     >
                       Start chat
                     </Button>
@@ -1997,7 +2479,9 @@ export default function Chat() {
             <Button variant="outline" onClick={() => setIsRenameOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => void handleRenameConversation()}>Save</Button>
+            <Button onClick={() => void handleRenameConversation()}>
+              Save
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2027,14 +2511,17 @@ export default function Chat() {
                   <p className="text-xs uppercase tracking-wide">Members</p>
                   <p className="font-medium text-foreground">
                     {conversationDetails?.member_count ?? currentMembers.length}{" "}
-                    {(conversationDetails?.member_count ?? currentMembers.length) === 1
+                    {(conversationDetails?.member_count ??
+                      currentMembers.length) === 1
                       ? "member"
                       : "members"}
                   </p>
                 </div>
                 {currentConversationDescription && (
                   <div className="sm:col-span-2">
-                    <p className="text-xs uppercase tracking-wide">Description</p>
+                    <p className="text-xs uppercase tracking-wide">
+                      Description
+                    </p>
                     <p className="font-medium text-foreground">
                       {currentConversationDescription}
                     </p>
@@ -2073,7 +2560,9 @@ export default function Chat() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className={cn("grid gap-6", canManageMembers && "md:grid-cols-2")}>
+          <div
+            className={cn("grid gap-6", canManageMembers && "md:grid-cols-2")}
+          >
             <div className="space-y-3">
               <div>
                 <h3 className="font-medium">Current members</h3>
@@ -2097,7 +2586,10 @@ export default function Chat() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="truncate font-medium">{member.name}</p>
-                          <PersonBadge access={member.access} role={member.role} />
+                          <PersonBadge
+                            access={member.access}
+                            role={member.role}
+                          />
                         </div>
                         <p className="truncate text-sm text-muted-foreground">
                           {member.email}
@@ -2111,7 +2603,9 @@ export default function Chat() {
                           variant="ghost"
                           size="sm"
                           onClick={() =>
-                            void handleCreateDirectConversationFromChatMember(member)
+                            void handleCreateDirectConversationFromChatMember(
+                              member,
+                            )
                           }
                         >
                           Chat
@@ -2131,7 +2625,9 @@ export default function Chat() {
                         variant="ghost"
                         size="sm"
                         onClick={() =>
-                          void handleCreateDirectConversationFromChatMember(member)
+                          void handleCreateDirectConversationFromChatMember(
+                            member,
+                          )
                         }
                       >
                         Chat
@@ -2160,7 +2656,8 @@ export default function Chat() {
                         </EmptyMedia>
                         <EmptyTitle>No available members</EmptyTitle>
                         <EmptyDescription>
-                          Everyone in the workspace is already part of this group.
+                          Everyone in the workspace is already part of this
+                          group.
                         </EmptyDescription>
                       </EmptyHeader>
                     </Empty>
@@ -2188,8 +2685,13 @@ export default function Chat() {
                           />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="truncate font-medium">{member.name}</p>
-                              <PersonBadge access={member.access} role={member.role} />
+                              <p className="truncate font-medium">
+                                {member.name}
+                              </p>
+                              <PersonBadge
+                                access={member.access}
+                                role={member.role}
+                              />
                             </div>
                             <p className="truncate text-sm text-muted-foreground">
                               {member.email}

@@ -31,6 +31,13 @@ router.get(
   ChatController.listMessages,
 );
 
+router.get(
+  "/chat/conversations/:conversationId/tagged-messages",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  ChatController.listTaggedMessages,
+);
+
 router.post(
   "/chat/conversations/direct",
   ...protectedRoute,
@@ -80,6 +87,13 @@ router.patch(
   ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member", "member"]),
   ChatController.editMessage,
+);
+
+router.patch(
+  "/chat/messages/:messageId/tags",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  ChatController.updateMessageTags,
 );
 
 router.delete(

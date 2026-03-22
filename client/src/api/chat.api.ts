@@ -207,6 +207,24 @@ export const chatAPI = {
     );
   },
 
+  listTaggedMessages(
+    conversationId: string,
+    idToken: string,
+    options?: { limit?: number; tag?: string | null },
+  ) {
+    const params = new URLSearchParams();
+    params.set("limit", String(options?.limit ?? 50));
+    if (options?.tag) {
+      params.set("tag", options.tag);
+    }
+
+    return apiFetch<{ messages: ChatMessage[] }>(
+      `/api/chat/conversations/${conversationId}/tagged-messages?${params.toString()}`,
+      undefined,
+      idToken,
+    );
+  },
+
   sendMessage(
     conversationId: string,
     payload: {
@@ -334,6 +352,17 @@ export const chatAPI = {
       {
         method: "PATCH",
         body: JSON.stringify({ body }),
+      },
+      idToken,
+    );
+  },
+
+  updateMessageTags(messageId: string, tags: string[], idToken: string) {
+    return apiFetch<{ message: ChatMessage }>(
+      `/api/chat/messages/${messageId}/tags`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ tags }),
       },
       idToken,
     );

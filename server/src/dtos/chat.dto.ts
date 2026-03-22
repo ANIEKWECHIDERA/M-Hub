@@ -19,6 +19,11 @@ export const ChatMessageListQueryDTO = z.object({
   cursorMessageId: UUID.optional().nullable(),
 });
 
+export const TaggedMessageListQueryDTO = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  tag: chatMessageTagSchema.optional(),
+});
+
 export const CreateDirectConversationDTO = z.object({
   target_user_id: UUID.optional(),
   target_team_member_id: UUID.optional(),
@@ -77,6 +82,10 @@ export const SendMessageDTO = z
 
 export const EditMessageDTO = z.object({
   body: z.string().trim().min(1).max(4000),
+});
+
+export const UpdateMessageTagsDTO = z.object({
+  tags: z.array(chatMessageTagSchema).max(10).default([]),
 });
 
 export const DeleteMessageDTO = z.object({
