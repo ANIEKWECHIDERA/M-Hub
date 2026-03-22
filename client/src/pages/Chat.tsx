@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import type { ChatMessage, ChatMember } from "@/api/chat.api";
+import type { ChatConversation, ChatMessage, ChatMember } from "@/api/chat.api";
 import type { TeamMember } from "@/Types/types";
 import { chatSections, type ChatSection } from "@/config/chat-nav";
 import { useChatContext } from "@/context/ChatContext";
@@ -109,6 +109,8 @@ const MESSAGE_TAGS = Object.keys(MESSAGE_TAG_CONFIG) as Array<
   keyof typeof MESSAGE_TAG_CONFIG
 >;
 type MessageTag = (typeof MESSAGE_TAGS)[number];
+const CHAT_EDIT_WINDOW_MINUTES = 15;
+const CHAT_EDIT_BUTTON_HIDE_BUFFER_SECONDS = 30;
 
 function useIsMobileScreen() {
   const [isMobile, setIsMobile] = useState(false);
@@ -139,8 +141,7 @@ function getMessageTagConfig(tag: string) {
   return (
     config ?? {
       label: tag,
-      chipClassName:
-        "border-border bg-muted/60 text-muted-foreground",
+      chipClassName: "border-border bg-muted/60 text-muted-foreground",
     }
   );
 }
@@ -276,8 +277,12 @@ function ProfilePreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl overflow-hidden p-0">
         <DialogHeader className="px-6 pt-6">
-          <DialogTitle>{member?.name || member?.email || "Profile photo"}</DialogTitle>
-          <DialogDescription>Preview the member profile image.</DialogDescription>
+          <DialogTitle>
+            {member?.name || member?.email || "Profile photo"}
+          </DialogTitle>
+          <DialogDescription>
+            Preview the member profile image.
+          </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-6 pt-2">
           {member?.avatar ? (
@@ -318,10 +323,12 @@ function ProfilePreviewDialog({
 
 function ActionMenu({
   align = "end",
+  closeOnPointerLeave = false,
   trigger,
   children,
 }: {
   align?: "start" | "end";
+  closeOnPointerLeave?: boolean;
   trigger: (controls: {
     open: boolean;
     toggle: () => void;
@@ -345,6 +352,11 @@ function ActionMenu({
         sideOffset={8}
         collisionPadding={16}
         className="min-w-[14rem] rounded-xl p-1"
+        onPointerLeave={() => {
+          if (closeOnPointerLeave) {
+            setOpen(false);
+          }
+        }}
       >
         {children({ close: () => setOpen(false) })}
       </DropdownMenuContent>
@@ -430,6 +442,15 @@ function MessageBubble({
   onPreviewProfile: (message: ChatMessage) => void;
 }) {
   const canDelete = isCurrentUser || canDeleteModeration;
+  const messageAgeMs = Date.now() - new Date(message.created_at).getTime();
+  const editWindowMs =
+    (CHAT_EDIT_WINDOW_MINUTES * 60 - CHAT_EDIT_BUTTON_HIDE_BUFFER_SECONDS) *
+    1000;
+  const canShowEditButton =
+    isCurrentUser &&
+    !message.is_deleted &&
+    !message.id.startsWith("optimistic-") &&
+    messageAgeMs < editWindowMs;
 
   if (message.message_type === "system") {
     return (
@@ -470,124 +491,129 @@ function MessageBubble({
           isCurrentUser ? "items-end text-right" : "",
         )}
       >
+        <div
+          className={cn(
+            "flex items-center gap-2 text-xs text-muted-foreground",
+            isCurrentUser && "justify-end",
+          )}
+        >
+          <span>{message.sender.name || "Unknown"}</span>
+          <span>{formatShortTime(message.created_at)}</span>
+          {message.is_edited && <span>edited</span>}
+          {!message.id.startsWith("optimistic-") && (
+            <div className="opacity-0 transition-opacity group-hover:opacity-100">
+              <ActionMenu
+                align={isCurrentUser ? "end" : "start"}
+                closeOnPointerLeave
+                trigger={() => (
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent bg-background/80 transition-colors hover:border-input hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                    <span className="sr-only">Message actions</span>
+                  </button>
+                )}
+              >
+                {({ close }) => (
+                  <>
+                    {canTagMessage && !message.is_deleted && (
+                      <>
+                        <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                          Capture signal
+                        </DropdownMenuLabel>
+                        {MESSAGE_TAGS.map((tag) => (
+                          <ActionMenuItem
+                            key={tag}
+                            label={getMessageTagConfig(tag).label}
+                            checked={message.tags.includes(tag)}
+                            keepOpen
+                            onSelect={() => onToggleTag(message, tag)}
+                          />
+                        ))}
+                        {(isCurrentUser || canDelete) && (
+                          <ActionMenuSeparator />
+                        )}
+                      </>
+                    )}
+                    {canShowEditButton && (
+                      <ActionMenuItem
+                        label="Edit message"
+                        icon={Pencil}
+                        onSelect={() => {
+                          close();
+                          onEdit(message);
+                        }}
+                      />
+                    )}
+                    {canDelete && (
+                      <ActionMenuItem
+                        label="Delete message"
+                        icon={Trash2}
+                        destructive
+                        onSelect={() => {
+                          close();
+                          onDelete(message);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+              </ActionMenu>
+            </div>
+          )}
+        </div>
+
+        <div
+          className={cn(
+            "rounded-2xl border px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+            isCurrentUser
+              ? "border-primary bg-primary text-primary-foreground"
+              : "bg-muted/60",
+            message.is_deleted && "italic opacity-80",
+          )}
+        >
+          {message.reply_to && !message.is_deleted && (
+            <div
+              className={cn(
+                "mb-2 rounded-xl border px-3 py-2 text-xs",
+                isCurrentUser
+                  ? "border-primary-foreground/20 bg-primary-foreground/10"
+                  : "border-border bg-background/70",
+              )}
+            >
+              <div className="font-medium">
+                {message.reply_to.sender.name || "Reply"}
+              </div>
+              <div className="truncate">{message.reply_to.body}</div>
+            </div>
+          )}
+          {message.body}
+        </div>
+        {!!message.tags.length && (
           <div
             className={cn(
-              "flex items-center gap-2 text-xs text-muted-foreground",
+              "flex flex-wrap gap-2",
               isCurrentUser && "justify-end",
             )}
           >
-            <span>{message.sender.name || "Unknown"}</span>
-            <span>{formatShortTime(message.created_at)}</span>
-            {message.is_edited && <span>edited</span>}
-            {!message.id.startsWith("optimistic-") && (
-              <div className="opacity-0 transition-opacity group-hover:opacity-100">
-                <ActionMenu
-                  align={isCurrentUser ? "end" : "start"}
-                  trigger={() => (
-                    <button
-                      type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent bg-background/80 transition-colors hover:border-input hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                      <span className="sr-only">Message actions</span>
-                    </button>
+            {message.tags.map((tag) => {
+              const config = getMessageTagConfig(tag);
+              return (
+                <span
+                  key={`${message.id}-${tag}`}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                    config.chipClassName,
                   )}
                 >
-                  {({ close }) => (
-                    <>
-                      {canTagMessage && !message.is_deleted && (
-                        <>
-                          <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
-                            Capture signal
-                          </DropdownMenuLabel>
-                          {MESSAGE_TAGS.map((tag) => (
-                            <ActionMenuItem
-                              key={tag}
-                              label={getMessageTagConfig(tag).label}
-                              checked={message.tags.includes(tag)}
-                              keepOpen
-                              onSelect={() => onToggleTag(message, tag)}
-                            />
-                          ))}
-                          {(isCurrentUser || canDelete) && <ActionMenuSeparator />}
-                        </>
-                      )}
-                      {!message.is_deleted && isCurrentUser && (
-                        <ActionMenuItem
-                          label="Edit message"
-                          icon={Pencil}
-                          onSelect={() => {
-                            close();
-                            onEdit(message);
-                          }}
-                        />
-                      )}
-                      {canDelete && (
-                        <ActionMenuItem
-                          label="Delete message"
-                          icon={Trash2}
-                          destructive
-                          onSelect={() => {
-                            close();
-                            onDelete(message);
-                          }}
-                        />
-                      )}
-                    </>
-                  )}
-                </ActionMenu>
-              </div>
-            )}
+                  <Flag className="h-3 w-3" />
+                  {config.label}
+                </span>
+              );
+            })}
           </div>
-
-          <div
-            className={cn(
-              "rounded-2xl border px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-              isCurrentUser
-                ? "border-primary bg-primary text-primary-foreground"
-                : "bg-muted/60",
-              message.is_deleted && "italic opacity-80",
-            )}
-          >
-            {message.reply_to && !message.is_deleted && (
-              <div
-                className={cn(
-                  "mb-2 rounded-xl border px-3 py-2 text-xs",
-                  isCurrentUser
-                    ? "border-primary-foreground/20 bg-primary-foreground/10"
-                    : "border-border bg-background/70",
-                )}
-              >
-                <div className="font-medium">{message.reply_to.sender.name || "Reply"}</div>
-                <div className="truncate">{message.reply_to.body}</div>
-              </div>
-            )}
-            {message.body}
-          </div>
-          {!!message.tags.length && (
-            <div
-              className={cn(
-                "flex flex-wrap gap-2",
-                isCurrentUser && "justify-end",
-              )}
-            >
-              {message.tags.map((tag) => {
-                const config = getMessageTagConfig(tag);
-                return (
-                  <span
-                    key={`${message.id}-${tag}`}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",
-                      config.chipClassName,
-                    )}
-                  >
-                    <Flag className="h-3 w-3" />
-                    {config.label}
-                  </span>
-                );
-              })}
-            </div>
-          )}
+        )}
       </div>
 
       {isCurrentUser && (
@@ -652,10 +678,13 @@ export default function Chat() {
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [isManageMembersOpen, setIsManageMembersOpen] = useState(false);
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
-  const [isDeleteConversationOpen, setIsDeleteConversationOpen] = useState(false);
+  const [isDeleteConversationOpen, setIsDeleteConversationOpen] =
+    useState(false);
   const [deleteConversationTarget, setDeleteConversationTarget] =
     useState<ChatConversation | null>(null);
-  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(
+    null,
+  );
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [directMemberSearch, setDirectMemberSearch] = useState("");
@@ -663,14 +692,19 @@ export default function Chat() {
   const [directorySearch, setDirectorySearch] = useState("");
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
-  const [selectedGroupMembers, setSelectedGroupMembers] = useState<string[]>([]);
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState<string[]>(
+    [],
+  );
   const [selectedAddMembers, setSelectedAddMembers] = useState<string[]>([]);
   const [editValue, setEditValue] = useState("");
-  const [selectedTags, setSelectedTags] = useState<
-    Array<(typeof MESSAGE_TAGS)[number]>
-  >([]);
-  const [activeTagFilter, setActiveTagFilter] = useState<MessageTag | "all">("all");
-  const [chatPanelMode, setChatPanelMode] = useState<"messages" | "summary">("messages");
+  const [selectedTagsByConversation, setSelectedTagsByConversation] =
+    useState<Record<string, MessageTag[]>>({});
+  const [activeTagFilter, setActiveTagFilter] = useState<MessageTag | "all">(
+    "all",
+  );
+  const [chatPanelMode, setChatPanelMode] = useState<"messages" | "summary">(
+    "messages",
+  );
   const typingTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
   const messageScrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -747,7 +781,9 @@ export default function Chat() {
       .filter((member) => member.user_id !== profile?.id)
       .map((member) => ({
         ...member,
-        online: member.user_id ? Boolean(presenceByUserId[member.user_id]) : false,
+        online: member.user_id
+          ? Boolean(presenceByUserId[member.user_id])
+          : false,
       }));
   }, [presenceByUserId, profile?.id, workspaceMembers]);
 
@@ -774,7 +810,9 @@ export default function Chat() {
 
     if (
       activeConversationId &&
-      filteredChats.some((conversation) => conversation.id === activeConversationId)
+      filteredChats.some(
+        (conversation) => conversation.id === activeConversationId,
+      )
     ) {
       return;
     }
@@ -812,14 +850,18 @@ export default function Chat() {
 
   const currentChat =
     activeConversation ??
-    filteredChats.find((conversation) => conversation.id === activeConversationId) ??
+    filteredChats.find(
+      (conversation) => conversation.id === activeConversationId,
+    ) ??
     filteredChats[0] ??
     null;
 
-  const currentMembers = conversationDetails?.members ?? currentChat?.members ?? [];
+  const currentMembers =
+    conversationDetails?.members ?? currentChat?.members ?? [];
   const directConversationMember =
     currentChat?.type === "direct"
-      ? currentMembers.find((member) => member.user_id !== profile?.id) ?? null
+      ? (currentMembers.find((member) => member.user_id !== profile?.id) ??
+        null)
       : null;
   const currentConversationName = currentChat
     ? getConversationDisplayName(currentChat, profile?.id)
@@ -833,19 +875,29 @@ export default function Chat() {
     ? getConversationDisplayName(deleteConversationTarget, profile?.id)
     : "";
   const currentChatIsGroup = currentChat?.type === "group";
+  const selectedTags = currentChat?.id
+    ? selectedTagsByConversation[currentChat.id] ?? []
+    : [];
   const typingNames = typingUserIds
-    .map((userId) => currentMembers.find((member) => member.user_id === userId)?.name)
+    .map(
+      (userId) =>
+        currentMembers.find((member) => member.user_id === userId)?.name,
+    )
     .filter(Boolean) as string[];
   const filteredTaggedMessages = useMemo(() => {
     if (activeTagFilter === "all") {
       return taggedMessages;
     }
 
-    return taggedMessages.filter((message) => message.tags.includes(activeTagFilter));
+    return taggedMessages.filter((message) =>
+      message.tags.includes(activeTagFilter),
+    );
   }, [activeTagFilter, taggedMessages]);
 
   const availableMembersToAdd = useMemo(() => {
-    const activeUserIds = new Set(currentMembers.map((member) => member.user_id));
+    const activeUserIds = new Set(
+      currentMembers.map((member) => member.user_id),
+    );
     return workspaceDirectoryMembers.filter(
       (member) => !member.user_id || !activeUserIds.has(member.user_id),
     );
@@ -884,9 +936,14 @@ export default function Chat() {
   const canManageMembers = Boolean(activePermissions?.can_manage_members);
   const canRenameGroup = Boolean(activePermissions?.can_rename_group);
   const canModerateMessages = Boolean(activePermissions?.can_moderate_messages);
-  const canDeleteConversation = Boolean(activePermissions?.can_delete_conversation);
+  const canDeleteConversation = Boolean(
+    activePermissions?.can_delete_conversation,
+  );
   const notificationsMuted = Boolean(activeConversation?.notifications_muted);
-  const visibleMemberCount = conversationDetails?.member_count ?? currentChat?.member_count ?? currentMembers.length;
+  const visibleMemberCount =
+    conversationDetails?.member_count ??
+    currentChat?.member_count ??
+    currentMembers.length;
   const memberLabel = visibleMemberCount === 1 ? "member" : "members";
 
   const showInboxPane = !isMobile || !mobileConversationOpen;
@@ -952,7 +1009,12 @@ export default function Chat() {
 
   const clearComposer = async () => {
     setNewMessage("");
-    setSelectedTags([]);
+    if (currentChat?.id) {
+      setSelectedTagsByConversation((prev) => ({
+        ...prev,
+        [currentChat.id]: [],
+      }));
+    }
     if (typingTimeoutRef.current) {
       window.clearTimeout(typingTimeoutRef.current);
     }
@@ -982,7 +1044,12 @@ export default function Chat() {
       });
     } catch (chatError: any) {
       setNewMessage(outgoingMessage);
-      setSelectedTags(outgoingTags);
+      if (currentChat?.id) {
+        setSelectedTagsByConversation((prev) => ({
+          ...prev,
+          [currentChat.id]: outgoingTags,
+        }));
+      }
       toast.error(chatError.message || "Failed to send message");
     }
   };
@@ -1193,16 +1260,38 @@ export default function Chat() {
   };
 
   const handleToggleTag = (tag: (typeof MESSAGE_TAGS)[number]) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag],
-    );
+    if (!currentChat?.id) {
+      return;
+    }
+
+    setSelectedTagsByConversation((prev) => {
+      const currentTags = prev[currentChat.id] ?? [];
+      return {
+        ...prev,
+        [currentChat.id]: currentTags.includes(tag)
+          ? currentTags.filter((item) => item !== tag)
+          : [...currentTags, tag],
+      };
+    });
   };
 
   const handleRemoveSelectedTag = (tag: MessageTag) => {
-    setSelectedTags((prev) => prev.filter((item) => item !== tag));
+    if (!currentChat?.id) {
+      return;
+    }
+
+    setSelectedTagsByConversation((prev) => ({
+      ...prev,
+      [currentChat.id]: (prev[currentChat.id] ?? []).filter(
+        (item) => item !== tag,
+      ),
+    }));
   };
 
-  const handleUpdateMessageTag = async (message: ChatMessage, tag: MessageTag) => {
+  const handleUpdateMessageTag = async (
+    message: ChatMessage,
+    tag: MessageTag,
+  ) => {
     const nextTags = message.tags.includes(tag)
       ? message.tags.filter((item) => item !== tag)
       : [...message.tags, tag];
@@ -1226,7 +1315,9 @@ export default function Chat() {
       requestAnimationFrame(() => {
         const target = document.getElementById(`chat-message-${messageId}`);
         if (!target) {
-          toast.message("That tagged message is outside the loaded chat history.");
+          toast.message(
+            "That tagged message is outside the loaded chat history.",
+          );
           return;
         }
 
@@ -1288,7 +1379,8 @@ export default function Chat() {
                 <div className="space-y-1">
                   <CardTitle className="text-lg">Messages</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Start direct conversations, create groups, and keep track of live workspace activity.
+                    Start direct conversations, create groups, and keep track of
+                    live workspace activity.
                   </p>
                 </div>
 
@@ -1351,18 +1443,22 @@ export default function Chat() {
                 {chatSections.map((section) => (
                   <Button
                     key={section.id}
-                    variant={activeSection === section.id ? "default" : "outline"}
+                    variant={
+                      activeSection === section.id ? "default" : "outline"
+                    }
                     size="sm"
                     className="rounded-md px-3"
                     onClick={() =>
-                      setSearchParams({ section: section.id }, { replace: true })
+                      setSearchParams(
+                        { section: section.id },
+                        { replace: true },
+                      )
                     }
                   >
                     {section.label}
                   </Button>
                 ))}
               </div>
-
             </CardHeader>
 
             <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
@@ -1397,7 +1493,10 @@ export default function Chat() {
                       conversation,
                       profile?.id,
                     );
-                    const avatar = getConversationAvatar(conversation, profile?.id);
+                    const avatar = getConversationAvatar(
+                      conversation,
+                      profile?.id,
+                    );
                     const otherMember =
                       conversation.type === "direct"
                         ? conversation.members.find(
@@ -1431,9 +1530,10 @@ export default function Chat() {
                                 avatar={avatar || null}
                               />
                             )}
-                            {conversation.type === "direct" && otherMember?.online && (
-                              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
-                            )}
+                            {conversation.type === "direct" &&
+                              otherMember?.online && (
+                                <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
+                              )}
                           </div>
 
                           <div className="min-w-0 flex-1">
@@ -1443,7 +1543,8 @@ export default function Chat() {
                               </span>
                               <span className="shrink-0 text-[11px] text-muted-foreground">
                                 {formatShortTime(
-                                  conversation.last_message_at ?? conversation.created_at,
+                                  conversation.last_message_at ??
+                                    conversation.created_at,
                                 )}
                               </span>
                               {conversation.unread_count > 0 && (
@@ -1459,7 +1560,9 @@ export default function Chat() {
                             {conversation.type === "group" && (
                               <p className="mt-1 text-xs text-muted-foreground">
                                 {conversation.member_count}{" "}
-                                {conversation.member_count === 1 ? "member" : "members"}
+                                {conversation.member_count === 1
+                                  ? "member"
+                                  : "members"}
                               </p>
                             )}
 
@@ -1468,7 +1571,8 @@ export default function Chat() {
                               conversation.last_message?.sender.name
                                 ? `${conversation.last_message.sender.name}: `
                                 : ""}
-                              {conversation.last_message?.body || "No messages yet"}
+                              {conversation.last_message?.body ||
+                                "No messages yet"}
                             </p>
 
                             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -1512,7 +1616,8 @@ export default function Chat() {
                           name={currentConversationName}
                           email={directConversationMember?.email}
                           avatar={
-                            getConversationAvatar(currentChat, profile?.id) || null
+                            getConversationAvatar(currentChat, profile?.id) ||
+                            null
                           }
                         />
                         {directConversationMember?.online && (
@@ -1580,21 +1685,22 @@ export default function Chat() {
                     >
                       {({ close }) => (
                         <>
-                          {currentChat.type === "direct" && directConversationMember && (
-                            <ActionMenuItem
-                              label="View profile"
-                              onSelect={() => {
-                                close();
-                                setProfilePreviewMember({
-                                  name: directConversationMember.name,
-                                  email: directConversationMember.email,
-                                  avatar: directConversationMember.avatar,
-                                  role: directConversationMember.role,
-                                  access: directConversationMember.access,
-                                });
-                              }}
-                            />
-                          )}
+                          {currentChat.type === "direct" &&
+                            directConversationMember && (
+                              <ActionMenuItem
+                                label="View profile"
+                                onSelect={() => {
+                                  close();
+                                  setProfilePreviewMember({
+                                    name: directConversationMember.name,
+                                    email: directConversationMember.email,
+                                    avatar: directConversationMember.avatar,
+                                    role: directConversationMember.role,
+                                    access: directConversationMember.access,
+                                  });
+                                }}
+                              />
+                            )}
                           {currentChat.type === "group" && (
                             <ActionMenuItem
                               label="Show group info"
@@ -1678,7 +1784,9 @@ export default function Chat() {
                     <Button
                       type="button"
                       size="sm"
-                      variant={chatPanelMode === "messages" ? "default" : "outline"}
+                      variant={
+                        chatPanelMode === "messages" ? "default" : "outline"
+                      }
                       onClick={() => setChatPanelMode("messages")}
                     >
                       Messages
@@ -1686,7 +1794,9 @@ export default function Chat() {
                     <Button
                       type="button"
                       size="sm"
-                      variant={chatPanelMode === "summary" ? "default" : "outline"}
+                      variant={
+                        chatPanelMode === "summary" ? "default" : "outline"
+                      }
                       onClick={() => setChatPanelMode("summary")}
                     >
                       <ListFilter className="mr-2 h-4 w-4" />
@@ -1704,7 +1814,9 @@ export default function Chat() {
                       <Button
                         type="button"
                         size="sm"
-                        variant={activeTagFilter === "all" ? "default" : "outline"}
+                        variant={
+                          activeTagFilter === "all" ? "default" : "outline"
+                        }
                         onClick={() => setActiveTagFilter("all")}
                       >
                         All signals
@@ -1745,171 +1857,183 @@ export default function Chat() {
                     </button>
                   </div>
                 )}
-              <div
-                ref={messageScrollContainerRef}
-                className="h-full overflow-y-auto p-4"
-                onScroll={() => {
-                  if (!isScrolledFarFromBottom()) {
-                    setShowNewMessageJump(false);
-                  }
-                }}
-              >
-                {chatPanelMode === "summary" && currentChat?.type === "group" ? (
-                  loadingTaggedMessages ? (
-                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Loading tagged messages...
-                    </div>
-                  ) : filteredTaggedMessages.length ? (
-                    <div className="space-y-3">
-                      {filteredTaggedMessages.map((message) => (
-                        <div
-                          key={`summary-${message.id}`}
-                          className="rounded-2xl border bg-card p-4 shadow-sm"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold">
-                                {message.sender.name || "Unknown"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(message.created_at).toLocaleString([], {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </p>
-                            </div>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => jumpToMessage(message.id)}
-                            >
-                              Jump to message
-                            </Button>
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {message.tags.map((tag) => {
-                              const config = getMessageTagConfig(tag);
-                              return (
-                                <span
-                                  key={`${message.id}-${tag}`}
-                                  className={cn(
-                                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",
-                                    config.chipClassName,
-                                  )}
-                                >
-                                  <Flag className="h-3 w-3" />
-                                  {config.label}
-                                </span>
-                              );
-                            })}
-                          </div>
-                          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
-                            {message.body}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <Empty className="min-h-[28rem] border-none bg-transparent">
-                      <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                          <Flag />
-                        </EmptyMedia>
-                        <EmptyTitle>No tagged decisions yet</EmptyTitle>
-                        <EmptyDescription>
-                          Use tags like Decision, Action Item, or Blocker to
-                          capture the important moments from this group chat.
-                        </EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  )
-                ) : loadingMessages && currentChat ? (
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading messages...
-                  </div>
-                ) : currentChat ? (
-                  <div className="space-y-4">
-                    {hasMoreMessages && (
-                      <div className="flex justify-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void loadOlderMessages()}
-                          disabled={loadingOlderMessages}
-                        >
-                          {loadingOlderMessages ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Loading earlier messages...
-                            </>
-                          ) : (
-                            "Load earlier messages"
-                          )}
-                        </Button>
+                <div
+                  ref={messageScrollContainerRef}
+                  className="h-full overflow-y-auto p-4"
+                  onScroll={() => {
+                    if (!isScrolledFarFromBottom()) {
+                      setShowNewMessageJump(false);
+                    }
+                  }}
+                >
+                  {chatPanelMode === "summary" &&
+                  currentChat?.type === "group" ? (
+                    loadingTaggedMessages ? (
+                      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading tagged messages...
                       </div>
-                    )}
-
-                    {messages.length ? (
-                      messages.map((message) => (
-                        <MessageBubble
-                          key={message.id}
-                          message={message}
-                          isCurrentUser={message.sender.user_id === profile?.id}
-                          canDeleteModeration={
-                            canModerateMessages && currentChat.type === "group"
-                          }
-                          canTagMessage={currentChat.type === "group"}
-                          onEdit={setEditingMessage}
-                          onDelete={setDeleteTarget}
-                          onToggleTag={(target, tag) => {
-                            void handleUpdateMessageTag(target, tag);
-                          }}
-                          onPreviewProfile={(target) =>
-                            setProfilePreviewMember({
-                              name: target.sender.name,
-                              avatar: target.sender.avatar,
-                            })
-                          }
-                        />
-                      ))
+                    ) : filteredTaggedMessages.length ? (
+                      <div className="space-y-3">
+                        {filteredTaggedMessages.map((message) => (
+                          <div
+                            key={`summary-${message.id}`}
+                            className="rounded-2xl border bg-card p-4 shadow-sm"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold">
+                                  {message.sender.name || "Unknown"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(message.created_at).toLocaleString(
+                                    [],
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                    },
+                                  )}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => jumpToMessage(message.id)}
+                              >
+                                Jump to message
+                              </Button>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {message.tags.map((tag) => {
+                                const config = getMessageTagConfig(tag);
+                                return (
+                                  <span
+                                    key={`${message.id}-${tag}`}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                                      config.chipClassName,
+                                    )}
+                                  >
+                                    <Flag className="h-3 w-3" />
+                                    {config.label}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                            <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+                              {message.body}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <Empty className="min-h-[28rem] border-none bg-transparent">
                         <EmptyHeader>
                           <EmptyMedia variant="icon">
-                            {currentChat.type === "direct" ? <Hash /> : <Users />}
+                            <Flag />
                           </EmptyMedia>
-                          <EmptyTitle>
-                            {currentChat.type === "group"
-                              ? "No group messages yet"
-                              : "No personal messages yet"}
-                          </EmptyTitle>
+                          <EmptyTitle>No tagged decisions yet</EmptyTitle>
                           <EmptyDescription>
-                            {currentChat.type === "group"
-                              ? `Start the first group message in ${currentConversationName}.`
-                              : `Start the first personal message in ${currentConversationName}.`}
+                            Use tags like Decision, Action Item, or Blocker to
+                            capture the important moments from this group chat.
                           </EmptyDescription>
                         </EmptyHeader>
                       </Empty>
-                    )}
-                    <div ref={messageBottomRef} />
-                  </div>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    {error || "Try another chat section or search term."}
-                  </div>
-                )}
-              </div>
+                    )
+                  ) : loadingMessages && currentChat ? (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading messages...
+                    </div>
+                  ) : currentChat ? (
+                    <div className="space-y-4">
+                      {hasMoreMessages && (
+                        <div className="flex justify-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void loadOlderMessages()}
+                            disabled={loadingOlderMessages}
+                          >
+                            {loadingOlderMessages ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading earlier messages...
+                              </>
+                            ) : (
+                              "Load earlier messages"
+                            )}
+                          </Button>
+                        </div>
+                      )}
+
+                      {messages.length ? (
+                        messages.map((message) => (
+                          <MessageBubble
+                            key={message.id}
+                            message={message}
+                            isCurrentUser={
+                              message.sender.user_id === profile?.id
+                            }
+                            canDeleteModeration={
+                              canModerateMessages &&
+                              currentChat.type === "group"
+                            }
+                            canTagMessage={currentChat.type === "group"}
+                            onEdit={setEditingMessage}
+                            onDelete={setDeleteTarget}
+                            onToggleTag={(target, tag) => {
+                              void handleUpdateMessageTag(target, tag);
+                            }}
+                            onPreviewProfile={(target) =>
+                              setProfilePreviewMember({
+                                name: target.sender.name,
+                                avatar: target.sender.avatar,
+                              })
+                            }
+                          />
+                        ))
+                      ) : (
+                        <Empty className="min-h-[28rem] border-none bg-transparent">
+                          <EmptyHeader>
+                            <EmptyMedia variant="icon">
+                              {currentChat.type === "direct" ? (
+                                <Hash />
+                              ) : (
+                                <Users />
+                              )}
+                            </EmptyMedia>
+                            <EmptyTitle>
+                              {currentChat.type === "group"
+                                ? "No group messages yet"
+                                : "No personal messages yet"}
+                            </EmptyTitle>
+                            <EmptyDescription>
+                              {currentChat.type === "group"
+                                ? `Start the first group message in ${currentConversationName}.`
+                                : `Start the first personal message in ${currentConversationName}.`}
+                            </EmptyDescription>
+                          </EmptyHeader>
+                        </Empty>
+                      )}
+                      <div ref={messageBottomRef} />
+                    </div>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      {error || "Try another chat section or search term."}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="border-t p-4">
                 {currentChat?.last_message_at && (
                   <p className="mb-2 text-xs text-muted-foreground">
-                    Updated {formatRelativeTimestamp(currentChat.last_message_at)}
+                    Updated{" "}
+                    {formatRelativeTimestamp(currentChat.last_message_at)}
                   </p>
                 )}
 
@@ -1944,17 +2068,36 @@ export default function Chat() {
                     </div>
                   )}
 
-                  <div className="flex items-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <Textarea
+                      placeholder={
+                        currentChat
+                          ? `Message ${currentConversationName}...`
+                          : "Select a conversation..."
+                      }
+                      value={newMessage}
+                      onChange={(event) => {
+                        void handleMessageChange(event.target.value);
+                      }}
+                      onKeyDown={(event) => {
+                        void handleKeyPress(event);
+                      }}
+                      className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto"
+                      disabled={!currentChat}
+                    />
                     {currentChat?.type === "group" && (
                       <ActionMenu
-                        align="start"
+                        align="end"
+                        closeOnPointerLeave
                         trigger={() => (
                           <button
                             type="button"
                             className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                           >
                             <Tag className="h-4 w-4" />
-                            <span className="sr-only">Tag message before sending</span>
+                            <span className="sr-only">
+                              Tag message before sending
+                            </span>
                           </button>
                         )}
                       >
@@ -1976,22 +2119,6 @@ export default function Chat() {
                         )}
                       </ActionMenu>
                     )}
-                    <Textarea
-                      placeholder={
-                        currentChat
-                          ? `Message ${currentConversationName}...`
-                          : "Select a conversation..."
-                      }
-                      value={newMessage}
-                      onChange={(event) => {
-                        void handleMessageChange(event.target.value);
-                      }}
-                      onKeyDown={(event) => {
-                        void handleKeyPress(event);
-                      }}
-                      className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto"
-                      disabled={!currentChat}
-                    />
                     <Button
                       className="h-11 w-11 shrink-0 rounded-xl p-0"
                       onClick={() => {
@@ -2015,7 +2142,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Start direct conversation</DialogTitle>
             <DialogDescription>
-              Everyone in the current workspace is listed here so you can start a direct chat quickly.
+              Everyone in the current workspace is listed here so you can start
+              a direct chat quickly.
             </DialogDescription>
           </DialogHeader>
 
@@ -2043,7 +2171,9 @@ export default function Chat() {
                       <Users />
                     </EmptyMedia>
                     <EmptyTitle>No matching members</EmptyTitle>
-                    <EmptyDescription>Try another search term.</EmptyDescription>
+                    <EmptyDescription>
+                      Try another search term.
+                    </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               ) : (
@@ -2061,16 +2191,25 @@ export default function Chat() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="truncate font-medium">{member.name}</p>
-                          <PersonBadge access={member.access} role={member.role} />
+                          <PersonBadge
+                            access={member.access}
+                            role={member.role}
+                          />
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span className="truncate">{member.email}</span>
-                          {member.online && <span className="text-emerald-600">Online</span>}
+                          {member.online && (
+                            <span className="text-emerald-600">Online</span>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    <Button onClick={() => void handleCreateDirectConversation(member)}>
+                    <Button
+                      onClick={() =>
+                        void handleCreateDirectConversation(member)
+                      }
+                    >
                       <MessageSquare className="mr-2 h-4 w-4" />
                       Chat
                     </Button>
@@ -2098,7 +2237,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Create group chat</DialogTitle>
             <DialogDescription>
-              Name the group, choose members from this workspace, and start collaborating.
+              Name the group, choose members from this workspace, and start
+              collaborating.
             </DialogDescription>
           </DialogHeader>
 
@@ -2161,7 +2301,10 @@ export default function Chat() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="truncate font-medium">{member.name}</p>
-                          <PersonBadge access={member.access} role={member.role} />
+                          <PersonBadge
+                            access={member.access}
+                            role={member.role}
+                          />
                         </div>
                         <p className="truncate text-sm text-muted-foreground">
                           {member.email}
@@ -2180,7 +2323,10 @@ export default function Chat() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateGroupOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateGroupOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={() => void handleCreateGroupConversation()}>
@@ -2242,7 +2388,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Workspace people</DialogTitle>
             <DialogDescription>
-              See everyone in this workspace, their roles, and start a conversation from one place.
+              See everyone in this workspace, their roles, and start a
+              conversation from one place.
             </DialogDescription>
           </DialogHeader>
 
@@ -2272,7 +2419,10 @@ export default function Chat() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="truncate font-medium">{member.name}</p>
-                        <PersonBadge access={member.access} role={member.role} />
+                        <PersonBadge
+                          access={member.access}
+                          role={member.role}
+                        />
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Mail className="h-3.5 w-3.5" />
@@ -2283,13 +2433,18 @@ export default function Chat() {
 
                   <div className="flex items-center gap-2">
                     {member.online && (
-                      <Badge variant="outline" className="rounded-full text-emerald-600">
+                      <Badge
+                        variant="outline"
+                        className="rounded-full text-emerald-600"
+                      >
                         Online
                       </Badge>
                     )}
                     <Button
                       variant="outline"
-                      onClick={() => void handleCreateDirectConversation(member)}
+                      onClick={() =>
+                        void handleCreateDirectConversation(member)
+                      }
                     >
                       Start chat
                     </Button>
@@ -2324,7 +2479,9 @@ export default function Chat() {
             <Button variant="outline" onClick={() => setIsRenameOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => void handleRenameConversation()}>Save</Button>
+            <Button onClick={() => void handleRenameConversation()}>
+              Save
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2354,14 +2511,17 @@ export default function Chat() {
                   <p className="text-xs uppercase tracking-wide">Members</p>
                   <p className="font-medium text-foreground">
                     {conversationDetails?.member_count ?? currentMembers.length}{" "}
-                    {(conversationDetails?.member_count ?? currentMembers.length) === 1
+                    {(conversationDetails?.member_count ??
+                      currentMembers.length) === 1
                       ? "member"
                       : "members"}
                   </p>
                 </div>
                 {currentConversationDescription && (
                   <div className="sm:col-span-2">
-                    <p className="text-xs uppercase tracking-wide">Description</p>
+                    <p className="text-xs uppercase tracking-wide">
+                      Description
+                    </p>
                     <p className="font-medium text-foreground">
                       {currentConversationDescription}
                     </p>
@@ -2400,7 +2560,9 @@ export default function Chat() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className={cn("grid gap-6", canManageMembers && "md:grid-cols-2")}>
+          <div
+            className={cn("grid gap-6", canManageMembers && "md:grid-cols-2")}
+          >
             <div className="space-y-3">
               <div>
                 <h3 className="font-medium">Current members</h3>
@@ -2424,7 +2586,10 @@ export default function Chat() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="truncate font-medium">{member.name}</p>
-                          <PersonBadge access={member.access} role={member.role} />
+                          <PersonBadge
+                            access={member.access}
+                            role={member.role}
+                          />
                         </div>
                         <p className="truncate text-sm text-muted-foreground">
                           {member.email}
@@ -2438,7 +2603,9 @@ export default function Chat() {
                           variant="ghost"
                           size="sm"
                           onClick={() =>
-                            void handleCreateDirectConversationFromChatMember(member)
+                            void handleCreateDirectConversationFromChatMember(
+                              member,
+                            )
                           }
                         >
                           Chat
@@ -2458,7 +2625,9 @@ export default function Chat() {
                         variant="ghost"
                         size="sm"
                         onClick={() =>
-                          void handleCreateDirectConversationFromChatMember(member)
+                          void handleCreateDirectConversationFromChatMember(
+                            member,
+                          )
                         }
                       >
                         Chat
@@ -2487,7 +2656,8 @@ export default function Chat() {
                         </EmptyMedia>
                         <EmptyTitle>No available members</EmptyTitle>
                         <EmptyDescription>
-                          Everyone in the workspace is already part of this group.
+                          Everyone in the workspace is already part of this
+                          group.
                         </EmptyDescription>
                       </EmptyHeader>
                     </Empty>
@@ -2515,8 +2685,13 @@ export default function Chat() {
                           />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="truncate font-medium">{member.name}</p>
-                              <PersonBadge access={member.access} role={member.role} />
+                              <p className="truncate font-medium">
+                                {member.name}
+                              </p>
+                              <PersonBadge
+                                access={member.access}
+                                role={member.role}
+                              />
                             </div>
                             <p className="truncate text-sm text-muted-foreground">
                               {member.email}
