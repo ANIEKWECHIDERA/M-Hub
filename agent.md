@@ -522,9 +522,14 @@ Current limitations / deferred chat items:
   - group chats now expose a `Key decisions` mode that summarizes tagged messages separately from the noisy main stream
   - summary items show sender, timestamp, tags, message body, and a jump-back action to the original message when it is already in the loaded thread
   - the composer tag picker and message action menus now use a portalled dropdown, which keeps the menu inside the viewport even when the trigger sits near the bottom edge of the chat window
+  - the tag picker and per-message tag menus also close on pointer-leave, which removes an extra click during repeated manual tagging
   - the composer row keeps the tag button, textarea, and send button aligned horizontally instead of shifting vertically during typing/tagging
   - message-tag updates use the existing `chat.message.updated` realtime signal so summary and message views reconcile through the normal chat refresh path
   - the current architecture stays future-ready for AI assistance because the summary layer is still driven by explicit message-level signals rather than a hardcoded one-off decision widget
+  - pending composer tags are stored per conversation, so switching groups does not leak draft tags into another group, while returning to the original group restores the unsent tags for that conversation
+  - after a tagged send, the composer clears only the active conversation draft tags so the next message starts untagged by default
+  - the message-edit button is intentionally hidden 30 seconds before the backend 15-minute edit cutoff so the UI does not offer an edit that is about to fail
+  - a `Check` icon import regression in `client/src/pages/Chat.tsx` was fixed after it surfaced during live browser verification as `ReferenceError: Check is not defined`
 - chat UX was later tightened further:
   - system messages now render as centered badge-like timeline events instead of regular chat bubbles
   - chat page section pills were removed; section navigation now stays in the main sidebar submenu
@@ -552,6 +557,13 @@ Current limitations / deferred chat items:
   - soft-deleted conversations are archived with `archived_at` and excluded from normal conversation list queries
   - message edit rules are now sender-only in both direct and group conversations
   - admin and superAdmin can still moderate-delete another user’s message in group conversations, but cannot edit another sender’s message
+- backend typing/read hardening was later tightened further:
+  - typing is now hardened as an ephemeral best-effort path:
+    - valid members still must pass normal conversation authorization
+    - if recipient lookup fails, typing falls back to the sender-only recipient list instead of returning `500`
+    - if the Supabase ephemeral broadcast transport throws or returns a non-`ok` state, the request still resolves successfully and the failure is logged with conversation/user context
+    - typing controller errors now log `conversationId`, `companyId`, `userId`, and `isTyping` for faster diagnosis
+  - chat read-marking now refuses to advance the active conversation with a message ID that belongs to another thread, which prevents fast chat-switch races from producing `/read` 404s
 - chat hot-path backend cache churn was reduced:
   - `touchLastLoginIfNeeded` no longer invalidates full user context on every eligible request
   - cached user records are updated in place for `last_login`, which avoids repeated user/team-member cache thrash during chat typing/read traffic
@@ -577,7 +589,17 @@ Current limitations / deferred chat items:
 - direct/group/project conversation creation strategy on the frontend is still pending product UI work
 - the new `chat_membership` cache is still process-local; in a multi-instance deployment it should move to Redis or another shared cache so read/typing authorization hits are shared across nodes
 - the `Key decisions` jump-back action currently works best for tagged messages already present in the loaded chat window; older tagged items may still require loading earlier history before their exact message anchor is available
-- Playwright MCP verification was attempted for the viewport/menu behavior and end-to-end tagging flow, but the MCP transport closed during this session before those browser checks could complete
+- Playwright verification is now completed for the manual decision-capture flow:
+  - compose-time tagging works in a real group conversation
+  - post-send tagging works for existing messages
+  - `Key decisions` count increases when tagged messages are added and decreases again when a tag is removed
+  - `Jump to message` returns to the original message context for loaded history
+  - repeated tagged and untagged sends do not leak the previous tag into the next message
+  - the typing endpoint returns `200` during active compose/tag flows in the same group
+  - the compose tag menu stays inside the viewport on a mobile-sized `390x844` viewport
+  - switching to another group clears that group's draft composer tags while preserving conversation-specific draft tags in the original group
+- Known limitation outside the chat feature:
+  - unrelated app-level requests like `GET /api/user/settings` can still fail independently and may appear in the shared browser console while testing chat
 
 ### 11. Notes implementation details
 

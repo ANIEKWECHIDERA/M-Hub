@@ -2194,15 +2194,46 @@ export const ChatService = {
       requestPath: params.requestPath,
     });
 
-    const userIds = await getConversationMemberUserIds(params.conversationId);
+    let userIds = [params.userId];
+    let usedRecipientFallback = false;
 
-    await chatRealtimeService.sendTypingIndicator({
-      companyId: params.companyId,
-      conversationId: params.conversationId,
-      userId: params.userId,
-      userIds,
-      isTyping: params.isTyping,
-    });
+    try {
+      const resolvedUserIds = await getConversationMemberUserIds(params.conversationId);
+      if (resolvedUserIds.length) {
+        userIds = resolvedUserIds;
+      } else {
+        usedRecipientFallback = true;
+      }
+    } catch (error) {
+      usedRecipientFallback = true;
+      logger.warn("ChatService.emitTypingIndicator: failed to resolve recipients", {
+        companyId: params.companyId,
+        conversationId: params.conversationId,
+        userId: params.userId,
+        isTyping: params.isTyping,
+        requestPath: params.requestPath,
+        error,
+      });
+    }
+
+    try {
+      await chatRealtimeService.sendTypingIndicator({
+        companyId: params.companyId,
+        conversationId: params.conversationId,
+        userId: params.userId,
+        userIds,
+        isTyping: params.isTyping,
+      });
+    } catch (error) {
+      logger.warn("ChatService.emitTypingIndicator: realtime transport failed", {
+        companyId: params.companyId,
+        conversationId: params.conversationId,
+        userId: params.userId,
+        isTyping: params.isTyping,
+        requestPath: params.requestPath,
+        error,
+      });
+    }
 
     typingEventCount += 1;
     if (shouldSampleChatLog(typingEventCount, TYPING_LOG_SAMPLE_INTERVAL)) {
@@ -2212,6 +2243,7 @@ export const ChatService = {
         userId: params.userId,
         isTyping: params.isTyping,
         recipientCount: userIds.length,
+        usedRecipientFallback,
       });
     }
 

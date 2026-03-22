@@ -534,7 +534,15 @@ export const ChatController = {
 
       return res.json(result);
     } catch (error) {
-      logger.error("ChatController.sendTypingIndicator failed", { error });
+      logger.error("ChatController.sendTypingIndicator failed", {
+        error,
+        conversationId: req.params?.conversationId ?? null,
+        path: req.path,
+        userId: req.user?.id ?? null,
+        companyId: req.user?.company_id ?? null,
+        isTyping:
+          typeof req.body?.isTyping === "boolean" ? req.body.isTyping : null,
+      });
       return handleChatControllerError(
         res,
         error,

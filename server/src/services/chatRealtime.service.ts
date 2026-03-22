@@ -58,39 +58,38 @@ class ChatRealtimeService {
   }) {
     this.initialize();
 
-    this.handleTypingPayload({
+    const payload = {
       company_id: params.companyId,
       conversation_id: params.conversationId,
       user_id: params.userId,
       user_ids: params.userIds,
       isTyping: params.isTyping,
+    };
+
+    this.handleTypingPayload({
+      ...payload,
     });
 
-    const result = await this.ephemeralChannel?.send({
-      type: "broadcast",
-      event: "typing",
-      payload: {
-        company_id: params.companyId,
-        conversation_id: params.conversationId,
-        user_id: params.userId,
-        user_ids: params.userIds,
-        isTyping: params.isTyping,
-      },
-    });
-
-    if (result !== "ok") {
-      logger.warn("chatRealtimeService: typing broadcast fallback", {
-        result,
-        conversationId: params.conversationId,
-        userId: params.userId,
+    try {
+      const result = await this.ephemeralChannel?.send({
+        type: "broadcast",
+        event: "typing",
+        payload,
       });
 
-      this.handleTypingPayload({
-        company_id: params.companyId,
-        conversation_id: params.conversationId,
-        user_id: params.userId,
-        user_ids: params.userIds,
-        isTyping: params.isTyping,
+      if (result !== "ok") {
+        logger.warn("chatRealtimeService: typing broadcast fallback", {
+          result,
+          conversationId: params.conversationId,
+          userId: params.userId,
+        });
+      }
+    } catch (error) {
+      logger.error("chatRealtimeService: typing broadcast failed", {
+        companyId: params.companyId,
+        conversationId: params.conversationId,
+        userId: params.userId,
+        error,
       });
     }
   }

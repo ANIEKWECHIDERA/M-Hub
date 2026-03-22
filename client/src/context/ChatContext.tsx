@@ -550,7 +550,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const latestMessageId = messages[messages.length - 1]?.id ?? null;
+    const latestMessage = messages[messages.length - 1] ?? null;
+    if (!latestMessage || latestMessage.conversation_id !== conversationId) {
+      return;
+    }
+
+    const latestMessageId = latestMessage.id ?? null;
     if (!latestMessageId || lastReadMessageIdRef.current === latestMessageId) {
       return;
     }
