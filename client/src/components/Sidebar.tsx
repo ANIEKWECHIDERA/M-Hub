@@ -106,9 +106,8 @@ function SidebarPanel({
   pathname,
   search,
 }: SidebarPanelProps) {
-  const navigate = useNavigate();
   const isExpanded = !collapsed;
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, setOpen } = useSidebar();
   const { authStatus } = useAuthContext();
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
@@ -169,6 +168,17 @@ function SidebarPanel({
     if (isMobile) {
       setOpenMobile(false);
     }
+  };
+
+  const handleParentSubmenuClick = (
+    setExpanded: React.Dispatch<React.SetStateAction<boolean>>,
+  ) => {
+    if (!isExpanded) {
+      setOpen(true);
+      return;
+    }
+
+    setExpanded((value) => !value);
   };
 
   return (
@@ -273,13 +283,10 @@ function SidebarPanel({
                     pathname.startsWith(item.to + "/"));
 
                 if (item.to === "/chat") {
-                  const chatLink = `/chat?section=${activeChatSection}`;
-
                   return (
                     <SidebarMenuItem key={item.name}>
                       <div className={cn("relative", !isExpanded && "w-10")}>
                         <SidebarMenuButton
-                          asChild
                           isActive={isActive}
                           tooltip={!isExpanded ? item.name : undefined}
                           aria-label={item.name}
@@ -288,27 +295,18 @@ function SidebarPanel({
                               "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
                             isExpanded && chatOpen && "pr-10",
                           )}
+                          onClick={() => handleParentSubmenuClick(setChatOpen)}
                         >
-                          <Link
-                            to={chatLink}
-                            onClick={() => {
-                              if (isExpanded) {
-                                setChatOpen(true);
-                              }
-                              handleNavClick();
-                            }}
-                          >
-                            <item.icon className="h-5 w-5" />
-                            {isExpanded && <span>{item.name}</span>}
-                            {isExpanded && totalChatUnread > 0 && (
-                              <Badge
-                                variant="destructive"
-                                className="ml-auto mr-8 rounded-full px-2 py-0 text-[11px]"
-                              >
-                                {totalChatUnread}
-                              </Badge>
-                            )}
-                          </Link>
+                          <item.icon className="h-5 w-5" />
+                          {isExpanded && <span>{item.name}</span>}
+                          {isExpanded && totalChatUnread > 0 && (
+                            <Badge
+                              variant="destructive"
+                              className="ml-auto mr-8 rounded-full px-2 py-0 text-[11px]"
+                            >
+                              {totalChatUnread}
+                            </Badge>
+                          )}
                         </SidebarMenuButton>
 
                         {isExpanded && (
@@ -409,13 +407,7 @@ function SidebarPanel({
                         isExpanded && workspaceManagerOpen && "pr-10",
                       )}
                       onClick={() => {
-                        if (!isExpanded) {
-                          navigate("/workspace-manager?section=details");
-                          handleNavClick();
-                          return;
-                        }
-
-                        setWorkspaceManagerOpen((value) => !value);
+                        handleParentSubmenuClick(setWorkspaceManagerOpen);
                       }}
                     >
                       <Building2 className="h-5 w-5" />
@@ -486,13 +478,10 @@ function SidebarPanel({
               {[{ name: "Settings", to: "/settings", icon: Settings }].map((item) => {
                 const isSettingsRoute = pathname === item.to;
                 const isActive = isSettingsRoute;
-                const settingsLink = `/settings?section=${activeSettingsSection}`;
-
                 return (
                   <SidebarMenuItem key={item.name}>
                     <div className={cn("relative", !isExpanded && "w-10")}>
                       <SidebarMenuButton
-                        asChild
                         isActive={isActive}
                         tooltip={!isExpanded ? item.name : undefined}
                         aria-label={item.name}
@@ -501,19 +490,10 @@ function SidebarPanel({
                             "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
                           isExpanded && settingsOpen && "pr-10",
                         )}
+                        onClick={() => handleParentSubmenuClick(setSettingsOpen)}
                       >
-                        <Link
-                          to={settingsLink}
-                          onClick={() => {
-                            if (isExpanded) {
-                              setSettingsOpen(true);
-                            }
-                            handleNavClick();
-                          }}
-                        >
-                          <item.icon className="h-5 w-5" />
-                          {isExpanded && <span>{item.name}</span>}
-                        </Link>
+                        <item.icon className="h-5 w-5" />
+                        {isExpanded && <span>{item.name}</span>}
                       </SidebarMenuButton>
 
                       {isExpanded && (

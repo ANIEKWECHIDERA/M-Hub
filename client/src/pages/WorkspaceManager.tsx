@@ -28,11 +28,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { Building2, Loader2, Trash2, Upload, Users } from "lucide-react";
+import {
+  Building2,
+  ChevronDown,
+  Loader2,
+  SlidersHorizontal,
+  Trash2,
+  Upload,
+  Users,
+} from "lucide-react";
 import { useAuthContext } from "@/context/AuthContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { CompanyAPI } from "@/api/company.api";
 import type { WorkspaceManagerSnapshot } from "@/Types/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const capacityBadgeClasses: Record<
   WorkspaceManagerSnapshot["workload"][number]["capacityStatus"],
@@ -53,7 +69,7 @@ const sectionTitles: Record<
   details: {
     title: "Workspace Details",
     description:
-      "Review ownership, branding, and workspace identity for the active workspace.",
+      "Review ownership, logo, and workspace identity for the active workspace.",
   },
   workload: {
     title: "Team Workload",
@@ -186,7 +202,12 @@ export default function WorkspaceManager() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [isLogoPreviewOpen, setIsLogoPreviewOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [showCompactOverview, setShowCompactOverview] = useState(false);
+  const [showDetailsCard, setShowDetailsCard] = useState(true);
+  const [showDeleteCard, setShowDeleteCard] = useState(true);
 
   const loadWorkspaceManager = async (options?: { force?: boolean }) => {
     const snapshot = await getManagerSnapshot({
@@ -228,6 +249,18 @@ export default function WorkspaceManager() {
   useEffect(() => {
     setDeleteConfirmation("");
   }, [authStatus?.companyId]);
+
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(logoFile);
+    setLogoPreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [logoFile]);
 
   const dirty =
     data &&
@@ -325,30 +358,97 @@ export default function WorkspaceManager() {
   }
 
   const sectionMeta = sectionTitles[activeSection] ?? sectionTitles.details;
+  const logoPreviewSrc =
+    logoPreviewUrl || currentWorkspace?.logoUrl || data.workspace.logoUrl || null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-5 lg:space-y-6">
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">{sectionMeta.title}</h1>
-        <p className="text-muted-foreground">{sectionMeta.description}</p>
+        <h1 className="text-lg font-bold tracking-tight sm:text-2xl lg:text-3xl">
+          {sectionMeta.title}
+        </h1>
+        <p className="text-xs text-muted-foreground sm:text-base">
+          {sectionMeta.description}
+        </p>
       </div>
 
       {activeSection === "details" && (
         <Card className="app-surface">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Workspace Details
-            </CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Workspace Details
+              </CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="sm:hidden"
+                onClick={() => setShowDetailsCard((value) => !value)}
+              >
+                {showDetailsCard ? "Collapse" : "Expand"}
+                <ChevronDown
+                  className={`ml-2 h-4 w-4 transition-transform ${
+                    showDetailsCard ? "rotate-180" : ""
+                  }`}
+                />
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent
+            className={`space-y-4 sm:space-y-6 ${
+              showDetailsCard ? "block" : "hidden sm:block"
+            }`}
+          >
             <div className="flex items-center gap-4 rounded-xl border bg-muted/20 p-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={currentWorkspace?.logoUrl || data.workspace.logoUrl || undefined} />
-                <AvatarFallback>
-                  {data.workspace.name[0]?.toUpperCase() ?? "W"}
-                </AvatarFallback>
-              </Avatar>
+              <Dialog
+                open={isLogoPreviewOpen}
+                onOpenChange={setIsLogoPreviewOpen}
+              >
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={!logoPreviewSrc}
+                    className="rounded-full transition-transform hover:scale-[1.02] disabled:cursor-default disabled:hover:scale-100"
+                    aria-label={
+                      logoPreviewSrc
+                        ? "Preview workspace logo"
+                        : "No workspace logo to preview"
+                    }
+                  >
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={logoPreviewSrc || undefined} />
+                      <AvatarFallback>
+                        {data.workspace.name[0]?.toUpperCase() ?? "W"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="overflow-hidden p-0 sm:max-w-xl">
+                  <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6">
+                    <DialogTitle>Workspace Logo Preview</DialogTitle>
+                    <DialogDescription>
+                      Preview the current workspace logo before saving changes.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
+                    {logoPreviewSrc ? (
+                      <div className="overflow-hidden rounded-xl border bg-muted/20">
+                        <img
+                          src={logoPreviewSrc}
+                          alt="Workspace logo preview"
+                          className="max-h-[70vh] w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex min-h-[240px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+                        No workspace logo available to preview.
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
               <div className="space-y-1">
                 <p className="text-lg font-semibold">
                   {currentWorkspace?.name ?? data.workspace.name}
@@ -397,22 +497,37 @@ export default function WorkspaceManager() {
                 />
                 {!isSuperAdmin && (
                   <p className="text-xs text-muted-foreground">
-                    Only super admins can edit workspace name, photo, and other
-                    branding details.
+                    Only super admins can edit the workspace name, logo, and
+                    other workspace details.
                   </p>
                 )}
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>Workspace Photo</Label>
+                <Label>Workspace Logo</Label>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Input
+                    id="workspace-logo"
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
+                    className="sr-only"
                     disabled={!isSuperAdmin || saving}
                     onChange={(event) =>
                       setLogoFile(event.target.files?.[0] ?? null)
                     }
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    disabled={!isSuperAdmin || saving}
+                    onClick={() =>
+                      document.getElementById("workspace-logo")?.click()
+                    }
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload Logo
+                  </Button>
                   {isSuperAdmin && (
                     <Button
                       type="button"
@@ -424,7 +539,7 @@ export default function WorkspaceManager() {
                       ) : (
                         <Upload className="mr-2 h-4 w-4" />
                       )}
-                      Save Branding
+                      Save Changes
                     </Button>
                   )}
                 </div>
@@ -435,7 +550,22 @@ export default function WorkspaceManager() {
       )}
 
       {activeSection === "workload" && (
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-5 lg:space-y-6">
+          <Button
+            type="button"
+            variant="outline"
+            className="sm:hidden"
+            onClick={() => setShowCompactOverview((value) => !value)}
+          >
+            <SlidersHorizontal className="mr-2 h-4 w-4" />
+            {showCompactOverview ? "Hide overview" : "Show overview"}
+            <ChevronDown
+              className={`ml-2 h-4 w-4 transition-transform ${
+                showCompactOverview ? "rotate-180" : ""
+              }`}
+            />
+          </Button>
+
           <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -443,8 +573,18 @@ export default function WorkspaceManager() {
                 Capacity Cues
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-3">
+            <CardContent
+              className={`space-y-4 ${
+                showCompactOverview ? "block" : "hidden sm:block"
+              }`}
+            >
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border bg-muted/20 p-4">
+                  <p className="text-sm text-muted-foreground">Total Members</p>
+                  <p className="text-2xl font-semibold">
+                    {data.workspace.memberCount}
+                  </p>
+                </div>
                 <div className="rounded-xl border bg-muted/20 p-4">
                   <p className="text-sm text-muted-foreground">Free</p>
                   <p className="text-2xl font-semibold">
@@ -555,12 +695,34 @@ export default function WorkspaceManager() {
       {activeSection === "delete" && (
         <Card className="app-surface border-red-200">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-700">
-              <Trash2 className="h-5 w-5" />
-              Delete Workspace
-            </CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2 text-red-700">
+                <Trash2 className="h-5 w-5" />
+                Delete Workspace
+              </CardTitle>
+              {isSuperAdmin && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="sm:hidden"
+                  onClick={() => setShowDeleteCard((value) => !value)}
+                >
+                  {showDeleteCard ? "Collapse" : "Expand"}
+                  <ChevronDown
+                    className={`ml-2 h-4 w-4 transition-transform ${
+                      showDeleteCard ? "rotate-180" : ""
+                    }`}
+                  />
+                </Button>
+              )}
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent
+            className={`space-y-4 sm:space-y-6 ${
+              showDeleteCard ? "block" : "hidden sm:block"
+            }`}
+          >
             {!isSuperAdmin ? (
               <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
                 Only super admins can permanently delete a workspace.
@@ -568,10 +730,10 @@ export default function WorkspaceManager() {
             ) : (
               <>
                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
-                  Deleting a workspace permanently removes its branding, members,
-                  project data, and related collaboration history. Make sure you
-                  really want to remove <strong>{data.workspace.name}</strong>
-                  before continuing.
+                  Deleting a workspace permanently removes its members, project
+                  data, and related collaboration history. Make sure you really
+                  want to remove <strong>{data.workspace.name}</strong> before
+                  continuing.
                 </div>
 
                 <div className="space-y-2">

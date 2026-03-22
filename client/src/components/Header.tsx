@@ -106,11 +106,11 @@ export function Header() {
   if (userLoading) {
     return (
       <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
-          <div className="flex items-center gap-2">
+        <div className="flex h-12 items-center justify-between gap-2 px-4 sm:h-14 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <SidebarTrigger className="lg:flex" />
-            <div className="hidden min-w-[140px] items-center  lg:flex">
-              <p className="text-sm font-semibold text-foreground text-center">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-foreground sm:text-base">
                 {activeWorkspaceName}
               </p>
             </div>
@@ -128,17 +128,17 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-      <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
-        <div className="flex items-center gap-2">
+      <div className="flex h-12 items-center justify-between gap-2 px-4 sm:h-14 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <SidebarTrigger className="lg:flex" />
-          <div className="hidden min-w-[140px] items-center lg:flex">
-            <p className="text-sm font-semibold text-foreground text-center">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground sm:text-base">
               {activeWorkspaceName}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
             variant="ghost"
             size="sm"

@@ -1158,14 +1158,20 @@ Assumptions currently in use:
   - `Delete Workspace` is only shown to `superAdmin`
 - Shared workspace state is now centralized in `client/src/context/WorkspaceContext.tsx`
   - sidebar, header, and workspace manager should read from the same workspace list/current workspace source
-  - workspace branding changes should update shared workspace state immediately without waiting for a full hard refresh
+  - workspace name/logo changes should update shared workspace state immediately without waiting for a full hard refresh
   - workspace-manager snapshots are cached per active workspace and reused on repeat opens
   - invalidate that cache only after real mutations such as rename/photo changes or workspace deletion
+- Workspace Details should use the same image flow as profile photo:
+  - label it as `Workspace Logo`, not branding/photo
+  - clicking the current logo should open a preview dialog
+  - the file-action button should read `Upload Logo`
 - Workspace Manager loading should use skeletons, not generic spinners, for:
   - workspace details
   - team workload
   - delete workspace section
+- On small screens, workspace-manager cards may collapse/expand to reduce vertical crowding, but the active workspace name should still remain visible in the app header
 - Team Workload should display `role`, not `access`
+- Capacity cues should include the total active member count alongside free/balanced/attention-needed counts
 - Invite actions in Settings now rely on the per-row ellipsis menu for:
   - copy invite link
   - resend invite
@@ -1184,5 +1190,12 @@ Assumptions currently in use:
   - copy invite link succeeds and shows success feedback
   - resend invite succeeds and updates UI cleanly
   - delete invite succeeds and removes the row
+  - cancelling delete invite no longer leaves the UI frozen; the invite dialog remains interactive immediately afterward
   - workload section renders `role`
   - mobile viewport shows the new workspace-manager skeleton/loading treatment cleanly
+- Mobile density rules were tightened in shared primitives:
+  - smaller default content padding
+  - smaller card and button padding on mobile
+  - narrower Sonner toasts
+  - smaller base mobile typography, especially in editor-heavy views like Notes
+- Mobile sidebar sheet content now includes hidden title/description so Playwright/browser a11y checks stay clean
