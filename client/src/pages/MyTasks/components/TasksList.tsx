@@ -1,5 +1,3 @@
-import { ClipboardList } from "lucide-react";
-
 import type { TaskWithAssigneesDTO } from "@/Types/types";
 import { TaskCard } from "./TaskCard";
 

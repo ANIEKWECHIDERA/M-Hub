@@ -117,9 +117,7 @@ function normalizeConversation(
     last_read_message_id: null,
     last_read_at: null,
     unread_count: 0,
-    member_count: 0,
     last_message: null,
-    members: [],
     ...conversation,
     members: conversation.members ?? [],
     member_count:

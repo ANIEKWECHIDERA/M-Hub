@@ -147,13 +147,18 @@ export const TaskContextProvider = ({
       setError("Authentication required");
       throw new Error("No auth token");
     }
+    if (!projectId) {
+      throw new Error("Project ID is required");
+    }
+
+    const targetProjectId = projectId;
 
     const tempId = `temp-${Date.now()}`;
 
     const optimisticTask: TaskWithAssigneesDTO = {
       id: tempId,
       companyId: "",
-      projectId,
+      projectId: targetProjectId,
       title: data.title || "",
       description: data.description || "",
       status: data.status || "To-Do",
@@ -166,13 +171,13 @@ export const TaskContextProvider = ({
     };
 
     setTasks((prev) => [optimisticTask, ...prev]);
-    updateProjectTaskStats(projectId, (current) => ({
+    updateProjectTaskStats(targetProjectId, (current) => ({
       task_count: current.task_count + 1,
       completed_task_count:
         current.completed_task_count + (optimisticTask.status === "Done" ? 1 : 0),
     }));
 
-    const promise = tasksAPI.create(projectId, data, idToken);
+    const promise = tasksAPI.create(targetProjectId, data, idToken);
 
     toast.promise(promise, {
       loading: "Creating task...",
@@ -190,7 +195,7 @@ export const TaskContextProvider = ({
       return normalizeTask(savedTask);
     } catch (err) {
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
-      updateProjectTaskStats(projectId, (current) => ({
+      updateProjectTaskStats(targetProjectId, (current) => ({
         task_count: current.task_count - 1,
         completed_task_count:
           current.completed_task_count - (optimisticTask.status === "Done" ? 1 : 0),

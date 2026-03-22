@@ -874,7 +874,6 @@ export default function Chat() {
   const deleteConversationTargetName = deleteConversationTarget
     ? getConversationDisplayName(deleteConversationTarget, profile?.id)
     : "";
-  const currentChatIsGroup = currentChat?.type === "group";
   const selectedTags = currentChat?.id
     ? selectedTagsByConversation[currentChat.id] ?? []
     : [];

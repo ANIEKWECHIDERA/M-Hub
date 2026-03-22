@@ -307,7 +307,9 @@ export default function Notepad() {
 
     const noteId = activeNote.id;
     const payload = draftPayloadRef.current;
-    const signature = draftSignatureRef.current;
+    if (!payload) {
+      return;
+    }
 
     savePromiseRef.current = (async () => {
       setSaveState("saving");
