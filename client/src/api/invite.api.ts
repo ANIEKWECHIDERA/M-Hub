@@ -61,4 +61,28 @@ export const inviteAPI = {
       idToken,
     );
   },
+
+  copyLink(inviteId: string, idToken: string) {
+    return apiFetch<{ message: string; link: string }>(
+      `/api/invite/${inviteId}/link`,
+      { method: "POST" },
+      idToken,
+    );
+  },
+
+  resend(inviteId: string, idToken: string) {
+    return apiFetch<{ message: string }>(
+      `/api/invite/${inviteId}/resend`,
+      { method: "POST" },
+      idToken,
+    );
+  },
+
+  remove(inviteId: string, idToken: string) {
+    return apiFetch<{ message: string }>(
+      `/api/invite/${inviteId}`,
+      { method: "DELETE" },
+      idToken,
+    );
+  },
 };

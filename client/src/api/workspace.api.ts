@@ -1,4 +1,5 @@
 import { apiFetch } from "./http";
+import type { WorkspaceManagerSnapshot } from "@/Types/types";
 
 export type Workspace = {
   companyId: string;
@@ -26,6 +27,14 @@ export const workspaceAPI = {
         method: "POST",
         body: JSON.stringify({ companyId }),
       },
+      idToken,
+    );
+  },
+
+  manager(idToken: string) {
+    return apiFetch<WorkspaceManagerSnapshot>(
+      "/api/workspaces/manager",
+      undefined,
       idToken,
     );
   },

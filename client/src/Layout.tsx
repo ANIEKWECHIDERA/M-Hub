@@ -81,7 +81,7 @@ export default function Layout() {
         <SidebarInset className="h-screen overflow-hidden">
           <Header />
           <main className="relative flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto overflow-x-hidden px-4 pb-6 pt-4 lg:px-6">
+            <div className="h-full overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
               <Outlet />
             </div>
           </main>

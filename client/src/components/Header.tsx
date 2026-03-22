@@ -18,7 +18,7 @@ import { useNotificationContext } from "@/context/NotificationContext";
 import { useAuthContext } from "@/context/AuthContext";
 import { useUser } from "@/context/UserContext";
 import { useSettingsContext } from "@/context/SettingsContext";
-import { workspaceAPI } from "@/api/workspace.api";
+import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import {
   Bell,
   Trash2,
@@ -35,10 +35,11 @@ import {
 } from "@/lib/notifications";
 import { Link, useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 export function Header() {
   const { toggleTheme, preferences } = useSettingsContext();
+  const { currentWorkspace } = useWorkspaceContext();
   const {
     notifications,
     markAsRead,
@@ -50,53 +51,16 @@ export function Header() {
     error: notificationsError,
     refreshNotifications,
   } = useNotificationContext();
-  const { logout, authStatus, idToken } = useAuthContext();
+  const { logout, authStatus } = useAuthContext();
   const { profile, loading: userLoading } = useUser();
   const navigate = useNavigate();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [workspaceName, setWorkspaceName] = useState("Workspace");
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
   const activeWorkspaceName = useMemo(
-    () => workspaceName || "Workspace",
-    [workspaceName],
+    () => currentWorkspace?.name || "Workspace",
+    [currentWorkspace?.name],
   );
-
-  useEffect(() => {
-    if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
-      setWorkspaceName("Workspace");
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadWorkspaceName = async () => {
-      try {
-        const response = await workspaceAPI.list(idToken);
-        if (cancelled) {
-          return;
-        }
-
-        const activeWorkspace =
-          response.workspaces.find((workspace) => workspace.isActive) ??
-          response.workspaces.find(
-            (workspace) => workspace.companyId === authStatus?.companyId,
-          );
-
-        setWorkspaceName(activeWorkspace?.name ?? "Workspace");
-      } catch {
-        if (!cancelled) {
-          setWorkspaceName("Workspace");
-        }
-      }
-    };
-
-    void loadWorkspaceName();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authStatus?.companyId, authStatus?.onboardingState, idToken]);
 
   // const [searchQuery, setSearchQuery] = useState("");
 
@@ -142,11 +106,11 @@ export function Header() {
   if (userLoading) {
     return (
       <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
-          <div className="flex items-center gap-2">
+        <div className="flex h-12 items-center justify-between gap-2 px-4 sm:h-14 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <SidebarTrigger className="lg:flex" />
-            <div className="hidden min-w-[140px] items-center  lg:flex">
-              <p className="text-sm font-semibold text-foreground text-center">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-foreground sm:text-base">
                 {activeWorkspaceName}
               </p>
             </div>
@@ -164,17 +128,17 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-      <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
-        <div className="flex items-center gap-2">
+      <div className="flex h-12 items-center justify-between gap-2 px-4 sm:h-14 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <SidebarTrigger className="lg:flex" />
-          <div className="hidden min-w-[140px] items-center lg:flex">
-            <p className="text-sm font-semibold text-foreground text-center">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground sm:text-base">
               {activeWorkspaceName}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
             variant="ghost"
             size="sm"

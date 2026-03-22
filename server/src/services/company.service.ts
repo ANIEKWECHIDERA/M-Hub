@@ -20,6 +20,22 @@ function toCompanyResponseDTO(row: any): CompanyResponseDTO {
   };
 }
 
+async function findOwnedWorkspace(tx: any, userId: string) {
+  const ownedWorkspaces = await tx.$queryRaw<Array<Record<string, any>>>`
+    SELECT c.id, c.name, c.description, c.logo_url, c.created_at
+    FROM team_members tm
+    INNER JOIN companies c ON c.id = tm.company_id
+    WHERE tm.user_id = ${userId}::uuid
+      AND tm.access = ${"superAdmin"}
+      AND tm.role = ${"owner"}
+      AND tm.status = ${"active"}
+    ORDER BY tm.created_at ASC
+    LIMIT 1
+    FOR UPDATE`;
+
+  return ownedWorkspaces[0] ?? null;
+}
+
 export const CompanyService = {
   async findById(companyId: string): Promise<CompanyResponseDTO | null> {
     logger.info("CompanyService.findById: start", { companyId });
@@ -139,6 +155,94 @@ export const CompanyService = {
     return toCompanyResponseDTO(company);
   },
 
+  async ensurePersonalWorkspace(user: {
+    id: string;
+    email: string;
+    firebase_uid: string;
+  }) {
+    logger.info("CompanyService.ensurePersonalWorkspace:start", {
+      userId: user.id,
+      email: user.email,
+    });
+
+    const company = await prisma.$transaction(async (tx) => {
+      const lockedUsers = await tx.$queryRaw<Array<Record<string, any>>>`
+        SELECT id, company_id, has_company
+        FROM users
+        WHERE id = ${user.id}::uuid
+        FOR UPDATE`;
+
+      const lockedUser = lockedUsers[0];
+
+      if (!lockedUser) {
+        throw new Error("User not found");
+      }
+
+      const existingOwnedWorkspace = await findOwnedWorkspace(tx, user.id);
+
+      if (existingOwnedWorkspace) {
+        await tx.$executeRaw`
+          UPDATE users
+          SET has_company = ${true},
+              company_id = COALESCE(company_id, ${existingOwnedWorkspace.id}::uuid),
+              updated_at = NOW()
+          WHERE id = ${user.id}::uuid`;
+
+        return {
+          company: existingOwnedWorkspace,
+          created: false,
+        };
+      }
+
+      const insertedCompanies = await tx.$queryRaw<Array<Record<string, any>>>`
+        INSERT INTO companies (name, description, logo_url)
+        VALUES (${"My Workspace"}, ${null}, ${null})
+        RETURNING id, name, description, logo_url, created_at`;
+
+      const personalWorkspace = insertedCompanies[0];
+
+      await tx.$executeRaw`
+        INSERT INTO team_members (user_id, company_id, email, role, access, status)
+        VALUES (
+          ${user.id}::uuid,
+          ${personalWorkspace.id}::uuid,
+          ${user.email},
+          ${"owner"},
+          ${"superAdmin"},
+          ${"active"}
+        )`;
+
+      await tx.$executeRaw`
+        UPDATE users
+        SET has_company = ${true},
+            company_id = COALESCE(company_id, ${personalWorkspace.id}::uuid),
+            updated_at = NOW()
+        WHERE id = ${user.id}::uuid`;
+
+      return {
+        company: personalWorkspace,
+        created: true,
+      };
+    });
+
+    RequestCacheService.invalidateUserContext({
+      userId: user.id,
+      firebaseUid: user.firebase_uid,
+    });
+    await ChatService.ensureGeneralConversation(company.company.id);
+
+    logger.info("CompanyService.ensurePersonalWorkspace:success", {
+      userId: user.id,
+      companyId: company.company.id,
+      created: company.created,
+    });
+
+    return {
+      company: toCompanyResponseDTO(company.company),
+      created: company.created,
+    };
+  },
+
   async update(
     companyId: string,
     payload: UpdateCompanyDTO,
@@ -171,14 +275,62 @@ export const CompanyService = {
   async deleteById(companyId: string): Promise<void> {
     logger.info("CompanyService.deleteById: start", { companyId });
 
-    const { error } = await supabaseAdmin
-      .from("companies")
-      .delete()
-      .eq("id", companyId);
+    const impactedUsers = await prisma.$transaction(async (tx) => {
+      const members = await tx.$queryRaw<Array<Record<string, any>>>`
+        SELECT DISTINCT tm.user_id
+        FROM team_members tm
+        WHERE tm.company_id = ${companyId}::uuid
+          AND tm.user_id IS NOT NULL`;
 
-    if (error) {
-      logger.error("CompanyService.deleteById: supabase error", { error });
-      throw error;
+      const { error } = await supabaseAdmin
+        .from("companies")
+        .delete()
+        .eq("id", companyId);
+
+      if (error) {
+        logger.error("CompanyService.deleteById: supabase error", { error });
+        throw error;
+      }
+
+      for (const member of members) {
+        if (!member.user_id) {
+          continue;
+        }
+
+        const remainingMemberships = await tx.$queryRaw<Array<Record<string, any>>>`
+          SELECT tm.company_id
+          FROM team_members tm
+          WHERE tm.user_id = ${member.user_id}::uuid
+            AND tm.status = ${"active"}
+          ORDER BY tm.created_at ASC
+          LIMIT 1`;
+
+        const nextCompanyId = remainingMemberships[0]?.company_id ?? null;
+
+        if (nextCompanyId) {
+          await tx.$executeRaw`
+            UPDATE users
+            SET company_id = ${nextCompanyId}::uuid,
+                has_company = ${true},
+                updated_at = NOW()
+            WHERE id = ${member.user_id}::uuid`;
+        } else {
+          await tx.$executeRaw`
+            UPDATE users
+            SET company_id = NULL,
+                has_company = ${false},
+                updated_at = NOW()
+            WHERE id = ${member.user_id}::uuid`;
+        }
+      }
+
+      return members
+        .map((member) => member.user_id as string | null)
+        .filter(Boolean) as string[];
+    });
+
+    for (const userId of impactedUsers) {
+      RequestCacheService.invalidateUserContext({ userId });
     }
 
     logger.info("CompanyService.deleteById: success", { companyId });

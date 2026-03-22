@@ -101,6 +101,127 @@ Before editing auth flows, inspect:
 - `client/src/components/auth/AuthGuard.tsx`
 - `client/src/App.tsx`
 
+### 3b. Personal workspace creation is now automatic
+
+Crevo now guarantees that a newly completed user profile cannot remain workspace-less.
+
+- When a user completes signup/profile and still has `has_company = false`, the backend automatically creates a personal default workspace named `My Workspace`
+- The user is added to that workspace as:
+  - `role = owner`
+  - `access = superAdmin`
+- This creation is backend-enforced and idempotent
+- Repeat calls reuse an existing owned workspace rather than creating duplicates
+- Invite acceptance now ensures this personal workspace exists before the invite is linked, so a user cannot get stranded with only an invited workspace
+
+Relevant backend files:
+
+- `server/src/services/company.service.ts`
+- `server/src/services/user.service.ts`
+- `server/src/services/invite.service.ts`
+
+Important behavior:
+
+- the personal workspace is created invisibly for the user
+- if the user later accepts another workspace invite, they can switch between workspaces without losing their own default workspace
+- current workspace selection should not be assumed to equal “personal workspace”; the owned `superAdmin/owner` membership is the durable signal
+
+### 3c. Workspace Manager and workspace branding permissions
+
+Crevo now has a dedicated Workspace Manager surface.
+
+- Frontend route:
+  - `/workspace-manager`
+- Sidebar visibility:
+  - visible only to `admin` and `superAdmin`
+- Frontend route access:
+  - blocked for `team_member` / `member`
+- Backend data route:
+  - `GET /api/workspaces/manager`
+  - restricted to `admin` and `superAdmin`
+
+Workspace Manager shows:
+
+- workspace name
+- description
+- logo/avatar
+- member count
+- workspace owner
+- workload/capacity cues for active members
+
+Branding/edit rules:
+
+- only `superAdmin` can update workspace branding/details
+- admins can view Workspace Manager but cannot rename the workspace or change the workspace photo
+- current backend company update route remains `superAdmin`-only, so description editing is also effectively restricted to `superAdmin` for now
+
+Relevant files:
+
+- `client/src/pages/WorkspaceManager.tsx`
+- `client/src/components/Sidebar.tsx`
+- `client/src/App.tsx`
+- `server/src/routes/workspace.routes.ts`
+- `server/src/controllers/workspace.controller.ts`
+- `server/src/services/workspace.service.ts`
+- `server/src/routes/company.routes.ts`
+
+### 3d. Invite management now supports copy/resend/delete actions
+
+Invite handling in Settings is no longer cancel-only.
+
+Current per-invite actions:
+
+- Copy invite link
+- Resend invite
+- Delete invite
+
+Implementation notes:
+
+- the invite row now uses an ellipsis menu in Settings
+- copy-link and resend both refresh the invite token/hash and expiration, then:
+  - copy returns a valid accept URL
+  - resend sends a new email with the refreshed token
+- delete now removes the invite record entirely instead of only marking it cancelled
+- accepted invites cannot be resent
+
+Relevant files:
+
+- `client/src/pages/Settings.tsx`
+- `client/src/api/invite.api.ts`
+- `server/src/controllers/invite.controller.ts`
+- `server/src/routes/invite.routes.ts`
+- `server/src/services/invite.service.ts`
+
+### 3e. Workspace workload/capacity cues
+
+Workspace Manager now exposes lightweight capacity signals for active members in the current workspace.
+
+Per-member metrics:
+
+- assigned task count
+- completed task count
+- overdue task count
+- in-progress task count
+
+Capacity cue values:
+
+- `free`
+- `balanced`
+- `overloaded`
+- `behind`
+
+These are operational cues only, not deep workforce analytics.
+
+Scoping and access rules:
+
+- metrics are computed per active workspace/company
+- only `admin` and `superAdmin` can fetch them
+- only active team members are included
+
+Known limitations:
+
+- capacity thresholds are heuristic and currently hardcoded in `workspace.service.ts`
+- workload counts are task-assignment based and do not attempt to measure effort sizing or subtasks as separate capacity units
+
 ### 4. Context-heavy frontend
 
 The client uses multiple React context providers for project, task, note, asset, notification, settings, team member, client, and auth state.
@@ -1028,3 +1149,53 @@ Assumptions currently in use:
 - the feature-specific service and API files for the task at hand
 
 - Local-first note creation must reconcile temp notes by removing the temp row from visible state and in-memory caches before inserting the real persisted note; otherwise one create can appear as two notes
+
+### Workspace management refinement notes
+
+- Workspace Manager now behaves like a real submenu section in the main sidebar:
+  - parent label click expands/collapses the section instead of navigating immediately
+  - child routes live under `/workspace-manager?section=details|workload|delete`
+  - `Delete Workspace` is only shown to `superAdmin`
+- Shared workspace state is now centralized in `client/src/context/WorkspaceContext.tsx`
+  - sidebar, header, and workspace manager should read from the same workspace list/current workspace source
+  - workspace name/logo changes should update shared workspace state immediately without waiting for a full hard refresh
+  - workspace-manager snapshots are cached per active workspace and reused on repeat opens
+  - invalidate that cache only after real mutations such as rename/photo changes or workspace deletion
+- Workspace Details should use the same image flow as profile photo:
+  - label it as `Workspace Logo`, not branding/photo
+  - clicking the current logo should open a preview dialog
+  - the file-action button should read `Upload Logo`
+- Workspace Manager loading should use skeletons, not generic spinners, for:
+  - workspace details
+  - team workload
+  - delete workspace section
+- On small screens, workspace-manager cards may collapse/expand to reduce vertical crowding, but the active workspace name should still remain visible in the app header
+- Team Workload should display `role`, not `access`
+- Capacity cues should include the total active member count alongside free/balanced/attention-needed counts
+- Invite actions in Settings now rely on the per-row ellipsis menu for:
+  - copy invite link
+  - resend invite
+  - delete invite
+- Copy invite link should use a clipboard fallback, not only `navigator.clipboard.writeText`, so the action still works in stricter browser contexts
+- Delete workspace UX rules:
+  - only `superAdmin` can access the destructive action
+  - require exact workspace-name confirmation before submitting
+  - warning copy must clearly communicate that the action is permanent
+- Backend workspace deletion should update impacted users so they are not left pointing at a deleted workspace:
+  - switch them to another remaining active workspace if one exists
+  - otherwise set `has_company = false` and clear `company_id`
+- Playwright refinement pass verified:
+  - workspace submenu expands without routing on parent click
+  - invite ellipsis menu opens correctly
+  - copy invite link succeeds and shows success feedback
+  - resend invite succeeds and updates UI cleanly
+  - delete invite succeeds and removes the row
+  - cancelling delete invite no longer leaves the UI frozen; the invite dialog remains interactive immediately afterward
+  - workload section renders `role`
+  - mobile viewport shows the new workspace-manager skeleton/loading treatment cleanly
+- Mobile density rules were tightened in shared primitives:
+  - smaller default content padding
+  - smaller card and button padding on mobile
+  - narrower Sonner toasts
+  - smaller base mobile typography, especially in editor-heavy views like Notes
+- Mobile sidebar sheet content now includes hidden title/description so Playwright/browser a11y checks stay clean

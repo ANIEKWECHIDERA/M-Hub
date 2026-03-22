@@ -4,15 +4,28 @@ import type {
 } from "@/Types/types";
 import { apiFetch } from "./http";
 
+type CompanyResponse = {
+  id: string;
+  name: string;
+  description?: string | null;
+  logo_url?: string | null;
+};
+
+function normalizeCompany(company: CompanyResponse): Company {
+  return {
+    id: company.id,
+    name: company.name,
+    description: company.description ?? undefined,
+    logoUrl: company.logo_url ?? undefined,
+  };
+}
+
 export const CompanyAPI = {
   // Fetch all companies
-  getAll(idToken: string) {
-    return apiFetch<Company[]>("/api/company", undefined, idToken);
-  },
-
-  // Fetch company by ID
-  getById(id: string, idToken: string) {
-    return apiFetch<Company>(`/api/company/${id}`, undefined, idToken);
+  getCurrent(idToken: string) {
+    return apiFetch<CompanyResponse>("/api/company", undefined, idToken).then(
+      normalizeCompany,
+    );
   },
 
   // Create a new company
@@ -21,18 +34,18 @@ export const CompanyAPI = {
       throw new Error("Missing ID token");
     }
 
-    return apiFetch<Company>(
+    return apiFetch<CompanyResponse>(
       "/api/company",
       {
         method: "POST",
         body: payload, // Sending formData for file upload
       },
       idToken,
-    );
+    ).then(normalizeCompany);
   },
 
   // Update company details
-  update(id: string, payload: UpdateCompanyDTO, idToken: string | null) {
+  updateCurrent(payload: UpdateCompanyDTO, idToken: string | null) {
     if (!idToken) {
       throw new Error("Missing ID token");
     }
@@ -42,23 +55,23 @@ export const CompanyAPI = {
       formData.append("description", payload.description);
     if (payload.logo) formData.append("logo", payload.logo);
 
-    return apiFetch<Company>(
-      `/api/company/${id}`,
+    return apiFetch<CompanyResponse>(
+      "/api/company",
       {
         method: "PATCH",
         body: formData, // Sending formData for file upload
       },
       idToken,
-    );
+    ).then(normalizeCompany);
   },
 
   // Delete a company
-  delete(id: string, idToken: string | null) {
+  deleteCurrent(idToken: string | null) {
     if (!idToken) {
       throw new Error("Missing ID token");
     }
     return apiFetch<{ success: true }>(
-      `/api/company/${id}`,
+      "/api/company",
       {
         method: "DELETE",
       },

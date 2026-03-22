@@ -97,7 +97,7 @@ export function SidebarTrigger({
       type="button"
       variant="ghost"
       size="icon"
-      className={cn("h-9 w-9 rounded-lg", className)}
+      className={cn("h-10 w-10 rounded-lg sm:h-9 sm:w-9", className)}
       onClick={toggleSidebar}
       {...props}
     >
@@ -147,7 +147,7 @@ export function Sidebar({
       <Sheet open={openMobile} onOpenChange={setOpenMobile}>
         <SheetContent
           side="left"
-          className="w-[22rem] border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground sm:max-w-none"
+          className="w-[20rem] border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground sm:w-[22rem] sm:max-w-none"
         >
           <aside className="flex h-full flex-col">{children}</aside>
         </SheetContent>
@@ -162,7 +162,7 @@ export function SidebarHeader({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("border-b border-sidebar-border p-3", className)}
+      className={cn("border-b border-sidebar-border p-2 sm:p-3", className)}
       {...props}
     />
   );
@@ -175,7 +175,7 @@ export function SidebarContent({
   return (
     <div
       className={cn(
-        "flex flex-1 flex-col gap-4 overflow-y-auto p-3",
+        "flex flex-1 flex-col gap-3 overflow-y-auto p-2 sm:gap-4 sm:p-3",
         className,
       )}
       {...props}
@@ -189,7 +189,7 @@ export function SidebarFooter({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("border-t border-sidebar-border p-3", className)}
+      className={cn("border-t border-sidebar-border p-2 sm:p-3", className)}
       {...props}
     />
   );
@@ -251,7 +251,7 @@ export function SidebarMenuButton({
     <Button
       variant={isActive ? "secondary" : "ghost"}
       className={cn(
-        "h-10 w-full justify-start gap-3 rounded-lg border border-transparent px-3 text-sm font-medium shadow-none",
+        "h-10 w-full justify-start gap-3 rounded-lg border border-transparent px-2.5 text-sm font-medium shadow-none sm:px-3",
         isActive &&
           "border-border bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/90",
         className,

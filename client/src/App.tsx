@@ -7,11 +7,13 @@ import Chat from "./pages/Chat";
 import Notepad from "./pages/Notepad";
 import Tools from "./pages/Tools";
 import Settings from "./pages/Settings";
+import WorkspaceManager from "./pages/WorkspaceManager";
 import ProjectDetailWrapper from "./pages/projectDetail/ProjectDetailWrapper";
 import { AppContextProvider } from "./context/AppProvider";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignupPage";
 import { AuthProvider } from "./context/AuthContext";
+import { WorkspaceProvider } from "./context/WorkspaceContext";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import CompleteProfile from "./pages/CompleteProfile";
 import { UserProvider } from "./context/UserContext";
@@ -112,9 +114,11 @@ function App() {
 
 function AppProvidersLayout() {
   return (
-    <AppContextProvider>
-      <Layout />
-    </AppContextProvider>
+    <WorkspaceProvider>
+      <AppContextProvider>
+        <Layout />
+      </AppContextProvider>
+    </WorkspaceProvider>
   );
 }
 
@@ -176,6 +180,14 @@ function AppWithAuth() {
             }
           />
           <Route path="settings" element={<Settings />} />
+          <Route
+            path="workspace-manager"
+            element={
+              <AdminOnlyRoute>
+                <WorkspaceManager />
+              </AdminOnlyRoute>
+            }
+          />
           <Route path="mytasks" element={<MyTasksPage />} />
           <Route path="projectdetails/:id" element={<ProjectDetailWrapper />} />
         </Route>

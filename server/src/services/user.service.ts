@@ -4,6 +4,7 @@ import { CreateUserFromAuthDTO } from "../types/user.types";
 import { logger } from "../utils/logger";
 import { RequestCacheService } from "./requestCache.service";
 import { TeamMemberHttpError } from "./teamMemberErrors";
+import { CompanyService } from "./company.service";
 
 export const UserService = {
   async findByFirebaseUid(firebaseUid: string) {
@@ -206,6 +207,15 @@ export const UserService = {
       firebaseUid: userData.firebase_uid,
     });
 
+    if (user?.id && user.profile_complete && !user.has_company) {
+      await CompanyService.ensurePersonalWorkspace({
+        id: user.id,
+        email: user.email,
+        firebase_uid: user.firebase_uid,
+      });
+      return this.findByFirebaseUid(userData.firebase_uid);
+    }
+
     return user;
   },
 
@@ -262,6 +272,16 @@ export const UserService = {
       userId: data?.id,
       firebaseUid,
     });
+
+    if (data?.id && data.profile_complete && !data.has_company) {
+      await CompanyService.ensurePersonalWorkspace({
+        id: data.id,
+        email: data.email,
+        firebase_uid: data.firebase_uid,
+      });
+      return this.findByFirebaseUid(firebaseUid);
+    }
+
     return data;
   },
 
