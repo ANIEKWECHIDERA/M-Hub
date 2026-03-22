@@ -19,4 +19,29 @@ export interface CommentResponseDTO {
   content: string;
   timestamp: string;
   updated_at: string;
+  author: {
+    id: string;
+    name: string;
+    avatar: string | null;
+  };
 }
+
+export type CommentStreamEvent =
+  | {
+      type: "comment.created";
+      company_id: string;
+      project_id: string;
+      comment: CommentResponseDTO;
+    }
+  | {
+      type: "comment.updated";
+      company_id: string;
+      project_id: string;
+      comment: CommentResponseDTO;
+    }
+  | {
+      type: "comment.deleted";
+      company_id: string;
+      project_id: string;
+      commentId: string;
+    };

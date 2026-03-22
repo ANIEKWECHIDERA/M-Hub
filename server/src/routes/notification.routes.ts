@@ -6,22 +6,50 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 
-// READ
+router.get("/notifications/stream", NotificationController.streamNotifications);
+
 router.get(
   "/notifications",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   NotificationController.getMyNotifications,
 );
 
-// MARK AS READ
+router.get(
+  "/notifications/unread-count",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member"]),
+  NotificationController.getUnreadCount,
+);
+
 router.patch(
   "/notifications/:id/read",
+  ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
   NotificationController.markNotificationRead,
+);
+
+router.patch(
+  "/notifications/read-all",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member"]),
+  NotificationController.markAllNotificationsRead,
+);
+
+router.delete(
+  "/notifications/:id",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member"]),
+  NotificationController.clearNotification,
+);
+
+router.delete(
+  "/notifications",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member"]),
+  NotificationController.clearAllNotifications,
 );
 
 export default router;

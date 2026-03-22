@@ -12,12 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import type { TaskWithAssigneesDTO as string, TaskStatus } from "@/Types/types";
+import type { TaskStatus } from "@/Types/types";
 import { statusConfig } from "@/config/status.config";
 import { priorityConfig } from "@/config/priority.config";
 
 import { SubtasksSection } from "./SubtasksSection";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useMyTasksContext } from "@/context/MyTaskContext";
 
 interface TaskDetailsSheetProps {
@@ -33,8 +33,6 @@ export function TaskDetailsSheet({
   onOpenChange,
   onStatusChange,
 }: TaskDetailsSheetProps) {
-  if (!taskId) return null;
-
   const { tasks } = useMyTasksContext();
 
   const task = useMemo(() => {
@@ -52,9 +50,6 @@ export function TaskDetailsSheet({
     task.status !== "Done";
 
   const isDone = task.status === "Done";
-  useEffect(() => {}, [task]);
-
-  // console.log("Rendering TaskDetailsSheet for task:", task);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

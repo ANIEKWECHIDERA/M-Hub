@@ -30,6 +30,24 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   // Helps prevent stale async overwrites
   const requestIdRef = useRef(0);
 
+  const mapApiProfile = useCallback(
+    (data: any): UserProfile => ({
+      id: data.id,
+      firebaseUid: data.firebase_uid,
+      email: data.email,
+      displayName: data.display_name || currentUser?.displayName || "User",
+      photoURL: data.photo_url || currentUser?.photoURL,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      role: data.role,
+      company_id: data.company_id,
+      lastLogin: data.last_login ? new Date(data.last_login) : undefined,
+      createdAt: data.created_at ? new Date(data.created_at) : undefined,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+    }),
+    [currentUser],
+  );
+
   const buildFallbackProfile = useCallback((): UserProfile | null => {
     if (!currentUser) return null;
 
@@ -61,26 +79,13 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
         const { profile: data } = await res.json();
 
-        return {
-          id: data.id,
-          firebaseUid: data.firebase_uid,
-          email: data.email,
-          displayName: data.display_name || currentUser?.displayName || "User",
-          photoURL: data.photo_url || currentUser?.photoURL,
-          first_name: data.first_name,
-          last_name: data.last_name,
-          role: data.role,
-          company_id: data.company_id,
-          lastLogin: data.last_login ? new Date(data.last_login) : undefined,
-          createdAt: data.created_at ? new Date(data.created_at) : undefined,
-          updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
-        };
+        return mapApiProfile(data);
       } catch (err) {
         console.error("fetchUserProfile error:", err);
         return null;
       }
     },
-    [currentUser],
+    [mapApiProfile],
   );
 
   const loadProfile = useCallback(async () => {
@@ -116,24 +121,26 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   }, [currentUser, idToken, loadProfile]);
 
   const updateProfile = useCallback(
-    async (updates: Partial<UserProfile>): Promise<boolean> => {
+    async (updates: Partial<UserProfile> | FormData): Promise<boolean> => {
       if (!idToken) return false;
 
       try {
+        const isFormData = updates instanceof FormData;
         const res = await fetch(`${API_CONFIG.backend}/api/user`, {
           method: "PATCH",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
+            ...(isFormData ? {} : { "Content-Type": "application/json" }),
           },
-          body: JSON.stringify(updates),
+          body: isFormData ? updates : JSON.stringify(updates),
         });
 
         if (!res.ok) throw new Error("Update failed");
 
         const { profile: updated } = await res.json();
+        const mappedProfile = mapApiProfile(updated);
 
-        setProfile((prev) => (prev ? { ...prev, ...updated } : prev));
+        setProfile((prev) => (prev ? { ...prev, ...mappedProfile } : mappedProfile));
 
         return true;
       } catch (err) {
@@ -141,7 +148,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         return false;
       }
     },
-    [idToken],
+    [idToken, mapApiProfile],
   );
 
   const deleteAccount = useCallback(async (): Promise<boolean> => {

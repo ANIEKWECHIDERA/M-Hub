@@ -36,14 +36,7 @@ export function useProjectStats(
     ).length;
 
     const getTaskStats = (projectId: string) => {
-      const projTasks = tasks.filter((task) => {
-        console.log("COMPARE", {
-          taskProjectId: task.projectId,
-          projectId,
-          equal: task.projectId === projectId,
-        });
-        return task.projectId === projectId;
-      });
+      const projTasks = tasks.filter((task) => task.projectId === projectId);
       const total = projTasks.length;
       const completed = projTasks.filter((t) => t.status === "Done").length;
       const progress = total > 0 ? Math.round((completed / total) * 100) : 0;

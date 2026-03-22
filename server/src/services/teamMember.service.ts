@@ -2,18 +2,122 @@ import { supabaseAdmin } from "../config/supabaseClient";
 import { PROFILE_STATUS_DATA } from "../dbSelect/profileStatus.select";
 import { TEAM_MEMBER_SELECT } from "../dbSelect/teamMember.select";
 import { toTeamMemberResponseDTO } from "../mapper/teamMemberRespose.DTO";
+import { RequestCacheService } from "./requestCache.service";
+import { ChatService } from "./chat.service";
 import {
   CreateTeamMemberDTO,
   UpdateTeamMemberDTO,
   TeamMemberResponseDTO,
 } from "../types/teamMember.types";
 import { logger } from "../utils/logger";
+import { TeamMemberHttpError } from "./teamMemberErrors";
+
+async function countActiveSuperAdmins(companyId: string) {
+  const { count, error } = await supabaseAdmin
+    .from("team_members")
+    .select("*", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .eq("access", "superAdmin")
+    .eq("status", "active");
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
+async function assertNotRemovingLastSuperAdmin(params: {
+  companyId: string;
+  memberId: string;
+  nextAccess?: string | null;
+  nextStatus?: string | null;
+  deleting?: boolean;
+}) {
+  const { data: existingMember, error } = await supabaseAdmin
+    .from("team_members")
+    .select("id, access, status")
+    .eq("company_id", params.companyId)
+    .eq("id", params.memberId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!existingMember) {
+    return;
+  }
+
+  const currentIsActiveSuperAdmin =
+    existingMember.access === "superAdmin" && existingMember.status === "active";
+  if (!currentIsActiveSuperAdmin) {
+    return;
+  }
+
+  const nextAccess = params.nextAccess ?? existingMember.access;
+  const nextStatus = params.nextStatus ?? existingMember.status;
+  const remainsActiveSuperAdmin =
+    !params.deleting &&
+    nextAccess === "superAdmin" &&
+    nextStatus === "active";
+
+  if (remainsActiveSuperAdmin) {
+    return;
+  }
+
+  const superAdminCount = await countActiveSuperAdmins(params.companyId);
+  if (superAdminCount <= 1) {
+    throw new TeamMemberHttpError(
+      409,
+      "At least one active super admin must remain in the workspace",
+      "LAST_SUPERADMIN_REQUIRED",
+    );
+  }
+}
+
+async function syncUserWorkspaceState(userId?: string | null) {
+  if (!userId) {
+    return;
+  }
+
+  const { data: memberships, error: membershipError } = await supabaseAdmin
+    .from("team_members")
+    .select("company_id, status, created_at")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
+
+  if (membershipError) {
+    throw membershipError;
+  }
+
+  const activeMembership = memberships?.[0] ?? null;
+
+  const { error: updateError } = await supabaseAdmin
+    .from("users")
+    .update({
+      has_company: Boolean(activeMembership),
+      company_id: activeMembership?.company_id ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (updateError) {
+    throw updateError;
+  }
+}
 
 export const TeamMemberService = {
   async getOnboardingState(firebaseUid: string) {
-    logger.info("TeamMemberService.getOnboardingState: start", {
-      firebaseUid,
+    const requestPath = "/api/status";
+    const cachedState = RequestCacheService.getOnboardingState(firebaseUid, {
+      requestPath,
     });
+
+    if (cachedState) {
+      return cachedState;
+    }
 
     // Fetch user with team member relation
     const { data, error } = await supabaseAdmin
@@ -22,8 +126,6 @@ export const TeamMemberService = {
       .eq("firebase_uid", firebaseUid)
       .maybeSingle();
 
-    logger.info("TeamMemberService: Supabase query result", { data, error });
-
     if (error) throw error;
 
     if (!data) {
@@ -31,7 +133,12 @@ export const TeamMemberService = {
     }
 
     const profileComplete = data.profile_complete;
-    const hasCompany = data.has_company;
+    const memberships = data.team_members ?? [];
+    const hasCompany = Boolean(data.has_company || memberships.length > 0);
+    const activeMembership =
+      memberships.find((member: any) => member.company_id === data.company_id) ??
+      memberships[0] ??
+      null;
 
     // Compute onboarding state
     let onboardingState: string;
@@ -45,15 +152,19 @@ export const TeamMemberService = {
     }
 
     // Extract team member data (if exists)
-    const teamMember = data.team_members?.[0] ?? null;
-
-    return {
+    const result = {
       onboardingState,
       profileComplete,
       hasCompany,
-      access: teamMember?.access ?? null,
-      companyId: teamMember?.company_id ?? null,
+      access: activeMembership?.access ?? null,
+      companyId: activeMembership?.company_id ?? data.company_id ?? null,
     };
+
+    RequestCacheService.setOnboardingState(firebaseUid, result, {
+      requestPath,
+    });
+
+    return result;
   },
 
   async findAll(companyId: string): Promise<TeamMemberResponseDTO[]> {
@@ -106,6 +217,14 @@ export const TeamMemberService = {
 
     if (error) throw error;
 
+    await syncUserWorkspaceState(data?.user_id);
+    RequestCacheService.invalidateUserContext({
+      userId: data?.user_id,
+    });
+    if (data?.user_id && data?.status === "active") {
+      await ChatService.ensureGeneralConversation(data.company_id);
+    }
+
     return toTeamMemberResponseDTO(data);
   },
 
@@ -115,6 +234,22 @@ export const TeamMemberService = {
     payload: UpdateTeamMemberDTO,
   ): Promise<TeamMemberResponseDTO | null> {
     logger.info("TeamMemberService.update: start", { companyId, id });
+
+    await assertNotRemovingLastSuperAdmin({
+      companyId,
+      memberId: id,
+      nextAccess: payload.access ?? null,
+      nextStatus: payload.status ?? null,
+    });
+
+    const { data: existingMember, error: existingMemberError } = await supabaseAdmin
+      .from("team_members")
+      .select("user_id")
+      .eq("company_id", companyId)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (existingMemberError) throw existingMemberError;
 
     const { data, error } = await supabaseAdmin
       .from("team_members")
@@ -126,11 +261,50 @@ export const TeamMemberService = {
 
     if (error) throw error;
 
+    const affectedUserIds = new Set<string>();
+    if (existingMember?.user_id) {
+      affectedUserIds.add(existingMember.user_id);
+    }
+    if (data?.user_id) {
+      affectedUserIds.add(data.user_id);
+    }
+
+    for (const userId of affectedUserIds) {
+      await syncUserWorkspaceState(userId);
+      RequestCacheService.invalidateUserContext({
+        userId,
+      });
+    }
+
+    if (data?.user_id && data?.status === "active") {
+      await ChatService.ensureGeneralConversation(companyId);
+    } else if (existingMember?.user_id) {
+      await ChatService.deactivateCompanyMembershipChats({
+        companyId,
+        userId: existingMember.user_id,
+      });
+    }
+
     return data ? toTeamMemberResponseDTO(data) : null;
   },
 
   async deleteById(companyId: string, id: string): Promise<void> {
     logger.info("TeamMemberService.deleteById: start", { companyId, id });
+
+    await assertNotRemovingLastSuperAdmin({
+      companyId,
+      memberId: id,
+      deleting: true,
+    });
+
+    const { data, error: lookupError } = await supabaseAdmin
+      .from("team_members")
+      .select("user_id")
+      .eq("company_id", companyId)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
 
     const { error } = await supabaseAdmin
       .from("team_members")
@@ -139,5 +313,14 @@ export const TeamMemberService = {
       .eq("id", id);
 
     if (error) throw error;
+
+    await syncUserWorkspaceState(data?.user_id);
+    RequestCacheService.invalidateUserContext({
+      userId: data?.user_id,
+    });
+    await ChatService.deactivateCompanyMembershipChats({
+      companyId,
+      userId: data?.user_id,
+    });
   },
 };

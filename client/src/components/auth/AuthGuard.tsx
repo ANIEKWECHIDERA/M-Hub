@@ -6,7 +6,6 @@ export const AuthGuard = () => {
   const { currentUser, authStatus, loading } = useAuthContext();
   const location = useLocation();
 
-  // 1️⃣ Still resolving Firebase + backend sync
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -15,12 +14,10 @@ export const AuthGuard = () => {
     );
   }
 
-  // 2️⃣ Not authenticated → go to login
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
 
-  // If user exists but backend authStatus still resolving
   if (!authStatus) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -30,11 +27,9 @@ export const AuthGuard = () => {
   }
 
   const state = authStatus.onboardingState;
-
   const isProfilePage = location.pathname.startsWith("/onboarding/profile");
   const isCompanyPage = location.pathname.startsWith("/onboarding/company");
 
-  // 3️⃣ Enforce onboarding
   if (state === "AUTHENTICATED_NO_PROFILE" && !isProfilePage) {
     return <Navigate to="/onboarding/profile" replace />;
   }
@@ -43,13 +38,5 @@ export const AuthGuard = () => {
     return <Navigate to="/onboarding/company" replace />;
   }
 
-  console.log("AUTH GUARD RUNNING", {
-    user: currentUser?.uid,
-    state: authStatus?.onboardingState,
-    path: location.pathname,
-    authStatus,
-  });
-
-  // 4️⃣ Fully active → allow
   return <Outlet />;
 };

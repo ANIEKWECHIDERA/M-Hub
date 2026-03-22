@@ -20,6 +20,8 @@ import {
   CheckCircle,
   AlertCircle,
   Plus,
+  ChevronDown,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTaskContext } from "@/context/TaskContext";
@@ -35,8 +37,10 @@ import {
 import ProjectForm from "@/components/ProjectForm";
 import type { CreateProjectDTO } from "@/Types/types";
 import { DashboardSkeleton } from "@/components/DashBoardSkeleton";
+import { useAuthContext } from "@/context/AuthContext";
 
 export default function Dashboard() {
+  const { authStatus } = useAuthContext();
   const { addProject, projects, loading, error } = useProjectContext();
   const { tasks } = useTaskContext();
   const { clients } = useClientContext();
@@ -48,9 +52,11 @@ export default function Dashboard() {
     clientFilter,
   );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [showCompactOverview, setShowCompactOverview] = useState(false);
+  const isTeamMember =
+    authStatus?.access === "team_member" || authStatus?.access === "member";
   const { totalProjects, activeProjects, completedProjects, overdueProjects } =
     useProjectStats(projects, tasks);
-  // console.log("tasks:", tasks, "projects:", projects);
 
   if (loading)
     return (
@@ -71,42 +77,45 @@ export default function Dashboard() {
                 Get started by creating your first project.
               </p>
 
-              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Your First Project
-                  </Button>
-                </DialogTrigger>
+              {!isTeamMember && (
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Your First Project
+                    </Button>
+                  </DialogTrigger>
 
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New Project</DialogTitle>
-                    <DialogDescription>
-                      Input project details.
-                    </DialogDescription>
-                  </DialogHeader>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Create New Project</DialogTitle>
+                      <DialogDescription>
+                        Input project details.
+                      </DialogDescription>
+                    </DialogHeader>
 
-                  <ProjectForm
-                    onSave={async (data) => {
-                      const newProject: CreateProjectDTO = {
-                        title: data.title || "",
-                        client_id: data.client_id || undefined,
-                        status: data.status || "Planning",
-                        deadline: data.deadline || undefined,
-                        description: data.description || undefined,
-                        team_member_ids: Array.isArray(data.team_member_ids)
-                          ? (data.team_member_ids as string[])
-                          : [],
-                      };
+                    <ProjectForm
+                      onSave={async (data) => {
+                        const newProject: CreateProjectDTO = {
+                          title: data.title || "",
+                          client_id: data.client_id || undefined,
+                          client: data.client,
+                          status: data.status || "Planning",
+                          deadline: data.deadline || undefined,
+                          description: data.description || undefined,
+                          team_member_ids: Array.isArray(data.team_member_ids)
+                            ? (data.team_member_ids as string[])
+                            : [],
+                        };
 
-                      await addProject(newProject);
-                      setIsCreateOpen(false);
-                    }}
-                    onCancel={() => setIsCreateOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
+                        setIsCreateOpen(false);
+                        await addProject(newProject);
+                      }}
+                      onCancel={() => setIsCreateOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
           </Card>
         </div>
@@ -123,10 +132,28 @@ export default function Dashboard() {
             Overview of your projects and tasks
           </p>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="sm:hidden"
+          onClick={() => setShowCompactOverview((value) => !value)}
+        >
+          <SlidersHorizontal className="mr-2 h-4 w-4" />
+          {showCompactOverview ? "Hide overview" : "Show overview"}
+          <ChevronDown
+            className={`ml-2 h-4 w-4 transition-transform ${
+              showCompactOverview ? "rotate-180" : ""
+            }`}
+          />
+        </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div
+        className={`grid grid-cols-1 gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-4 ${
+          showCompactOverview ? "grid" : "hidden sm:grid"
+        }`}
+      >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -178,62 +205,77 @@ export default function Dashboard() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="in progress">In Progress</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={clientFilter} onValueChange={setClientFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Filter by client" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Clients</SelectItem>
-            {clients.map((client) => (
-              <SelectItem key={client.id} value={client.name}>
-                {client.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setStatusFilter("all");
-            setClientFilter("all");
-          }}
-        >
-          Reset Filters
-        </Button>
-      </div>
+      <Card
+        className={`app-surface ${showCompactOverview ? "block" : "hidden sm:block"}`}
+      >
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="in progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={clientFilter} onValueChange={setClientFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filter by client" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={client.name}>
+                  {client.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              setStatusFilter("all");
+              setClientFilter("all");
+            }}
+          >
+            Reset Filters
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Project Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredProjects.map((project) => {
           // console.log("DASHBOARD tasks length:", tasks.length);
 
           return (
-            <Link to={`/projectdetails/${project.id}`}>
-              <Card
-                key={project.id}
-                className="hover:shadow-lg transition-shadow"
-              >
-                <CardHeader>
+            <Link
+              key={project.id}
+              to={`/projectdetails/${project.id}`}
+              className="block h-full"
+            >
+              <Card className="flex h-full min-h-[265px] flex-col transition-colors hover:border-foreground/20">
+                <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="text-lg">{project.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="min-w-0 flex-1 pr-3 space-y-1">
+                      <CardTitle
+                        className="truncate text-lg"
+                        title={project.title}
+                      >
+                        {project.title}
+                      </CardTitle>
+                      <p
+                        className="truncate text-sm text-muted-foreground"
+                        title={project.client?.name}
+                      >
                         {project.client?.name}
                       </p>
                     </div>
                     <Badge
+                      className="inline-flex h-6 min-w-[100px] shrink-0 items-center justify-center whitespace-nowrap px-2 text-center"
                       variant={
                         project.status === "Completed"
                           ? "default"
@@ -246,7 +288,7 @@ export default function Dashboard() {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-1 flex-col justify-between gap-4">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Progress</span>

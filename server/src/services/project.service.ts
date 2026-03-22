@@ -116,11 +116,22 @@ export const ProjectService = {
   async update(
     id: string,
     companyId: string,
-    payload: UpdateProjectInput,
+    payload: UpdateProjectInput & {
+      client?: {
+        name: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+      };
+    },
   ): Promise<ProjectResponseDTO | null> {
     logger.info("ProjectService.update: start", { id, companyId });
 
-    const { team_member_ids, ...projectData } = payload;
+    const { team_member_ids, client, ...projectData } = payload;
+
+    if (!projectData.client_id && client) {
+      projectData.client_id = await findOrCreateClient(companyId, client);
+    }
 
     // Update project table (ONLY scalar fields)
     if (Object.keys(projectData).length > 0) {

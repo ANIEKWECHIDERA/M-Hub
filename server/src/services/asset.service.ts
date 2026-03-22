@@ -24,7 +24,7 @@ export const AssetService = {
       const stream = cloudinary.uploader.upload_stream(
         {
           resource_type: "auto",
-          folder: `m-hub ${companyId}/${safeName}`,
+          folder: `crevo ${companyId}/${safeName}`,
           public_id: uuidv4(),
           use_filename: false,
           unique_filename: true,

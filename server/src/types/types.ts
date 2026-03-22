@@ -21,7 +21,14 @@ export type UpdateProjectDTO = Partial<CreateProjectDTO>;
 import type { auth } from "firebase-admin";
 
 export interface AppUser extends auth.DecodedIdToken {
-  company_id: string;
+  id?: string;
+  user_id?: string;
+  email?: string;
+  firebase_uid?: string;
+  company_id?: string | null;
   role?: string;
   team_member_id?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  terms_accepted?: boolean | null;
 }

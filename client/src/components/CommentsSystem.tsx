@@ -1,13 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Edit, Trash2, Send } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useUser } from "@/context/UserContext";
 import type { UIComment } from "@/Types/types";
 import { CommentSkeleton } from "./CommentSkeleton";
+import { formatRelativeTimestamp } from "@/lib/datetime";
+import { cn } from "@/lib/utils";
 
 interface Comment {
   id: string;
@@ -31,6 +32,7 @@ interface CommentsSystemProps {
   placeholder?: string;
   maxCommentLength?: number;
   loading?: boolean;
+  compact?: boolean;
 }
 
 export function CommentsSystem({
@@ -41,6 +43,7 @@ export function CommentsSystem({
   onCommentDelete,
   placeholder = "Add a comment...",
   maxCommentLength = 1000,
+  compact = false,
 }: CommentsSystemProps) {
   const { profile } = useUser();
 
@@ -49,7 +52,8 @@ export function CommentsSystem({
         id: profile.id,
         name:
           profile.displayName ||
-          `${profile.first_name} ${profile.last_name}`.trim(),
+          `${profile.first_name} ${profile.last_name}`.trim() ||
+          profile.email,
         avatar: profile.photoURL,
       }
     : null;
@@ -60,18 +64,28 @@ export function CommentsSystem({
   const [localComments, setLocalComments] = useState<Comment[]>([]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  // Sync local comments when prop changes (from server)
   useEffect(() => {
     setLocalComments(comments);
   }, [comments]);
 
-  // Focus textarea after adding comment
   useEffect(() => {
     if (textareaRef.current && !newComment) {
       textareaRef.current.focus();
     }
   }, [newComment]);
+
+  useEffect(() => {
+    if (!listRef.current) {
+      return;
+    }
+
+    listRef.current.scrollTo({
+      top: listRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [localComments.length]);
 
   const handleAddComment = async () => {
     const content = newComment.trim();
@@ -79,7 +93,6 @@ export function CommentsSystem({
       throw new Error("User not authenticated");
     }
 
-    // Optimistic UI update
     const optimisticComment: Comment = {
       id: `temp-${Date.now()}`,
       content,
@@ -89,27 +102,21 @@ export function CommentsSystem({
       isEdited: false,
     };
 
-    setLocalComments((prev) => [optimisticComment, ...prev]);
+    setLocalComments((prev) => [...prev, optimisticComment]);
     setNewComment("");
     requestAnimationFrame(() => textareaRef.current?.focus());
 
     try {
-      try {
-        const created = await onCommentAdd(content);
-
-        setLocalComments((prev) =>
-          prev.map((c) => (c.id === optimisticComment.id ? created : c))
-        );
-      } catch {
-        setLocalComments((prev) =>
-          prev.filter((c) => c.id !== optimisticComment.id)
-        );
-      }
+      const created = await onCommentAdd(content);
+      setLocalComments((prev) =>
+        prev.map((comment) =>
+          comment.id === optimisticComment.id ? created : comment,
+        ),
+      );
     } catch (error) {
       console.error("Failed to add comment:", error);
-      // Rollback on error (optional)
       setLocalComments((prev) =>
-        prev.filter((c) => c.id !== optimisticComment.id)
+        prev.filter((comment) => comment.id !== optimisticComment.id),
       );
     }
   };
@@ -123,25 +130,23 @@ export function CommentsSystem({
     const content = editContent.trim();
     if (!content) return;
 
-    // Optimistic update
     setLocalComments((prev) =>
-      prev.map((c) =>
-        c.id === commentId
+      prev.map((comment) =>
+        comment.id === commentId
           ? {
-              ...c,
+              ...comment,
               content,
               isEdited: true,
               updatedAt: new Date().toISOString(),
             }
-          : c
-      )
+          : comment,
+      ),
     );
 
     try {
       await onCommentUpdate(commentId, content);
     } catch (error) {
       console.error("Failed to update comment:", error);
-      // Optional: rollback
     } finally {
       setEditingId(null);
       setEditContent("");
@@ -151,197 +156,199 @@ export function CommentsSystem({
   const handleDelete = async (commentId: string) => {
     if (!window.confirm("Delete this comment?")) return;
 
-    // Optimistic remove
-    setLocalComments((prev) => prev.filter((c) => c.id !== commentId));
+    setLocalComments((prev) => prev.filter((comment) => comment.id !== commentId));
 
     try {
       await onCommentDelete(commentId);
     } catch (error) {
       console.error("Failed to delete comment:", error);
-      // Optional: rollback
     }
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr + "Z"); // treat backend time as UTC
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - date.getTime()) / 1000); // difference in seconds
-
-    if (diff < 60) return "just now";
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-    if (diff < 31536000)
-      return date.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      });
-    return date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  // console.log("CommentsSystem rendered:", comments, "user:", currentUser);
-
   const isAuthor = (comment: Comment) =>
-    currentUser && currentUser.id === comment.author_id;
+    Boolean(currentUser && currentUser.id === comment.author_id);
 
   return (
-    <div className="space-y-6 flex flex-col h-[calc(100vh-200px)]">
-      {/* Comment input */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex gap-3">
-            <Avatar className="h-9 w-9">
-              <AvatarImage src={currentUser?.avatar} />
-              <AvatarFallback>
-                {currentUser?.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase() || "U"}
-              </AvatarFallback>
-            </Avatar>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card">
+      <div
+        ref={listRef}
+        className={cn(
+          "flex-1 overflow-y-auto px-4 py-4",
+          compact && "px-3 py-3 sm:px-4 sm:py-4",
+        )}
+      >
+        <div className={cn("space-y-4", compact && "space-y-3")}>
+          {loading && <CommentSkeleton />}
 
-            <div className="flex-1 space-y-3">
-              <Textarea
-                ref={textareaRef}
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder={placeholder}
-                className="min-h-[80px] resize-none"
-                maxLength={maxCommentLength}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleAddComment();
-                  }
-                }}
-              />
-
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {newComment.length} / {maxCommentLength}
-                </span>
-                <Button
-                  size="sm"
-                  onClick={handleAddComment}
-                  disabled={!newComment.trim()}
-                >
-                  <Send className="mr-2 h-4 w-4" />
-                  Comment
-                </Button>
-              </div>
+          {!loading && localComments.length === 0 ? (
+            <div className="flex min-h-[240px] items-center justify-center text-center text-muted-foreground">
+              No comments yet. Be the first!
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          ) : (
+            localComments.map((comment) => {
+              const isEditing = editingId === comment.id;
+              const isOwner = isAuthor(comment);
 
-      {/* Comments list */}
-      <div className="space-y-4">
-        {loading && <CommentSkeleton />}
-        {localComments.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            No comments yet. Be the first!
-          </div>
-        ) : (
-          localComments.map((comment) => {
-            const isEditing = editingId === comment.id;
-            const isOwner = isAuthor(comment);
+              return (
+                <Card key={comment.id} className="transition-all">
+                  <CardContent className={cn("p-4", compact && "p-3 sm:p-4")}>
+                    <div className={cn("flex gap-3", compact && "gap-2.5")}>
+                      <Avatar className={cn("h-9 w-9", compact && "h-8 w-8 sm:h-9 sm:w-9")}>
+                        <AvatarImage src={comment.author?.avatar} />
+                        <AvatarFallback>
+                          {comment.author?.name
+                            ?.split(" ")
+                            .map((part) => part[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase() ?? "U"}
+                        </AvatarFallback>
+                      </Avatar>
 
-            return (
-              <Card key={comment.id} className="transition-all">
-                <CardContent className="p-4">
-                  <div className="flex gap-3">
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={currentUser?.avatar} />
-                      <AvatarFallback>
-                        {currentUser?.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="font-medium text-sm">
-                          {currentUser?.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatTime(comment.createdAt)}
-                          {comment.isEdited && " (edited)"}
-                        </span>
-                      </div>
-
-                      {isEditing ? (
-                        <div className="space-y-3">
-                          <Textarea
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            className="min-h-[80px]"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveEdit(comment.id)}
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingId(null);
-                                setEditContent("");
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
+                      <div className="min-w-0 flex-1">
+                        <div className={cn("mb-1 flex flex-wrap items-center gap-2", compact && "gap-1.5")}>
+                          <span className={cn("text-sm font-medium", compact && "text-[13px] sm:text-sm")}>
+                            {comment.author?.name}
+                          </span>
+                          <span className={cn("text-xs text-muted-foreground", compact && "text-[11px]")}>
+                            {formatRelativeTimestamp(comment.createdAt)}
+                            {comment.isEdited && " (edited)"}
+                          </span>
                         </div>
-                      ) : (
-                        <>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">
-                            {comment.content}
-                          </p>
 
-                          {isOwner && (
-                            <div className="flex gap-2 mt-2">
+                        {isEditing ? (
+                          <div className={cn("space-y-3", compact && "space-y-2")}>
+                            <Textarea
+                              value={editContent}
+                              onChange={(event) => setEditContent(event.target.value)}
+                              className={cn("min-h-[80px]", compact && "min-h-[72px] text-sm")}
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
                               <Button
-                                variant="ghost"
                                 size="sm"
-                                className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                                onClick={() => handleStartEdit(comment)}
+                                onClick={() => handleSaveEdit(comment.id)}
                               >
-                                <Edit className="h-3.5 w-3.5 mr-1" />
-                                Edit
+                                Save
                               </Button>
-
                               <Button
-                                variant="ghost"
                                 size="sm"
-                                className="h-8 px-2 text-destructive hover:text-destructive/90"
-                                onClick={() => handleDelete(comment.id)}
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingId(null);
+                                  setEditContent("");
+                                }}
                               >
-                                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                                Delete
+                                Cancel
                               </Button>
                             </div>
-                          )}
-                        </>
-                      )}
+                          </div>
+                        ) : (
+                          <>
+                            <p
+                              className={cn(
+                                "mb-3 whitespace-pre-wrap text-sm leading-relaxed",
+                                compact && "mb-2 text-[13px] leading-5 sm:text-sm sm:leading-relaxed",
+                              )}
+                            >
+                              {comment.content}
+                            </p>
+
+                            {isOwner && (
+                              <div className={cn("mt-2 flex gap-2", compact && "mt-1.5 gap-1.5")}>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={cn(
+                                    "h-8 px-2 text-muted-foreground hover:text-foreground",
+                                    compact && "h-7 px-2 text-[12px]",
+                                  )}
+                                  onClick={() => handleStartEdit(comment)}
+                                >
+                                  <Edit className="mr-1 h-3.5 w-3.5" />
+                                  Edit
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={cn(
+                                    "h-8 px-2 text-destructive hover:text-destructive/90",
+                                    compact && "h-7 px-2 text-[12px]",
+                                  )}
+                                  onClick={() => handleDelete(comment.id)}
+                                >
+                                  <Trash2 className="mr-1 h-3.5 w-3.5" />
+                                  Delete
+                                </Button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "shrink-0 border-t bg-background/95 p-4 backdrop-blur",
+          compact && "p-3 sm:p-4",
         )}
+      >
+        <div className={cn("flex gap-3", compact && "gap-2.5")}>
+          <Avatar className={cn("h-9 w-9", compact && "h-8 w-8 sm:h-9 sm:w-9")}>
+            <AvatarImage src={currentUser?.avatar} />
+            <AvatarFallback>
+              {currentUser?.name
+                ?.split(" ")
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase() ?? "U"}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className={cn("flex-1 space-y-3", compact && "space-y-2")}>
+            <Textarea
+              ref={textareaRef}
+              value={newComment}
+              onChange={(event) => setNewComment(event.target.value)}
+              placeholder={placeholder}
+              className={cn(
+                "min-h-[72px] resize-none",
+                compact && "min-h-[64px] text-sm",
+              )}
+              maxLength={maxCommentLength}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  handleAddComment();
+                }
+              }}
+            />
+
+            <div className="flex items-center justify-between">
+              <span className={cn("text-xs text-muted-foreground", compact && "text-[11px]")}>
+                {newComment.length} / {maxCommentLength}
+              </span>
+              <Button
+                size="sm"
+                onClick={handleAddComment}
+                disabled={!newComment.trim()}
+                className={cn(compact && "h-8 px-3 text-[12px]")}
+              >
+                <Send className="mr-2 h-4 w-4" />
+                Comment
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

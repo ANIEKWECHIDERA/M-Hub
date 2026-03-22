@@ -12,7 +12,6 @@ import teamMemberRoutes from "./routes/teamMember.routes";
 import projectTeamMemberRoutes from "./routes/projectTeamMembers.routes";
 import assetRoutes from "./routes/asset.routes";
 import inviteRoutes from "./routes/invite.routes";
-import morgan from "morgan";
 import { logger } from "./utils/logger";
 import commentRoutes from "./routes/comment.routes";
 import noteRoutes from "./routes/note.routes";
@@ -20,8 +19,17 @@ import noteTagRoutes from "./routes/noteTag.routes";
 import notificationRoutes from "./routes/notification.routes";
 import userSettingsRoutes from "./routes/userSettings.routes";
 import bodyParser from "body-parser";
+import workspaceRoutes from "./routes/workspace.routes";
+import { apiLimiter } from "./middleware/rateLimiter";
+import cacheRoutes from "./routes/cache.routes";
+import chatRoutes from "./routes/chat.routes";
+import frontendLogRoutes from "./routes/frontendLog.routes";
+import { chatRealtimeService } from "./services/chatRealtime.service";
+import { requestContext } from "./middleware/requestContext.middleware";
+import { captureRequestException, isSentryEnabled, sentry } from "./observability/sentry";
 
 const app = express();
+chatRealtimeService.initialize();
 
 // CORS middleware - Allow all origins
 app.use(
@@ -36,14 +44,16 @@ app.use(
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json({}));
 app.use(express.urlencoded({ extended: true }));
+app.use("/api", apiLimiter);
+app.use(requestContext);
+app.use((req, _res, next) => {
+  if (isSentryEnabled()) {
+    sentry.setTag("request_id", req.requestId ?? "unknown");
+    sentry.setTag("http.path", req.originalUrl || req.path);
+  }
 
-app.use(
-  morgan("combined", {
-    stream: {
-      write: (message) => logger.info(message.trim()),
-    },
-  }),
-);
+  next();
+});
 
 // Mount routes
 app.use("/api/", authRoutes);
@@ -63,10 +73,14 @@ app.use("/api/", noteTagRoutes);
 app.use("/api/", notificationRoutes);
 app.use("/api/", userSettingsRoutes);
 app.use("/api/", inviteRoutes);
+app.use("/api/", workspaceRoutes);
+app.use("/api/", cacheRoutes);
+app.use("/api/", chatRoutes);
+app.use("/api/", frontendLogRoutes);
 
 // health check endpoint
 app.get("/api/health", async (req, res) => {
-  console.log("Health check endpoint accessed");
+  req.log?.info("Health check endpoint accessed");
   res.send("Server is running");
 });
 
@@ -77,9 +91,18 @@ app.use(
     res: express.Response,
     next: express.NextFunction,
   ) => {
-    logger.error("Unhandled error", {
+    const requestLogger = req.log ?? logger;
+    const sentryEventId = captureRequestException(err, req);
+
+    requestLogger.error("Unhandled error", {
+      requestId: req.requestId ?? null,
+      sentryEventId,
       message: err.message,
       stack: err.stack,
+      path: req.originalUrl || req.path,
+      method: req.method,
+      companyId: req.user?.company_id ?? null,
+      userId: req.user?.id ?? null,
     });
 
     // Multer errors

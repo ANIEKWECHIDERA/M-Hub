@@ -6,9 +6,9 @@ import { TeamContextProvider } from "./TeamMemberContext.tsx";
 import { TaskContextProvider } from "./TaskContext.tsx";
 import { SubTasksContextProvider } from "./SubTasksContext.tsx";
 import { NotificationProvider } from "./NotificationContext.tsx";
-import { AuthProvider } from "./AuthContext.tsx";
 import { ClientProvider } from "./ClientContext.tsx";
 import { MyTasksProvider } from "./MyTaskContext.tsx";
+import { ChatProvider } from "./ChatContext.tsx";
 
 export const AppContextProvider = ({
   children,
@@ -16,9 +16,9 @@ export const AppContextProvider = ({
   children: React.ReactNode;
 }) => {
   return (
-    <AuthProvider>
-      <SettingsProvider>
-        <NotificationProvider>
+    <SettingsProvider>
+      <NotificationProvider>
+        <ChatProvider>
           <TeamContextProvider>
             <ClientProvider>
               <ProjectContextProvider>
@@ -34,8 +34,8 @@ export const AppContextProvider = ({
               </ProjectContextProvider>
             </ClientProvider>
           </TeamContextProvider>
-        </NotificationProvider>
-      </SettingsProvider>
-    </AuthProvider>
+        </ChatProvider>
+      </NotificationProvider>
+    </SettingsProvider>
   );
 };

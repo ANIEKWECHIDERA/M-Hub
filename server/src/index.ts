@@ -1,10 +1,10 @@
-import dotenv from "dotenv";
+import "dotenv/config";
+import "./observability/sentry";
 import app from "./app";
 import { logger } from "./utils/logger";
+import { sentry } from "./observability/sentry";
 import { testFirebaseConnection } from "./config/firebaseAdmin";
 import { testDbConnection } from "./lib/prisma";
-
-dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 
@@ -23,7 +23,9 @@ const startServer = async () => {
       logger.info(`[INFO] Server running on port ${PORT}`);
     });
   } catch (err) {
+    sentry.captureException(err);
     logger.error("[ERROR] Failed to start server:", err);
+    await sentry.flush(2000);
     process.exit(1);
   }
 };

@@ -7,24 +7,25 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 
 router.get(
   "/project-team-members",
+  ...protectedRoute,
   authorize(["team_member", "admin", "superAdmin"]),
   ProjectTeamMemberController.getAll,
 );
 
 router.get(
   "/project-team-members/:id",
+  ...protectedRoute,
   authorize(["team_member", "admin", "superAdmin"]),
   ProjectTeamMemberController.getById,
 );
 
 router.post(
   "/project-team-members",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   ProjectTeamMemberController.create,
 );
@@ -38,12 +39,14 @@ router.post(
 
 router.delete(
   "/project-team-members/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   ProjectTeamMemberController.delete,
 );
 
 router.post(
   "/project-team-members/bulk",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   ProjectTeamMemberController.bulkAssign,
 );

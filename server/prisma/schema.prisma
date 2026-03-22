@@ -43,6 +43,12 @@ model users {
   notes         notes[]        @relation("note_author")
   assets        assets[]       @relation("asset_uploader")
   notifications notifications[] @relation("user_notifications")
+  chat_created_conversations chat_conversations[] @relation("chat_conversation_creator")
+  chat_conversation_memberships chat_conversation_members[] @relation("chat_conversation_member_user")
+  chat_member_additions chat_conversation_members[] @relation("chat_conversation_member_added_by")
+  chat_member_removals chat_conversation_members[] @relation("chat_conversation_member_removed_by")
+  chat_message_tags_created chat_message_tags[] @relation("chat_message_tag_creator")
+  chat_message_edits chat_message_edits[] @relation("chat_message_edit_user")
 
   @@map("users")
   @@index([firebase_uid])
@@ -71,6 +77,8 @@ model companies {
   clients       clients[]    @relation("company_clients")
   project_team_members project_team_members[] @relation("company_project_team_members")
   invites     company_invite[]  
+  chat_conversations chat_conversations[] @relation("company_chat_conversations")
+  chat_messages chat_messages[] @relation("company_chat_messages")
 
   @@map("companies")
   @@index([name])
@@ -116,6 +124,8 @@ model team_members {
   subtasks      subtasks[]     @relation("subtask_assignee")
   task_assignments   task_team_member_assignees[] @relation("task_team_member_assignees")
   project_memberships project_team_members[]       @relation("project_team_members")
+  chat_conversation_memberships chat_conversation_members[] @relation("chat_conversation_member_team_member")
+  chat_sent_messages chat_messages[] @relation("chat_message_sender")
 
   @@map("team_members")
   @@unique([email, company_id])
@@ -319,6 +329,10 @@ model notes {
   title       String
   visibility  String    @default("private")
   content     String
+  plain_text_preview String @default("")
+  pinned      Boolean   @default(false)
+  archived_at DateTime?
+  last_edited_at DateTime @default(now()) @map("last_edited_at")
   created_at  DateTime  @default(now()) @map("created_at")
   updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
 
@@ -331,6 +345,8 @@ model notes {
   @@index([company_id])
   @@index([project_id])
   @@index([author_id])
+  @@index([company_id, author_id, archived_at])
+  @@index([company_id, author_id, pinned, updated_at])
 }
 
 model note_tags {
@@ -343,6 +359,7 @@ model note_tags {
 
   @@map("note_tags")
   @@index([note_id])
+  @@unique([company_id, note_id, tag])
 }
 
 // ============================================
@@ -367,6 +384,129 @@ model notifications {
 }
 
 // ============================================
+// CHAT
+// ============================================
+model chat_conversations {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id      String   @db.Uuid
+  type            String
+  direct_key      String?  @unique @map("direct_key")
+  name            String?
+  created_by      String   @db.Uuid
+  created_at      DateTime @default(now()) @map("created_at")
+  updated_at      DateTime @default(now()) @updatedAt @map("updated_at")
+  last_message_at DateTime? @map("last_message_at")
+  archived_at     DateTime? @map("archived_at")
+  metadata        Json?
+
+  company         companies                  @relation("company_chat_conversations", fields: [company_id], references: [id], onDelete: Cascade)
+  creator         users                      @relation("chat_conversation_creator", fields: [created_by], references: [id], onDelete: Restrict)
+  members         chat_conversation_members[]
+  messages        chat_messages[]
+
+  @@map("chat_conversations")
+  @@index([company_id])
+  @@index([company_id, type])
+  @@index([company_id, last_message_at])
+  @@index([company_id, last_message_at, id])
+  @@index([created_by])
+}
+
+model chat_conversation_members {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id      String    @db.Uuid
+  user_id              String    @db.Uuid
+  team_member_id       String    @db.Uuid
+  joined_at            DateTime  @default(now()) @map("joined_at")
+  added_by             String?   @db.Uuid
+  removed_at           DateTime? @map("removed_at")
+  removed_by           String?   @db.Uuid
+  last_read_message_id String?   @db.Uuid
+  last_read_at         DateTime? @map("last_read_at")
+  notifications_muted  Boolean   @default(false) @map("notifications_muted")
+
+  conversation         chat_conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  user                 users              @relation("chat_conversation_member_user", fields: [user_id], references: [id], onDelete: Cascade)
+  team_member          team_members       @relation("chat_conversation_member_team_member", fields: [team_member_id], references: [id], onDelete: Cascade)
+  added_by_user        users?             @relation("chat_conversation_member_added_by", fields: [added_by], references: [id], onDelete: SetNull)
+  removed_by_user      users?             @relation("chat_conversation_member_removed_by", fields: [removed_by], references: [id], onDelete: SetNull)
+  last_read_message    chat_messages?     @relation("chat_member_last_read_message", fields: [last_read_message_id], references: [id], onDelete: SetNull)
+
+  @@map("chat_conversation_members")
+  @@index([conversation_id])
+  @@index([conversation_id, removed_at])
+  @@index([user_id, removed_at])
+  @@index([user_id, removed_at, conversation_id])
+  @@index([team_member_id, removed_at])
+  @@index([last_read_message_id])
+  @@index([conversation_id, user_id, removed_at, last_read_at])
+}
+
+model chat_messages {
+  id                    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id       String     @db.Uuid
+  company_id            String     @db.Uuid
+  sender_team_member_id String?    @db.Uuid
+  body                  String
+  message_type          String     @default("text") @map("message_type")
+  edited_at             DateTime?  @map("edited_at")
+  deleted_at            DateTime?  @map("deleted_at")
+  created_at            DateTime   @default(now()) @map("created_at")
+  updated_at            DateTime   @default(now()) @updatedAt @map("updated_at")
+  reply_to_message_id   String?    @db.Uuid
+  metadata              Json?
+
+  conversation          chat_conversations          @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  company               companies                   @relation("company_chat_messages", fields: [company_id], references: [id], onDelete: Cascade)
+  sender_team_member    team_members?               @relation("chat_message_sender", fields: [sender_team_member_id], references: [id], onDelete: SetNull)
+  reply_to_message      chat_messages?              @relation("chat_message_replies", fields: [reply_to_message_id], references: [id], onDelete: SetNull)
+  replies               chat_messages[]             @relation("chat_message_replies")
+  tags                  chat_message_tags[]
+  edits                 chat_message_edits[]
+  last_read_by_members  chat_conversation_members[] @relation("chat_member_last_read_message")
+
+  @@map("chat_messages")
+  @@index([conversation_id])
+  @@index([conversation_id, created_at])
+  @@index([conversation_id, deleted_at, created_at, id])
+  @@index([company_id, created_at])
+  @@index([sender_team_member_id])
+  @@index([reply_to_message_id])
+}
+
+model chat_message_tags {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  message_id String   @db.Uuid
+  tag        String
+  created_at DateTime @default(now()) @map("created_at")
+  created_by String   @db.Uuid
+
+  message    chat_messages @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  creator    users         @relation("chat_message_tag_creator", fields: [created_by], references: [id], onDelete: Cascade)
+
+  @@map("chat_message_tags")
+  @@unique([message_id, tag])
+  @@index([message_id])
+  @@index([tag])
+  @@index([created_by])
+}
+
+model chat_message_edits {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  message_id    String   @db.Uuid
+  previous_body String   @map("previous_body")
+  edited_by     String   @db.Uuid
+  edited_at     DateTime @default(now()) @map("edited_at")
+
+  message       chat_messages @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  editor        users         @relation("chat_message_edit_user", fields: [edited_by], references: [id], onDelete: Cascade)
+
+  @@map("chat_message_edits")
+  @@index([message_id, edited_at])
+  @@index([edited_by])
+}
+
+// ============================================
 // USER SETTINGS
 // ============================================
 model user_settings {
@@ -375,6 +515,10 @@ model user_settings {
   theme                  String   @default("light")
   language               String   @default("en")
   notifications_enabled  Boolean  @default(true) @map("notifications_enabled")
+  email_notifications_enabled Boolean @default(true) @map("email_notifications_enabled")
+  task_assignment_notifications Boolean @default(true) @map("task_assignment_notifications")
+  project_update_notifications Boolean @default(true) @map("project_update_notifications")
+  comment_notifications Boolean @default(true) @map("comment_notifications")
   compact_mode           Boolean  @default(false) @map("compact_mode")
   created_at             DateTime @default(now()) @map("created_at")
   updated_at             DateTime @default(now()) @updatedAt @map("updated_at")

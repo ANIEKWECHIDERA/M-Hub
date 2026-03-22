@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../config/supabaseClient";
+import { prisma } from "../lib/prisma";
 import {
   CompanyResponseDTO,
   CreateCompanyDTO,
@@ -6,12 +7,15 @@ import {
 } from "../types/company.types";
 import { logger } from "../utils/logger";
 import { AppUser } from "../types/types";
+import { RequestCacheService } from "./requestCache.service";
+import { ChatService } from "./chat.service";
 
 function toCompanyResponseDTO(row: any): CompanyResponseDTO {
   return {
     id: row.id,
     name: row.name,
     description: row.description,
+    logo_url: row.logo_url ?? null,
     created_at: row.created_at,
   };
 }
@@ -22,7 +26,7 @@ export const CompanyService = {
 
     const { data, error } = await supabaseAdmin
       .from("companies")
-      .select("id, name, description, created_at")
+      .select("id, name, description, logo_url, created_at")
       .eq("id", companyId)
       .maybeSingle();
 
@@ -44,86 +48,116 @@ export const CompanyService = {
     });
 
     const userId = user.id;
+    const companyName = payload.name.trim();
+    const description = payload.description?.trim() || null;
 
-    // 🚀 If user already has company → return existing
-    if (user.company_id) {
-      logger.info("User already has company, returning existing", {
-        companyId: user.company_id,
-      });
+    if (!companyName) {
+      throw new Error("Company name is required");
+    }
 
-      const { data: company, error } = await supabaseAdmin
-        .from("companies")
-        .select("id, name, description, created_at")
-        .eq("id", user.company_id)
-        .maybeSingle();
+    const company = await prisma.$transaction(async (tx) => {
+      // Lock the user row so retries and double submits resolve to a single
+      // company setup flow.
+      const lockedUsers = await tx.$queryRaw<Array<Record<string, any>>>`
+        SELECT id, company_id, has_company
+        FROM users
+        WHERE id = ${userId}::uuid
+        FOR UPDATE`;
 
-      if (error || !company) {
-        logger.error("Failed to fetch existing company", { error });
-        throw new Error("Failed to fetch existing company");
+      const lockedUser = lockedUsers[0];
+
+      if (!lockedUser) {
+        throw new Error("User not found");
       }
 
-      return toCompanyResponseDTO(company);
-    }
+      const memberships = await tx.$queryRaw<Array<Record<string, any>>>`
+        SELECT company_id
+        FROM team_members
+        WHERE user_id = ${userId}::uuid
+        LIMIT 1`;
 
-    // 🚀 Create company
-    const { data: company, error: companyError } = await supabaseAdmin
-      .from("companies")
-      .insert({
-        name: payload.name,
-        description: payload.description ?? null,
-        logo_url: payload.logoUrl ?? null,
-      })
-      .select("id, name, description, created_at")
-      .single();
+      const existingCompanyId =
+        lockedUser.company_id ?? memberships[0]?.company_id ?? null;
 
-    if (companyError || !company) {
-      logger.error("Company creation failed", { companyError });
-      throw new Error("Failed to create company");
-    }
+      if (existingCompanyId) {
+        logger.info("CompanyService.create: returning existing company", {
+          companyId: existingCompanyId,
+          userId,
+        });
 
-    // 🚀 Create team member (owner)
-    const { error: teamError } = await supabaseAdmin
-      .from("team_members")
-      .insert({
-        user_id: userId,
-        company_id: company.id,
-        email: user.email,
-        role: "owner",
-        access: "superAdmin",
-        status: "active",
-      });
+        await tx.$executeRaw`
+          UPDATE users
+          SET company_id = ${existingCompanyId}::uuid,
+              has_company = ${true},
+              updated_at = NOW()
+          WHERE id = ${userId}::uuid`;
 
-    if (teamError) {
-      logger.error("Team member creation failed", { teamError });
-      throw new Error("Failed to assign owner role");
-    }
+        const existingCompanies = await tx.$queryRaw<Array<Record<string, any>>>`
+          SELECT id, name, description, logo_url, created_at
+          FROM companies
+          WHERE id = ${existingCompanyId}::uuid
+          LIMIT 1`;
 
-    // 🚀 Update user
-    const { error: userUpdateError } = await supabaseAdmin
-      .from("users")
-      .update({ has_company: true })
-      .eq("id", userId);
+        return existingCompanies[0];
+      }
 
-    if (userUpdateError) {
-      logger.error("User update failed", { userUpdateError });
-      throw new Error("Failed to finalize company setup");
-    }
+      const insertedCompanies = await tx.$queryRaw<Array<Record<string, any>>>`
+        INSERT INTO companies (name, description, logo_url)
+        VALUES (${companyName}, ${description}, ${payload.logoUrl ?? null})
+        RETURNING id, name, description, logo_url, created_at`;
+
+      const createdCompany = insertedCompanies[0];
+
+      await tx.$executeRaw`
+        INSERT INTO team_members (user_id, company_id, email, role, access, status)
+        VALUES (
+          ${userId}::uuid,
+          ${createdCompany.id}::uuid,
+          ${user.email},
+          ${"owner"},
+          ${"superAdmin"},
+          ${"active"}
+        )`;
+
+      await tx.$executeRaw`
+        UPDATE users
+        SET company_id = ${createdCompany.id}::uuid,
+            has_company = ${true},
+            updated_at = NOW()
+        WHERE id = ${userId}::uuid`;
+
+      return createdCompany;
+    });
 
     logger.info("Company created successfully", { companyId: company.id });
+    RequestCacheService.invalidateUserContext({
+      userId,
+      firebaseUid: user.firebase_uid,
+    });
+    await ChatService.ensureGeneralConversation(company.id);
 
     return toCompanyResponseDTO(company);
   },
+
   async update(
     companyId: string,
     payload: UpdateCompanyDTO,
   ): Promise<CompanyResponseDTO | null> {
     logger.info("CompanyService.update: start", { companyId });
 
+    const updatePayload = {
+      ...(payload.name ? { name: payload.name.trim() } : {}),
+      ...(payload.description !== undefined
+        ? { description: payload.description?.trim() || null }
+        : {}),
+      ...(payload.logoUrl !== undefined ? { logo_url: payload.logoUrl } : {}),
+    };
+
     const { data, error } = await supabaseAdmin
       .from("companies")
-      .update(payload)
+      .update(updatePayload)
       .eq("id", companyId)
-      .select("id, name, description, created_at")
+      .select("id, name, description, logo_url, created_at")
       .maybeSingle();
 
     if (error) {

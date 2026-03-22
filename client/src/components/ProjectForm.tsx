@@ -17,7 +17,7 @@ import { useClientContext } from "@/context/ClientContext";
 import { isEqual, normalizeDate } from "@/utils/helpers";
 
 const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
-  const { clients } = useClientContext();
+  const { clients, fetchClients } = useClientContext();
   const { teamMembers } = useTeamContext();
   const [newClient, setNewClient] = useState("");
   const [showNewClientInput, setShowNewClientInput] = useState(false);
@@ -37,7 +37,8 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
 
   const [formData, setFormData] = useState(initialForm);
 
-  const isDirty = !isEqual(formData, initialForm);
+  const isDirty =
+    !isEqual(formData, initialForm) || (showNewClientInput && !!newClient.trim());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,13 +48,23 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
 
     const finalData = {
       ...formData,
-      client_id:
-        showNewClientInput && newClient ? newClient : formData.client_id,
+      client_id: showNewClientInput ? undefined : formData.client_id,
+      client:
+        showNewClientInput && newClient.trim()
+          ? {
+              name: newClient.trim(),
+            }
+          : undefined,
       team_member_ids: formData.team_member_ids,
     };
     // console.log("Form Data:", finalData);
     // TODO: Validate form data before saving (e.g., title and deadline required)
     await onSave(finalData);
+    if (showNewClientInput && newClient.trim()) {
+      await fetchClients();
+      setShowNewClientInput(false);
+      setNewClient("");
+    }
     setLoading(false);
   };
 
@@ -93,10 +104,12 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
             value={formData.client_id ?? ""}
             onValueChange={(value) => {
               if (value === "NewClient") {
+                setFormData((prev) => ({ ...prev, client_id: undefined }));
                 setShowNewClientInput(true);
               } else {
                 setFormData({ ...formData, client_id: value });
                 setShowNewClientInput(false);
+                setNewClient("");
               }
             }}
           >

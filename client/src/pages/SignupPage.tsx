@@ -182,8 +182,15 @@ export default function SignUpPage() {
       // Clear saved form data from localStorage
       localStorage.removeItem("signUpFormData");
 
+      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+
       // Redirect to dashboard ONLY on full success
-      navigate("/dashboard", { replace: true });
+      navigate(
+        pendingInviteToken
+          ? `/invite/accept/${pendingInviteToken}`
+          : "/dashboard",
+        { replace: true },
+      );
     } catch (err: any) {
       toast.error(
         err.message || "Failed to complete signup. Please try again.",
@@ -218,7 +225,13 @@ export default function SignUpPage() {
     const result = await signInWithGoogle();
 
     if (result) {
-      navigate("/dashboard", { replace: true });
+      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      navigate(
+        pendingInviteToken
+          ? `/invite/accept/${pendingInviteToken}`
+          : "/dashboard",
+        { replace: true },
+      );
     }
 
     setIsGoogleLoading(false);
@@ -245,9 +258,9 @@ export default function SignUpPage() {
         <div className="relative z-10 flex flex-col justify-center items-center p-12 text-white">
           <div className="mb-8">
             <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6">
-              <span className="text-3xl font-bold text-white">M</span>
+              <span className="text-3xl font-bold text-white">C</span>
             </div>
-            <h1 className="text-4xl font-bold mb-4">Join M-Hub Today</h1>
+            <h1 className="text-4xl font-bold mb-4">Join Crevo Today</h1>
             <p className="text-xl text-white/90 max-w-md text-center leading-relaxed">
               Start managing your agency projects more efficiently with our
               powerful tools
@@ -285,11 +298,11 @@ export default function SignUpPage() {
           <div className="lg:hidden text-center mb-8">
             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
               <span className="text-xl font-bold text-primary-foreground">
-                M
+                C
               </span>
             </div>
-            <h1 className="text-2xl font-bold">M-Hub</h1>
-            <p className="text-muted-foreground">Agency Workflow Management</p>
+            <h1 className="text-2xl font-bold">Crevo</h1>
+            <p className="text-muted-foreground">Creative Workflow Management</p>
           </div>
 
           <Card className="border-0 shadow-lg">
@@ -298,7 +311,7 @@ export default function SignUpPage() {
                 Create your account
               </CardTitle>
               <CardDescription className="text-center">
-                Get started with your free M-Hub account
+                Get started with your free Crevo account
               </CardDescription>
             </CardHeader>
 

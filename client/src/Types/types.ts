@@ -6,6 +6,12 @@ export interface CreateProjectDTO {
   status?: "Active" | "Planning" | "In Progress" | "On Hold" | "Completed";
   deadline?: string; // ISO string
   client_id?: string;
+  client?: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
   team_member_ids?: string[];
 }
 
@@ -15,6 +21,12 @@ export interface UpdateProjectDTO {
   status?: "Active" | "Planning" | "In Progress" | "On Hold" | "Completed";
   deadline?: string;
   client_id?: string;
+  client?: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
   team_member_ids?: string[];
 }
 
@@ -40,6 +52,7 @@ export interface Project {
   }[];
 
   task_count: number;
+  completed_task_count: number;
   progress: number;
 }
 
@@ -139,6 +152,7 @@ export interface TeamContextType {
 
 export interface TeamMemberFormProps {
   member?: Partial<TeamMember>;
+  canAssignSuperAdmin?: boolean;
   onSave: (data: Partial<TeamMember>) => void;
   onCancel: () => void;
 }
@@ -489,6 +503,10 @@ export interface CommentContextType {
 
 export interface Preferences {
   notifications: boolean;
+  emailNotifications: boolean;
+  taskAssignments: boolean;
+  projectUpdates: boolean;
+  commentNotifications: boolean;
   compactMode: boolean;
 }
 
@@ -502,51 +520,63 @@ export interface SettingsContextType {
 
   preferences: Preferences;
   setPreferences: React.Dispatch<React.SetStateAction<Preferences>>;
-}
-
-//////////// NoteTypes //////////////////////
-export interface Note {
-  id: string;
-  companyId: string;
-  projectId: string;
-  authorId: string;
-  title: string;
-  content: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface NoteContextType {
-  notes: Note[];
-  setNotes: React.Dispatch<React.SetStateAction<Note[]>>;
-  currentNote: Note | null;
-  setCurrentNote: React.Dispatch<React.SetStateAction<Note | null>>;
-  tags: string[];
-  fetchNotes: () => Promise<void>;
-  addNote: (note: Note) => Promise<void>;
-  updateNote: (id: string, data: Partial<Note>) => Promise<void>;
-  deleteNote: (id: string) => Promise<void>;
-
   loading: boolean;
+  saving: boolean;
   error: string | null;
 }
 
-export interface NoteData {
+//////////// NoteTypes //////////////////////
+export interface NoteSummary {
   id: string;
   companyId: string;
-  projectId: string;
+  projectId: string | null;
   authorId: string;
   title: string;
-  content: string;
-  tags: string[];
+  plainTextPreview: string;
+  pinned: boolean;
+  archivedAt: string | null;
+  createdAt: string;
   updatedAt: string;
+  lastEditedAt: string;
+  tags: string[];
 }
 
-export interface NoteFormProps {
-  note?: Note;
-  onSave: (data: Partial<Note>) => void;
-  onCancel: () => void;
+export interface Note extends NoteSummary {
+  contentHtml: string;
+}
+
+export interface CreateNoteInput {
+  title?: string;
+  contentHtml?: string;
+  projectId?: string | null;
+  pinned?: boolean;
+  tags?: string[];
+}
+
+export interface UpdateNoteInput {
+  title?: string;
+  contentHtml?: string;
+  projectId?: string | null;
+  pinned?: boolean;
+  tags?: string[];
+}
+
+export interface NoteContextType {
+  notes: NoteSummary[];
+  currentNote: Note | null;
+  loading: boolean;
+  currentNoteLoading: boolean;
+  error: string | null;
+
+  fetchNotes: (options?: { archived?: boolean; q?: string }) => Promise<void>;
+  openNote: (id: string) => Promise<Note | null>;
+  clearCurrentNote: () => void;
+  createNote: (payload?: CreateNoteInput) => Promise<Note>;
+  updateNote: (id: string, data: UpdateNoteInput) => Promise<Note>;
+  archiveNote: (id: string) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
+  restoreNote: (id: string) => Promise<Note | null>;
+  setPinned: (id: string, pinned: boolean) => Promise<Note | null>;
 }
 
 ////////////////// Authentication context type //////////////////
@@ -580,6 +610,10 @@ export interface AuthContextType {
   authStatus: AuthStatus | null;
   refreshStatus: () => Promise<void>;
   isAppReady: boolean;
+  isWorkspaceSwitching: boolean;
+  workspaceSwitchCompanyId: string | null;
+  startWorkspaceSwitch: (companyId: string) => void;
+  finishWorkspaceSwitch: () => void;
 }
 
 export type OnboardingState =
@@ -631,12 +665,23 @@ export interface UpdateUserDTO {
   display_name?: string;
   photo_url?: string;
   profile_complete?: boolean;
+  terms_accepted?: true;
+}
+
+export interface WorkspaceSummary {
+  companyId: string;
+  name: string;
+  logoUrl: string | null;
+  role: string;
+  access: string;
+  status: string;
+  isActive: boolean;
 }
 
 export interface UserContextType {
   profile: UserProfile | null;
   loading: boolean;
-  updateProfile: (data: Partial<UserProfile>) => Promise<boolean>;
+  updateProfile: (data: Partial<UserProfile> | FormData) => Promise<boolean>;
   deleteAccount?: () => Promise<boolean>;
   fetchUserProfile: (idToken: string) => Promise<UserProfile | null>;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;

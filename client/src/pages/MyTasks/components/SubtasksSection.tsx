@@ -32,10 +32,10 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
   const [editingTitle, setEditingTitle] = useState("");
 
   const subtasks = useMemo<Subtask[]>(() => {
-    return allSubtasks.filter((s) => s.task_id === taskId);
+    return allSubtasks.filter((subtask) => subtask.task_id === taskId);
   }, [allSubtasks, taskId]);
 
-  const completedCount = subtasks.filter((s) => s.completed).length;
+  const completedCount = subtasks.filter((subtask) => subtask.completed).length;
   const progress =
     subtasks.length > 0
       ? Math.round((completedCount / subtasks.length) * 100)
@@ -49,8 +49,9 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
 
   const handleAdd = async () => {
     try {
-      if (!newSubtask.trim() || !currentMember)
-        throw new Error("Invalid subtask or No member detected");
+      if (!newSubtask.trim() || !currentMember) {
+        throw new Error("Invalid subtask or no member detected");
+      }
 
       await addSubtask({
         task_id: taskId,
@@ -60,7 +61,6 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
         updated_at: new Date().toISOString(),
       });
 
-      console.log("Added subtask:", newSubtask.trim());
       setNewSubtask("");
     } catch (err) {
       console.error("Failed to add subtask:", err);
@@ -86,7 +86,7 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
             <ListTodo className="h-4 w-4" />
             My Subtasks
             {subtasks.length > 0 && (
@@ -99,23 +99,21 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Progress */}
         {subtasks.length > 0 && (
           <div className="flex items-center gap-2">
             <Progress value={progress} className="h-2 flex-1" />
-            <span className="text-sm text-muted-foreground min-w-[40px]">
+            <span className="min-w-[40px] text-sm text-muted-foreground">
               {progress}%
             </span>
           </div>
         )}
 
-        {/* Subtask list */}
         <div className="space-y-2">
           {subtasks.length > 0 ? (
             subtasks.map((subtask) => (
               <div
                 key={subtask.id}
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50"
+                className="flex items-center gap-2 rounded-lg p-2 hover:bg-muted/50"
               >
                 <Checkbox
                   checked={subtask.completed}
@@ -150,7 +148,7 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
                   <>
                     <span
                       className={cn(
-                        "text-sm flex-1",
+                        "flex-1 text-sm",
                         subtask.completed &&
                           "line-through text-muted-foreground",
                       )}
@@ -185,16 +183,15 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
               </div>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
+            <p className="py-4 text-center text-sm text-muted-foreground">
               No subtasks yet. Add your first one below!
             </p>
           )}
         </div>
 
-        {/* Add new subtask */}
         <div className="flex gap-2">
           <Input
-            placeholder="Add a new subtask…"
+            placeholder="Add a new subtask..."
             value={newSubtask}
             onChange={(e) => setNewSubtask(e.target.value)}
             onKeyDown={(e) => {
@@ -204,10 +201,7 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
           />
           <Button
             size="sm"
-            onClick={() => {
-              handleAdd();
-              console.log("Adding subtask");
-            }}
+            onClick={handleAdd}
             disabled={!newSubtask.trim() || loading || !currentMember}
           >
             <Plus className="h-4 w-4" />
@@ -215,7 +209,7 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          💡 Subtasks are personal to you and help break down this task into
+          Subtasks are personal to you and help break down this task into
           manageable steps.
         </p>
       </CardContent>

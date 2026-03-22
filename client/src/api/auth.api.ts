@@ -8,6 +8,11 @@ interface CreateUserPayload {
   termsAccepted: boolean;
 }
 
+interface CreateProfileResponse {
+  success: boolean;
+  profile: unknown;
+}
+
 export const authAPI = {
   sync(idToken: string) {
     return apiFetch<AuthStatus>("/api/sync", { method: "POST" }, idToken);
@@ -18,7 +23,7 @@ export const authAPI = {
   },
 
   createProfile(payload: CreateUserPayload, idToken: string) {
-    return apiFetch<{ success: boolean }>(
+    return apiFetch<CreateProfileResponse>(
       "/api/user",
       {
         method: "POST",

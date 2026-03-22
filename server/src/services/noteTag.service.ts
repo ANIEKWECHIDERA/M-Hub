@@ -83,21 +83,36 @@ export const NoteTagService = {
       throw new Error("Unauthorized");
     }
 
-    // Delete existing tags
-    const { error: deleteError } = await supabaseAdmin
-      .from("note_tags")
-      .delete()
-      .eq("note_id", noteId);
+    if (!parsedTags.length) {
+      const { error: deleteError } = await supabaseAdmin
+        .from("note_tags")
+        .delete()
+        .eq("note_id", noteId)
+        .eq("company_id", companyId);
 
-    if (deleteError) {
-      logger.error("NoteTagService.replaceTagsForNote: delete failed", {
-        deleteError,
-      });
-      throw deleteError;
+      if (deleteError) {
+        logger.error("NoteTagService.replaceTagsForNote: delete failed", {
+          deleteError,
+        });
+        throw deleteError;
+      }
+
+      return [];
     }
 
-    // Insert new tags
-    if (!parsedTags.length) return [];
+    const { error: deleteRemovedError } = await supabaseAdmin
+      .from("note_tags")
+      .delete()
+      .eq("note_id", noteId)
+      .eq("company_id", companyId)
+      .not("tag", "in", `(${parsedTags.map((tag) => `"${tag}"`).join(",")})`);
+
+    if (deleteRemovedError) {
+      logger.error("NoteTagService.replaceTagsForNote: delete removed failed", {
+        deleteRemovedError,
+      });
+      throw deleteRemovedError;
+    }
 
     const inserts = parsedTags.map((tag) => ({
       note_id: noteId,
@@ -107,7 +122,10 @@ export const NoteTagService = {
 
     const { data, error } = await supabaseAdmin
       .from("note_tags")
-      .insert(inserts)
+      .upsert(inserts, {
+        onConflict: "company_id,note_id,tag",
+        ignoreDuplicates: false,
+      })
       .select("id, note_id, tag");
 
     if (error) {

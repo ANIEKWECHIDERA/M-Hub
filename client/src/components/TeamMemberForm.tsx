@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -13,18 +13,27 @@ import type { TeamMemberFormProps } from "@/Types/types";
 
 const TeamMemberForm = ({
   member = {},
+  canAssignSuperAdmin = false,
   onSave,
   onCancel,
 }: TeamMemberFormProps) => {
-  const initialFormData = {
-    role: member.role,
-    access: member.access,
-    status: member.status,
-  };
+  const initialFormData = useMemo(
+    () => ({
+      role: member.role ?? "",
+      access: member.access ?? "team_member",
+      status: (member.status as "active" | "inactive" | undefined) ?? "active",
+    }),
+    [member.access, member.role, member.status],
+  );
 
   const [formData, setFormData] = useState(initialFormData);
   const [isDirty, setIsDirty] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setFormData(initialFormData);
+    setLoading(false);
+  }, [initialFormData]);
 
   // Effect to track changes in formData
   useEffect(() => {
@@ -49,7 +58,7 @@ const TeamMemberForm = ({
       {/*READ ONLY FIELDS*/}
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
-        <Input id="name" value={member.name} disabled />
+        <Input id="name" value={member.name ?? ""} disabled />
       </div>
 
       <div className="space-y-2">
@@ -57,7 +66,7 @@ const TeamMemberForm = ({
         <Input
           id="email"
           type="email"
-          value={member.email}
+          value={member.email ?? ""}
           // onChange={(e) => setFormData({ ...formData, email: e.target.value })}  // Disabled field
           placeholder="Enter email address"
           disabled
@@ -87,6 +96,9 @@ const TeamMemberForm = ({
             <SelectValue placeholder="Select access level" />
           </SelectTrigger>
           <SelectContent>
+            {canAssignSuperAdmin && (
+              <SelectItem value="superAdmin">Super Admin</SelectItem>
+            )}
             <SelectItem value="admin">Admin</SelectItem>
             <SelectItem value="team_member">Team Member</SelectItem>
           </SelectContent>
@@ -114,7 +126,6 @@ const TeamMemberForm = ({
       <div className="flex justify-end gap-2 pt-2">
         <Button
           type="button"
-          disabled={!isDirty || loading}
           variant="outline"
           onClick={onCancel}
         >

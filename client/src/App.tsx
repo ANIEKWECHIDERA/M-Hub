@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import Layout from "./Layout";
 import Dashboard from "./pages/DashBoard";
@@ -8,7 +8,6 @@ import Notepad from "./pages/Notepad";
 import Tools from "./pages/Tools";
 import Settings from "./pages/Settings";
 import ProjectDetailWrapper from "./pages/projectDetail/ProjectDetailWrapper";
-// import MyTasksPage from "./pages/MyTasks";
 import { AppContextProvider } from "./context/AppProvider";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignupPage";
@@ -21,16 +20,24 @@ import { MyTasksPage } from "./pages/MyTasks/MyTasksPage";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import CreateCompany from "./pages/CreateCompany";
 import { Loader } from "lucide-react";
+import AcceptInvitePage from "./pages/AcceptInvitePage";
+import { UploadStatusProvider } from "./context/UploadStatusContext";
 
-// Protected Route: Only authenticated users
 function useRedirectPath() {
-  const { currentUser } = useAuthContext();
-  return currentUser ? "/dashboard" : "/signup";
+  const { currentUser, authStatus } = useAuthContext();
+
+  if (!currentUser) {
+    return "/signup";
+  }
+
+  return authStatus?.access === "team_member" ||
+    authStatus?.access === "member"
+    ? "/mytasks"
+    : "/dashboard";
 }
 
-// Public Route: Only unauthenticated users (blocks logged-in users)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { currentUser, loading } = useAuthContext();
+  const { currentUser, loading, authStatus } = useAuthContext();
 
   if (loading) {
     return (
@@ -40,81 +47,142 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return currentUser ? <Navigate to="/dashboard" replace /> : <>{children}</>;
+  return currentUser ? (
+    <Navigate
+      to={
+        authStatus?.access === "team_member" || authStatus?.access === "member"
+          ? "/mytasks"
+          : "/dashboard"
+      }
+      replace
+    />
+  ) : (
+    <>{children}</>
+  );
+}
+
+function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { loading, authStatus } = useAuthContext();
+
+  if (loading || !authStatus) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (authStatus.access === "team_member" || authStatus.access === "member") {
+    return <Navigate to="/mytasks" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function DashboardRoute({ children }: { children: React.ReactNode }) {
+  const { loading, authStatus } = useAuthContext();
+
+  if (loading || !authStatus) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (authStatus.access === "team_member" || authStatus.access === "member") {
+    return <Navigate to="/mytasks" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 function App() {
   return (
     <AuthProvider>
       <UserProvider>
-        <Toaster position="top-center" richColors />
-        <AppWithAuth /> {/* New component that uses hooks */}
+        <UploadStatusProvider>
+          <Toaster position="top-center" richColors />
+          <AppWithAuth />
+        </UploadStatusProvider>
       </UserProvider>
     </AuthProvider>
   );
 }
 
-function AppWithAuth() {
-  const redirectPath = useRedirectPath(); // now safe
+function AppProvidersLayout() {
   return (
     <AppContextProvider>
-      <Routes>
-        {/* Public Routes */}
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <LoginPage />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/signup"
-          element={
-            <PublicRoute>
-              <SignUpPage />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/forgot-password"
-          element={
-            <PublicRoute>
-              <ForgotPasswordPage />
-            </PublicRoute>
-          }
-        />
-
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to={redirectPath} replace />} />
-
-        {/* Protected Routes */}
-        <Route element={<AuthGuard />}>
-          {/* Onboarding Routes */}
-          <Route path="/onboarding/profile" element={<CompleteProfile />} />
-          <Route path="/onboarding/company" element={<CreateCompany />} />
-
-          {/* <Route path="/complete-profile" element={<CompleteProfile />} /> */}
-
-          <Route element={<Layout />}>
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="projects" element={<Projects />} />
-            <Route path="chat" element={<Chat />} />
-            <Route path="notepad" element={<Notepad />} />
-            <Route path="tools" element={<Tools />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="mytasks" element={<MyTasksPage />} />
-            <Route
-              path="projectdetails/:id"
-              element={<ProjectDetailWrapper />}
-            />
-          </Route>
-        </Route>
-
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to={redirectPath} replace />} />
-      </Routes>
+      <Layout />
     </AppContextProvider>
+  );
+}
+
+function AppWithAuth() {
+  const redirectPath = useRedirectPath();
+
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <LoginPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <PublicRoute>
+            <SignUpPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPasswordPage />
+          </PublicRoute>
+        }
+      />
+      <Route path="/invite/accept/:token" element={<AcceptInvitePage />} />
+
+      <Route path="/" element={<Navigate to={redirectPath} replace />} />
+
+      <Route element={<AuthGuard />}>
+        <Route path="/onboarding/profile" element={<CompleteProfile />} />
+        <Route path="/onboarding/company" element={<CreateCompany />} />
+
+        <Route element={<AppProvidersLayout />}>
+          <Route
+            path="dashboard"
+            element={
+              <DashboardRoute>
+                <Dashboard />
+              </DashboardRoute>
+            }
+          />
+          <Route path="projects" element={<Projects />} />
+          <Route path="chat" element={<Chat />} />
+          <Route path="notepad" element={<Notepad />} />
+          <Route
+            path="tools"
+            element={
+              <AdminOnlyRoute>
+                <Tools />
+              </AdminOnlyRoute>
+            }
+          />
+          <Route path="settings" element={<Settings />} />
+          <Route path="mytasks" element={<MyTasksPage />} />
+          <Route path="projectdetails/:id" element={<ProjectDetailWrapper />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<Navigate to={redirectPath} replace />} />
+    </Routes>
   );
 }
 

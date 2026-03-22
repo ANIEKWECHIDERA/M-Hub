@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { TaskService } from "../services/task.service";
+import { NotificationService } from "../services/notification.service";
+import { EmailNotificationService } from "../services/emailNotification.service";
 import { logger } from "../utils/logger";
 
 export const TaskController = {
@@ -68,6 +70,7 @@ export const TaskController = {
   async createTask(req: any, res: Response) {
     const { projectId } = req.params;
     const companyId = req.user.company_id;
+    const actorUserId = req.user.user_id;
 
     try {
       const task = await TaskService.create({
@@ -75,6 +78,28 @@ export const TaskController = {
         company_id: companyId,
         project_id: projectId,
       });
+
+      if (Array.isArray(req.body.team_member_ids) && req.body.team_member_ids.length) {
+        await NotificationService.createTaskAssignmentNotifications({
+          companyId,
+          projectId,
+          taskId: task.id,
+          taskTitle: task.title,
+          teamMemberIds: req.body.team_member_ids,
+          actorUserId,
+        });
+        void EmailNotificationService.sendTaskAssignmentEmails({
+          companyId,
+          taskId: task.id,
+          teamMemberIds: req.body.team_member_ids,
+          actorUserId,
+        }).catch((error: any) => {
+          logger.error("TaskController.createTask: assignment email failed", {
+            taskId: task.id,
+            error: error.message,
+          });
+        });
+      }
 
       return res.status(201).json(task);
     } catch (error) {
@@ -86,9 +111,55 @@ export const TaskController = {
   async updateTask(req: any, res: Response) {
     const { taskId } = req.params;
     const companyId = req.user.company_id;
+    const actorUserId = req.user.user_id;
 
     try {
+      const previousTask = await TaskService.findByIdEnriched(taskId, companyId);
       const updatedTask = await TaskService.update(taskId, companyId, req.body);
+
+      if (updatedTask) {
+        if (Array.isArray(req.body.team_member_ids)) {
+          const previousIds = new Set(
+            previousTask?.assignees?.map((assignee: any) => assignee.id) ?? [],
+          );
+          const newAssigneeIds = req.body.team_member_ids.filter(
+            (teamMemberId: string) => !previousIds.has(teamMemberId),
+          );
+
+          if (newAssigneeIds.length > 0) {
+            await NotificationService.createTaskAssignmentNotifications({
+              companyId,
+              projectId: updatedTask.projectId,
+              taskId,
+              taskTitle: updatedTask.title,
+              teamMemberIds: newAssigneeIds,
+              actorUserId,
+            });
+            void EmailNotificationService.sendTaskAssignmentEmails({
+              companyId,
+              taskId,
+              teamMemberIds: newAssigneeIds,
+              actorUserId,
+            }).catch((error: any) => {
+              logger.error("TaskController.updateTask: assignment email failed", {
+                taskId,
+                error: error.message,
+              });
+            });
+          }
+        }
+
+        if (req.body.status && req.body.status !== previousTask?.status) {
+          await NotificationService.createTaskStatusNotifications({
+            companyId,
+            projectId: updatedTask.projectId,
+            taskId,
+            taskTitle: updatedTask.title,
+            status: req.body.status,
+            actorUserId,
+          });
+        }
+      }
 
       return res.json(updatedTask || null);
     } catch (error) {
@@ -113,14 +184,13 @@ export const TaskController = {
   ///////// MY TASKS /////////
 
   async getMyTasks(req: any, res: Response) {
+    res.setHeader("Cache-Control", "private, no-store");
+
     const companyId = req.user.company_id;
-    const teamMemberId = req.user.team_member_id;
+    const userId = req.user.user_id;
 
     try {
-      const myTasks = await TaskService.getAssignedTasks(
-        teamMemberId,
-        companyId,
-      );
+      const myTasks = await TaskService.getAssignedTasks(userId, companyId);
       logger.info("fetched my tasks:", myTasks);
 
       return res.status(200).json(myTasks);

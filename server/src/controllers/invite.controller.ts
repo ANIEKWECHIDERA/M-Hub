@@ -1,12 +1,16 @@
 // src/controllers/invite.controller.ts
 import { Request, Response } from "express";
 import { InviteService } from "../services/invite.service";
+import { NotificationService } from "../services/notification.service";
+import { EmailNotificationService } from "../services/emailNotification.service";
 import { logger } from "../utils/logger";
 
 export const InviteController = {
   async sendInvite(req: Request, res: Response) {
     const userId = req.user?.id;
-    const { email, access, role } = req.body;
+    const email = String(req.body?.email ?? "").trim().toLowerCase();
+    const role = String(req.body?.role ?? "").trim();
+    const access = String(req.body?.access ?? "team_member").trim();
 
     logger.info("InviteController.sendInvite: start", { userId, email });
 
@@ -36,23 +40,19 @@ export const InviteController = {
         email,
       });
 
-      // TODO: send email notification here
-
-      let inviteLink = `https://m-hub.com/invite/accept/${token}`;
-
-      if (token) {
-        inviteLink = `https://m-hub.com/invite/accept/${token}`;
-      }
-
-      logger.info(`Simulated Mail:
-
-You have been invited to join a company on M-Hub.
-
-Please use the link below to accept the invitation.
-The link expires in 24 hours.
-
-${inviteLink}
-`);
+      void EmailNotificationService.sendWorkspaceInviteEmail({
+        companyId: invite.company_id,
+        inviterUserId: userId,
+        invitedEmail: email,
+        role,
+        inviteToken: token,
+      }).catch((error: any) => {
+        logger.error("InviteController.sendInvite: invite email failed", {
+          inviteId: invite.id,
+          email,
+          error: error.message,
+        });
+      });
 
       return res.status(200).json({
         message: "invite sent successfully",
@@ -63,15 +63,13 @@ ${inviteLink}
         error: err.message,
         stack: err.stack,
       });
-      return res
-        .status(500)
-        .json({ error: "Failed to send invite", details: err.message });
+      return res.status(400).json({ error: err.message });
     }
   },
 
   async acceptInvite(req: Request, res: Response) {
     const userId = req.user?.id;
-    const { token, access } = req.body;
+    const token = String(req.body?.token ?? "").trim();
 
     logger.info("InviteController.acceptInvite: start", {
       userId,
@@ -87,7 +85,25 @@ ${inviteLink}
     }
 
     try {
-      const result = await InviteService.acceptInvite(token, userId, access);
+      const result = await InviteService.acceptInvite(token, userId);
+
+      await NotificationService.createInviteAcceptedNotifications({
+        companyId: result.companyId,
+        acceptedUserId: userId,
+        acceptedEmail: req.user?.email ?? "A user",
+      });
+      void EmailNotificationService.sendInviteAcceptedEmails({
+        companyId: result.companyId,
+        acceptedUserId: userId,
+        role: result.role,
+        joinedAt: result.joinedAt,
+      }).catch((error: any) => {
+        logger.error("InviteController.acceptInvite: invite accepted email failed", {
+          companyId: result.companyId,
+          userId,
+          error: error.message,
+        });
+      });
 
       return res.status(200).json({
         message: "Invite accepted successfully",
@@ -101,6 +117,25 @@ ${inviteLink}
       return res.status(400).json({
         error: error.message,
       });
+    }
+  },
+
+  async declineInvite(req: Request, res: Response) {
+    const token = String(req.body?.token ?? "").trim();
+
+    if (!token) {
+      return res.status(400).json({ error: "Invite token is required" });
+    }
+
+    try {
+      await InviteService.declineInvite(token);
+      return res.status(200).json({ message: "Invite declined successfully" });
+    } catch (error: any) {
+      logger.error("InviteController.declineInvite: error", {
+        error: error.message,
+      });
+
+      return res.status(400).json({ error: error.message });
     }
   },
 

@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { AssetService } from "../services/asset.service";
+import { NotificationService } from "../services/notification.service";
 import { logger } from "../utils/logger";
 
 export const AssetController = {
@@ -54,6 +55,15 @@ export const AssetController = {
         project_id,
         createdCount: assets.length,
       });
+
+      if (assets.length > 0 && project_id) {
+        await NotificationService.createAssetUploadNotifications({
+          companyId,
+          projectId: project_id,
+          actorUserId: userId,
+          fileCount: assets.length,
+        });
+      }
 
       return res.status(201).json(assets);
     } catch (error) {

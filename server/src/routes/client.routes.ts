@@ -6,36 +6,39 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 
 router.get(
   "/clients",
+  ...protectedRoute,
   authorize(["team_member", "admin", "superAdmin"]),
   ClientController.getClients,
 );
 
 router.get(
   "/clients/:id",
+  ...protectedRoute,
   authorize(["team_member", "admin", "superAdmin"]),
   ClientController.getClientById,
 );
 
 router.post(
   "/clients",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   ClientController.createClient,
 );
 
 router.patch(
   "/clients/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   ClientController.updateClient,
 );
 
 router.delete(
   "/clients/:id",
+  ...protectedRoute,
   authorize(["admin", "superAdmin"]),
   ClientController.deleteClient,
 );

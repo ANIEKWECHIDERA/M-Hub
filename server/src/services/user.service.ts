@@ -1,6 +1,9 @@
 import { supabaseAdmin } from "../config/supabaseClient";
+import { prisma } from "../lib/prisma";
 import { CreateUserFromAuthDTO } from "../types/user.types";
 import { logger } from "../utils/logger";
+import { RequestCacheService } from "./requestCache.service";
+import { TeamMemberHttpError } from "./teamMemberErrors";
 
 export const UserService = {
   async findByFirebaseUid(firebaseUid: string) {
@@ -26,32 +29,53 @@ export const UserService = {
   },
 
   async createFromAuth(dto: CreateUserFromAuthDTO) {
-    logger.info("createFromAuth: Starting to insert user", dto);
-    try {
-      const { data, error } = await supabaseAdmin
-        .from("users")
-        .insert({
-          firebase_uid: dto.firebase_uid,
-          email: dto.email,
-          display_name: dto.display_name ?? null,
-          photo_url: dto.photo_url ?? null,
-          terms_accepted: false,
-          terms_accepted_at: null,
-          last_login: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+    logger.info("createFromAuth: Starting to sync user", dto);
 
-      if (error) {
-        logger.info(
-          "createFromAuth: Error inserting user into Supabase",
-          error,
-        );
-        throw error;
-      }
-      logger.info("createFromAuth: User inserted successfully", data);
+    const now = new Date().toISOString();
+
+    try {
+      // A single upsert keeps auth sync idempotent when several requests hit
+      // the backend immediately after Firebase signs a user in.
+      const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+        INSERT INTO users (
+          firebase_uid,
+          email,
+          display_name,
+          photo_url,
+          terms_accepted,
+          terms_accepted_at,
+          last_login,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${dto.firebase_uid},
+          ${dto.email},
+          ${dto.display_name ?? null},
+          ${dto.photo_url ?? null},
+          ${false},
+          ${null},
+          ${now}::timestamp,
+          ${now}::timestamp,
+          ${now}::timestamp
+        )
+        ON CONFLICT (firebase_uid)
+        DO UPDATE SET
+          email = EXCLUDED.email,
+          display_name = COALESCE(users.display_name, EXCLUDED.display_name),
+          photo_url = COALESCE(users.photo_url, EXCLUDED.photo_url),
+          last_login = EXCLUDED.last_login,
+          updated_at = EXCLUDED.updated_at
+        RETURNING *`;
+
+      const data = rows[0];
+
+      logger.info("createFromAuth: User synced successfully", data);
+      RequestCacheService.invalidateUserContext({
+        userId: data?.id,
+        firebaseUid: dto.firebase_uid,
+      });
+      RequestCacheService.setUser(dto.firebase_uid, data);
       return data;
     } catch (error) {
       logger.error("createFromAuth: Unexpected error", { error });
@@ -103,11 +127,86 @@ export const UserService = {
         data.email,
         data.firebase_uid,
       );
+      RequestCacheService.invalidateUserContext({
+        userId: data?.id,
+        firebaseUid: userData.firebase_uid,
+      });
       return data;
     } catch (error) {
       logger.error("create: Unexpected error", { error });
       throw error;
     }
+  },
+
+  async completeSignupProfile(userData: {
+    firebase_uid: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    display_name: string;
+    terms_accepted: boolean;
+    terms_accepted_at: Date;
+  }) {
+    logger.info("completeSignupProfile: start", {
+      firebase_uid: userData.firebase_uid,
+      email: userData.email,
+    });
+
+    const now = new Date().toISOString();
+
+    const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+      INSERT INTO users (
+        firebase_uid,
+        email,
+        first_name,
+        last_name,
+        display_name,
+        profile_complete,
+        terms_accepted,
+        terms_accepted_at,
+        last_login,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${userData.firebase_uid},
+        ${userData.email},
+        ${userData.first_name},
+        ${userData.last_name},
+        ${userData.display_name},
+        ${true},
+        ${userData.terms_accepted},
+        ${userData.terms_accepted_at.toISOString()}::timestamp,
+        ${now}::timestamp,
+        ${now}::timestamp,
+        ${now}::timestamp
+      )
+      ON CONFLICT (firebase_uid)
+      DO UPDATE SET
+        email = EXCLUDED.email,
+        first_name = EXCLUDED.first_name,
+        last_name = EXCLUDED.last_name,
+        display_name = EXCLUDED.display_name,
+        profile_complete = EXCLUDED.profile_complete,
+        terms_accepted = EXCLUDED.terms_accepted,
+        terms_accepted_at = EXCLUDED.terms_accepted_at,
+        last_login = EXCLUDED.last_login,
+        updated_at = EXCLUDED.updated_at
+      RETURNING *`;
+
+    const user = rows[0];
+
+    logger.info("completeSignupProfile: success", {
+      firebase_uid: userData.firebase_uid,
+      userId: user?.id,
+    });
+
+    RequestCacheService.invalidateUserContext({
+      userId: user?.id,
+      firebaseUid: userData.firebase_uid,
+    });
+
+    return user;
   },
 
   async updateByFirebaseUid(
@@ -118,6 +217,8 @@ export const UserService = {
       display_name: string;
       photo_url: string;
       profile_complete?: boolean;
+      terms_accepted?: boolean;
+      terms_accepted_at?: string;
     }>,
   ) {
     if (!firebaseUid) {
@@ -130,7 +231,9 @@ export const UserService = {
 
     const display_name = updates.display_name
       ? updates.display_name
-      : `${updates.first_name ?? ""} ${updates.last_name ?? ""}`.trim();
+      : updates.first_name || updates.last_name
+        ? `${updates.first_name ?? ""} ${updates.last_name ?? ""}`.trim()
+        : undefined;
 
     logger.info("UserService.updateByFirebaseUid: start", {
       firebaseUid,
@@ -142,7 +245,7 @@ export const UserService = {
       .from("users")
       .update({
         ...updates,
-        display_name: display_name,
+        ...(display_name ? { display_name } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("firebase_uid", firebaseUid)
@@ -155,15 +258,124 @@ export const UserService = {
     });
 
     if (error) throw error;
+    RequestCacheService.invalidateUserContext({
+      userId: data?.id,
+      firebaseUid,
+    });
     return data;
   },
 
+  async touchLastLoginIfNeeded(params: {
+    firebaseUid: string;
+    userId?: string | null;
+    lastLogin?: string | Date | null;
+  }) {
+    const { firebaseUid, userId, lastLogin } = params;
+
+    if (!firebaseUid) {
+      return false;
+    }
+
+    const lastLoginDate = lastLogin ? new Date(lastLogin) : null;
+    const now = Date.now();
+    const shouldSkip =
+      lastLoginDate && now - lastLoginDate.getTime() < 15 * 60 * 1000;
+
+    if (shouldSkip) {
+      return false;
+    }
+
+    const timestamp = new Date(now).toISOString();
+
+    const { error: userError } = await supabaseAdmin
+      .from("users")
+      .update({
+        last_login: timestamp,
+        updated_at: timestamp,
+      })
+      .eq("firebase_uid", firebaseUid);
+
+    if (userError) {
+      throw userError;
+    }
+
+    if (userId) {
+      const { error: membershipError } = await supabaseAdmin
+        .from("team_members")
+        .update({
+          last_login: timestamp,
+          updated_at: timestamp,
+        })
+        .eq("user_id", userId);
+
+      if (membershipError) {
+        throw membershipError;
+      }
+    }
+
+    const cachedUser = RequestCacheService.getUser(firebaseUid);
+    if (cachedUser) {
+      RequestCacheService.setUser(firebaseUid, {
+        ...cachedUser,
+        last_login: timestamp,
+        updated_at: timestamp,
+      });
+    }
+
+    return true;
+  },
+
   async deleteByFirebaseUid(firebaseUid: string) {
+    const user = await this.findByFirebaseUid(firebaseUid);
+    if (!user?.id) {
+      return;
+    }
+
+    const { count, error: superAdminError } = await supabaseAdmin
+      .from("team_members")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("access", "superAdmin")
+      .eq("status", "active");
+
+    if (superAdminError) throw superAdminError;
+
+    if ((count ?? 0) > 0) {
+      const { data: memberships, error: membershipsError } = await supabaseAdmin
+        .from("team_members")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .eq("access", "superAdmin")
+        .eq("status", "active");
+
+      if (membershipsError) throw membershipsError;
+
+      for (const membership of memberships ?? []) {
+        const { count: companySuperAdminCount, error: companyCountError } = await supabaseAdmin
+          .from("team_members")
+          .select("*", { count: "exact", head: true })
+          .eq("company_id", membership.company_id)
+          .eq("access", "superAdmin")
+          .eq("status", "active");
+
+        if (companyCountError) throw companyCountError;
+
+        if ((companySuperAdminCount ?? 0) <= 1) {
+          throw new TeamMemberHttpError(
+            409,
+            "You cannot delete your account while you are the last active super admin of a workspace",
+            "LAST_SUPERADMIN_ACCOUNT_DELETE_FORBIDDEN",
+          );
+        }
+      }
+    }
+
     const { error } = await supabaseAdmin
       .from("users")
       .delete()
       .eq("firebase_uid", firebaseUid);
 
     if (error) throw error;
+    RequestCacheService.invalidateUserContext({ firebaseUid, userId: user.id });
   },
 };

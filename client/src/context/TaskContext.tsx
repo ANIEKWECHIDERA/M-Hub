@@ -5,6 +5,7 @@ import type { TaskContextType, TaskWithAssigneesDTO } from "@/Types/types";
 import { tasksAPI } from "@/api/tasks.api";
 import { useAuthContext } from "./AuthContext";
 import { normalizeTask } from "@/mapper/task.mapper";
+import { useProjectContext } from "./ProjectContext";
 
 const TaskContext = createContext<TaskContextType | null>(null);
 
@@ -20,7 +21,7 @@ export const TaskContextProvider = ({
   children,
   projectIds,
 }: {
-  projectId: string;
+  projectId?: string;
   children: React.ReactNode;
   projectIds?: string[];
 }) => {
@@ -35,8 +36,68 @@ export const TaskContextProvider = ({
     null,
   );
   const { idToken } = useAuthContext();
+  const { projects, setProjects, currentProject, setCurrentProject } =
+    useProjectContext();
 
   const ids = projectIds?.length ? projectIds : projectId ? [projectId] : [];
+
+  const calculateProgress = (taskCount: number, completedTaskCount: number) =>
+    taskCount > 0 ? Math.round((completedTaskCount / taskCount) * 100) : 0;
+
+  const updateProjectTaskStats = (
+    targetProjectId: string,
+    updater: (current: {
+      task_count: number;
+      completed_task_count: number;
+    }) => {
+      task_count: number;
+      completed_task_count: number;
+    },
+  ) => {
+    setProjects((prev) =>
+      prev.map((project) => {
+        if (project.id !== targetProjectId) {
+          return project;
+        }
+
+        const nextCounts = updater({
+          task_count: project.task_count ?? 0,
+          completed_task_count: project.completed_task_count ?? 0,
+        });
+
+        return {
+          ...project,
+          task_count: Math.max(0, nextCounts.task_count),
+          completed_task_count: Math.max(0, nextCounts.completed_task_count),
+          progress: calculateProgress(
+            Math.max(0, nextCounts.task_count),
+            Math.max(0, nextCounts.completed_task_count),
+          ),
+        };
+      }),
+    );
+
+    setCurrentProject((prev) => {
+      if (!prev || prev.id !== targetProjectId) {
+        return prev;
+      }
+
+      const nextCounts = updater({
+        task_count: prev.task_count ?? 0,
+        completed_task_count: prev.completed_task_count ?? 0,
+      });
+
+      return {
+        ...prev,
+        task_count: Math.max(0, nextCounts.task_count),
+        completed_task_count: Math.max(0, nextCounts.completed_task_count),
+        progress: calculateProgress(
+          Math.max(0, nextCounts.task_count),
+          Math.max(0, nextCounts.completed_task_count),
+        ),
+      };
+    });
+  };
 
   // Fetch tasks from API
   const fetchTasks = async () => {
@@ -46,11 +107,12 @@ export const TaskContextProvider = ({
       return;
     }
 
-    // if (!ids.length) {
-    //   setTasks([]);
-    //   setLoading(false);
-    //   return;
-    // }
+    if (!ids.length) {
+      setTasks([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -59,7 +121,6 @@ export const TaskContextProvider = ({
       const allTasks = await Promise.all(
         ids.map((id) => tasksAPI.getAllByProject(id, idToken)),
       );
-      console.log("All tasks:", allTasks);
       // Flatten the results and normalize
       setTasks(allTasks.flat().map(normalizeTask));
     } catch (err: any) {
@@ -71,9 +132,12 @@ export const TaskContextProvider = ({
   };
 
   useEffect(() => {
-    if (!projectId || !idToken) return;
+    if (!idToken) {
+      setLoading(false);
+      return;
+    }
     fetchTasks();
-  }, [projectId, idToken]);
+  }, [projectId, projectIds, idToken]);
 
   // Optimistic add
   const addTask = async (
@@ -102,6 +166,11 @@ export const TaskContextProvider = ({
     };
 
     setTasks((prev) => [optimisticTask, ...prev]);
+    updateProjectTaskStats(projectId, (current) => ({
+      task_count: current.task_count + 1,
+      completed_task_count:
+        current.completed_task_count + (optimisticTask.status === "Done" ? 1 : 0),
+    }));
 
     const promise = tasksAPI.create(projectId, data, idToken);
 
@@ -121,6 +190,11 @@ export const TaskContextProvider = ({
       return normalizeTask(savedTask);
     } catch (err) {
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      updateProjectTaskStats(projectId, (current) => ({
+        task_count: current.task_count - 1,
+        completed_task_count:
+          current.completed_task_count - (optimisticTask.status === "Done" ? 1 : 0),
+      }));
       throw err;
     }
   };
@@ -135,6 +209,50 @@ export const TaskContextProvider = ({
       throw new Error("No auth token");
     }
 
+    const previousTasks = tasks;
+    const previousProjects = projects;
+    const previousSelectedTask = selectedTask;
+    const previousCurrentProject = currentProject;
+    const optimisticTask =
+      tasks.find((task) => task.id === id) ?? selectedTask ?? null;
+
+    if (optimisticTask) {
+      const mergedTask = {
+        ...optimisticTask,
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setTasks((prev) => prev.map((t) => (t.id === id ? mergedTask : t)));
+      setSelectedTask((task) => (task?.id === id ? mergedTask : task));
+
+      const previousProjectId = optimisticTask.projectId;
+      const nextProjectId = mergedTask.projectId ?? previousProjectId;
+      const wasCompleted = optimisticTask.status === "Done";
+      const isCompleted = mergedTask.status === "Done";
+
+      if (previousProjectId === nextProjectId) {
+        if (wasCompleted !== isCompleted) {
+          updateProjectTaskStats(previousProjectId, (current) => ({
+            task_count: current.task_count,
+            completed_task_count:
+              current.completed_task_count + (isCompleted ? 1 : -1),
+          }));
+        }
+      } else {
+        updateProjectTaskStats(previousProjectId, (current) => ({
+          task_count: current.task_count - 1,
+          completed_task_count:
+            current.completed_task_count - (wasCompleted ? 1 : 0),
+        }));
+        updateProjectTaskStats(nextProjectId, (current) => ({
+          task_count: current.task_count + 1,
+          completed_task_count:
+            current.completed_task_count + (isCompleted ? 1 : 0),
+        }));
+      }
+    }
+
     const promise = tasksAPI.update(id, data, idToken);
 
     toast.promise(promise, {
@@ -143,13 +261,23 @@ export const TaskContextProvider = ({
       error: "Failed to update task",
     });
 
-    const updatedTask = await promise;
+    try {
+      const updatedTask = await promise;
+      const normalizedTask = normalizeTask(updatedTask);
 
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? normalizeTask(updatedTask) : t)),
-    );
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? normalizedTask : t)),
+      );
+      setSelectedTask((task) => (task?.id === id ? normalizedTask : task));
 
-    return normalizeTask(updatedTask);
+      return normalizedTask;
+    } catch (err) {
+      setTasks(previousTasks);
+      setProjects(previousProjects);
+      setSelectedTask(previousSelectedTask);
+      setCurrentProject(previousCurrentProject);
+      throw err;
+    }
   };
 
   // Optimistic delete
@@ -160,8 +288,18 @@ export const TaskContextProvider = ({
     }
 
     const prevTasks = tasks;
+    const previousProjects = projects;
+    const previousCurrentProject = currentProject;
+    const taskToRemove = tasks.find((task) => task.id === id) ?? null;
 
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    if (taskToRemove) {
+      updateProjectTaskStats(taskToRemove.projectId, (current) => ({
+        task_count: current.task_count - 1,
+        completed_task_count:
+          current.completed_task_count - (taskToRemove.status === "Done" ? 1 : 0),
+      }));
+    }
 
     const promise = tasksAPI.delete(id, idToken);
 
@@ -175,6 +313,8 @@ export const TaskContextProvider = ({
       await promise;
     } catch (err) {
       setTasks(prevTasks); // rollback
+      setProjects(previousProjects);
+      setCurrentProject(previousCurrentProject);
       throw err;
     }
   };

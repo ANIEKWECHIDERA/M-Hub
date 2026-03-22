@@ -5,14 +5,12 @@ import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
 
 const router = Router();
-router.use(verifyFirebaseToken);
-router.use(profileSync);
-router.use(requireAppUser);
+const protectedRoute = [verifyFirebaseToken, profileSync, requireAppUser];
 
 // READ my settings
-router.get("/user/settings", UserSettingsController.getMySettings);
+router.get("/user/settings", ...protectedRoute, UserSettingsController.getMySettings);
 
 // UPDATE my settings
-router.patch("/user/settings", UserSettingsController.updateMySettings);
+router.patch("/user/settings", ...protectedRoute, UserSettingsController.updateMySettings);
 
 export default router;

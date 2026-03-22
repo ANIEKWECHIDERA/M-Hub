@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useState,
   useCallback,
 } from "react";
@@ -9,6 +8,7 @@ import { toast } from "sonner";
 import { useAuthContext } from "./AuthContext";
 import type { Assets, AssetContextType } from "@/Types/types";
 import { AssetsAPI } from "@/api/assets.api";
+import { useUploadStatus } from "./UploadStatusContext";
 
 const AssetContext = createContext<AssetContextType | null>(null);
 
@@ -26,6 +26,7 @@ export const AssetContextProvider = ({
   children: React.ReactNode;
 }) => {
   const { idToken } = useAuthContext();
+  const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
 
   const [files, setFiles] = useState<Assets[]>([]);
   const [currentFile, setCurrentFile] = useState<Assets | null>(null);
@@ -63,19 +64,24 @@ export const AssetContextProvider = ({
     if (!idToken) throw new Error("Authentication required");
 
     try {
+      startUpload(
+        filesToUpload.length > 1
+          ? `Uploading ${filesToUpload.length} files...`
+          : `Uploading ${filesToUpload[0]?.name ?? "file"}...`,
+      );
       const uploaded = await AssetsAPI.upload(
         projectId,
         filesToUpload,
         idToken,
-        taskId
+        taskId,
+        setUploadProgress,
       );
 
-      console.log("uploaded files:", uploaded);
-
       setFiles((prev) => [...uploaded, ...prev]);
-      toast.success("Files uploaded successfully");
+      finishUpload();
     } catch (err: any) {
-      toast.error(err.message || "Upload failed");
+      finishUpload();
+      setError(err.message || "Upload failed");
     }
   };
 

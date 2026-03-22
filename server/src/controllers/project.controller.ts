@@ -1,26 +1,20 @@
 import { Request, Response } from "express";
 import { ProjectService } from "../services/project.service";
+import { EmailNotificationService } from "../services/emailNotification.service";
 import { CreateProjectDTO, UpdateProjectDTO } from "../types/project.types";
 import { logger } from "../utils/logger";
 
 export const ProjectController = {
   async getProjects(req: Request, res: Response) {
-    logger.info(
-      "REQ.USER:",
-      req.user?.uid,
-      req.user?.company_id,
-      req.user?.email,
-    );
-
     if (!req.user?.company_id) {
       logger.error("ProjectController: Missing company_id on request", {
-        user: req.user,
+        userId: req.user?.id ?? null,
+        firebaseUid: req.user?.firebase_uid ?? req.user?.uid ?? null,
       });
       return res.status(401).json({ error: "Unauthorized" });
     }
 
     const companyId = req.user.company_id;
-    logger.info(`ProjectController: CompanyId: ${companyId}`);
 
     try {
       logger.info("ProjectController: getProjects: fetching projects", {
@@ -67,7 +61,6 @@ export const ProjectController = {
         {
           id,
           companyId,
-          project,
         },
       );
 
@@ -85,10 +78,23 @@ export const ProjectController = {
 
   async createProject(req: any, res: Response) {
     const companyId = req.user.company_id;
+    const rawClientId = String(req.body?.client_id ?? "").trim();
+    const isUuid =
+      !rawClientId ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        rawClientId,
+      );
 
     const payload: CreateProjectDTO = {
       ...req.body,
       company_id: companyId,
+      client_id: isUuid ? rawClientId || undefined : undefined,
+      client:
+        !isUuid && rawClientId
+          ? {
+              name: rawClientId,
+            }
+          : req.body?.client,
     };
 
     try {
@@ -125,8 +131,25 @@ export const ProjectController = {
   async updateProject(req: any, res: Response) {
     const { id } = req.params;
     const companyId = req.user.company_id;
+    const rawClientId = String(req.body?.client_id ?? "").trim();
+    const isUuid =
+      !rawClientId ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        rawClientId,
+      );
 
-    const payload: UpdateProjectDTO = req.body;
+    const payload: UpdateProjectDTO & {
+      client?: { name: string };
+    } = {
+      ...req.body,
+      client_id: isUuid ? rawClientId || undefined : undefined,
+      client:
+        !isUuid && rawClientId
+          ? {
+              name: rawClientId,
+            }
+          : req.body?.client,
+    };
 
     try {
       logger.info("ProjectController: updateProject: updating project", {
@@ -135,6 +158,7 @@ export const ProjectController = {
         payload,
       });
 
+      const previousProject = await ProjectService.findById(id, companyId);
       const updatedProject = await ProjectService.update(
         id,
         companyId,
@@ -153,6 +177,37 @@ export const ProjectController = {
         id,
         companyId,
       });
+
+      const changedFields = Object.keys(payload).filter(
+        (key) => payload[key as keyof typeof payload] !== undefined,
+      );
+
+      if (previousProject && updatedProject && changedFields.length > 0) {
+        void EmailNotificationService.sendProjectUpdateEmails({
+          companyId,
+          projectId: id,
+          actorUserId: req.user.user_id,
+          previousProject: {
+            title: previousProject.title,
+            status: previousProject.status,
+            deadline: previousProject.deadline,
+            clientName: previousProject.client?.name ?? null,
+          },
+          updatedProject: {
+            title: updatedProject.title,
+            status: updatedProject.status,
+            deadline: updatedProject.deadline,
+            clientName: updatedProject.client?.name ?? null,
+          },
+          changedFields,
+        }).catch((error: any) => {
+          logger.error("ProjectController.updateProject: project update email failed", {
+            id,
+            companyId,
+            error: error.message,
+          });
+        });
+      }
 
       return res.json(updatedProject);
     } catch (error) {

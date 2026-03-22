@@ -4,9 +4,37 @@ import {
   UpdateCommentDTO,
   CommentResponseDTO,
 } from "../types/comment.types";
+import { commentRealtimeService } from "./commentRealtime.service";
 import { logger } from "../utils/logger";
 
-function toCommentResponseDTO(row: any): CommentResponseDTO {
+function buildAuthorName(user: any) {
+  const fullName = [user?.first_name, user?.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return fullName || user?.display_name || user?.email || "Unknown user";
+}
+
+async function loadAuthors(authorIds: string[]) {
+  if (authorIds.length === 0) {
+    return new Map<string, any>();
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("id, email, display_name, first_name, last_name, photo_url")
+    .in("id", authorIds);
+
+  if (error) {
+    logger.error("CommentService.loadAuthors: supabase error", { error });
+    throw error;
+  }
+
+  return new Map((data ?? []).map((user: any) => [user.id, user]));
+}
+
+function toCommentResponseDTO(row: any, author?: any): CommentResponseDTO {
   return {
     id: row.id,
     company_id: row.company_id,
@@ -16,6 +44,11 @@ function toCommentResponseDTO(row: any): CommentResponseDTO {
     content: row.content,
     timestamp: row.timestamp,
     updated_at: row.updated_at,
+    author: {
+      id: author?.id ?? row.author_id,
+      name: buildAuthorName(author),
+      avatar: author?.photo_url ?? null,
+    },
   };
 }
 
@@ -43,7 +76,13 @@ export const CommentService = {
       throw error;
     }
 
-    return data.map(toCommentResponseDTO);
+    const authorMap = await loadAuthors(
+      [...new Set((data ?? []).map((comment: any) => comment.author_id).filter(Boolean))],
+    );
+
+    return (data ?? []).map((row: any) =>
+      toCommentResponseDTO(row, authorMap.get(row.author_id)),
+    );
   },
 
   async create(payload: CreateCommentDTO): Promise<CommentResponseDTO> {
@@ -66,7 +105,17 @@ export const CommentService = {
       throw error;
     }
 
-    return toCommentResponseDTO(data);
+    const authorMap = await loadAuthors([data.author_id]);
+    const comment = toCommentResponseDTO(data, authorMap.get(data.author_id));
+
+    commentRealtimeService.emit({
+      type: "comment.created",
+      company_id: comment.company_id,
+      project_id: comment.project_id,
+      comment,
+    });
+
+    return comment;
   },
 
   async update(
@@ -97,11 +146,38 @@ export const CommentService = {
       throw error;
     }
 
-    return data ? toCommentResponseDTO(data) : null;
+    if (!data) return null;
+
+    const authorMap = await loadAuthors([data.author_id]);
+    const comment = toCommentResponseDTO(data, authorMap.get(data.author_id));
+
+    commentRealtimeService.emit({
+      type: "comment.updated",
+      company_id: comment.company_id,
+      project_id: comment.project_id,
+      comment,
+    });
+
+    return comment;
   },
 
-  async deleteById(id: string, companyId: string): Promise<void> {
+  async deleteById(
+    id: string,
+    companyId: string,
+  ): Promise<{ projectId: string | null }> {
     logger.info("CommentService.deleteById: start", { id, companyId });
+
+    const { data: existingComment, error: lookupError } = await supabaseAdmin
+      .from("comments")
+      .select("id, project_id")
+      .eq("id", id)
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (lookupError) {
+      logger.error("CommentService.deleteById: lookup error", { lookupError });
+      throw lookupError;
+    }
 
     const { error } = await supabaseAdmin
       .from("comments")
@@ -113,5 +189,18 @@ export const CommentService = {
       logger.error("CommentService.deleteById: supabase error", { error });
       throw error;
     }
+
+    if (existingComment?.project_id) {
+      commentRealtimeService.emit({
+        type: "comment.deleted",
+        company_id: companyId,
+        project_id: existingComment.project_id,
+        commentId: id,
+      });
+    }
+
+    return {
+      projectId: existingComment?.project_id ?? null,
+    };
   },
 };

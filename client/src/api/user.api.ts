@@ -16,16 +16,18 @@ export const UserAPI = {
     return apiFetch<{ profile: UserProfile }>("/api/user", undefined, idToken);
   },
 
-  update(payload: UpdateUserDTO, idToken: string | null) {
+  update(payload: UpdateUserDTO | FormData, idToken: string | null) {
     if (!idToken) {
       throw new Error("Missing ID token");
     }
+
+    const isFormData = payload instanceof FormData;
 
     return apiFetch<{ profile: UserProfile }>(
       "/api/user",
       {
         method: "PATCH",
-        body: JSON.stringify(payload),
+        body: isFormData ? payload : JSON.stringify(payload),
       },
       idToken,
     );

@@ -10,14 +10,12 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  // onAuthStateChanged,
   signInWithPopup,
   googleProvider,
 } from "../firebase/firebase";
 import type { AuthContextType, AuthStatus } from "@/Types/types";
 import type { User } from "firebase/auth";
 import { API_CONFIG } from "@/lib/api";
-// import { toast } from "sonner";
 import { authAPI } from "@/api/auth.api";
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -37,7 +35,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
-  // Clear error utility
+  const [isWorkspaceSwitching, setIsWorkspaceSwitching] = useState(false);
+  const [workspaceSwitchCompanyId, setWorkspaceSwitchCompanyId] = useState<
+    string | null
+  >(null);
+
   const clearError = () => setError(null);
 
   const isAppReady =
@@ -54,6 +56,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setCurrentUser(null);
       setIdToken(null);
       setAuthStatus(null);
+      setIsWorkspaceSwitching(false);
+      setWorkspaceSwitchCompanyId(null);
       return;
     }
 
@@ -79,11 +83,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, [syncUser]);
 
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      const freshToken = await currentUser.getIdToken(true);
+      setIdToken(freshToken);
+    }, 50 * 60 * 1000);
+
+    return () => window.clearInterval(interval);
+  }, [currentUser]);
+
   const refreshStatus = async () => {
-    if (!idToken) return;
+    if (!currentUser) return;
+
+    const freshToken = await currentUser.getIdToken();
+    setIdToken(freshToken);
 
     const res = await fetch(`${API_CONFIG.backend}/api/status`, {
-      headers: { Authorization: `Bearer ${idToken}` },
+      headers: { Authorization: `Bearer ${freshToken}` },
       method: "GET",
     });
 
@@ -93,8 +113,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAuthStatus(data);
   };
 
-  console.log("ID Token:", idToken);
-
   const signUp = async (
     email: string,
     password: string,
@@ -102,8 +120,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     lastName: string,
     termsAccepted: boolean,
   ) => {
-    // let userCredential;
     let uidToDelete: string | null = null;
+
     try {
       clearError();
       setAuthLoading(true);
@@ -114,23 +132,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         password,
       );
 
-      const idToken = await fetchToken(userCredential.user);
-
+      const token = await fetchToken(userCredential.user);
       uidToDelete = userCredential.user.uid;
 
       const res = await authAPI.createProfile(
         { firstName, lastName, email, termsAccepted },
-        idToken,
+        token,
       );
 
-      // res might be null
-      if (!res || !res.success) {
+      if (!res?.success) {
         throw new Error("Failed to create user profile");
       }
-
-      console.log(
-        `User signed up and profile created: ${userCredential.user.uid}`,
-      );
 
       return {
         user: userCredential.user,
@@ -138,7 +150,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         uidToDeleteOnError: null,
       };
     } catch (err: any) {
-      // Normalize Firebase error → human readable
       let message = err.message;
 
       if (err.code === "auth/email-already-in-use") {
@@ -170,15 +181,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         password,
       );
-      // const idToken = await fetchToken(userCredential.user);
 
-      // const status = await authAPI.sync(idToken);
-
-      // setAuthStatus(status);
+      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      if (pendingInviteToken) {
+        localStorage.removeItem("pendingInviteToken");
+      }
 
       return { user: userCredential.user, idToken: null, error: null };
     } catch (err: any) {
-      // console.error("Firebase signup error:", err.code);
       let message = err.message;
 
       if (err.code === "auth/user-not-found") {
@@ -202,25 +212,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Google Sign-Up (same function as sign-in, but you may rename it)
   const signInWithGoogle = async () => {
     try {
       clearError();
 
       const result = await signInWithPopup(auth, googleProvider);
-
       const user = result.user;
+      const token = await fetchToken(user);
 
-      const idToken = await fetchToken(user);
-
-      // Sync basic data
-      const syncResult = await authAPI.sync(idToken);
-      console.log("Google sign-in sync result:", syncResult);
-
-      // const status = await authAPI.getStatus(idToken);
-      // setAuthStatus(status);
-      // console.log("Google sign-in successful", { uid: user.uid, status });
-
+      await authAPI.sync(token);
       return result;
     } catch (err: any) {
       setError(err.message);
@@ -238,9 +238,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setCurrentUser(null);
       setAuthStatus(null);
       setIdToken(null);
+      setIsWorkspaceSwitching(false);
+      setWorkspaceSwitchCompanyId(null);
     } finally {
       setAuthLoading(false);
     }
+  };
+
+  const startWorkspaceSwitch = (companyId: string) => {
+    setWorkspaceSwitchCompanyId(companyId);
+    setIsWorkspaceSwitching(true);
+  };
+
+  const finishWorkspaceSwitch = () => {
+    setIsWorkspaceSwitching(false);
+    setWorkspaceSwitchCompanyId(null);
   };
 
   const value: AuthContextType = {
@@ -253,10 +265,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signUp,
     signIn,
     signInWithGoogle,
-    // signUpWithGoogle,
     logout,
     clearError,
     idToken,
+    isWorkspaceSwitching,
+    workspaceSwitchCompanyId,
+    startWorkspaceSwitch,
+    finishWorkspaceSwitch,
   };
 
   return (

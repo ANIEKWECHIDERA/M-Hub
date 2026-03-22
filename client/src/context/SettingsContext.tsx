@@ -30,6 +30,9 @@ export const SettingsProvider = ({
     preferences,
     setPreferences,
     toggleTheme,
+    loading,
+    saving,
+    error,
   } = useSettings();
 
   const value = {
@@ -40,6 +43,9 @@ export const SettingsProvider = ({
     setLanguage,
     preferences,
     setPreferences,
+    loading,
+    saving,
+    error,
   };
 
   return (

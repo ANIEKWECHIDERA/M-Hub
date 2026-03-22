@@ -21,7 +21,7 @@ export const useClientContext = () => {
 };
 
 export const ClientProvider = ({ children }: { children: React.ReactNode }) => {
-  const { idToken } = useAuthContext();
+  const { idToken, authStatus } = useAuthContext();
 
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +44,12 @@ export const ClientProvider = ({ children }: { children: React.ReactNode }) => {
   }, [idToken]);
 
   useEffect(() => {
+    if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
+      setClients([]);
+      return;
+    }
     fetchClients();
-  }, [fetchClients]);
+  }, [fetchClients, idToken, authStatus?.companyId, authStatus?.onboardingState]);
 
   return (
     <ClientContext.Provider value={{ clients, loading, error, fetchClients }}>
