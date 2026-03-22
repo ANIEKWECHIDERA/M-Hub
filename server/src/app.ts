@@ -31,10 +31,35 @@ import { captureRequestException, isSentryEnabled, sentry } from "./observabilit
 const app = express();
 chatRealtimeService.initialize();
 
-// CORS middleware - Allow all origins
+const appEnv = process.env.APP_ENV ?? process.env.NODE_ENV ?? "development";
+const isProduction = appEnv === "production";
+const configuredOrigins = (
+  isProduction
+    ? process.env.FRONTEND_URL_PROD
+    : process.env.FRONTEND_URL_DEV
+)
+  ?.split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean) ?? [];
+
+const allowedOrigins = new Set(configuredOrigins);
+
+// CORS middleware - env-driven allowlist for local development and production deploys.
 app.use(
   cors({
-    origin: true, // This allows all origins
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
