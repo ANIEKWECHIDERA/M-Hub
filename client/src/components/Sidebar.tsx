@@ -21,6 +21,9 @@ import {
   Trash2,
   BriefcaseBusiness,
   Users,
+  Sparkles,
+  Trophy,
+  CalendarCheck2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/context/AuthContext";
@@ -87,6 +90,30 @@ const workspaceManagerSections: Array<{
   },
 ] as const;
 
+const retentionIdeas = [
+  {
+    id: "pulse",
+    title: "Team Pulse",
+    icon: Sparkles,
+    blurb: "A 30-second morning check-in that spots blockers before they snowball.",
+    kicker: "Retention idea 1",
+  },
+  {
+    id: "wins",
+    title: "Win Streaks",
+    icon: Trophy,
+    blurb: "Celebrate completed work and momentum so teams keep coming back for progress energy.",
+    kicker: "Retention idea 2",
+  },
+  {
+    id: "ritual",
+    title: "Friday Wrap",
+    icon: CalendarCheck2,
+    blurb: "Turn scattered updates into a weekly recap teams can actually look forward to sharing.",
+    kicker: "Retention idea 3",
+  },
+] as const;
+
 interface SidebarPanelProps {
   collapsed: boolean;
   workspaces: Workspace[];
@@ -145,10 +172,17 @@ function SidebarPanel({
   const [workspaceManagerOpen, setWorkspaceManagerOpen] = useState(
     workspaceManagerOpenByDefault,
   );
+  const [activeRetentionIdea, setActiveRetentionIdea] = useState<
+    (typeof retentionIdeas)[number]["id"]
+  >("pulse");
   const activeWorkspaceSection = useMemo(() => {
     const params = new URLSearchParams(search);
     return params.get("section") ?? "details";
   }, [search]);
+  const activeRetentionCard = retentionIdeas.find(
+    (idea) => idea.id === activeRetentionIdea,
+  ) ?? retentionIdeas[0];
+  const ActiveRetentionIcon = activeRetentionCard.icon;
 
   useEffect(() => {
     if (pathname === "/chat") {
@@ -559,10 +593,53 @@ function SidebarPanel({
       <SidebarFooter className={cn("space-y-2", !isExpanded && "px-2")}>
         {isExpanded ? (
           <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
-            <p className="text-sm font-medium">Workspace controls</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Switch teams and keep each company workspace isolated.
-            </p>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium">Retention Lab</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Choose the next sticky team ritual Crevo should champion.
+                </p>
+              </div>
+              <Badge variant="secondary" className="rounded-full text-[10px]">
+                3 options
+              </Badge>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {retentionIdeas.map((idea) => {
+                const Icon = idea.icon;
+                const isActive = idea.id === activeRetentionIdea;
+                return (
+                  <button
+                    key={idea.id}
+                    type="button"
+                    className={cn(
+                      "premium-interactive inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                      isActive
+                        ? "border-sidebar-primary bg-sidebar-primary text-sidebar-primary-foreground"
+                        : "border-sidebar-border bg-sidebar text-sidebar-foreground hover:bg-sidebar-accent",
+                    )}
+                    onClick={() => setActiveRetentionIdea(idea.id)}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {idea.title}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 rounded-lg border border-sidebar-border bg-sidebar/80 p-2.5">
+              <div className="flex items-center gap-2">
+                <ActiveRetentionIcon className="h-4 w-4 text-sidebar-primary" />
+                <p className="text-xs font-semibold">{activeRetentionCard.title}</p>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {activeRetentionCard.blurb}
+              </p>
+              <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                {activeRetentionCard.kicker}
+              </p>
+            </div>
           </div>
         ) : (
           <div className="flex justify-center">

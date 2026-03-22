@@ -160,7 +160,7 @@ function AvatarVisual({
   return (
     <div
       className={cn(
-        "flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border bg-muted text-sm font-medium text-foreground",
+        "flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border bg-muted text-xs font-medium text-foreground sm:h-10 sm:w-10 sm:text-sm",
         className,
       )}
     >
@@ -474,7 +474,7 @@ function MessageBubble({
     <div
       id={`chat-message-${message.id}`}
       className={cn(
-        "group flex gap-3",
+        "group flex gap-2.5 sm:gap-3",
         isCurrentUser ? "justify-end" : "justify-start",
       )}
     >
@@ -566,7 +566,7 @@ function MessageBubble({
 
         <div
           className={cn(
-            "rounded-2xl border px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+            "rounded-2xl border px-3 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] sm:px-4 sm:py-3 sm:text-sm",
             isCurrentUser
               ? "border-primary bg-primary text-primary-foreground"
               : "bg-muted/60",
@@ -1370,10 +1370,10 @@ export default function Chat() {
 
   return (
     <>
-      <div className="flex h-[calc(100vh-8rem)] min-h-0 gap-4">
+      <div className="flex h-[calc(100vh-8rem)] min-h-0 gap-3 sm:gap-4">
         {showInboxPane && (
           <Card className="flex min-h-0 min-w-0 flex-1 flex-col md:max-w-sm md:flex-[0_0_24rem]">
-            <CardHeader className="space-y-4 border-b pb-4">
+            <CardHeader className="space-y-3 border-b pb-3 sm:space-y-4 sm:pb-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
                   <CardTitle className="text-lg">Messages</CardTitle>
@@ -1383,13 +1383,13 @@ export default function Chat() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <ActionMenu
                     align="end"
                     trigger={() => (
                       <button
                         type="button"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent bg-primary text-primary-foreground transition-colors hover:bg-primary/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                        className="premium-interactive inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent bg-primary text-primary-foreground transition-colors hover:bg-primary/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 sm:h-9 sm:w-9"
                       >
                         <Plus className="h-4 w-4" />
                         <span className="sr-only">Create conversation</span>
@@ -1461,7 +1461,7 @@ export default function Chat() {
             </CardHeader>
 
             <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
-              <div className="space-y-1 p-3">
+              <div className="space-y-1 p-2.5 sm:p-3">
                 {loadingConversations ? (
                   <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1509,7 +1509,7 @@ export default function Chat() {
                         type="button"
                         onClick={() => handleSelectChat(conversation.id)}
                         className={cn(
-                          "w-full rounded-xl border px-3 py-3 text-left transition-colors",
+                          "premium-interactive w-full rounded-xl border px-2.5 py-2.5 text-left transition-colors sm:px-3 sm:py-3",
                           conversation.type === "group" &&
                             "border-sky-100 bg-sky-50/40 hover:bg-sky-50/60 dark:border-sky-950 dark:bg-sky-950/20",
                           isActive
@@ -1517,10 +1517,10 @@ export default function Chat() {
                             : "border-transparent hover:bg-muted/60",
                         )}
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-2.5 sm:gap-3">
                           <div className="relative mt-0.5">
                             {conversation.type === "group" ? (
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted sm:h-10 sm:w-10">
                                 <Users className="h-4 w-4 text-muted-foreground" />
                               </div>
                             ) : (
@@ -1537,7 +1537,7 @@ export default function Chat() {
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start gap-2">
-                              <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                              <span className="min-w-0 flex-1 truncate text-xs font-medium sm:text-sm">
                                 {displayName}
                               </span>
                               <span className="shrink-0 text-[11px] text-muted-foreground">
@@ -1565,7 +1565,7 @@ export default function Chat() {
                               </p>
                             )}
 
-                            <p className="mt-1 truncate text-sm text-muted-foreground">
+                            <p className="mt-1 truncate text-xs text-muted-foreground sm:text-sm">
                               {conversation.type === "group" &&
                               conversation.last_message?.sender.name
                                 ? `${conversation.last_message.sender.name}: `
@@ -1592,15 +1592,15 @@ export default function Chat() {
 
         {showConversationPane && (
           <Card className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <CardHeader className="border-b pb-4">
+            <CardHeader className="border-b pb-3 sm:pb-4">
               {currentChat ? (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div className="flex items-start justify-between gap-2.5 sm:gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
                     {isMobile && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-9 w-9 shrink-0"
+                        className="h-8 w-8 shrink-0 sm:h-9 sm:w-9"
                         onClick={() => setMobileConversationOpen(false)}
                       >
                         <ArrowLeft className="h-4 w-4" />
@@ -1611,7 +1611,7 @@ export default function Chat() {
                     {currentChat.type === "direct" ? (
                       <div className="relative shrink-0">
                         <AvatarVisual
-                          className="h-11 w-11"
+                          className="h-10 w-10 text-sm sm:h-11 sm:w-11"
                           name={currentConversationName}
                           email={directConversationMember?.email}
                           avatar={
@@ -1624,16 +1624,16 @@ export default function Chat() {
                         )}
                       </div>
                     ) : (
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted">
-                        <Users className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted sm:h-11 sm:w-11">
+                        <Users className="h-4 w-4 text-muted-foreground sm:h-5 sm:w-5" />
                       </div>
                     )}
 
                     <div className="min-w-0">
-                      <h2 className="truncate text-lg font-semibold">
+                      <h2 className="truncate text-base font-semibold sm:text-lg">
                         {currentConversationName}
                       </h2>
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground sm:gap-2 sm:text-sm">
                         {typingNames.length ? (
                           <span>
                             {typingNames.join(", ")}{" "}
@@ -1662,20 +1662,20 @@ export default function Chat() {
                         )}
                       </div>
                       {currentConversationDescription && (
-                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                        <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground sm:mt-1 sm:text-xs">
                           {currentConversationDescription}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     <ActionMenu
                       align="end"
                       trigger={() => (
                         <button
                           type="button"
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                          className="premium-interactive inline-flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 sm:h-9 sm:w-9"
                         >
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Conversation actions</span>
@@ -1778,7 +1778,7 @@ export default function Chat() {
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
               {currentChat?.type === "group" && (
-                <div className="border-b px-4 py-3">
+                <div className="border-b px-3 py-2.5 sm:px-4 sm:py-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
                       type="button"
@@ -1809,7 +1809,7 @@ export default function Chat() {
                     </Button>
                   </div>
                   {chatPanelMode === "summary" && (
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-2.5 flex flex-wrap gap-2">
                       <Button
                         type="button"
                         size="sm"
@@ -1827,7 +1827,7 @@ export default function Chat() {
                             key={tag}
                             type="button"
                             className={cn(
-                              "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                              "premium-interactive inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs",
                               activeTagFilter === tag
                                 ? config.chipClassName
                                 : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -1858,7 +1858,7 @@ export default function Chat() {
                 )}
                 <div
                   ref={messageScrollContainerRef}
-                  className="h-full overflow-y-auto p-4"
+                    className="h-full overflow-y-auto p-3 sm:p-4"
                   onScroll={() => {
                     if (!isScrolledFarFromBottom()) {
                       setShowNewMessageJump(false);
@@ -1873,11 +1873,11 @@ export default function Chat() {
                         Loading tagged messages...
                       </div>
                     ) : filteredTaggedMessages.length ? (
-                      <div className="space-y-3">
+                      <div className="space-y-2.5 sm:space-y-3">
                         {filteredTaggedMessages.map((message) => (
                           <div
                             key={`summary-${message.id}`}
-                            className="rounded-2xl border bg-card p-4 shadow-sm"
+                            className="rounded-2xl border bg-card p-3 shadow-sm sm:p-4"
                           >
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div className="min-w-0">
@@ -1905,7 +1905,7 @@ export default function Chat() {
                                 Jump to message
                               </Button>
                             </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="mt-2.5 flex flex-wrap gap-2">
                               {message.tags.map((tag) => {
                                 const config = getMessageTagConfig(tag);
                                 return (
@@ -1922,7 +1922,7 @@ export default function Chat() {
                                 );
                               })}
                             </div>
-                            <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+                            <p className="mt-2.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed [overflow-wrap:anywhere] sm:mt-3 sm:text-sm">
                               {message.body}
                             </p>
                           </div>
@@ -1948,7 +1948,7 @@ export default function Chat() {
                       Loading messages...
                     </div>
                   ) : currentChat ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {hasMoreMessages && (
                         <div className="flex justify-center">
                           <Button
@@ -2028,7 +2028,7 @@ export default function Chat() {
                 </div>
               </div>
 
-              <div className="border-t p-4">
+              <div className="border-t p-3 sm:p-4">
                 {currentChat?.last_message_at && (
                   <p className="mb-2 text-xs text-muted-foreground">
                     Updated{" "}
@@ -2036,7 +2036,7 @@ export default function Chat() {
                   </p>
                 )}
 
-                <div className="space-y-3">
+                <div className="space-y-2.5 sm:space-y-3">
                   {!!selectedTags.length && (
                     <div className="flex flex-wrap gap-2">
                       {selectedTags.map((tag) => {
@@ -2045,7 +2045,7 @@ export default function Chat() {
                           <span
                             key={`composer-${tag}`}
                             className={cn(
-                              "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium",
+                              "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:px-3 sm:py-1.5 sm:text-xs",
                               config.chipClassName,
                             )}
                           >
@@ -2081,7 +2081,7 @@ export default function Chat() {
                       onKeyDown={(event) => {
                         void handleKeyPress(event);
                       }}
-                      className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto"
+                      className="min-h-[52px] max-h-40 flex-1 resize-none overflow-y-auto text-xs sm:min-h-[56px] sm:text-sm"
                       disabled={!currentChat}
                     />
                     {currentChat?.type === "group" && (
@@ -2091,7 +2091,7 @@ export default function Chat() {
                         trigger={() => (
                           <button
                             type="button"
-                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                            className="premium-interactive inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-input bg-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 sm:h-11 sm:w-11"
                           >
                             <Tag className="h-4 w-4" />
                             <span className="sr-only">
@@ -2119,7 +2119,7 @@ export default function Chat() {
                       </ActionMenu>
                     )}
                     <Button
-                      className="h-11 w-11 shrink-0 rounded-xl p-0"
+                      className="h-10 w-10 shrink-0 rounded-xl p-0 sm:h-11 sm:w-11"
                       onClick={() => {
                         void handleSendMessage();
                       }}

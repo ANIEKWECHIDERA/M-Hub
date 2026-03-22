@@ -111,7 +111,7 @@
   }
 
   body {
-    @apply bg-background text-xs text-foreground sm:text-base;
+    @apply bg-background text-xs text-foreground sm:text-sm lg:text-base;
   }
 
   #root {
@@ -130,11 +130,15 @@
   }
 
   .app-surface {
-    @apply rounded-xl border bg-card shadow-none;
+    @apply rounded-xl border bg-card shadow-none transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out motion-reduce:transition-none;
   }
 
   .section-heading {
     @apply text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground;
+  }
+
+  .premium-interactive {
+    @apply transition-[transform,box-shadow,background-color,border-color,color] duration-200 ease-out motion-reduce:transition-none;
   }
 }
 
@@ -157,8 +161,8 @@
   li,
   td,
   th {
-    font-size: 0.75rem;
-    line-height: 1.1rem;
+    font-size: 0.72rem;
+    line-height: 1.05rem;
   }
 }
 @keyframes shimmer {

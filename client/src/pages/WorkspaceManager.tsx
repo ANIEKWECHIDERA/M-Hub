@@ -206,8 +206,6 @@ export default function WorkspaceManager() {
   const [isLogoPreviewOpen, setIsLogoPreviewOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [showCompactOverview, setShowCompactOverview] = useState(false);
-  const [showDetailsCard, setShowDetailsCard] = useState(true);
-  const [showDeleteCard, setShowDeleteCard] = useState(true);
 
   const loadWorkspaceManager = async (options?: { force?: boolean }) => {
     const snapshot = await getManagerSnapshot({
@@ -375,32 +373,12 @@ export default function WorkspaceManager() {
       {activeSection === "details" && (
         <Card className="app-surface">
           <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Workspace Details
-              </CardTitle>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="sm:hidden"
-                onClick={() => setShowDetailsCard((value) => !value)}
-              >
-                {showDetailsCard ? "Collapse" : "Expand"}
-                <ChevronDown
-                  className={`ml-2 h-4 w-4 transition-transform ${
-                    showDetailsCard ? "rotate-180" : ""
-                  }`}
-                />
-              </Button>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Workspace Details
+            </CardTitle>
           </CardHeader>
-          <CardContent
-            className={`space-y-4 sm:space-y-6 ${
-              showDetailsCard ? "block" : "hidden sm:block"
-            }`}
-          >
+          <CardContent className="space-y-4 sm:space-y-6">
             <div className="flex items-center gap-4 rounded-xl border bg-muted/20 p-4">
               <Dialog
                 open={isLogoPreviewOpen}
@@ -695,34 +673,12 @@ export default function WorkspaceManager() {
       {activeSection === "delete" && (
         <Card className="app-surface border-red-200">
           <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle className="flex items-center gap-2 text-red-700">
-                <Trash2 className="h-5 w-5" />
-                Delete Workspace
-              </CardTitle>
-              {isSuperAdmin && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="sm:hidden"
-                  onClick={() => setShowDeleteCard((value) => !value)}
-                >
-                  {showDeleteCard ? "Collapse" : "Expand"}
-                  <ChevronDown
-                    className={`ml-2 h-4 w-4 transition-transform ${
-                      showDeleteCard ? "rotate-180" : ""
-                    }`}
-                  />
-                </Button>
-              )}
-            </div>
+            <CardTitle className="flex items-center gap-2 text-red-700">
+              <Trash2 className="h-5 w-5" />
+              Delete Workspace
+            </CardTitle>
           </CardHeader>
-          <CardContent
-            className={`space-y-4 sm:space-y-6 ${
-              showDeleteCard ? "block" : "hidden sm:block"
-            }`}
-          >
+          <CardContent className="space-y-4 sm:space-y-6">
             {!isSuperAdmin ? (
               <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
                 Only super admins can permanently delete a workspace.

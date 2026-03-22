@@ -30,6 +30,7 @@ import { useUser } from "@/context/UserContext";
 import { API_CONFIG } from "@/lib/api";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebase/firebase";
+import { CrevoMark } from "@/components/CrevoMark";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -251,14 +252,17 @@ export default function SignUpPage() {
     : errors.general;
 
   return (
-    <div className="min-h-screen flex">
+    <div className="flex min-h-screen">
       {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/80 lg:flex lg:w-1/2">
         <div className="absolute inset-0 bg-black/10" />
-        <div className="relative z-10 flex flex-col justify-center items-center p-12 text-white">
+        <div className="relative z-10 flex flex-col items-center justify-center p-12 text-white">
           <div className="mb-8">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6">
-              <span className="text-3xl font-bold text-white">C</span>
+            <div className="mb-6 flex items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+                <CrevoMark className="h-9 w-9 text-white" />
+              </div>
+              <span className="text-4xl font-bold tracking-tight">Crevo</span>
             </div>
             <h1 className="text-4xl font-bold mb-4">Join Crevo Today</h1>
             <p className="text-xl text-white/90 max-w-md text-center leading-relaxed">
@@ -292,30 +296,32 @@ export default function SignUpPage() {
       </div>
 
       {/* Right Side - Sign Up Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
-        <div className="w-full max-w-md space-y-6">
+      <div className="flex flex-1 items-center justify-center bg-background px-4 py-5 sm:p-8">
+        <div className="w-full max-w-md space-y-4 sm:space-y-6">
           {/* Mobile Logo */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-xl font-bold text-primary-foreground">
-                C
-              </span>
+          <div className="mb-6 flex items-center justify-center gap-3 text-center lg:hidden">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <CrevoMark className="h-6 w-6" />
             </div>
-            <h1 className="text-2xl font-bold">Crevo</h1>
-            <p className="text-muted-foreground">Creative Workflow Management</p>
+            <div className="text-left">
+              <h1 className="text-xl font-bold tracking-tight">Crevo</h1>
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Creative Workflow Management
+              </p>
+            </div>
           </div>
 
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="space-y-1 pb-6">
-              <CardTitle className="text-2xl font-bold text-center">
+          <Card className="border-0 shadow-lg premium-interactive">
+            <CardHeader className="space-y-1 pb-4 sm:pb-6">
+              <CardTitle className="text-center text-xl font-bold sm:text-2xl">
                 Create your account
               </CardTitle>
-              <CardDescription className="text-center">
+              <CardDescription className="text-center text-xs sm:text-sm">
                 Get started with your free Crevo account
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4">
               {/* Firebase Auth Error */}
               {authError && (
                 <Alert variant="destructive">
@@ -329,7 +335,7 @@ export default function SignUpPage() {
               {/* Google Sign Up */}
               <Button
                 variant="outline"
-                className="w-full h-11 border-2 hover:bg-muted/50 bg-transparent"
+                className="h-10 w-full border-2 bg-transparent hover:bg-muted/50 sm:h-11"
                 onClick={handleGoogleSignUp}
                 disabled={isGoogleLoading || authLoading}
               >
@@ -354,7 +360,7 @@ export default function SignUpPage() {
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First name</Label>
                     <div className="relative">
@@ -372,7 +378,7 @@ export default function SignUpPage() {
                           });
                           handleInputChange("firstName", value);
                         }}
-                        className={`pl-10 h-11 ${
+                        className={`h-10 pl-10 sm:h-11 ${
                           errors.firstName
                             ? "border-red-500 focus-visible:ring-red-500"
                             : ""
@@ -400,7 +406,7 @@ export default function SignUpPage() {
                         });
                         handleInputChange("lastName", value);
                       }}
-                      className={`h-11 ${
+                      className={`h-10 sm:h-11 ${
                         errors.lastName
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -430,7 +436,7 @@ export default function SignUpPage() {
                         });
                         handleInputChange("email", value);
                       }}
-                      className={`pl-10 h-11 ${
+                      className={`h-10 pl-10 sm:h-11 ${
                         errors.email
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -477,7 +483,7 @@ export default function SignUpPage() {
                         });
                         handleInputChange("password", value);
                       }}
-                      className={`pl-10 pr-10 h-11 ${
+                      className={`h-10 pl-10 pr-10 sm:h-11 ${
                         errors.password
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -520,7 +526,7 @@ export default function SignUpPage() {
                         });
                         handleInputChange("confirmPassword", value);
                       }}
-                      className={`pl-10 pr-10 h-11 ${
+                      className={`h-10 pl-10 pr-10 sm:h-11 ${
                         errors.confirmPassword
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -561,11 +567,11 @@ export default function SignUpPage() {
                       })
                     }
                     disabled={authLoading}
-                    className="mt-1"
+                    className="mt-0.5"
                   />
                   <Label
                     htmlFor="terms"
-                    className="text-sm font-normal leading-5"
+                    className="text-xs font-normal leading-4 sm:text-sm sm:leading-5"
                   >
                     I agree to the{" "}
                     <Link to="/terms" className="text-primary hover:underline">
@@ -586,7 +592,7 @@ export default function SignUpPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-11 font-medium"
+                  className="h-10 w-full font-medium sm:h-11"
                   disabled={authLoading || isGoogleLoading}
                 >
                   {authLoading ? (
@@ -600,7 +606,7 @@ export default function SignUpPage() {
                 </Button>
               </form>
 
-              <div className="text-center text-sm text-muted-foreground">
+              <div className="text-center text-xs text-muted-foreground sm:text-sm">
                 Already have an account?{" "}
                 <Link
                   to="/login"
