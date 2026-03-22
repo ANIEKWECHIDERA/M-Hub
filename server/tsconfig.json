@@ -3,7 +3,7 @@
     "module": "CommonJS",
     "target": "ES2020",
     "moduleResolution": "Node",
-
+    "types": ["node"],
     "esModuleInterop": true,
     "outDir": "./dist",
     "rootDir": "./src",
@@ -12,5 +12,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "src/lib"]
+  "include": ["src", "src/lib"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/__tests__/**"
+  ]
 }

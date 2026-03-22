@@ -1,6 +1,0 @@
-import { Request } from "express";
-import { AppUser } from "./types";
-
-export interface request extends Request {
-  user: AppUser;
-}

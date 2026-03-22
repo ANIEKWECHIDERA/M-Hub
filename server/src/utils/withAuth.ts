@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AuthenticatedRequest } from "../types/express";
+import { AuthenticatedRequest } from "../types/authenticatedRequest";
 import { AppUser } from "../types/types";
 
 declare global {

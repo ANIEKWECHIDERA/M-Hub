@@ -2,7 +2,7 @@ import { Response } from "express";
 import { UserService } from "../services/user.service";
 import { MediaService } from "../services/media.service";
 import { logger } from "../utils/logger";
-import { AuthenticatedRequest } from "../types/express";
+import { AuthenticatedRequest } from "../types/authenticatedRequest";
 import { CreateUserDTO, UpdateUserDTO } from "../dtos/user.dto";
 import { isTeamMemberHttpError } from "../services/teamMemberErrors";
 
