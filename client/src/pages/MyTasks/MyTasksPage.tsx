@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import type { TaskStatus, TaskWithAssigneesDTO } from "@/Types/types";
+import type { DailyFocusItem, TaskStatus, TaskWithAssigneesDTO } from "@/Types/types";
 import { useMyTasksContext } from "@/context/MyTaskContext";
 import { useMyTasksFilters } from "./hooks/useMyTasksFilters";
 import { useMyTasksStats } from "./hooks/useMyTaskStats";
@@ -12,14 +13,22 @@ import { ClipboardList } from "lucide-react";
 import { MyTasksSkeleton } from "@/components/MyTasksSkeleton";
 import { MyTasksHeader } from "./components/MyTaskHeader";
 import { useAuthContext } from "@/context/AuthContext";
+import { useRetentionSnapshot } from "@/hooks/useRetentionSnapshot";
+import {
+  DailyFocusCard,
+  DecisionFeedCard,
+} from "@/components/retention/RetentionPanels";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
 
 export function MyTasksPage() {
+  const navigate = useNavigate();
   /* ---------------- Context ---------------- */
   const { authStatus } = useAuthContext();
   const { tasks, loading, error, refetch, updateTaskOptimistic } =
     useMyTasksContext();
+  const { snapshot, loading: retentionLoading, error: retentionError } =
+    useRetentionSnapshot();
 
   /* ---------------- UI State ---------------- */
   const [selectedTask, setSelectedTask] = useState<TaskWithAssigneesDTO | null>(
@@ -28,6 +37,9 @@ export function MyTasksPage() {
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const [decisionFilter, setDecisionFilter] = useState<
+    "all" | "decision" | "action-item" | "blocker"
+  >("all");
   const workspaceKey = authStatus?.companyId ?? "default";
 
   useEffect(() => {
@@ -70,11 +82,45 @@ export function MyTasksPage() {
     });
   }, [filters.filteredTasks, viewMode]);
 
+  const decisionFeedItems = useMemo(() => {
+    const items = snapshot?.decisionFeed.items ?? [];
+    if (decisionFilter === "all") {
+      return items;
+    }
+
+    return items.filter((item) => item.tags.includes(decisionFilter));
+  }, [decisionFilter, snapshot?.decisionFeed.items]);
+
   /* ---------------- Handlers ---------------- */
 
   const handleOpenTask = (task: TaskWithAssigneesDTO) => {
     setSelectedTask(task);
     setDetailsOpen(true);
+  };
+
+  const handleOpenFocusItem = (item: DailyFocusItem) => {
+    if (item.taskId) {
+      const matchedTask = tasks.find((task) => task.id === item.taskId);
+      if (matchedTask) {
+        handleOpenTask(matchedTask);
+        return;
+      }
+
+      if (item.project?.id) {
+        navigate(`/projectdetails/${item.project.id}`);
+        return;
+      }
+    }
+
+    if (item.conversation?.id) {
+      const params = new URLSearchParams({
+        conversationId: item.conversation.id,
+      });
+      if (item.messageId) {
+        params.set("messageId", item.messageId);
+      }
+      navigate(`/chat?${params.toString()}`);
+    }
   };
 
   const handleToggleTaskStatus = async (taskId: string, checked: boolean) => {
@@ -115,8 +161,32 @@ export function MyTasksPage() {
   }
 
   return (
-    <div key={workspaceKey} className="space-y-6">
+    <div key={workspaceKey} className="space-y-4 sm:space-y-5 lg:space-y-6">
       <MyTasksHeader />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <DailyFocusCard
+          items={snapshot?.dailyFocus.items ?? []}
+          loading={retentionLoading}
+          error={retentionError}
+          onOpenTask={handleOpenFocusItem}
+          onOpenDecision={handleOpenFocusItem}
+        />
+        <DecisionFeedCard
+          items={decisionFeedItems.slice(0, 5)}
+          counts={snapshot?.decisionFeed.counts ?? {}}
+          loading={retentionLoading}
+          error={retentionError}
+          activeFilter={decisionFilter}
+          onFilterChange={setDecisionFilter}
+          onOpenItem={(item) => {
+            const params = new URLSearchParams({
+              conversationId: item.conversationId,
+              messageId: item.messageId,
+            });
+            navigate(`/chat?${params.toString()}`);
+          }}
+        />
+      </div>
       {/* Toolbar */}
       {tasks.length > 0 && (
         <div className="sticky top-0 z-10 -mx-1 rounded-xl bg-background/95 px-1 pb-3 backdrop-blur">

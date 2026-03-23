@@ -8,7 +8,12 @@ import {
   useState,
 } from "react";
 import { workspaceAPI, type Workspace } from "@/api/workspace.api";
-import type { Company, WorkspaceManagerSnapshot } from "@/Types/types";
+import type {
+  Company,
+  DashboardRetentionSnapshot,
+  WorkspaceManagerSnapshot,
+} from "@/Types/types";
+import { dashboardAPI } from "@/api/dashboard.api";
 import { useAuthContext } from "@/context/AuthContext";
 
 type WorkspaceContextValue = {
@@ -23,6 +28,13 @@ type WorkspaceContextValue = {
     companyId?: string | null,
   ) => WorkspaceManagerSnapshot | null;
   invalidateManagerSnapshot: (companyId?: string | null) => void;
+  getRetentionSnapshot: (
+    options?: { force?: boolean; companyId?: string | null },
+  ) => Promise<DashboardRetentionSnapshot | null>;
+  peekRetentionSnapshot: (
+    companyId?: string | null,
+  ) => DashboardRetentionSnapshot | null;
+  invalidateRetentionSnapshot: (companyId?: string | null) => void;
   applyWorkspaceUpdate: (company: Company) => void;
   clearWorkspaceState: () => void;
 };
@@ -54,6 +66,12 @@ export function WorkspaceProvider({
   const managerPromiseRef = useRef<
     Map<string, Promise<WorkspaceManagerSnapshot | null>>
   >(new Map());
+  const retentionCacheRef = useRef<Map<string, DashboardRetentionSnapshot>>(
+    new Map(),
+  );
+  const retentionPromiseRef = useRef<
+    Map<string, Promise<DashboardRetentionSnapshot | null>>
+  >(new Map());
 
   const clearWorkspaceState = useCallback(() => {
     setWorkspaces([]);
@@ -61,6 +79,8 @@ export function WorkspaceProvider({
     listPromiseRef.current = null;
     managerCacheRef.current.clear();
     managerPromiseRef.current.clear();
+    retentionCacheRef.current.clear();
+    retentionPromiseRef.current.clear();
   }, []);
 
   const refreshWorkspaces = useCallback(
@@ -115,6 +135,17 @@ export function WorkspaceProvider({
     managerPromiseRef.current.delete(companyId);
   }, []);
 
+  const invalidateRetentionSnapshot = useCallback((companyId?: string | null) => {
+    if (!companyId) {
+      retentionCacheRef.current.clear();
+      retentionPromiseRef.current.clear();
+      return;
+    }
+
+    retentionCacheRef.current.delete(companyId);
+    retentionPromiseRef.current.delete(companyId);
+  }, []);
+
   const getManagerSnapshot = useCallback(
     async (options?: { force?: boolean; companyId?: string | null }) => {
       const companyId = options?.companyId ?? authStatus?.companyId ?? null;
@@ -161,6 +192,52 @@ export function WorkspaceProvider({
     [authStatus?.companyId],
   );
 
+  const getRetentionSnapshot = useCallback(
+    async (options?: { force?: boolean; companyId?: string | null }) => {
+      const companyId = options?.companyId ?? authStatus?.companyId ?? null;
+      const force = options?.force ?? false;
+
+      if (!idToken || !companyId || authStatus?.onboardingState !== "ACTIVE") {
+        return null;
+      }
+
+      if (!force && retentionCacheRef.current.has(companyId)) {
+        return retentionCacheRef.current.get(companyId) ?? null;
+      }
+
+      const pending = retentionPromiseRef.current.get(companyId);
+      if (!force && pending) {
+        return pending;
+      }
+
+      const request = dashboardAPI
+        .retention(idToken)
+        .then((snapshot) => {
+          retentionCacheRef.current.set(companyId, snapshot);
+          return snapshot;
+        })
+        .finally(() => {
+          retentionPromiseRef.current.delete(companyId);
+        });
+
+      retentionPromiseRef.current.set(companyId, request);
+      return request;
+    },
+    [authStatus?.companyId, authStatus?.onboardingState, idToken],
+  );
+
+  const peekRetentionSnapshot = useCallback(
+    (companyId?: string | null) => {
+      const resolvedCompanyId = companyId ?? authStatus?.companyId ?? null;
+      if (!resolvedCompanyId) {
+        return null;
+      }
+
+      return retentionCacheRef.current.get(resolvedCompanyId) ?? null;
+    },
+    [authStatus?.companyId],
+  );
+
   const applyWorkspaceUpdate = useCallback((company: Company) => {
     const logoUrl = company.logoUrl ?? null;
 
@@ -187,6 +264,13 @@ export function WorkspaceProvider({
             company.description ?? cachedSnapshot.workspace.description ?? null,
           logoUrl,
         },
+      });
+    }
+
+    const retentionSnapshot = retentionCacheRef.current.get(company.id);
+    if (retentionSnapshot?.workspaceHealth) {
+      retentionCacheRef.current.set(company.id, {
+        ...retentionSnapshot,
       });
     }
   }, []);
@@ -226,6 +310,9 @@ export function WorkspaceProvider({
       getManagerSnapshot,
       peekManagerSnapshot,
       invalidateManagerSnapshot,
+      getRetentionSnapshot,
+      peekRetentionSnapshot,
+      invalidateRetentionSnapshot,
       applyWorkspaceUpdate,
       clearWorkspaceState,
     }),
@@ -236,6 +323,9 @@ export function WorkspaceProvider({
       getManagerSnapshot,
       peekManagerSnapshot,
       invalidateManagerSnapshot,
+      getRetentionSnapshot,
+      peekRetentionSnapshot,
+      invalidateRetentionSnapshot,
       loadingWorkspaces,
       refreshWorkspaces,
       workspaces,

@@ -27,6 +27,7 @@ import {
   upsertConversation,
 } from "@/lib/chat";
 import type { ChatSection } from "@/config/chat-nav";
+import { useWorkspaceContext } from "./WorkspaceContext";
 
 type ChatContextType = {
   conversations: ChatConversation[];
@@ -136,6 +137,7 @@ export function useChatContext() {
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { idToken, authStatus, currentUser } = useAuthContext();
   const { profile } = useUser();
+  const { invalidateRetentionSnapshot } = useWorkspaceContext();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [workspaceMembers, setWorkspaceMembers] = useState<TeamMember[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
@@ -952,6 +954,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               [response.message],
             ),
           );
+          invalidateRetentionSnapshot();
         }
         setConversations((prev) =>
           updateConversationById(prev, conversationId, (conversation) => ({
@@ -974,7 +977,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         throw chatError;
       }
     },
-    [authStatus?.companyId, profile],
+    [authStatus?.companyId, invalidateRetentionSnapshot, profile],
   );
 
   const editMessage = useCallback(async (messageId: string, body: string) => {
@@ -1148,6 +1151,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             ? mergeMessages(withoutMessage, [response.message])
             : withoutMessage;
         });
+        invalidateRetentionSnapshot();
         scheduleRefreshConversations({ silent: true });
       } catch (error) {
         if (previousMessage) {
@@ -1169,7 +1173,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
     },
-    [messages, scheduleRefreshConversations, taggedMessages],
+    [invalidateRetentionSnapshot, messages, scheduleRefreshConversations, taggedMessages],
   );
 
   useEffect(() => {

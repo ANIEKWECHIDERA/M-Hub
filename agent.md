@@ -222,6 +222,136 @@ Known limitations:
 - capacity thresholds are heuristic and currently hardcoded in `workspace.service.ts`
 - workload counts are task-assignment based and do not attempt to measure effort sizing or subtasks as separate capacity units
 
+### 3f. Retention dashboard features
+
+Crevo now has a retention-focused dashboard slice designed to make the app useful every day, not just when a user needs to look something up manually.
+
+Current retention features:
+
+- `Daily Focus`
+- `Decision Feed`
+- `Workspace Health`
+
+Backend contract:
+
+- `GET /api/dashboard/retention`
+
+Backend implementation:
+
+- `server/src/routes/dashboard.routes.ts`
+- `server/src/controllers/dashboard.controller.ts`
+- `server/src/services/retention.service.ts`
+
+Frontend implementation:
+
+- `client/src/api/dashboard.api.ts`
+- `client/src/hooks/useRetentionSnapshot.ts`
+- `client/src/components/retention/RetentionPanels.tsx`
+- `client/src/pages/DashBoard.tsx`
+- `client/src/pages/MyTasks/MyTasksPage.tsx`
+- `client/src/context/WorkspaceContext.tsx`
+
+Daily Focus behavior:
+
+- personal to the current user
+- scoped to the active workspace/company
+- combines:
+  - overdue / due-today / due-soon assigned tasks
+  - recent decision, blocker, and action-item chat signals from conversations the user belongs to
+- sorted to surface urgency first:
+  - overdue task pressure
+  - blockers
+  - due-today / due-soon work
+  - recent decisions and action items
+- click-through behavior:
+  - task items open the related project or My Tasks detail context
+  - chat-derived items open the source conversation
+
+Decision Feed behavior:
+
+- surfaces recent tagged chat messages without showing the entire thread
+- currently focuses on:
+  - `decision`
+  - `action-item`
+  - `blocker`
+- scoped to conversations the current user is a member of
+- supports lightweight client-side filtering:
+  - `All`
+  - `Decisions`
+  - `Action Items`
+  - `Blockers`
+- feed items open the source chat conversation and preserve deep-link context
+
+Workspace Health behavior:
+
+- visible only to `admin` and `superAdmin`
+- hidden from lower-access roles
+- based on a transparent weighted model using:
+  - overdue task count
+  - completion rate
+  - overloaded teammate count
+  - behind teammate count
+  - recent blocker-tag signals
+- returns:
+  - score from `0-100`
+  - status label:
+    - `Healthy`
+    - `At Risk`
+    - `Critical`
+  - summary sentence
+  - factor breakdown for quick diagnosis
+
+Home-surface placement:
+
+- admins / superAdmins see these features on `Dashboard`
+- lower-access users still land on `My Tasks`, so Daily Focus and Decision Feed are also shown there
+- Workspace Health remains admin-only
+
+Caching and freshness:
+
+- workspace-scoped retention snapshots are cached inside `WorkspaceContext`
+- new helpers:
+  - `getRetentionSnapshot(...)`
+  - `peekRetentionSnapshot(...)`
+  - `invalidateRetentionSnapshot(...)`
+- cache is keyed by active workspace/company
+- repeated visits do not force noisy reloads
+- task mutations invalidate the retention snapshot
+- chat tag mutations invalidate the retention snapshot when tagged summaries change
+
+Responsive/UI notes:
+
+- retention cards follow the app's mobile/tablet/desktop spacing system
+- loading uses skeletons instead of abrupt blank states
+- empty and error states are intentional and inline
+- dashboard no longer hides retention features when there are zero projects
+
+Chat deep-link note:
+
+- dashboard and My Tasks now link decision/feed items into Chat with query params
+- Chat preserves unknown query params when normalizing the `section` search param
+- this prevents loss of `conversationId` / `messageId` during deep-link navigation
+
+Playwright verification completed for:
+
+- Dashboard rendering of Daily Focus, Decision Feed, and Workspace Health
+- My Tasks rendering of Daily Focus and Decision Feed
+- Decision Feed click-through into the correct chat conversation
+- local retention endpoint success in the browser network layer
+
+Known limitations:
+
+- Decision Feed filtering is currently client-side over the returned dashboard payload
+- Daily Focus task routing currently opens the related project or My Tasks context rather than a dedicated task deep-link route
+- Workspace Health is a practical heuristic, not historical analytics or forecasting
+
+Future expansion path:
+
+- AI-prioritized Daily Focus ranking
+- automatic decision extraction and suggestion
+- decision-to-task conversion
+- workspace health trend history and alerts
+
 ### 4. Context-heavy frontend
 
 The client uses multiple React context providers for project, task, note, asset, notification, settings, team member, client, and auth state.

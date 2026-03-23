@@ -140,6 +140,93 @@ export type WorkspaceManagerSnapshot = {
   }>;
 };
 
+export type DailyFocusItem = {
+  id: string;
+  taskId: string | null;
+  kind: "task" | "decision" | "blocker" | "action-item";
+  urgency: "overdue" | "today" | "soon" | "watch";
+  title: string;
+  description: string | null;
+  dueAt: string | null;
+  project: {
+    id: string;
+    title: string;
+  } | null;
+  conversation: {
+    id: string;
+    name: string;
+  } | null;
+  messageId: string | null;
+  tag:
+    | "decision"
+    | "action-item"
+    | "blocker"
+    | "update"
+    | "question"
+    | "follow-up"
+    | null;
+  statusLabel: string;
+};
+
+export type DecisionFeedItem = {
+  id: string;
+  conversationId: string;
+  conversationName: string;
+  messageId: string;
+  preview: string;
+  createdAt: string;
+  sender: {
+    name: string;
+    avatar: string | null;
+  };
+  tags: Array<
+    | "decision"
+    | "action-item"
+    | "blocker"
+    | "update"
+    | "question"
+    | "follow-up"
+  >;
+  primaryTag:
+    | "decision"
+    | "action-item"
+    | "blocker"
+    | "update"
+    | "question"
+    | "follow-up";
+};
+
+export type WorkspaceHealthScore = {
+  score: number;
+  status: "Healthy" | "At Risk" | "Critical";
+  summary: string;
+  breakdown: Array<{
+    label: string;
+    value: string;
+    tone: "good" | "neutral" | "warning" | "critical";
+  }>;
+  metrics: {
+    totalTasks: number;
+    completedTasks: number;
+    overdueTasks: number;
+    overloadedMembers: number;
+    behindMembers: number;
+    blockerSignals: number;
+    completionRate: number;
+  };
+};
+
+export type DashboardRetentionSnapshot = {
+  dailyFocus: {
+    items: DailyFocusItem[];
+  };
+  decisionFeed: {
+    items: DecisionFeedItem[];
+    counts: Record<string, number>;
+  };
+  workspaceHealth: WorkspaceHealthScore | null;
+};
+
 //////////////// TeamContextTypes ////////////////
 export interface TeamMember {
   id: string;

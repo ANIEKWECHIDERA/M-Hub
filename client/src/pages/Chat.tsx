@@ -721,11 +721,16 @@ export default function Chat() {
     const section = searchParams.get("section") as ChatSection | null;
     return chatSections.find((item) => item.id === section)?.id ?? "projects";
   }, [searchParams]);
+  const requestedConversationId = searchParams.get("conversationId");
+  const requestedMessageId = searchParams.get("messageId");
+  const requestedPanel = searchParams.get("panel");
 
   useEffect(() => {
     const currentSection = searchParams.get("section") as ChatSection | null;
     if (!chatSections.some((section) => section.id === currentSection)) {
-      setSearchParams({ section: "projects" }, { replace: true });
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("section", "projects");
+      setSearchParams(nextParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
 
@@ -808,6 +813,20 @@ export default function Chat() {
       return;
     }
 
+     if (
+      requestedConversationId &&
+      filteredChats.some(
+        (conversation) => conversation.id === requestedConversationId,
+      ) &&
+      activeConversationId !== requestedConversationId
+    ) {
+      setActiveConversationId(requestedConversationId);
+      if (isMobile) {
+        setMobileConversationOpen(true);
+      }
+      return;
+    }
+
     if (
       activeConversationId &&
       filteredChats.some(
@@ -818,7 +837,13 @@ export default function Chat() {
     }
 
     setActiveConversationId(filteredChats[0].id);
-  }, [activeConversationId, filteredChats, setActiveConversationId]);
+  }, [
+    activeConversationId,
+    filteredChats,
+    isMobile,
+    requestedConversationId,
+    setActiveConversationId,
+  ]);
 
   useEffect(() => {
     if (!isMobile) {
@@ -834,6 +859,21 @@ export default function Chat() {
     setChatPanelMode("messages");
     setActiveTagFilter("all");
   }, [activeConversationId]);
+
+  useEffect(() => {
+    if (!requestedPanel) {
+      return;
+    }
+
+    if (requestedPanel === "summary") {
+      setChatPanelMode("summary");
+      return;
+    }
+
+    if (requestedPanel === "messages") {
+      setChatPanelMode("messages");
+    }
+  }, [requestedPanel]);
 
   useEffect(() => {
     return () => {
@@ -1324,6 +1364,40 @@ export default function Chat() {
       });
     });
   };
+
+  useEffect(() => {
+    if (
+      !requestedConversationId ||
+      !requestedMessageId ||
+      activeConversationId !== requestedConversationId ||
+      loadingMessages
+    ) {
+      return;
+    }
+
+    const hasMessageLoaded = messages.some(
+      (message) => message.id === requestedMessageId,
+    );
+
+    if (!hasMessageLoaded) {
+      return;
+    }
+
+    jumpToMessage(requestedMessageId);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("messageId");
+    nextParams.delete("panel");
+    setSearchParams(nextParams, { replace: true });
+  }, [
+    activeConversationId,
+    loadingMessages,
+    messages,
+    requestedConversationId,
+    requestedMessageId,
+    searchParams,
+    setSearchParams,
+  ]);
 
   useEffect(() => {
     const container = messageScrollContainerRef.current;
