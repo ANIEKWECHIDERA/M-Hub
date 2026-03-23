@@ -1,14 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import InviteForm from "@/components/InviteForm";
+import TeamMemberForm from "@/components/TeamMemberForm";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -19,6 +33,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -31,16 +50,24 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Building2,
   ChevronDown,
+  Copy,
+  Ellipsis,
   Loader2,
+  Mail,
+  Plus,
+  RefreshCw,
   SlidersHorizontal,
   Trash2,
   Upload,
   Users,
+  AlertCircle,
 } from "lucide-react";
 import { useAuthContext } from "@/context/AuthContext";
+import { useTeamContext } from "@/context/TeamMemberContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { CompanyAPI } from "@/api/company.api";
-import type { WorkspaceManagerSnapshot } from "@/Types/types";
+import { inviteAPI, type InviteRecord } from "@/api/invite.api";
+import type { TeamMember, WorkspaceManagerSnapshot } from "@/Types/types";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +76,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { formatRelativeTimestamp } from "@/lib/datetime";
 
 const capacityBadgeClasses: Record<
   WorkspaceManagerSnapshot["workload"][number]["capacityStatus"],
@@ -60,7 +88,12 @@ const capacityBadgeClasses: Record<
   behind: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-type WorkspaceManagerSection = "details" | "workload" | "delete";
+type WorkspaceManagerSection =
+  | "details"
+  | "workload"
+  | "team"
+  | "invites"
+  | "delete";
 
 const sectionTitles: Record<
   WorkspaceManagerSection,
@@ -76,12 +109,82 @@ const sectionTitles: Record<
     description:
       "Use lightweight capacity cues to spot who is free, balanced, overloaded, or behind.",
   },
+  team: {
+    title: "Team",
+    description:
+      "Manage active workspace members, update roles and status, and remove access when needed.",
+  },
+  invites: {
+    title: "Invites",
+    description:
+      "Send new invites, copy workspace invite links, resend pending access, and clean up old requests.",
+  },
   delete: {
     title: "Delete Workspace",
     description:
       "This is permanent. Confirm the workspace name exactly before deleting it.",
   },
 };
+
+const roleLabels = {
+  superAdmin: "Super Admin",
+  admin: "Admin",
+  team_member: "Team Member",
+  member: "Team Member",
+} as const;
+
+const compactBadgeClass =
+  "inline-flex h-6 min-w-[6.5rem] items-center justify-center rounded-full px-2 text-[10px] font-medium sm:text-xs";
+
+function OverflowTooltip({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <p className={className}>{label}</p>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs break-words text-left">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+async function copyTextToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // fall through
+    }
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  textArea.style.pointerEvents = "none";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  try {
+    return document.execCommand("copy");
+  } finally {
+    document.body.removeChild(textArea);
+  }
+}
+
+function isAcceptedInviteStatus(status: string | null | undefined) {
+  return String(status ?? "").trim().toUpperCase() === "ACCEPTED";
+}
 
 function WorkspaceManagerSkeleton({
   section,
@@ -156,6 +259,49 @@ function WorkspaceManagerSkeleton({
         </>
       )}
 
+      {section === "team" && (
+        <Card className="app-surface">
+          <CardContent className="space-y-3 pt-6">
+            {Array.from({ length: 4 }).map((_, rowIndex) => (
+              <div
+                key={rowIndex}
+                className="grid gap-3 rounded-xl border bg-muted/10 p-4 md:grid-cols-[1.5fr_0.8fr_0.8fr_1fr_0.8fr_120px]"
+              >
+                {Array.from({ length: 6 }).map((__, columnIndex) => (
+                  <Skeleton key={columnIndex} className="h-5 w-full" />
+                ))}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {section === "invites" && (
+        <>
+          <Card className="app-surface">
+            <CardContent className="space-y-3 pt-6">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-full max-w-xl" />
+              <Skeleton className="h-10 w-40" />
+            </CardContent>
+          </Card>
+          <Card className="app-surface">
+            <CardContent className="space-y-3 pt-6">
+              {Array.from({ length: 4 }).map((_, rowIndex) => (
+                <div
+                  key={rowIndex}
+                  className="grid gap-3 rounded-xl border bg-muted/10 p-4 md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_1fr_40px]"
+                >
+                  {Array.from({ length: 6 }).map((__, columnIndex) => (
+                    <Skeleton key={columnIndex} className="h-5 w-full" />
+                  ))}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
       {section === "delete" && (
         <Card className="app-surface border-red-200">
           <CardContent className="space-y-4 pt-6">
@@ -179,6 +325,18 @@ export default function WorkspaceManager() {
   const [searchParams] = useSearchParams();
   const { idToken, authStatus, refreshStatus } = useAuthContext();
   const {
+    teamMembers,
+    updateTeamMember,
+    memberToDelete,
+    setMemberToDelete,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
+    confirmDelete,
+    inviteMember,
+    loading: teamLoading,
+    error: teamError,
+  } = useTeamContext();
+  const {
     currentWorkspace,
     getManagerSnapshot,
     peekManagerSnapshot,
@@ -189,7 +347,10 @@ export default function WorkspaceManager() {
   const isSuperAdmin = authStatus?.access === "superAdmin";
   const requestedSection = searchParams.get("section");
   const activeSection: WorkspaceManagerSection =
-    requestedSection === "workload" || requestedSection === "delete"
+    requestedSection === "workload" ||
+    requestedSection === "team" ||
+    requestedSection === "invites" ||
+    requestedSection === "delete"
       ? requestedSection
       : "details";
   const initialSnapshot = peekManagerSnapshot(authStatus?.companyId);
@@ -206,6 +367,15 @@ export default function WorkspaceManager() {
   const [isLogoPreviewOpen, setIsLogoPreviewOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [showCompactOverview, setShowCompactOverview] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [invites, setInvites] = useState<InviteRecord[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(
+    null,
+  );
+  const [isInviteDeleteDialogOpen, setIsInviteDeleteDialogOpen] =
+    useState(false);
 
   const loadWorkspaceManager = async (options?: { force?: boolean }) => {
     const snapshot = await getManagerSnapshot({
@@ -221,6 +391,26 @@ export default function WorkspaceManager() {
 
     setData(null);
     return null;
+  };
+
+  const loadInvites = async () => {
+    if (
+      !idToken ||
+      activeSection !== "invites" ||
+      authStatus?.onboardingState !== "ACTIVE"
+    ) {
+      return;
+    }
+
+    setInvitesLoading(true);
+    try {
+      const response = await inviteAPI.list(idToken);
+      setInvites(response.invites);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load invites");
+    } finally {
+      setInvitesLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -249,6 +439,14 @@ export default function WorkspaceManager() {
   }, [authStatus?.companyId]);
 
   useEffect(() => {
+    if (activeSection !== "invites") {
+      return;
+    }
+
+    void loadInvites();
+  }, [activeSection, authStatus?.companyId, idToken]);
+
+  useEffect(() => {
     if (!logoFile) {
       setLogoPreviewUrl(null);
       return;
@@ -275,6 +473,84 @@ export default function WorkspaceManager() {
       .slice(0, 2)
       .toUpperCase();
   }, [data?.owner?.name]);
+
+  const canCopyInviteLink = (invite: InviteRecord) =>
+    !isAcceptedInviteStatus(invite.status);
+
+  const canResendInvite = (invite: InviteRecord) =>
+    !isAcceptedInviteStatus(invite.status);
+
+  const handleInviteSave = async (payload: {
+    email: string;
+    role: string;
+    access: "admin" | "team_member";
+  }) => {
+    await inviteMember(payload);
+    setIsInviteDialogOpen(false);
+    void loadInvites().catch((error: any) => {
+      toast.error(error?.message || "Failed to refresh invites");
+    });
+  };
+
+  const handleCopyInviteLink = async (inviteId: string) => {
+    if (!idToken) {
+      return;
+    }
+
+    const invite = invites.find((item) => item.id === inviteId);
+    if (invite && !canCopyInviteLink(invite)) {
+      toast.error("Accepted invites no longer have a shareable link");
+      return;
+    }
+
+    const result = await inviteAPI.copyLink(inviteId, idToken);
+    const copied = await copyTextToClipboard(result.link);
+
+    if (!copied) {
+      throw new Error("We couldn't copy the invite link. Try again.");
+    }
+
+    toast.success("Invite link copied");
+    await loadInvites();
+  };
+
+  const handleResendInvite = async (inviteId: string) => {
+    if (!idToken) {
+      return;
+    }
+
+    const invite = invites.find((item) => item.id === inviteId);
+    if (invite && !canResendInvite(invite)) {
+      toast.error("Accepted invites cannot be resent");
+      return;
+    }
+
+    const promise = inviteAPI.resend(inviteId, idToken);
+    toast.promise(promise, {
+      loading: "Resending invite...",
+      success: "Invite resent",
+      error: "Failed to resend invite",
+    });
+
+    await promise;
+    await loadInvites();
+  };
+
+  const handleDeleteInvite = async (inviteId: string) => {
+    if (!idToken) {
+      return;
+    }
+
+    const promise = inviteAPI.remove(inviteId, idToken);
+    toast.promise(promise, {
+      loading: "Deleting invite...",
+      success: "Invite deleted",
+      error: "Failed to delete invite",
+    });
+
+    await promise;
+    await loadInvites();
+  };
 
   const handleSave = async () => {
     if (!idToken || !data || !isSuperAdmin) {
@@ -445,22 +721,25 @@ export default function WorkspaceManager() {
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   disabled={!isSuperAdmin || saving}
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Workspace Owner</Label>
-                <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2">
+                <div className="flex h-11 items-center gap-3 rounded-lg border bg-muted/20 px-3">
                   <Avatar className="h-9 w-9">
                     <AvatarImage src={data.owner?.avatar || undefined} />
                     <AvatarFallback>{ownerInitials}</AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {data.owner?.name ?? "Unknown owner"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {data.owner?.email ?? "No owner email"}
-                    </p>
+                  <div className="min-w-0">
+                    <OverflowTooltip
+                      label={data.owner?.name ?? "Unknown owner"}
+                      className="truncate text-sm font-medium"
+                    />
+                    <OverflowTooltip
+                      label={data.owner?.email ?? "No owner email"}
+                      className="truncate text-xs text-muted-foreground"
+                    />
                   </div>
                 </div>
               </div>
@@ -486,7 +765,7 @@ export default function WorkspaceManager() {
                   <Input
                     id="workspace-logo"
                     type="file"
-                    accept="image/png,image/jpeg,image/webp"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
                     className="sr-only"
                     disabled={!isSuperAdmin || saving}
                     onChange={(event) =>
@@ -638,15 +917,21 @@ export default function WorkspaceManager() {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium">{member.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {member.email}
-                              </p>
+                              <OverflowTooltip
+                                label={member.name}
+                                className="max-w-[12rem] truncate font-medium"
+                              />
+                              <OverflowTooltip
+                                label={member.email}
+                                className="max-w-[12rem] truncate text-sm text-muted-foreground"
+                              />
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{member.role}</Badge>
+                          <Badge variant="secondary" className={compactBadgeClass}>
+                            <span className="truncate">{member.role}</span>
+                          </Badge>
                         </TableCell>
                         <TableCell>{member.assignedTaskCount}</TableCell>
                         <TableCell>{member.completedTaskCount}</TableCell>
@@ -655,7 +940,7 @@ export default function WorkspaceManager() {
                         <TableCell>
                           <Badge
                             variant="outline"
-                            className={capacityBadgeClasses[member.capacityStatus]}
+                            className={`${compactBadgeClass} ${capacityBadgeClasses[member.capacityStatus]}`}
                           >
                             {member.capacityStatus}
                           </Badge>
@@ -665,6 +950,331 @@ export default function WorkspaceManager() {
                   </TableBody>
                 </Table>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeSection === "team" && (
+        <Card className="app-surface">
+          <CardHeader>
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Team Management
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Manage the teammates already active in this workspace.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {teamLoading ? (
+              <div className="space-y-3 rounded-xl border p-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="grid gap-3 md:grid-cols-[1.5fr_0.8fr_0.8fr_1fr_0.8fr_120px]"
+                  >
+                    {Array.from({ length: 6 }).map((__, cellIndex) => (
+                      <Skeleton key={cellIndex} className="h-9 w-full" />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : teamError ? (
+              <Empty className="border-dashed py-10">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <AlertCircle className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>Team is unavailable</EmptyTitle>
+                  <EmptyDescription>{teamError}</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : teamMembers.length === 0 ? (
+              <Empty className="border-dashed py-10">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Users className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>No team members yet</EmptyTitle>
+                  <EmptyDescription>
+                    Invite teammates to start collaborating in this workspace.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Last Login</TableHead>
+                      <TableHead>Access</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {teamMembers.map((member: TeamMember) => (
+                      <TableRow key={member.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage src={member.avatar ?? undefined} />
+                              <AvatarFallback>
+                                {member.name
+                                  ?.split(" ")
+                                  .map((part: string) => part[0])
+                                  .slice(0, 2)
+                                  .join("")
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <OverflowTooltip
+                                label={member.name ?? "Unknown member"}
+                                className="max-w-[12rem] truncate font-medium"
+                              />
+                              <OverflowTooltip
+                                label={member.email ?? "No email"}
+                                className="max-w-[12rem] truncate text-sm text-muted-foreground"
+                              />
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={compactBadgeClass}>
+                            <span className="truncate">{member.role}</span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={`${compactBadgeClass} text-emerald-600`}
+                          >
+                            {member.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {member.last_login
+                            ? formatRelativeTimestamp(member.last_login)
+                            : "Never"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className={compactBadgeClass}>
+                            {roleLabels[
+                              member.access as keyof typeof roleLabels
+                            ] || "Team Member"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingUserId(member.id)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700"
+                              onClick={() => {
+                                setMemberToDelete(member);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSection === "invites" && (
+        <div className="space-y-3 sm:space-y-5 lg:space-y-6">
+          <Card className="app-surface">
+            <CardHeader>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="h-5 w-5" />
+                    Invite Management
+                  </CardTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Send invites, track status, and clean up old access requests.
+                  </p>
+                </div>
+                <Dialog
+                  open={isInviteDialogOpen}
+                  onOpenChange={setIsInviteDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Invite Team Member
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Invite Team Member</DialogTitle>
+                      <DialogDescription>
+                        Invite a teammate into your current workspace.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <InviteForm
+                      onSave={handleInviteSave}
+                      onCancel={() => setIsInviteDialogOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                Pending and historical invites for this workspace are managed
+                below. Accepted invites stay in the log, but only pending ones
+                can still be copied or resent.
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="app-surface">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Sent Invites
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {invitesLoading ? (
+                <div className="space-y-3 rounded-xl border p-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_1fr_40px]"
+                    >
+                      {Array.from({ length: 6 }).map((__, cellIndex) => (
+                        <Skeleton key={cellIndex} className="h-9 w-full" />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : invites.length === 0 ? (
+                <Empty className="border-dashed py-10">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Mail className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>No invites sent yet</EmptyTitle>
+                    <EmptyDescription>
+                      New invites will appear here with their current status and
+                      expiration date.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Access</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Expires</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invites.map((invite) => (
+                        <TableRow key={invite.id}>
+                          <TableCell>
+                            <OverflowTooltip
+                              label={invite.email}
+                              className="max-w-[12rem] truncate"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={compactBadgeClass}>
+                              <span className="truncate">{invite.role}</span>
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={compactBadgeClass}>
+                              <span className="truncate">
+                                {roleLabels[
+                                  invite.access as keyof typeof roleLabels
+                                ] || invite.access}
+                              </span>
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={compactBadgeClass}>
+                              <span className="truncate">{invite.status}</span>
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {formatRelativeTimestamp(invite.expires_at)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <Ellipsis className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {canCopyInviteLink(invite) && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleCopyInviteLink(invite.id)
+                                    }
+                                  >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Copy invite link
+                                  </DropdownMenuItem>
+                                )}
+                                {canResendInvite(invite) && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleResendInvite(invite.id)
+                                    }
+                                  >
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Resend invite
+                                  </DropdownMenuItem>
+                                )}
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600"
+                                    onClick={() => {
+                                      setInviteToDelete(invite);
+                                      setIsInviteDeleteDialogOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete invite
+                                  </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -725,6 +1335,97 @@ export default function WorkspaceManager() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog
+        open={Boolean(editingUserId)}
+        onOpenChange={() => setEditingUserId(null)}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Team Member</DialogTitle>
+            <DialogDescription>
+              Update the team member details and save your changes.
+            </DialogDescription>
+          </DialogHeader>
+          <TeamMemberForm
+            member={teamMembers.find((member: TeamMember) => member.id === editingUserId)}
+            canAssignSuperAdmin={isSuperAdmin}
+            canEditAccess={isSuperAdmin}
+            onSave={async (nextData) => {
+              if (!editingUserId) {
+                return;
+              }
+
+              await updateTeamMember(editingUserId, nextData);
+              setEditingUserId(null);
+            }}
+            onCancel={() => setEditingUserId(null)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove{" "}
+              <strong>{memberToDelete?.name || "this team member"}</strong> from
+              the workspace? They will lose access immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>
+              Remove Member
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={isInviteDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsInviteDeleteDialogOpen(open);
+
+          if (!open) {
+            window.setTimeout(() => {
+              setInviteToDelete(null);
+            }, 180);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invite</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete the invite for{" "}
+              <strong>{inviteToDelete?.email ?? "this invite"}</strong>? This
+              removes the current invite link and it can no longer be used.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!inviteToDelete) {
+                  return;
+                }
+
+                const inviteId = inviteToDelete.id;
+                setIsInviteDeleteDialogOpen(false);
+                await handleDeleteInvite(inviteId);
+                setInviteToDelete(null);
+              }}
+            >
+              Delete Invite
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

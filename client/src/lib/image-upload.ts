@@ -1,4 +1,9 @@
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ACCEPTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/svg+xml",
+];
 const DEFAULT_MAX_SIZE_MB = 5;
 
 type PrepareImageUploadOptions = {
@@ -13,7 +18,7 @@ export function validateImageFile(
   { maxSizeMB = DEFAULT_MAX_SIZE_MB }: PrepareImageUploadOptions = {},
 ) {
   if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-    throw new Error("Please upload a JPG, PNG, or WebP image.");
+    throw new Error("Please upload a JPG, PNG, WebP, or SVG image.");
   }
 
   if (file.size > maxSizeMB * 1024 * 1024) {
@@ -50,6 +55,10 @@ export async function prepareImageUpload(
   }: PrepareImageUploadOptions = {},
 ) {
   validateImageFile(file, { maxSizeMB });
+
+  if (file.type === "image/svg+xml") {
+    return file;
+  }
 
   const image = await loadImage(file);
   const widthRatio = maxWidth / image.width;

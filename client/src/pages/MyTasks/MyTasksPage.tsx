@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-import type { TaskStatus, TaskWithAssigneesDTO } from "@/Types/types";
+import type { DailyFocusItem, TaskStatus, TaskWithAssigneesDTO } from "@/Types/types";
 import { useMyTasksContext } from "@/context/MyTaskContext";
 import { useMyTasksFilters } from "./hooks/useMyTasksFilters";
 import { useMyTasksStats } from "./hooks/useMyTaskStats";
@@ -8,18 +9,26 @@ import { MyTasksStats } from "./components/TasksStats";
 import { TasksList } from "./components/TasksList";
 import { TaskDetailsSheet } from "./components/TaskDetailsSheet";
 import { MyTasksToolbar } from "./components/MyTasksToolbar";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, ListTodo, Sparkles } from "lucide-react";
 import { MyTasksSkeleton } from "@/components/MyTasksSkeleton";
 import { MyTasksHeader } from "./components/MyTaskHeader";
 import { useAuthContext } from "@/context/AuthContext";
+import { useRetentionSnapshot } from "@/hooks/useRetentionSnapshot";
+import { DailyFocusCard } from "@/components/retention/RetentionPanels";
+import { Button } from "@/components/ui/button";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
+type FocusSection = "tasks" | "daily-focus";
 
 export function MyTasksPage() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   /* ---------------- Context ---------------- */
   const { authStatus } = useAuthContext();
   const { tasks, loading, error, refetch, updateTaskOptimistic } =
     useMyTasksContext();
+  const { snapshot, loading: retentionLoading, error: retentionError } =
+    useRetentionSnapshot();
 
   /* ---------------- UI State ---------------- */
   const [selectedTask, setSelectedTask] = useState<TaskWithAssigneesDTO | null>(
@@ -28,13 +37,64 @@ export function MyTasksPage() {
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const activeSection = (searchParams.get("section") as FocusSection | null) ?? "tasks";
   const workspaceKey = authStatus?.companyId ?? "default";
+  const orderStorageKey = `crevo:my-task-order:${workspaceKey}`;
+  const [taskOrder, setTaskOrder] = useState<string[]>([]);
+  const [hydratedOrderKey, setHydratedOrderKey] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedTask(null);
     setDetailsOpen(false);
     setViewMode("all");
+    setHydratedOrderKey(null);
   }, [workspaceKey]);
+
+  useEffect(() => {
+    const section = searchParams.get("section");
+    if (section === "tasks" || section === "daily-focus") {
+      return;
+    }
+    setSearchParams({ section: "tasks" }, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useLayoutEffect(() => {
+    const raw = window.localStorage.getItem(orderStorageKey);
+    if (!raw) {
+      setTaskOrder([]);
+      setHydratedOrderKey(orderStorageKey);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      setTaskOrder(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setTaskOrder([]);
+    }
+    setHydratedOrderKey(orderStorageKey);
+  }, [orderStorageKey]);
+
+  useEffect(() => {
+    if (hydratedOrderKey !== orderStorageKey) {
+      return;
+    }
+
+    setTaskOrder((previous) => {
+      const taskIds = tasks.map((task) => task.id);
+      const next = [
+        ...previous.filter((taskId) => taskIds.includes(taskId)),
+        ...taskIds.filter((taskId) => !previous.includes(taskId)),
+      ];
+
+      if (next.length === previous.length && next.every((id, index) => id === previous[index])) {
+        return previous;
+      }
+
+      window.localStorage.setItem(orderStorageKey, JSON.stringify(next));
+      return next;
+    });
+  }, [hydratedOrderKey, orderStorageKey, tasks]);
 
   /* ---------------- Filters ---------------- */
   const filters = useMyTasksFilters(tasks);
@@ -70,11 +130,46 @@ export function MyTasksPage() {
     });
   }, [filters.filteredTasks, viewMode]);
 
+  const orderedTasksForView = useMemo(() => {
+    const orderIndex = new Map(taskOrder.map((taskId, index) => [taskId, index]));
+
+    return [...tasksForView].sort((left, right) => {
+      const leftIndex = orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = orderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+      return leftIndex - rightIndex;
+    });
+  }, [taskOrder, tasksForView]);
+
   /* ---------------- Handlers ---------------- */
 
   const handleOpenTask = (task: TaskWithAssigneesDTO) => {
     setSelectedTask(task);
     setDetailsOpen(true);
+  };
+
+  const handleOpenFocusItem = (item: DailyFocusItem) => {
+    if (item.taskId) {
+      const matchedTask = tasks.find((task) => task.id === item.taskId);
+      if (matchedTask) {
+        handleOpenTask(matchedTask);
+        return;
+      }
+
+      if (item.project?.id) {
+        navigate(`/projectdetails/${item.project.id}`);
+        return;
+      }
+    }
+
+    if (item.conversation?.id) {
+      const params = new URLSearchParams({
+        conversationId: item.conversation.id,
+      });
+      if (item.messageId) {
+        params.set("messageId", item.messageId);
+      }
+      navigate(`/chat?${params.toString()}`);
+    }
   };
 
   const handleToggleTaskStatus = async (taskId: string, checked: boolean) => {
@@ -86,6 +181,51 @@ export function MyTasksPage() {
   const handleOnStatusChange = async (taskId: string, status: string) => {
     updateTaskOptimistic(taskId, {
       status: status as TaskStatus,
+    });
+  };
+
+  const handleReorderTasks = (nextVisibleOrder: string[]) => {
+    setTaskOrder((previous) => {
+      const allTaskIds = tasks.map((task) => task.id);
+      const baseOrder = [
+        ...previous.filter((taskId) => allTaskIds.includes(taskId)),
+        ...allTaskIds.filter((taskId) => !previous.includes(taskId)),
+      ];
+
+      if (nextVisibleOrder.length === 0) {
+        return previous;
+      }
+
+      const visibleTaskIds = tasksForView.map((task) => task.id);
+      const visibleTaskIdSet = new Set(visibleTaskIds);
+
+      if (
+        nextVisibleOrder.length !== visibleTaskIds.length ||
+        nextVisibleOrder.some((taskId) => !visibleTaskIdSet.has(taskId))
+      ) {
+        return previous;
+      }
+
+      let visibleIndex = 0;
+      const next = baseOrder.map((taskId) => {
+        if (!visibleTaskIdSet.has(taskId)) {
+          return taskId;
+        }
+
+        const nextTaskId = nextVisibleOrder[visibleIndex];
+        visibleIndex += 1;
+        return nextTaskId;
+      });
+
+      if (
+        next.length === previous.length &&
+        next.every((taskId, index) => taskId === previous[index])
+      ) {
+        return previous;
+      }
+
+      window.localStorage.setItem(orderStorageKey, JSON.stringify(next));
+      return next;
     });
   };
 
@@ -115,10 +255,49 @@ export function MyTasksPage() {
   }
 
   return (
-    <div key={workspaceKey} className="space-y-6">
-      <MyTasksHeader />
+    <div key={workspaceKey} className="space-y-4 sm:space-y-5 lg:space-y-6">
+      <MyTasksHeader
+        title={activeSection === "daily-focus" ? "Daily Focus" : "My Tasks"}
+        description={
+          activeSection === "daily-focus"
+            ? "See the tasks, blockers, and decision signals most likely to shape today."
+            : "Your task list for the active workspace, with filters and saved ordering."
+        }
+        icon={activeSection === "daily-focus" ? Sparkles : ListTodo}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant={activeSection === "tasks" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSearchParams({ section: "tasks" }, { replace: true })}
+        >
+          My Tasks
+        </Button>
+        <Button
+          type="button"
+          variant={activeSection === "daily-focus" ? "default" : "outline"}
+          size="sm"
+          onClick={() =>
+            setSearchParams({ section: "daily-focus" }, { replace: true })
+          }
+        >
+          Daily Focus
+        </Button>
+      </div>
+      {activeSection === "daily-focus" && (
+        <div className="grid grid-cols-1 gap-4">
+          <DailyFocusCard
+            items={snapshot?.dailyFocus.items ?? []}
+            loading={retentionLoading}
+            error={retentionError}
+            onOpenTask={handleOpenFocusItem}
+            onOpenDecision={handleOpenFocusItem}
+          />
+        </div>
+      )}
       {/* Toolbar */}
-      {tasks.length > 0 && (
+      {activeSection === "tasks" && tasks.length > 0 && (
         <div className="sticky top-0 z-10 -mx-1 rounded-xl bg-background/95 px-1 pb-3 backdrop-blur">
           <MyTasksToolbar
             search={filters.search}
@@ -134,7 +313,7 @@ export function MyTasksPage() {
       )}
 
       {/* Stats */}
-      {tasks.length > 0 && (
+      {activeSection === "tasks" && tasks.length > 0 && (
         <MyTasksStats
           stats={{
             total: stats.total,
@@ -149,7 +328,7 @@ export function MyTasksPage() {
       )}
 
       {/* Tasks */}
-      {tasks.length === 0 ? (
+      {activeSection === "tasks" && tasks.length === 0 ? (
         // First-time user (no assigned tasks at all)
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <ClipboardList className="h-10 w-10 text-muted-foreground mb-4" />
@@ -158,7 +337,7 @@ export function MyTasksPage() {
             When someone assigns you a task, it will appear here.
           </p>
         </div>
-      ) : tasksForView.length === 0 ? (
+      ) : activeSection === "tasks" && tasksForView.length === 0 ? (
         // Filters or view mode returned no results
         <div className="border rounded-lg p-12 text-center bg-muted/20">
           {filters.hasActiveFilters ? (
@@ -181,13 +360,14 @@ export function MyTasksPage() {
             </>
           )}
         </div>
-      ) : (
+      ) : activeSection === "tasks" ? (
         <TasksList
-          tasks={tasksForView}
+          tasks={orderedTasksForView}
           onOpenTask={handleOpenTask}
           onToggleStatus={handleToggleTaskStatus}
+          onReorder={handleReorderTasks}
         />
-      )}
+      ) : null}
 
       {/* Details */}
       <TaskDetailsSheet

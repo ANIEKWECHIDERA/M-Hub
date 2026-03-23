@@ -166,7 +166,7 @@ Relevant files:
 
 ### 3d. Invite management now supports copy/resend/delete actions
 
-Invite handling in Settings is no longer cancel-only.
+Invite handling is no longer cancel-only and now lives under Workspace Manager instead of being a top-level Settings surface for admins.
 
 Current per-invite actions:
 
@@ -176,20 +176,26 @@ Current per-invite actions:
 
 Implementation notes:
 
-- the invite row now uses an ellipsis menu in Settings
+- the invite row now uses an ellipsis menu in Workspace Manager
 - copy-link and resend both refresh the invite token/hash and expiration, then:
   - copy returns a valid accept URL
   - resend sends a new email with the refreshed token
 - delete now removes the invite record entirely instead of only marking it cancelled
 - accepted invites cannot be resent
+- accepted invites no longer show `Copy invite link` or `Resend invite`; they only expose `Delete invite`
 
 Relevant files:
 
-- `client/src/pages/Settings.tsx`
+- `client/src/pages/WorkspaceManager.tsx`
 - `client/src/api/invite.api.ts`
 - `server/src/controllers/invite.controller.ts`
 - `server/src/routes/invite.routes.ts`
 - `server/src/services/invite.service.ts`
+
+UX notes:
+
+- successful `Invite Team Member` submissions should close the dialog immediately, then refresh the invite list in the background
+- delete-invite confirmation should keep the invite email visible through the close animation instead of flashing a generic fallback label
 
 ### 3e. Workspace workload/capacity cues
 
@@ -221,6 +227,209 @@ Known limitations:
 
 - capacity thresholds are heuristic and currently hardcoded in `workspace.service.ts`
 - workload counts are task-assignment based and do not attempt to measure effort sizing or subtasks as separate capacity units
+
+### 3f. Retention dashboard features
+
+Crevo now has a retention-focused dashboard slice designed to make the app useful every day, not just when a user needs to look something up manually.
+
+Current retention features:
+
+- `Daily Focus`
+- `Decision Feed`
+- `Workspace Health`
+
+Backend contract:
+
+- `GET /api/dashboard/retention`
+
+Backend implementation:
+
+- `server/src/routes/dashboard.routes.ts`
+- `server/src/controllers/dashboard.controller.ts`
+- `server/src/services/retention.service.ts`
+
+Frontend implementation:
+
+- `client/src/api/dashboard.api.ts`
+- `client/src/hooks/useRetentionSnapshot.ts`
+- `client/src/components/retention/RetentionPanels.tsx`
+- `client/src/pages/DashBoard.tsx`
+- `client/src/pages/MyTasks/MyTasksPage.tsx`
+- `client/src/context/WorkspaceContext.tsx`
+
+Daily Focus behavior:
+
+- personal to the current user
+- scoped to the active workspace/company
+- combines:
+  - overdue / due-today / due-soon assigned tasks
+  - recent decision, blocker, and action-item chat signals from conversations the user belongs to
+- sorted to surface urgency first:
+  - overdue task pressure
+  - blockers
+  - due-today / due-soon work
+  - recent decisions and action items
+- click-through behavior:
+  - task items open the related project or My Tasks detail context
+  - chat-derived items open the source conversation
+
+Decision Feed behavior:
+
+- surfaces recent tagged chat messages without showing the entire thread
+- currently focuses on:
+  - `decision`
+  - `action-item`
+  - `blocker`
+- scoped to conversations the current user is a member of
+- supports lightweight client-side filtering:
+  - `All`
+  - `Decisions`
+  - `Action Items`
+  - `Blockers`
+- feed items open the source chat conversation and preserve deep-link context
+
+Workspace Health behavior:
+
+- visible only to `admin` and `superAdmin`
+- hidden from lower-access roles
+- based on a transparent weighted model using:
+  - overdue task count
+  - completion rate
+  - overloaded teammate count
+  - behind teammate count
+  - recent blocker-tag signals
+- returns:
+  - score from `0-100`
+  - status label:
+    - `Healthy`
+    - `At Risk`
+    - `Critical`
+  - summary sentence
+  - factor breakdown for quick diagnosis
+
+Home-surface placement:
+
+- `Dashboard` is intentionally lighter again and no longer shows Daily Focus, Decision Feed, or Workspace Health
+- `Daily Focus` now lives on `My Tasks` only
+- `Decision Feed` now lives inside `Chat`, alongside the tagged summary/decision-capture area
+- `Workspace Health` now lives in the sidebar footer area for `admin` and `superAdmin`
+- lower-access users do not see Workspace Health
+
+Caching and freshness:
+
+- workspace-scoped retention snapshots are cached inside `WorkspaceContext`
+- new helpers:
+  - `getRetentionSnapshot(...)`
+  - `peekRetentionSnapshot(...)`
+  - `invalidateRetentionSnapshot(...)`
+- cache is keyed by active workspace/company
+- repeated visits do not force noisy reloads
+- task mutations invalidate the retention snapshot
+- chat tag mutations invalidate the retention snapshot when tagged summaries change
+
+Responsive/UI notes:
+
+- retention cards follow the app's mobile/tablet/desktop spacing system
+- loading uses skeletons instead of abrupt blank states
+- empty and error states are intentional and inline
+- Workspace Health in the sidebar uses progressive disclosure via an ellipsis menu instead of showing too much detail inline
+
+Chat deep-link note:
+
+- dashboard and My Tasks now link decision/feed items into Chat with query params
+- Chat preserves unknown query params when normalizing the `section` search param
+- this prevents loss of `conversationId` / `messageId` during deep-link navigation
+
+Playwright verification completed for:
+
+- Workspace Manager submenu expansion without accidental routing
+- Workspace Manager invite actions:
+  - accepted invite shows only `Delete invite`
+  - pending invite shows `Copy invite link`, `Resend invite`, and `Delete invite`
+  - copy invite link succeeds
+  - resend invite succeeds
+  - delete invite cancel keeps the UI responsive
+  - delete invite removes the row
+- toast behavior on small viewport:
+  - top-center placement with more distance from the header
+  - controlled width
+  - auto-dismiss
+- My Tasks drag-and-drop reordering with persisted local workspace order
+
+Known limitations:
+
+- Decision Feed filtering is currently client-side over the returned dashboard payload
+- Daily Focus task routing currently opens the related project or My Tasks context rather than a dedicated task deep-link route
+- Workspace Health is a practical heuristic, not historical analytics or forecasting
+
+Future expansion path:
+
+- AI-prioritized Daily Focus ranking
+- automatic decision extraction and suggestion
+- decision-to-task conversion
+- workspace health trend history and alerts
+
+### 3g. Refinement pass: calmer IA, chat polish, onboarding hardening
+
+This pass focused on reducing visual overwhelm and moving secondary/admin tools behind better information architecture.
+
+Navigation and IA changes:
+
+- `Workspace Manager` is now the admin home for:
+  - `Workspace Details`
+  - `Team Workload`
+  - `Team`
+  - `Invites`
+  - `Delete Workspace`
+- clicking the Workspace Manager parent item expands the submenu first; it does not force navigation
+- `Settings` is now reduced back to:
+  - `Profile`
+  - `Notifications`
+  - `Security`
+
+Chat polish changes:
+
+- the seeded General group intro message is now a meaningful workspace-use description instead of `General chat created`
+- chat renders subtle per-day separators client-side when a new day starts in the thread
+- direct-message headers now show the teammate's role instead of a generic `Direct message` label
+- in direct messages, the other person's message bubble no longer shows the hover ellipsis action menu
+- the chat summary/tagged area is now framed as `Decision Feed`
+- the collapsed sidebar now shows a subtle unread dot on the chat button when unread chat items exist
+
+Workspace / terminology changes:
+
+- visible frontend copy now prefers `Workspace` over `Company`
+- workspace logo upload now accepts SVG in addition to JPG/PNG/WebP
+- workspace/team/invite data uses skeleton states instead of abrupt empty flashes
+- My Tasks skeletons now use shared theme-aware skeleton primitives instead of hardcoded light-only shimmer blocks
+
+Onboarding and signup flow hardening:
+
+- the frontend no longer forces newly created users into manual workspace creation after profile completion
+- successful profile completion now routes to:
+  - pending invite acceptance when a pending invite token exists
+  - otherwise `/dashboard`
+- signup now refreshes backend auth status before redirecting so `My Workspace` creation settles before the shell loads
+- first-time users should now rely on backend auto-creation of `My Workspace` instead of manual workspace setup
+
+Task ordering:
+
+- My Tasks supports drag-and-drop reordering
+- order is persisted per workspace in local storage using:
+  - `crevo:my-task-order:{companyId}`
+
+Permission and membership UX:
+
+- admins can now update team member role and status and remove members
+- admins cannot edit workspace access level
+- superAdmins still control access-level changes and superAdmin assignment
+- generic API permission failures now show clearer workspace-membership/session guidance instead of cryptic failures
+
+Known limitations:
+
+- Team and Invite rendering was moved into Workspace Manager, but the older Settings implementation still exists in code as unreachable fallback UI and can be cleaned up later
+- the new My Tasks ordering currently persists client-side per workspace rather than syncing to the backend
+- I did not run a real browser signup test in this pass because doing so would mutate the active auth session and test data
 
 ### 4. Context-heavy frontend
 
@@ -1177,6 +1386,11 @@ Assumptions currently in use:
   - copy invite link
   - resend invite
   - delete invite
+- Accepted invites should not offer actions that depend on a still-valid acceptance token:
+  - hide `Resend invite`
+  - hide `Copy invite link`
+  - keep `Delete invite` available
+  - normalize status checks defensively so casing differences do not reintroduce the bug
 - Copy invite link should use a clipboard fallback, not only `navigator.clipboard.writeText`, so the action still works in stricter browser contexts
 - Delete workspace UX rules:
   - only `superAdmin` can access the destructive action
@@ -1185,6 +1399,11 @@ Assumptions currently in use:
 - Backend workspace deletion should update impacted users so they are not left pointing at a deleted workspace:
   - switch them to another remaining active workspace if one exists
   - otherwise set `has_company = false` and clear `company_id`
+  - keep the delete operation transactional so a successful workspace delete cannot still bubble up as a `500`
+- Team-member reactivation should not fail when a previously inactive member is restored:
+  - the general-chat membership sync must reactivate a removed `chat_conversation_members` row before inserting a new one
+  - avoid creating duplicate active conversation-member rows that violate `chat_conversation_members_active_user_key`
+  - verified via browser flow by changing a member from `active -> inactive -> active` with both PATCH requests returning `200`
 - Playwright refinement pass verified:
   - workspace submenu expands without routing on parent click
   - invite ellipsis menu opens correctly
@@ -1207,9 +1426,141 @@ Assumptions currently in use:
   - reduce message bubble padding/text size slightly on phones without hurting readability
   - keep group-tagging and send actions intact while making the composer denser
 - Toasts should prefer content-fit width rather than stretching wide across the viewport
+- Workspace Health messaging should explain the score contextually:
+  - `Healthy` means pressure is manageable and delivery is moving steadily
+  - `At Risk` means work is still moving, but overdue tasks, blockers, or uneven capacity could start slipping delivery
+  - `Critical` means delivery is under material pressure and needs intervention soon
+  - avoid presenting the number as scientific precision; the score is a weighted operational cue
+  - both the sidebar summary and the fuller card should expose a compact help affordance that explains the status bands
+  - render `Healthy`, `At Risk`, and `Critical` as badges, paired with matching status icons
+  - keep the sidebar version compact: score, badge, icon, and short summary only
+- Icon-bearing inputs and search fields should leave more breathing room between the icon and text:
+  - prefer `pointer-events-none` on decorative icons
+  - use larger left padding (`pl-12` range) for icon-led inputs on key auth, search, notes, and chat surfaces
+  - this is especially important after the mobile density reductions so placeholder text does not visually collide with icons
+- Load-testing note:
+  - a 50-concurrent mixed authenticated burst is currently dominated by the backend rate limiter and returns `429` before it meaningfully exercises app-query capacity
+  - this means current load-test results mostly reflect protection settings, not the raw throughput of workspace, task, retention, or chat endpoints
 - The sidebar footer should be treated as a retention surface, not static instructional copy
   - current experiment is `Retention Lab` with three selectable concept cards:
     - `Team Pulse`
     - `Win Streaks`
     - `Friday Wrap`
 - Mobile sidebar sheet content now includes hidden title/description so Playwright/browser a11y checks stay clean
+- The sidebar now treats personal execution surfaces as a grouped area:
+  - use a parent `Focus` menu in the main sidebar
+  - child routes:
+    - `/mytasks?section=tasks`
+    - `/mytasks?section=daily-focus`
+  - keep `My Tasks` and `Daily Focus` separate instead of stacking both on the same page by default
+  - `My Tasks` remains the task-list surface
+  - `Daily Focus` is the lighter prioritization surface for what needs attention now
+  - place `Focus` above `Chat` in the sidebar order
+  - use the `ListTodo` icon for the `My Tasks` child item so the nav matches the page identity
+- Chat navigation copy should say `Groups`, not `Projects`, for the group-chat section label
+  - keep the internal section id as `projects` if that avoids route or API churn
+- The dashboard button in the sidebar should surface a subtle unread red dot when chat has unread items
+  - this is intentionally lighter than the full unread badge shown on the Chat parent item
+- For icon-led inputs and searchbars, preserve breathing room between the icon and user text
+  - continue using `pointer-events-none` on decorative icons
+  - prefer `pl-12` to `pl-14` spacing on icon-bearing inputs
+  - especially for:
+    - Chat `Search conversations`
+    - Projects search
+    - Notes search
+    - My Tasks search
+- `My Tasks` page identity should be dynamic:
+  - `?section=tasks` uses `My Tasks`
+  - `?section=daily-focus` uses `Daily Focus`
+  - update the leading icon and supporting copy to match the active section
+- My Tasks drag-and-drop now uses `dnd-kit`
+  - implementation lives in:
+    - `client/src/pages/MyTasks/components/TasksList.tsx`
+    - `client/src/pages/MyTasks/components/TaskCard.tsx`
+  - packages in use:
+    - `@dnd-kit/core`
+    - `@dnd-kit/sortable`
+    - `@dnd-kit/utilities`
+  - old `swapy` dependency has been removed
+  - current behavior:
+    - vertical sortable list using `DndContext` + `SortableContext`
+    - pointer, touch, and keyboard sensors enabled
+    - dedicated drag handle on each task row
+    - drag completion passes ordered visible task ids back to the page for persistence
+    - task-detail opening is briefly suppressed after a drag so releasing the pointer does not open the task drawer accidentally
+    - task order still persists per workspace in local storage under `crevo:my-task-order:{companyId}`
+  - mobile polish:
+    - task cards remain denser for smaller phones
+    - drag grip stays visible without crowding badges/metadata
+    - task list now has a little extra inset/padding on small phones so rows feel less cramped
+  - laptop polish:
+    - keep icon/input spacing consistent with the broader visual-polish guide
+    - preserve cleaner toolbar/header spacing on larger breakpoints too
+    - reduce task-card corner radius for a calmer, less pill-like list
+  - backend compatibility fix landed alongside the drag work:
+    - task create/update now accepts `assigneeIds` as an alias to `team_member_ids`
+    - this removes `500` noise from callers that still post the older frontend-shaped field
+  - browser verification notes:
+    - the prior React render-loop / Swapy runtime console errors are gone
+    - opening task details from the longer seeded list still works
+    - explicit browser drag of `Swapy load task 7` into `Swapy load task 4`'s position now reorders correctly
+    - the reordered task list survives page reload through the saved per-workspace local order key
+- Workspace Health sidebar visibility is now user-toggleable for admins and superAdmins
+  - settings preference key: `workspaceHealth`
+  - stored client-side through `useSettings` with local storage fallback key `crevo-workspace-health`
+  - when enabled:
+    - show the compact sidebar Workspace Health card
+  - when disabled:
+    - hide the health card details
+    - show a small `Turn on` affordance in the sidebar so the user can restore it quickly
+  - non-admin roles should not see this toggle or the sidebar health surface
+- Browser verification completed for the latest My Tasks / sidebar retention changes:
+  - toggling `Workspace health in sidebar` off replaces the card with a compact `Turn on` state
+  - clicking `Turn on` restores the sidebar health card
+  - My Tasks drag-and-drop reorders correctly with `dnd-kit`
+  - refreshed page keeps the saved task order instead of snapping back
+- `Daily Focus` and `Decision Feed` should include compact help tooltips, similar to Workspace Health, so users understand what each surface is for without adding heavier visible copy
+  - for chat-side `Decision Feed`, move explanatory helper copy into the tooltip instead of showing it as a persistent paragraph
+  - keep Decision Feed filter/actions visually compact with smaller rounded controls
+- Workspace Manager polish:
+  - keep the `Workspace Name` field and `Workspace Owner` field at the same visual height
+  - keep workload/team/invite badges visually uniform on smaller screens
+  - truncate long names/emails in tables and expose the full value on tooltip hover/focus
+- Dashboard project cards should keep a consistent vertical structure even when some data is missing
+  - avoid cards collapsing unevenly because a deadline, task count, or member text is absent
+  - reserve stable rows for metadata and CTA alignment
+- Settings `Compact mode` should include a lightweight help tooltip explaining that it reduces spacing in supported areas without changing the underlying layout
+- Project Details mobile/tab behavior:
+  - the `Overview` tab must own a real scroll container on smaller screens
+  - verify it scrolls instead of relying on parent-page overflow
+- Permission-change handling:
+  - when workspace membership or access changes and API requests start failing with `401` or `403`, show a refresh-focused toast
+  - throttle that toast so repeated failures do not spam the UI
+- Chat creation dialogs need extra mobile care:
+  - on small screens, move the direct-chat and group-chat dialogs closer to the top of the viewport instead of centering them perfectly
+  - keep enough vertical headroom so the on-screen keyboard does not immediately consume the remaining usable space
+  - apply the same top-positioning and row-truncation treatment to the `Workspace people` modal, not only direct/group creation
+  - member rows in `Workspace people` / `New direct chat` / `New group chat` should preserve the primary action button area
+  - truncate long names/emails with ellipses rather than letting content push the `Chat` / selection controls off screen
+  - role/access badges inside those rows should hide or compress on the smallest screens before the action button is allowed to wrap away
+- Unread chat dot placement rule:
+  - do not show the unread red dot on the dashboard nav item
+  - show it on the header `SidebarTrigger` only when the sidebar is closed
+- Accept-invite mobile positioning:
+  - the full-page invite acceptance card should sit higher on small screens instead of centering vertically
+  - match the same mobile principle used in chat creation dialogs so software keyboards leave usable space
+- First-time signup fallback:
+  - every first-time signup should still receive `My Workspace` automatically
+  - as a frontend safety net, if a user ever lands on `/onboarding/company`, the page should auto-attempt to create `My Workspace` and move the user forward without asking for manual setup
+  - keep the manual workspace form only as a fallback if that automatic step fails
+- Register-flow observation from a real browser pass:
+  - logging out and creating a fresh email/password account on the current live site still routed to `/onboarding/company`
+  - this indicates the deployed end-to-end flow is still exposing manual workspace setup even though the intended product rule is automatic `My Workspace` creation
+  - re-test this after the next deploy so the live flow matches the fallback now present in the frontend code
+- Pending invite token handling should be explicit, not ambient:
+  - only preserve `pendingInviteToken` across login/signup when the user is intentionally in an invite flow (`?invite=1`)
+  - normal visits to `/login` or `/signup` should clear stale invite tokens so old links do not hijack unrelated onboarding
+  - invite-entry buttons from the accept-invite page should route to `/login?invite=1` and `/signup?invite=1`
+- Signup stabilization:
+  - after account creation or profile completion, poll onboarding status briefly before redirecting so the app is less likely to race into stale post-auth state
+  - if the status still resolves to `PROFILE_COMPLETE_NO_COMPANY`, let the `/onboarding/company` page handle the automatic `My Workspace` fallback instead of leaving the user stranded

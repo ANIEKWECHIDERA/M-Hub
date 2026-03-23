@@ -2,22 +2,52 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, Calendar, ChevronRight, FolderOpen } from "lucide-react";
+import {
+  AlertCircle,
+  Calendar,
+  ChevronRight,
+  FolderOpen,
+  GripVertical,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { DraggableAttributes } from "@dnd-kit/core";
 
 import type { TaskWithAssigneesDTO, TaskStatus } from "@/Types/types";
 import { statusConfig } from "@/config/status.config";
 import { priorityConfig } from "@/config/priority.config";
 
+type DragHandleListeners = Record<string, Function | undefined>;
+
 interface TaskCardProps {
   task: TaskWithAssigneesDTO;
   onOpen: (task: TaskWithAssigneesDTO) => void;
   onToggleStatus: (taskId: string, done: boolean) => void;
+  dragHandleProps?: DraggableAttributes;
+  dragHandleListeners?: DragHandleListeners;
+  setDragHandleRef?: (element: HTMLElement | null) => void;
+  isDragging?: boolean;
 }
 
-export function TaskCard({ task, onOpen, onToggleStatus }: TaskCardProps) {
-  const statusKey = task.status as TaskStatus;
-  const StatusIcon = statusConfig[statusKey].icon;
+export function TaskCard({
+  task,
+  onOpen,
+  onToggleStatus,
+  dragHandleProps,
+  dragHandleListeners,
+  setDragHandleRef,
+  isDragging = false,
+}: TaskCardProps) {
+  const normalizedStatus = (task.status === "Done" ||
+  task.status === "In Progress" ||
+  task.status === "To-Do"
+    ? task.status
+    : "To-Do") as TaskStatus;
+  const statusMeta = statusConfig[normalizedStatus];
+  const StatusIcon = statusMeta.icon;
+  const normalizedPriority = String(task.priority ?? "medium").toLowerCase();
+  const priorityMeta =
+    priorityConfig[normalizedPriority as keyof typeof priorityConfig] ??
+    priorityConfig.medium;
 
   const dueDate = task.due_date ? new Date(task.due_date) : null;
 
@@ -41,25 +71,28 @@ export function TaskCard({ task, onOpen, onToggleStatus }: TaskCardProps) {
 
   return (
     <Card
-      className="hover:shadow-md transition-all cursor-pointer group"
+      className={cn(
+        "group cursor-pointer select-none rounded-xl border border-border/70 bg-card/95 transition-all hover:shadow-md active:cursor-grabbing lg:rounded-lg",
+        isDragging && "opacity-85 shadow-lg ring-1 ring-primary/20",
+      )}
       onClick={() => onOpen(task)}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
+      <CardContent className="p-3.5 sm:p-4 lg:p-4.5">
+        <div className="flex items-start gap-2.5 sm:gap-3 lg:gap-3.5">
           <Checkbox
             checked={isDone}
             onCheckedChange={(checked) => {
               onToggleStatus(task.id, Boolean(checked));
             }}
             onClick={(e) => e.stopPropagation()}
-            className="mt-1"
+            className="mt-0.5"
           />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <h3
-                  className={`font-medium text-base mb-1 ${
+                  className={`mb-1 text-sm font-medium leading-5 sm:text-base ${
                     isDone ? "line-through text-muted-foreground" : ""
                   }`}
                 >
@@ -67,40 +100,69 @@ export function TaskCard({ task, onOpen, onToggleStatus }: TaskCardProps) {
                 </h3>
 
                 {task.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="line-clamp-2 text-xs text-muted-foreground sm:text-sm">
                     {task.description}
                   </p>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 mr-8">
+              <div className="mr-1 flex items-center gap-2 sm:mr-3 sm:gap-2.5 lg:mr-2 lg:gap-3">
                 <Badge
                   variant="outline"
-                  className={cn("text-xs", priorityConfig[task.priority].color)}
+                  className={cn(
+                    "h-6 max-w-[84px] justify-center overflow-hidden px-2 text-[10px] sm:h-7 sm:max-w-none sm:text-xs",
+                    priorityMeta.color,
+                  )}
+                  title={priorityMeta.label}
                 >
-                  {priorityConfig[task.priority].label}
+                  <span className="truncate">
+                    {priorityMeta.label}
+                  </span>
                 </Badge>
+                <div
+                  ref={setDragHandleRef}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Drag task ${task.title}`}
+                  className="flex h-8 w-8 shrink-0 touch-none items-center justify-center rounded-md border border-transparent bg-muted/50 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing lg:h-9 lg:w-9"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                    }
+                  }}
+                  {...dragHandleProps}
+                  {...dragHandleListeners}
+                >
+                  <GripVertical className="h-4 w-4" />
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
+            <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:text-sm">
+              <div className="flex min-w-0 items-center gap-1">
                 <FolderOpen className="h-3.5 w-3.5" />
-                <span className="truncate max-w-[150px]">
+                <span className="max-w-[190px] truncate sm:max-w-[150px]">
                   {task.project?.title ?? "No Project"}
                 </span>
               </div>
 
-              <Separator orientation="vertical" className="h-4" />
+              <Separator
+                orientation="vertical"
+                className="hidden h-4 sm:block"
+              />
 
               <div className="flex items-center gap-1">
                 <StatusIcon
-                  className={cn("h-3.5 w-3.5", statusConfig[statusKey].color)}
+                  className={cn("h-3.5 w-3.5", statusMeta.color)}
                 />
-                <span>{statusConfig[statusKey].label}</span>
+                <span>{statusMeta.label}</span>
               </div>
 
-              <Separator orientation="vertical" className="h-4" />
+              <Separator
+                orientation="vertical"
+                className="hidden h-4 sm:block"
+              />
 
               <div
                 className={cn(
@@ -127,7 +189,9 @@ export function TaskCard({ task, onOpen, onToggleStatus }: TaskCardProps) {
             </div>
           </div>
 
-          <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1" />
+          <ChevronRight
+            className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 sm:h-5 sm:w-5"
+          />
         </div>
       </CardContent>
     </Card>

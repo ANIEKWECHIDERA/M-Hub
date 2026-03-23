@@ -28,14 +28,9 @@ export const AuthGuard = () => {
 
   const state = authStatus.onboardingState;
   const isProfilePage = location.pathname.startsWith("/onboarding/profile");
-  const isCompanyPage = location.pathname.startsWith("/onboarding/company");
 
   if (state === "AUTHENTICATED_NO_PROFILE" && !isProfilePage) {
     return <Navigate to="/onboarding/profile" replace />;
-  }
-
-  if (state === "PROFILE_COMPLETE_NO_COMPANY" && !isCompanyPage) {
-    return <Navigate to="/onboarding/company" replace />;
   }
 
   return <Outlet />;

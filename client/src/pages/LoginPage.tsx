@@ -14,13 +14,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { CrevoMark } from "@/components/CrevoMark";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     signIn,
     signInWithGoogle,
@@ -38,11 +39,15 @@ export default function LoginPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const inviteFlow = new URLSearchParams(location.search).get("invite") === "1";
 
   // Redirect if already logged in
   useEffect(() => {
+    const pendingInviteToken = inviteFlow
+      ? localStorage.getItem("pendingInviteToken")
+      : null;
+
     if (currentUser) {
-      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
       navigate(
         pendingInviteToken
           ? `/invite/accept/${pendingInviteToken}`
@@ -50,11 +55,14 @@ export default function LoginPage() {
         { replace: true },
       );
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, inviteFlow, navigate]);
 
   useEffect(() => {
     clearError();
-  }, []);
+    if (!inviteFlow) {
+      localStorage.removeItem("pendingInviteToken");
+    }
+  }, [clearError, inviteFlow]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -87,7 +95,9 @@ export default function LoginPage() {
       return;
     }
     if (user) {
-      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      const pendingInviteToken = inviteFlow
+        ? localStorage.getItem("pendingInviteToken")
+        : null;
       navigate(
         pendingInviteToken
           ? `/invite/accept/${pendingInviteToken}`
@@ -104,7 +114,9 @@ export default function LoginPage() {
     const result = await signInWithGoogle();
 
     if (result) {
-      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      const pendingInviteToken = inviteFlow
+        ? localStorage.getItem("pendingInviteToken")
+        : null;
       navigate(
         pendingInviteToken
           ? `/invite/accept/${pendingInviteToken}`
@@ -234,7 +246,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
@@ -243,7 +255,7 @@ export default function LoginPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
                       }
-                      className={`h-10 pl-10 sm:h-11 ${
+                      className={`h-10 pl-12 sm:h-11 sm:pl-12 ${
                         errors.email
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -259,7 +271,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -268,7 +280,7 @@ export default function LoginPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, password: e.target.value })
                       }
-                      className={`h-10 pl-10 pr-10 sm:h-11 ${
+                      className={`h-10 pl-12 pr-10 sm:h-11 sm:pl-12 ${
                         errors.password
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -311,11 +323,11 @@ export default function LoginPage() {
                       Remember me
                     </Label>
                   </div>
-                  <Link
-                    to="/forgot-password"
-                    className="text-sm text-primary hover:underline font-medium"
-                  >
-                    Forgot password?
+          <Link
+            to={inviteFlow ? "/forgot-password?invite=1" : "/forgot-password"}
+            className="text-sm text-primary hover:underline font-medium"
+          >
+            Forgot password?
                   </Link>
                 </div>
 
@@ -338,7 +350,7 @@ export default function LoginPage() {
               <div className="text-center text-xs text-muted-foreground sm:text-sm">
                 Don't have an account?{" "}
                 <Link
-                  to="/signup"
+                  to={inviteFlow ? "/signup?invite=1" : "/signup"}
                   className="text-primary hover:underline font-medium"
                 >
                   Sign up for free

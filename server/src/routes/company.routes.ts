@@ -8,7 +8,24 @@ import { requireAppUser } from "../middleware/requireAppUser.middleware";
 import multer from "multer";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const allowedWorkspaceLogoMimeTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/svg+xml",
+]);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, callback) => {
+    if (!allowedWorkspaceLogoMimeTypes.has(file.mimetype)) {
+      callback(new Error("Only JPG, PNG, WebP, or SVG workspace logos are allowed."));
+      return;
+    }
+
+    callback(null, true);
+  },
+});
 
 router.get(
   "/company",

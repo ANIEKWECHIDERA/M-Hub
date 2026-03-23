@@ -59,10 +59,18 @@ export const TeamMemberController = {
     const companyId = req.user.company_id;
     const { id } = req.params;
 
-    const payload: UpdateTeamMemberDTO = req.body;
+    const payload: UpdateTeamMemberDTO = { ...req.body };
+    if (req.user?.access === "admin") {
+      delete payload.access;
+    }
 
     try {
-      const member = await TeamMemberService.update(companyId, id, payload);
+      const member = await TeamMemberService.update(
+        companyId,
+        id,
+        payload,
+        req.user?.access ?? null,
+      );
 
       if (!member) {
         return res.status(404).json({ error: "Team member not found" });
@@ -86,7 +94,11 @@ export const TeamMemberController = {
     const { id } = req.params;
 
     try {
-      await TeamMemberService.deleteById(companyId, id);
+      await TeamMemberService.deleteById(
+        companyId,
+        id,
+        req.user?.access ?? null,
+      );
       return res.json({ success: true });
     } catch (error) {
       if (isTeamMemberHttpError(error)) {

@@ -5,6 +5,7 @@ import {
   Bell,
   Copy,
   Ellipsis,
+  HelpCircle,
   KeyRound,
   Loader,
   Mail,
@@ -60,6 +61,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Table,
   TableBody,
   TableCell,
@@ -69,7 +75,6 @@ import {
 } from "@/components/ui/table";
 import {
   getAllowedSettingsSections,
-  type SettingsSection,
 } from "@/config/settings-nav";
 import { useAuthContext } from "@/context/AuthContext";
 import { useSettingsContext } from "@/context/SettingsContext";
@@ -119,6 +124,10 @@ async function copyTextToClipboard(value: string) {
   }
 }
 
+function isAcceptedInviteStatus(status: string | null | undefined) {
+  return String(status ?? "").trim().toUpperCase() === "ACCEPTED";
+}
+
 export default function Settings() {
   const {
     teamMembers,
@@ -145,6 +154,8 @@ export default function Settings() {
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
   const isSuperAdmin = authStatus?.access === "superAdmin";
+  const canSeeWorkspaceHealth =
+    authStatus?.access === "admin" || authStatus?.access === "superAdmin";
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -152,6 +163,8 @@ export default function Settings() {
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(null);
+  const [isInviteDeleteDialogOpen, setIsInviteDeleteDialogOpen] =
+    useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
@@ -203,8 +216,8 @@ export default function Settings() {
 
   const passwordDirty = Object.values(securityForm).some(Boolean);
   const sections = useMemo(() => getAllowedSettingsSections(isTeamMember), [isTeamMember]);
-  const activeSection = useMemo(() => {
-    const section = searchParams.get("section") as SettingsSection | null;
+  const activeSection: string = useMemo(() => {
+    const section = searchParams.get("section");
 
     return (
       sections.find((item) => item.id === section)?.id ??
@@ -214,7 +227,7 @@ export default function Settings() {
   }, [searchParams, sections]);
 
   useEffect(() => {
-    const currentSection = searchParams.get("section") as SettingsSection | null;
+    const currentSection = searchParams.get("section");
 
     if (!sections.some((section) => section.id === currentSection)) {
       setSearchParams({ section: sections[0]?.id ?? "profile" }, { replace: true });
@@ -318,8 +331,10 @@ export default function Settings() {
     access: "admin" | "team_member";
   }) => {
     await inviteMember(data);
-    await loadInvites();
     setIsUserDialogOpen(false);
+    void loadInvites().catch((error: any) => {
+      toast.error(error?.message || "Failed to refresh invites");
+    });
   };
 
   const handleDeleteInvite = async (inviteId: string) => {
@@ -340,6 +355,12 @@ export default function Settings() {
   const handleCopyInviteLink = async (inviteId: string) => {
     if (!idToken) return;
 
+    const invite = invites.find((item) => item.id === inviteId);
+    if (invite && !canCopyInviteLink(invite)) {
+      toast.error("Accepted invites no longer have a shareable link");
+      return;
+    }
+
     const result = await inviteAPI.copyLink(inviteId, idToken);
     const copied = await copyTextToClipboard(result.link);
 
@@ -354,6 +375,12 @@ export default function Settings() {
   const handleResendInvite = async (inviteId: string) => {
     if (!idToken) return;
 
+    const invite = invites.find((item) => item.id === inviteId);
+    if (invite && !canResendInvite(invite)) {
+      toast.error("Accepted invites cannot be resent");
+      return;
+    }
+
     const promise = inviteAPI.resend(inviteId, idToken);
 
     toast.promise(promise, {
@@ -365,6 +392,12 @@ export default function Settings() {
     await promise;
     await loadInvites();
   };
+
+  const canCopyInviteLink = (invite: InviteRecord) =>
+    !isAcceptedInviteStatus(invite.status);
+
+  const canResendInvite = (invite: InviteRecord) =>
+    !isAcceptedInviteStatus(invite.status);
 
   const handleSecurityPlaceholder = () => {
     toast.info("Password and 2FA management UI is ready. Backend actions come next.");
@@ -445,11 +478,11 @@ export default function Settings() {
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="avatar">Profile Photo</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Input
-                      id="avatar"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="sr-only"
+                      <Input
+                        id="avatar"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        className="sr-only"
                       onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
                     />
                     <Button
@@ -535,11 +568,11 @@ export default function Settings() {
                 <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
               </div>
 
-              {[
-                {
-                  key: "notifications",
-                  label: "In-app notifications",
-                  description: "Allow Crevo to show notification updates in the app.",
+                {[
+                  {
+                    key: "notifications",
+                    label: "In-app notifications",
+                    description: "Allow Crevo to show notification updates in the app.",
                 },
                 {
                   key: "taskAssignments",
@@ -561,18 +594,53 @@ export default function Settings() {
                   label: "Email notifications",
                   description: "Prepare your account for email delivery once outbound email is enabled.",
                 },
-                {
-                  key: "compactMode",
-                  label: "Compact mode",
-                  description: "Use denser spacing in supported parts of the app.",
-                },
-              ].map((item) => (
+                  {
+                    key: "compactMode",
+                    label: "Compact mode",
+                    description: "Use denser spacing in supported parts of the app.",
+                  },
+                  ...(canSeeWorkspaceHealth
+                    ? [
+                        {
+                          key: "workspaceHealth",
+                          label: "Workspace health in sidebar",
+                          description:
+                            "Show the workspace health pulse card in the sidebar when you want a quick delivery snapshot.",
+                        },
+                      ]
+                    : []),
+                ].map((item) => (
                 <div
                   key={item.key}
                   className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3"
                 >
                   <div className="space-y-0.5">
-                    <Label>{item.label}</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label>{item.label}</Label>
+                      {(item.key === "compactMode" ||
+                        item.key === "workspaceHealth") && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                              <HelpCircle className="h-3.5 w-3.5" />
+                                <span className="sr-only">
+                                  {item.key === "workspaceHealth"
+                                    ? "What workspace health in sidebar means"
+                                    : "What compact mode means"}
+                                </span>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+                              {item.key === "workspaceHealth"
+                                ? "Use this to show or hide the sidebar workspace health pulse card. Turning it off keeps the sidebar quieter without affecting the underlying health calculation."
+                                : "Compact mode reduces spacing in supported areas of the app so you can fit more content on screen without changing the core layout."}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {item.description}
                     </p>
@@ -921,13 +989,15 @@ export default function Settings() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => handleCopyInviteLink(invite.id)}
-                                  >
-                                    <Copy className="mr-2 h-4 w-4" />
-                                    Copy invite link
-                                  </DropdownMenuItem>
-                                  {invite.status !== "ACCEPTED" && (
+                                  {canCopyInviteLink(invite) && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleCopyInviteLink(invite.id)}
+                                    >
+                                      <Copy className="mr-2 h-4 w-4" />
+                                      Copy invite link
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canResendInvite(invite) && (
                                     <DropdownMenuItem
                                       onClick={() => handleResendInvite(invite.id)}
                                     >
@@ -937,7 +1007,10 @@ export default function Settings() {
                                   )}
                                   <DropdownMenuItem
                                     className="text-red-600 focus:text-red-600"
-                                    onClick={() => setInviteToDelete(invite)}
+                                    onClick={() => {
+                                      setInviteToDelete(invite);
+                                      setIsInviteDeleteDialogOpen(true);
+                                    }}
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     Delete invite
@@ -972,6 +1045,7 @@ export default function Settings() {
             <TeamMemberForm
               member={teamMembers.find((member: any) => member.id === editingUserId)}
               canAssignSuperAdmin={isSuperAdmin}
+              canEditAccess={isSuperAdmin}
               onSave={async (data) => {
                 if (!editingUserId) return;
                 await updateTeamMember(editingUserId, data);
@@ -1015,10 +1089,14 @@ export default function Settings() {
 
       {!isTeamMember && (
         <AlertDialog
-          open={Boolean(inviteToDelete)}
+          open={isInviteDeleteDialogOpen}
           onOpenChange={(open) => {
+            setIsInviteDeleteDialogOpen(open);
+
             if (!open) {
-              setInviteToDelete(null);
+              window.setTimeout(() => {
+                setInviteToDelete(null);
+              }, 180);
             }
           }}
         >
@@ -1027,18 +1105,19 @@ export default function Settings() {
               <AlertDialogTitle>Delete Invite</AlertDialogTitle>
               <AlertDialogDescription>
                 Permanently delete the invite for{" "}
-                <strong>{inviteToDelete?.email}</strong>? This removes the invite
+                <strong>{inviteToDelete?.email ?? "this invite"}</strong>? This removes the invite
                 record and the old link will stop working.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setInviteToDelete(null)}>
+              <AlertDialogCancel>
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
                 className="bg-red-600 hover:bg-red-700"
                 onClick={async () => {
                   if (!inviteToDelete) return;
+                  setIsInviteDeleteDialogOpen(false);
                   await handleDeleteInvite(inviteToDelete.id);
                   setInviteToDelete(null);
                 }}

@@ -19,6 +19,7 @@ import { useAuthContext } from "@/context/AuthContext";
 import { useUser } from "@/context/UserContext";
 import { useSettingsContext } from "@/context/SettingsContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
+import { useChatContext } from "@/context/ChatContext";
 import {
   Bell,
   Trash2,
@@ -36,10 +37,13 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useMemo, useState } from "react";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export function Header() {
   const { toggleTheme, preferences } = useSettingsContext();
   const { currentWorkspace } = useWorkspaceContext();
+  const { totalUnreadCount } = useChatContext();
+  const { open, openMobile, isMobile } = useSidebar();
   const {
     notifications,
     markAsRead,
@@ -61,6 +65,9 @@ export function Header() {
     () => currentWorkspace?.name || "Workspace",
     [currentWorkspace?.name],
   );
+  const showSidebarUnreadDot =
+    totalUnreadCount > 0 &&
+    ((isMobile && !openMobile) || (!isMobile && !open));
 
   // const [searchQuery, setSearchQuery] = useState("");
 
@@ -108,7 +115,12 @@ export function Header() {
       <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="flex h-12 items-center justify-between gap-2 px-4 sm:h-14 sm:px-6 lg:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <SidebarTrigger className="lg:flex" />
+            <div className="relative">
+              <SidebarTrigger className="lg:flex" />
+              {showSidebarUnreadDot && (
+                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+              )}
+            </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-foreground sm:text-base">
                 {activeWorkspaceName}
@@ -130,7 +142,12 @@ export function Header() {
     <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="flex h-12 items-center justify-between gap-2 px-4 sm:h-14 sm:px-6 lg:px-8">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <SidebarTrigger className="lg:flex" />
+          <div className="relative">
+            <SidebarTrigger className="lg:flex" />
+            {showSidebarUnreadDot && (
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+            )}
+          </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-foreground sm:text-base">
               {activeWorkspaceName}

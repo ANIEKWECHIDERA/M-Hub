@@ -9,6 +9,6 @@ export type ChatSectionItem = {
 };
 
 export const chatSections: ChatSectionItem[] = [
-  { id: "projects", label: "Projects", icon: Users },
+  { id: "projects", label: "Groups", icon: Users },
   { id: "direct", label: "Direct", icon: Hash },
 ];

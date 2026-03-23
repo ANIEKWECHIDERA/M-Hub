@@ -76,6 +76,49 @@ async function assertNotRemovingLastSuperAdmin(params: {
   }
 }
 
+async function assertAdminMutationAllowed(params: {
+  companyId: string;
+  memberId: string;
+  actorAccess?: string | null;
+  nextAccess?: string | null;
+  deleting?: boolean;
+}) {
+  if (params.actorAccess !== "admin") {
+    return;
+  }
+
+  if (params.nextAccess !== undefined && params.nextAccess !== null) {
+    throw new TeamMemberHttpError(
+      403,
+      "Admins can edit role and status, but not workspace access",
+      "TEAM_MEMBER_ACCESS_EDIT_FORBIDDEN",
+    );
+  }
+
+  const { data: existingMember, error } = await supabaseAdmin
+    .from("team_members")
+    .select("access")
+    .eq("company_id", params.companyId)
+    .eq("id", params.memberId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (existingMember?.access === "superAdmin") {
+    throw new TeamMemberHttpError(
+      403,
+      params.deleting
+        ? "Admins cannot remove a super admin"
+        : "Admins cannot edit a super admin's membership",
+      params.deleting
+        ? "TEAM_MEMBER_DELETE_FORBIDDEN"
+        : "TEAM_MEMBER_UPDATE_FORBIDDEN",
+    );
+  }
+}
+
 async function syncUserWorkspaceState(userId?: string | null) {
   if (!userId) {
     return;
@@ -232,8 +275,16 @@ export const TeamMemberService = {
     companyId: string,
     id: string,
     payload: UpdateTeamMemberDTO,
+    actorAccess?: string | null,
   ): Promise<TeamMemberResponseDTO | null> {
     logger.info("TeamMemberService.update: start", { companyId, id });
+
+    await assertAdminMutationAllowed({
+      companyId,
+      memberId: id,
+      actorAccess,
+      nextAccess: payload.access ?? null,
+    });
 
     await assertNotRemovingLastSuperAdmin({
       companyId,
@@ -288,8 +339,19 @@ export const TeamMemberService = {
     return data ? toTeamMemberResponseDTO(data) : null;
   },
 
-  async deleteById(companyId: string, id: string): Promise<void> {
+  async deleteById(
+    companyId: string,
+    id: string,
+    actorAccess?: string | null,
+  ): Promise<void> {
     logger.info("TeamMemberService.deleteById: start", { companyId, id });
+
+    await assertAdminMutationAllowed({
+      companyId,
+      memberId: id,
+      actorAccess,
+      deleting: true,
+    });
 
     await assertNotRemovingLastSuperAdmin({
       companyId,

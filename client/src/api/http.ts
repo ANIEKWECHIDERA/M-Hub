@@ -1,5 +1,6 @@
 import { API_CONFIG } from "@/lib/api";
 import { auth } from "@/firebase/firebase";
+import { toast } from "sonner";
 
 export class ApiError extends Error {
   status: number;
@@ -13,6 +14,21 @@ export class ApiError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+let lastMembershipToastAt = 0;
+
+function notifyMembershipChange(message: string) {
+  const now = Date.now();
+  if (now - lastMembershipToastAt < 5000) {
+    return;
+  }
+
+  lastMembershipToastAt = now;
+  toast.error(message, {
+    id: "workspace-membership-changed",
+    duration: 5000,
+  });
 }
 
 export async function apiFetch<T>(
@@ -54,8 +70,18 @@ export async function apiFetch<T>(
   const data = raw ? JSON.parse(raw) : null;
 
   if (!res.ok) {
+    const fallbackMessage =
+      res.status === 401
+        ? "Your session or workspace membership may have changed. Refresh the app and sign in again."
+        : res.status === 403
+          ? "Your workspace access may have changed. Refresh the app to load your latest permissions."
+          : data?.error || data?.message || `Request failed (${res.status})`;
+
+    if (res.status === 401 || res.status === 403) {
+      notifyMembershipChange(fallbackMessage);
+    }
     throw new ApiError(
-      data?.error || data?.message || `Request failed (${res.status})`,
+      fallbackMessage,
       res.status,
       data?.code,
       data?.details,

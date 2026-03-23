@@ -6,6 +6,7 @@ import { tasksAPI } from "@/api/tasks.api";
 import { useAuthContext } from "./AuthContext";
 import { normalizeTask } from "@/mapper/task.mapper";
 import { useProjectContext } from "./ProjectContext";
+import { useWorkspaceContext } from "./WorkspaceContext";
 
 const TaskContext = createContext<TaskContextType | null>(null);
 
@@ -36,6 +37,7 @@ export const TaskContextProvider = ({
     null,
   );
   const { idToken } = useAuthContext();
+  const { invalidateRetentionSnapshot } = useWorkspaceContext();
   const { projects, setProjects, currentProject, setCurrentProject } =
     useProjectContext();
 
@@ -191,6 +193,7 @@ export const TaskContextProvider = ({
       setTasks((prev) =>
         prev.map((t) => (t.id === tempId ? normalizeTask(savedTask) : t)),
       );
+      invalidateRetentionSnapshot();
 
       return normalizeTask(savedTask);
     } catch (err) {
@@ -274,6 +277,7 @@ export const TaskContextProvider = ({
         prev.map((t) => (t.id === id ? normalizedTask : t)),
       );
       setSelectedTask((task) => (task?.id === id ? normalizedTask : task));
+      invalidateRetentionSnapshot();
 
       return normalizedTask;
     } catch (err) {
@@ -316,6 +320,7 @@ export const TaskContextProvider = ({
 
     try {
       await promise;
+      invalidateRetentionSnapshot();
     } catch (err) {
       setTasks(prevTasks); // rollback
       setProjects(previousProjects);

@@ -292,7 +292,7 @@ export function ProjectDetail() {
         </TabsList>
 
         <TabsContent
-          className="mt-4 pb-2 max-sm:min-h-screen max-sm:flex-1 max-sm:overflow-y-auto"
+          className="mt-4 min-h-0 flex-1 overflow-y-auto pb-2"
           value="overview"
         >
           <Card className="app-surface">

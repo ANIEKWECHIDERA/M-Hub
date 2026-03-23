@@ -97,7 +97,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [currentUser]);
 
   const refreshStatus = async () => {
-    if (!currentUser) return;
+    if (!currentUser) return null;
 
     const freshToken = await currentUser.getIdToken();
     setIdToken(freshToken);
@@ -107,10 +107,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       method: "GET",
     });
 
-    if (!res.ok) return;
+    if (!res.ok) return null;
 
     const data = await res.json();
     setAuthStatus(data);
+    return data;
   };
 
   const signUp = async (

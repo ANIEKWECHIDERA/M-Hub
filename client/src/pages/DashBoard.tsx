@@ -58,6 +58,19 @@ export default function Dashboard() {
   const { totalProjects, activeProjects, completedProjects, overdueProjects } =
     useProjectStats(projects, tasks);
 
+  const formatProjectDeadline = (deadline?: string | null) => {
+    if (!deadline) {
+      return "No deadline";
+    }
+
+    const parsed = new Date(deadline);
+    if (Number.isNaN(parsed.getTime())) {
+      return "No deadline";
+    }
+
+    return parsed.toLocaleDateString();
+  };
+
   if (loading)
     return (
       <div className="min-h-[60vh]">
@@ -66,70 +79,17 @@ export default function Dashboard() {
     );
   if (error) return <div>Error: {error}</div>;
 
-  if (projects.length === 0) {
-    return (
-      <div className="min-h-full border-2 border-dashed grid grid-rows-4 grid-cols-[1fr_2fr_1fr] rounded-lg overflow-hidden  items-center justify-center bg-background">
-        <div className="col-start-2 row-start-2 flex justify-center">
-          <Card className="p-10 text-center">
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">No projects yet</h2>
-              <p className="text-muted-foreground">
-                Get started by creating your first project.
-              </p>
-
-              {!isTeamMember && (
-                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Your First Project
-                    </Button>
-                  </DialogTrigger>
-
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>Create New Project</DialogTitle>
-                      <DialogDescription>
-                        Input project details.
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    <ProjectForm
-                      onSave={async (data) => {
-                        const newProject: CreateProjectDTO = {
-                          title: data.title || "",
-                          client_id: data.client_id || undefined,
-                          client: data.client,
-                          status: data.status || "Planning",
-                          deadline: data.deadline || undefined,
-                          description: data.description || undefined,
-                          team_member_ids: Array.isArray(data.team_member_ids)
-                            ? (data.team_member_ids as string[])
-                            : [],
-                        };
-
-                        setIsCreateOpen(false);
-                        await addProject(newProject);
-                      }}
-                      onCancel={() => setIsCreateOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  const hasProjects = projects.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5 lg:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview of your projects and tasks
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">
+            Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
+            Overview of your workspace activity, current delivery load, and project momentum.
           </p>
         </div>
         <Button
@@ -204,146 +164,193 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card
-        className={`app-surface ${showCompactOverview ? "block" : "hidden sm:block"}`}
-      >
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="in progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={clientFilter} onValueChange={setClientFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Filter by client" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Clients</SelectItem>
-              {clients.map((client) => (
-                <SelectItem key={client.id} value={client.name}>
-                  {client.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => {
-              setStatusFilter("all");
-              setClientFilter("all");
-            }}
+      {hasProjects ? (
+        <>
+          <Card
+            className={`app-surface ${showCompactOverview ? "block" : "hidden sm:block"}`}
           >
-            Reset Filters
-          </Button>
-        </CardContent>
-      </Card>
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="in progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={clientFilter} onValueChange={setClientFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Filter by client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.name}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setStatusFilter("all");
+                  setClientFilter("all");
+                }}
+              >
+                Reset Filters
+              </Button>
+            </CardContent>
+          </Card>
 
-      {/* Project Cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredProjects.map((project) => {
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {filteredProjects.map((project) => {
           // console.log("DASHBOARD tasks length:", tasks.length);
 
-          return (
-            <Link
-              key={project.id}
-              to={`/projectdetails/${project.id}`}
-              className="block h-full"
-            >
-              <Card className="flex h-full min-h-[265px] flex-col transition-colors hover:border-foreground/20">
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 flex-1 pr-3 space-y-1">
-                      <CardTitle
-                        className="truncate text-lg"
-                        title={project.title}
-                      >
-                        {project.title}
-                      </CardTitle>
-                      <p
-                        className="truncate text-sm text-muted-foreground"
-                        title={project.client?.name}
-                      >
-                        {project.client?.name}
-                      </p>
-                    </div>
-                    <Badge
-                      className="inline-flex h-6 min-w-[100px] shrink-0 items-center justify-center whitespace-nowrap px-2 text-center"
-                      variant={
-                        project.status === "Completed"
-                          ? "default"
-                          : project.status === "In Progress"
-                            ? "secondary"
-                            : "outline"
-                      }
-                    >
-                      {project.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progress</span>
-                      <span>{project.progress}%</span>
-                    </div>
-                    <Progress value={project.progress} className="h-2" />
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>
-                        {project.deadline
-                          ? new Date(project.deadline).toLocaleDateString()
-                          : "No deadline"}
-                      </span>
-                    </div>
-                    {project.task_count > 0 ? (
-                      <div className="flex items-center gap-1">
-                        <CheckCircle className="h-4 w-4" />
-                        <span>
-                          {/* {completed}/{total} {total === 1 ? "task" : "tasks"} */}
-                          {project.task_count}{" "}
-                          {project.task_count === 1 ? "task" : "tasks"}
-                        </span>
+              return (
+                <Link
+                  key={project.id}
+                  to={`/projectdetails/${project.id}`}
+                  className="block h-full"
+                >
+                  <Card className="flex h-full min-h-[265px] flex-col transition-colors hover:border-foreground/20">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1 pr-3 space-y-1">
+                          <CardTitle
+                            className="truncate text-lg"
+                            title={project.title}
+                          >
+                            {project.title}
+                          </CardTitle>
+                          <p
+                            className="truncate text-sm text-muted-foreground"
+                            title={project.client?.name}
+                          >
+                            {project.client?.name}
+                          </p>
+                        </div>
+                        <Badge
+                          className="inline-flex h-6 min-w-[100px] shrink-0 items-center justify-center whitespace-nowrap px-2 text-center"
+                          variant={
+                            project.status === "Completed"
+                              ? "default"
+                              : project.status === "In Progress"
+                                ? "secondary"
+                                : "outline"
+                          }
+                        >
+                          {project.status}
+                        </Badge>
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <CheckCircle className="h-4 w-4" />
-                        <span>No tasks</span>
+                    </CardHeader>
+                    <CardContent className="flex flex-1 flex-col gap-4">
+                      <div className="min-h-[3.25rem] space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress</span>
+                          <span>{project.progress}%</span>
+                        </div>
+                        <Progress value={project.progress} className="h-2" />
                       </div>
-                    )}
-                  </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        {project.team_members?.length ?? 0}{" "}
-                        {project.team_members?.length <= 1
-                          ? "member"
-                          : "members"}
-                      </span>
-                    </div>
+                      <div className="grid min-h-[3.5rem] grid-cols-2 gap-3 text-sm text-muted-foreground">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <Calendar className="h-4 w-4" />
+                          <span className="truncate" title={formatProjectDeadline(project.deadline)}>
+                            {formatProjectDeadline(project.deadline)}
+                          </span>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-1.5 justify-self-end">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="truncate">
+                            {project.task_count > 0
+                              ? `${project.task_count} ${project.task_count === 1 ? "task" : "tasks"}`
+                              : "No tasks"}
+                          </span>
+                        </div>
+                      </div>
 
-                    <Button variant="outline" size="sm" onClick={() => {}}>
-                      View Details
+                      <div className="mt-auto flex min-h-[2.5rem] items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span
+                            className="truncate text-sm text-muted-foreground"
+                            title={`${project.team_members?.length ?? 0} ${(project.team_members?.length ?? 0) <= 1 ? "member" : "members"}`}
+                          >
+                            {project.team_members?.length ?? 0}{" "}
+                            {project.team_members?.length <= 1
+                              ? "member"
+                              : "members"}
+                          </span>
+                        </div>
+
+                        <Button variant="outline" size="sm" onClick={() => {}}>
+                          View Details
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <Card className="border-dashed">
+          <CardContent className="flex min-h-[22rem] items-center justify-center p-6 sm:p-10">
+            <div className="space-y-4 text-center">
+              <h2 className="text-xl font-semibold">No projects yet</h2>
+              <p className="text-muted-foreground">
+                Get started by creating your first project.
+              </p>
+
+              {!isTeamMember && (
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Your First Project
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
+                  </DialogTrigger>
+
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Create New Project</DialogTitle>
+                      <DialogDescription>
+                        Input project details.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <ProjectForm
+                      onSave={async (data) => {
+                        const newProject: CreateProjectDTO = {
+                          title: data.title || "",
+                          client_id: data.client_id || undefined,
+                          client: data.client,
+                          status: data.status || "Planning",
+                          deadline: data.deadline || undefined,
+                          description: data.description || undefined,
+                          team_member_ids: Array.isArray(data.team_member_ids)
+                            ? (data.team_member_ids as string[])
+                            : [],
+                        };
+
+                        setIsCreateOpen(false);
+                        await addProject(newProject);
+                      }}
+                      onCancel={() => setIsCreateOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
