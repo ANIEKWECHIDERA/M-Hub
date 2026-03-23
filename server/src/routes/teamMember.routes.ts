@@ -33,14 +33,14 @@ router.post(
 router.patch(
   "/team-members/:id",
   ...protectedRoute,
-  authorize(["superAdmin"]),
+  authorize(["admin", "superAdmin"]),
   TeamMemberController.updateTeamMember,
 );
 
 router.delete(
   "/team-members/:id",
   ...protectedRoute,
-  authorize(["superAdmin"]),
+  authorize(["admin", "superAdmin"]),
   TeamMemberController.deleteTeamMember,
 );
 

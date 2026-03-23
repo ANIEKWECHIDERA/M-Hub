@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { TaskWithAssigneesDTO } from "@/Types/types";
 import { TaskCard } from "./TaskCard";
 
@@ -5,34 +6,60 @@ interface TasksListProps {
   tasks: TaskWithAssigneesDTO[];
   onOpenTask: (task: TaskWithAssigneesDTO) => void;
   onToggleStatus: (taskId: string, done: boolean) => void;
+  onReorder?: (draggedTaskId: string, targetTaskId: string) => void;
 }
 
 export function TasksList({
   tasks,
   onOpenTask,
   onToggleStatus,
+  onReorder,
 }: TasksListProps) {
-  // if (tasks.length === 0) {
-  //   return (
-  //     <div className="flex flex-col items-center justify-center py-20 text-center">
-  //       <ClipboardList className="h-10 w-10 text-muted-foreground mb-4" />
-  //       <h3 className="text-lg font-medium mb-1">No tasks found</h3>
-  //       <p className="text-sm text-muted-foreground max-w-sm">
-  //         You don’t have any assigned tasks matching the current filters.
-  //       </p>
-  //     </div>
-  //   );
-  // }
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
 
   return (
     <div className="space-y-3">
       {tasks.map((task) => (
-        <TaskCard
+        <div
           key={task.id}
-          task={task}
-          onOpen={onOpenTask}
-          onToggleStatus={onToggleStatus}
-        />
+          draggable
+          onDragStart={() => setDraggedTaskId(task.id)}
+          onDragEnd={() => {
+            setDraggedTaskId(null);
+            setDragOverTaskId(null);
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            if (draggedTaskId && draggedTaskId !== task.id) {
+              setDragOverTaskId(task.id);
+            }
+          }}
+          onDragLeave={() => {
+            if (dragOverTaskId === task.id) {
+              setDragOverTaskId(null);
+            }
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            if (draggedTaskId && draggedTaskId !== task.id) {
+              onReorder?.(draggedTaskId, task.id);
+            }
+            setDraggedTaskId(null);
+            setDragOverTaskId(null);
+          }}
+          className={
+            dragOverTaskId === task.id
+              ? "rounded-xl ring-2 ring-primary/30 ring-offset-2"
+              : undefined
+          }
+        >
+          <TaskCard
+            task={task}
+            onOpen={onOpenTask}
+            onToggleStatus={onToggleStatus}
+          />
+        </div>
       ))}
     </div>
   );

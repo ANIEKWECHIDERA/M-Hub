@@ -243,7 +243,7 @@ export default function LoginPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
                       }
-                      className={`h-10 pl-10 sm:h-11 ${
+                      className={`h-10 pl-11 sm:h-11 ${
                         errors.email
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -268,7 +268,7 @@ export default function LoginPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, password: e.target.value })
                       }
-                      className={`h-10 pl-10 pr-10 sm:h-11 ${
+                      className={`h-10 pl-11 pr-10 sm:h-11 ${
                         errors.password
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""

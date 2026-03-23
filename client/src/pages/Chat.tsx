@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -427,6 +427,7 @@ function MessageBubble({
   isCurrentUser,
   canDeleteModeration,
   canTagMessage,
+  showActionMenu,
   onEdit,
   onDelete,
   onToggleTag,
@@ -436,6 +437,7 @@ function MessageBubble({
   isCurrentUser: boolean;
   canDeleteModeration: boolean;
   canTagMessage: boolean;
+  showActionMenu: boolean;
   onEdit: (message: ChatMessage) => void;
   onDelete: (message: ChatMessage) => void;
   onToggleTag: (message: ChatMessage, tag: MessageTag) => void;
@@ -500,7 +502,7 @@ function MessageBubble({
           <span>{message.sender.name || "Unknown"}</span>
           <span>{formatShortTime(message.created_at)}</span>
           {message.is_edited && <span>edited</span>}
-          {!message.id.startsWith("optimistic-") && (
+          {!message.id.startsWith("optimistic-") && showActionMenu && (
             <div className="opacity-0 transition-opacity group-hover:opacity-100">
               <ActionMenu
                 align={isCurrentUser ? "end" : "start"}
@@ -903,6 +905,13 @@ export default function Chat() {
       ? (currentMembers.find((member) => member.user_id !== profile?.id) ??
         null)
       : null;
+  const directConversationRoleLabel = directConversationMember?.role?.trim()
+    ? directConversationMember.role
+    : directConversationMember?.access === "superAdmin"
+      ? "Super Admin"
+      : directConversationMember?.access === "admin"
+        ? "Admin"
+        : "Team Member";
   const currentConversationName = currentChat
     ? getConversationDisplayName(currentChat, profile?.id)
     : "";
@@ -1714,13 +1723,17 @@ export default function Chat() {
                             {typingNames.length > 1 ? "are" : "is"} typing...
                           </span>
                         ) : currentChat.type === "direct" ? (
-                          <span>
+                          <>
+                            <span>{directConversationRoleLabel}</span>
                             {currentMembers.find(
                               (member) => member.user_id !== profile?.id,
-                            )?.online
-                              ? "Online"
-                              : "Direct message"}
-                          </span>
+                            )?.online && (
+                              <>
+                                <span className="text-border">•</span>
+                                <span>Online</span>
+                              </>
+                            )}
+                          </>
                         ) : (
                           <span>
                             {visibleMemberCount} {memberLabel}
@@ -1873,7 +1886,7 @@ export default function Chat() {
                       onClick={() => setChatPanelMode("summary")}
                     >
                       <ListFilter className="mr-2 h-4 w-4" />
-                      Key decisions
+                      Decision Feed
                       <Badge
                         variant="secondary"
                         className="ml-2 rounded-full px-2 py-0 text-[10px]"
@@ -1883,36 +1896,42 @@ export default function Chat() {
                     </Button>
                   </div>
                   {chatPanelMode === "summary" && (
-                    <div className="mt-2.5 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={
-                          activeTagFilter === "all" ? "default" : "outline"
-                        }
-                        onClick={() => setActiveTagFilter("all")}
-                      >
-                        All signals
-                      </Button>
-                      {MESSAGE_TAGS.map((tag) => {
-                        const config = getMessageTagConfig(tag);
-                        return (
-                          <button
-                            key={tag}
-                            type="button"
-                            className={cn(
-                              "premium-interactive inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs",
-                              activeTagFilter === tag
-                                ? config.chipClassName
-                                : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                            )}
-                            onClick={() => setActiveTagFilter(tag)}
-                          >
-                            <Flag className="h-3 w-3" />
-                            {config.label}
-                          </button>
-                        );
-                      })}
+                    <div className="mt-2.5 space-y-2">
+                      <p className="text-xs text-muted-foreground sm:text-sm">
+                        Review the key decisions, blockers, and action items from
+                        this group without rereading the full chat stream.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            activeTagFilter === "all" ? "default" : "outline"
+                          }
+                          onClick={() => setActiveTagFilter("all")}
+                        >
+                          All signals
+                        </Button>
+                        {MESSAGE_TAGS.map((tag) => {
+                          const config = getMessageTagConfig(tag);
+                          return (
+                            <button
+                              key={tag}
+                              type="button"
+                              className={cn(
+                                "premium-interactive inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs",
+                                activeTagFilter === tag
+                                  ? config.chipClassName
+                                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                              )}
+                              onClick={() => setActiveTagFilter(tag)}
+                            >
+                              <Flag className="h-3 w-3" />
+                              {config.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2044,31 +2063,58 @@ export default function Chat() {
                       )}
 
                       {messages.length ? (
-                        messages.map((message) => (
-                          <MessageBubble
-                            key={message.id}
-                            message={message}
-                            isCurrentUser={
-                              message.sender.user_id === profile?.id
-                            }
-                            canDeleteModeration={
-                              canModerateMessages &&
-                              currentChat.type === "group"
-                            }
-                            canTagMessage={currentChat.type === "group"}
-                            onEdit={setEditingMessage}
-                            onDelete={setDeleteTarget}
-                            onToggleTag={(target, tag) => {
-                              void handleUpdateMessageTag(target, tag);
-                            }}
-                            onPreviewProfile={(target) =>
-                              setProfilePreviewMember({
-                                name: target.sender.name,
-                                avatar: target.sender.avatar,
-                              })
-                            }
-                          />
-                        ))
+                        messages.map((message, index) => {
+                          const previousMessage = messages[index - 1];
+                          const showDaySeparator =
+                            !previousMessage ||
+                            new Date(previousMessage.created_at).toDateString() !==
+                              new Date(message.created_at).toDateString();
+                          const isCurrentUserMessage =
+                            message.sender.user_id === profile?.id;
+
+                          return (
+                            <Fragment key={message.id}>
+                              {showDaySeparator && (
+                                <div className="flex justify-center py-1.5">
+                                  <div className="inline-flex items-center rounded-full border bg-background/90 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
+                                    {new Date(message.created_at).toLocaleDateString(
+                                      [],
+                                      {
+                                        weekday: "short",
+                                        month: "short",
+                                        day: "numeric",
+                                      },
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              <MessageBubble
+                                message={message}
+                                isCurrentUser={isCurrentUserMessage}
+                                canDeleteModeration={
+                                  canModerateMessages &&
+                                  currentChat.type === "group"
+                                }
+                                canTagMessage={currentChat.type === "group"}
+                                showActionMenu={
+                                  currentChat.type === "group" ||
+                                  isCurrentUserMessage
+                                }
+                                onEdit={setEditingMessage}
+                                onDelete={setDeleteTarget}
+                                onToggleTag={(target, tag) => {
+                                  void handleUpdateMessageTag(target, tag);
+                                }}
+                                onPreviewProfile={(target) =>
+                                  setProfilePreviewMember({
+                                    name: target.sender.name,
+                                    avatar: target.sender.avatar,
+                                  })
+                                }
+                              />
+                            </Fragment>
+                          );
+                        })
                       ) : (
                         <Empty className="min-h-[28rem] border-none bg-transparent">
                           <EmptyHeader>

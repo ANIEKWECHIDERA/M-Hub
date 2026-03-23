@@ -71,7 +71,12 @@ export default function CompleteProfile() {
       toast.success("Profile completed!");
       finishUpload({ success: true, message: "Profile uploaded successfully" });
       await refreshStatus();
-      navigate("/onboarding/company");
+      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      navigate(
+        pendingInviteToken
+          ? `/invite/accept/${pendingInviteToken}`
+          : "/dashboard",
+      );
     } catch (err: any) {
       finishUpload({
         success: false,

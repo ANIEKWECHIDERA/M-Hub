@@ -41,7 +41,7 @@ export function TaskCard({ task, onOpen, onToggleStatus }: TaskCardProps) {
 
   return (
     <Card
-      className="hover:shadow-md transition-all cursor-pointer group"
+      className="group cursor-pointer transition-all hover:shadow-md active:cursor-grabbing"
       onClick={() => onOpen(task)}
     >
       <CardContent className="p-4">

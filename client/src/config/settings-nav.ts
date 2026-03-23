@@ -1,18 +1,6 @@
-import {
-  Bell,
-  Mail,
-  Shield,
-  User,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Bell, Shield, User, type LucideIcon } from "lucide-react";
 
-export type SettingsSection =
-  | "profile"
-  | "notifications"
-  | "security"
-  | "team"
-  | "invites";
+export type SettingsSection = "profile" | "notifications" | "security";
 
 export type SettingsSectionItem = {
   id: SettingsSection;
@@ -40,20 +28,6 @@ export const settingsSections: SettingsSectionItem[] = [
     label: "Security",
     description: "Password and account protection",
     icon: Shield,
-  },
-  {
-    id: "team",
-    label: "Team",
-    description: "Workspace teammates",
-    icon: Users,
-    teamMemberHidden: true,
-  },
-  {
-    id: "invites",
-    label: "Invites",
-    description: "Send and manage invites",
-    icon: Mail,
-    teamMemberHidden: true,
   },
 ];
 

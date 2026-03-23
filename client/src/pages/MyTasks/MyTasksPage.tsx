@@ -14,10 +14,7 @@ import { MyTasksSkeleton } from "@/components/MyTasksSkeleton";
 import { MyTasksHeader } from "./components/MyTaskHeader";
 import { useAuthContext } from "@/context/AuthContext";
 import { useRetentionSnapshot } from "@/hooks/useRetentionSnapshot";
-import {
-  DailyFocusCard,
-  DecisionFeedCard,
-} from "@/components/retention/RetentionPanels";
+import { DailyFocusCard } from "@/components/retention/RetentionPanels";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
 
@@ -37,16 +34,47 @@ export function MyTasksPage() {
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("all");
-  const [decisionFilter, setDecisionFilter] = useState<
-    "all" | "decision" | "action-item" | "blocker"
-  >("all");
   const workspaceKey = authStatus?.companyId ?? "default";
+  const orderStorageKey = `crevo:my-task-order:${workspaceKey}`;
+  const [taskOrder, setTaskOrder] = useState<string[]>([]);
 
   useEffect(() => {
     setSelectedTask(null);
     setDetailsOpen(false);
     setViewMode("all");
   }, [workspaceKey]);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(orderStorageKey);
+    if (!raw) {
+      setTaskOrder([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      setTaskOrder(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setTaskOrder([]);
+    }
+  }, [orderStorageKey]);
+
+  useEffect(() => {
+    setTaskOrder((previous) => {
+      const taskIds = tasks.map((task) => task.id);
+      const next = [
+        ...previous.filter((taskId) => taskIds.includes(taskId)),
+        ...taskIds.filter((taskId) => !previous.includes(taskId)),
+      ];
+
+      if (next.length === previous.length && next.every((id, index) => id === previous[index])) {
+        return previous;
+      }
+
+      window.localStorage.setItem(orderStorageKey, JSON.stringify(next));
+      return next;
+    });
+  }, [orderStorageKey, tasks]);
 
   /* ---------------- Filters ---------------- */
   const filters = useMyTasksFilters(tasks);
@@ -82,14 +110,15 @@ export function MyTasksPage() {
     });
   }, [filters.filteredTasks, viewMode]);
 
-  const decisionFeedItems = useMemo(() => {
-    const items = snapshot?.decisionFeed.items ?? [];
-    if (decisionFilter === "all") {
-      return items;
-    }
+  const orderedTasksForView = useMemo(() => {
+    const orderIndex = new Map(taskOrder.map((taskId, index) => [taskId, index]));
 
-    return items.filter((item) => item.tags.includes(decisionFilter));
-  }, [decisionFilter, snapshot?.decisionFeed.items]);
+    return [...tasksForView].sort((left, right) => {
+      const leftIndex = orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = orderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+      return leftIndex - rightIndex;
+    });
+  }, [taskOrder, tasksForView]);
 
   /* ---------------- Handlers ---------------- */
 
@@ -135,6 +164,27 @@ export function MyTasksPage() {
     });
   };
 
+  const handleReorderTasks = (draggedTaskId: string, targetTaskId: string) => {
+    setTaskOrder((previous) => {
+      const baseOrder =
+        previous.length > 0
+          ? [...previous]
+          : tasks.map((task) => task.id);
+      const draggedIndex = baseOrder.indexOf(draggedTaskId);
+      const targetIndex = baseOrder.indexOf(targetTaskId);
+
+      if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) {
+        return previous;
+      }
+
+      const next = [...baseOrder];
+      const [draggedItem] = next.splice(draggedIndex, 1);
+      next.splice(targetIndex, 0, draggedItem);
+      window.localStorage.setItem(orderStorageKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
   // useEffect(() => {
   //   refetch();
   // }, []);
@@ -163,28 +213,13 @@ export function MyTasksPage() {
   return (
     <div key={workspaceKey} className="space-y-4 sm:space-y-5 lg:space-y-6">
       <MyTasksHeader />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
+      <div className="grid grid-cols-1 gap-4">
         <DailyFocusCard
           items={snapshot?.dailyFocus.items ?? []}
           loading={retentionLoading}
           error={retentionError}
           onOpenTask={handleOpenFocusItem}
           onOpenDecision={handleOpenFocusItem}
-        />
-        <DecisionFeedCard
-          items={decisionFeedItems.slice(0, 5)}
-          counts={snapshot?.decisionFeed.counts ?? {}}
-          loading={retentionLoading}
-          error={retentionError}
-          activeFilter={decisionFilter}
-          onFilterChange={setDecisionFilter}
-          onOpenItem={(item) => {
-            const params = new URLSearchParams({
-              conversationId: item.conversationId,
-              messageId: item.messageId,
-            });
-            navigate(`/chat?${params.toString()}`);
-          }}
         />
       </div>
       {/* Toolbar */}
@@ -253,9 +288,10 @@ export function MyTasksPage() {
         </div>
       ) : (
         <TasksList
-          tasks={tasksForView}
+          tasks={orderedTasksForView}
           onOpenTask={handleOpenTask}
           onToggleStatus={handleToggleTaskStatus}
+          onReorder={handleReorderTasks}
         />
       )}
 

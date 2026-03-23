@@ -25,12 +25,12 @@ export default function CreateCompany() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error("Company name is required");
+      toast.error("Workspace name is required");
       return;
     }
 
     setLoading(true);
-    startUpload("Uploading company setup...");
+    startUpload("Setting up your workspace...");
 
     try {
       const formData = new FormData();
@@ -52,9 +52,9 @@ export default function CreateCompany() {
       setUploadProgress(75);
       await CompanyAPI.create(formData, idToken);
       setUploadProgress(100);
-      finishUpload({ success: true, message: "Company setup completed" });
+      finishUpload({ success: true, message: "Workspace setup completed" });
 
-      toast.success("Company created successfully!");
+      toast.success("Workspace created successfully!");
 
       setTimeout(() => {
         refreshStatus().then(() => {
@@ -64,7 +64,7 @@ export default function CreateCompany() {
     } catch (err: any) {
       finishUpload({
         success: false,
-        message: err.message || "Company setup failed",
+        message: err.message || "Workspace setup failed",
       });
       toast.error(err.message || "Something went wrong");
       setLoading(false);
@@ -89,7 +89,7 @@ export default function CreateCompany() {
             <Building2 className="h-10 w-10 text-foreground" />
           </div>
           <CardTitle className="text-2xl font-bold">
-            Create Your Company
+            Create Your Workspace
           </CardTitle>
           <p className="text-muted-foreground mt-2">
             Set up your workspace to get started
@@ -99,11 +99,11 @@ export default function CreateCompany() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label>Company Name *</Label>
+              <Label>Workspace Name *</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Acme Inc."
+                placeholder="My Workspace"
                 required
                 disabled={loading}
               />
@@ -114,7 +114,7 @@ export default function CreateCompany() {
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="What does your company do?"
+                placeholder="What is this workspace for?"
                 disabled={loading}
               />
             </div>
@@ -143,7 +143,7 @@ export default function CreateCompany() {
                   Creating...
                 </>
               ) : (
-                "Create Company"
+                "Create Workspace"
               )}
             </Button>
           </form>

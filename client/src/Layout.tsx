@@ -65,7 +65,7 @@ function WorkspaceSwitchOverlay() {
         <Loader2 className="mx-auto h-6 w-6 animate-spin" />
         <p className="mt-3 text-sm font-medium">Switching workspace...</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          We&apos;re loading the latest company data for you.
+          We&apos;re loading the latest workspace data for you.
         </p>
       </div>
     </div>

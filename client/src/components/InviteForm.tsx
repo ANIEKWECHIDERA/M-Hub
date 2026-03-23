@@ -50,7 +50,7 @@ const InviteForm = ({ onSave, onCancel }: InviteFormProps) => {
           type="email"
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          placeholder="teammate@company.com"
+          placeholder="teammate@workspace.com"
           required
           disabled={submitting}
         />

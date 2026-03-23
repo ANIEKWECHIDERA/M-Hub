@@ -3,21 +3,29 @@ import { useAuthContext } from "@/context/AuthContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import type { DashboardRetentionSnapshot } from "@/Types/types";
 
-export function useRetentionSnapshot() {
+export function useRetentionSnapshot(options?: { enabled?: boolean }) {
   const { authStatus } = useAuthContext();
   const {
     getRetentionSnapshot,
     peekRetentionSnapshot,
   } = useWorkspaceContext();
+  const enabled = options?.enabled ?? true;
   const companyId = authStatus?.companyId ?? null;
   const initialSnapshot = peekRetentionSnapshot(companyId);
   const [snapshot, setSnapshot] = useState<DashboardRetentionSnapshot | null>(
     initialSnapshot,
   );
-  const [loading, setLoading] = useState(!initialSnapshot);
+  const [loading, setLoading] = useState(enabled && !initialSnapshot);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      setSnapshot(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     let cancelled = false;
     const cached = peekRetentionSnapshot(companyId);
     setSnapshot(cached);
@@ -44,7 +52,7 @@ export function useRetentionSnapshot() {
     return () => {
       cancelled = true;
     };
-  }, [companyId, getRetentionSnapshot, peekRetentionSnapshot]);
+  }, [companyId, enabled, getRetentionSnapshot, peekRetentionSnapshot]);
 
   return {
     snapshot,

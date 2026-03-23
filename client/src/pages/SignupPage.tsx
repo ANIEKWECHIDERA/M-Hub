@@ -40,6 +40,7 @@ export default function SignUpPage() {
     error: authError,
     loading: authLoading,
     clearError,
+    refreshStatus,
   } = useAuthContext();
 
   const { fetchUserProfile, setProfile } = useUser();
@@ -183,6 +184,7 @@ export default function SignUpPage() {
       // Clear saved form data from localStorage
       localStorage.removeItem("signUpFormData");
 
+      await refreshStatus();
       const pendingInviteToken = localStorage.getItem("pendingInviteToken");
 
       // Redirect to dashboard ONLY on full success
@@ -378,7 +380,7 @@ export default function SignUpPage() {
                           });
                           handleInputChange("firstName", value);
                         }}
-                        className={`h-10 pl-10 sm:h-11 ${
+                        className={`h-10 pl-11 sm:h-11 ${
                           errors.firstName
                             ? "border-red-500 focus-visible:ring-red-500"
                             : ""
@@ -436,7 +438,7 @@ export default function SignUpPage() {
                         });
                         handleInputChange("email", value);
                       }}
-                      className={`h-10 pl-10 sm:h-11 ${
+                      className={`h-10 pl-11 sm:h-11 ${
                         errors.email
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -483,7 +485,7 @@ export default function SignUpPage() {
                         });
                         handleInputChange("password", value);
                       }}
-                      className={`h-10 pl-10 pr-10 sm:h-11 ${
+                      className={`h-10 pl-11 pr-10 sm:h-11 ${
                         errors.password
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -526,7 +528,7 @@ export default function SignUpPage() {
                         });
                         handleInputChange("confirmPassword", value);
                       }}
-                      className={`h-10 pl-10 pr-10 sm:h-11 ${
+                      className={`h-10 pl-11 pr-10 sm:h-11 ${
                         errors.confirmPassword
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""

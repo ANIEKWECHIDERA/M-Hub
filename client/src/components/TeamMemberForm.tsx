@@ -14,6 +14,7 @@ import type { TeamMemberFormProps } from "@/Types/types";
 const TeamMemberForm = ({
   member = {},
   canAssignSuperAdmin = false,
+  canEditAccess = false,
   onSave,
   onCancel,
 }: TeamMemberFormProps) => {
@@ -39,10 +40,10 @@ const TeamMemberForm = ({
   useEffect(() => {
     setIsDirty(
       formData.role !== initialFormData.role ||
-        formData.access !== initialFormData.access ||
+        (canEditAccess && formData.access !== initialFormData.access) ||
         formData.status !== initialFormData.status,
     );
-  }, [formData, initialFormData]);
+  }, [canEditAccess, formData, initialFormData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,26 +85,36 @@ const TeamMemberForm = ({
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="access">Access</Label>
-        <Select
-          value={formData.access}
-          onValueChange={(value) =>
-            setFormData({ ...formData, access: value as string })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select access level" />
-          </SelectTrigger>
-          <SelectContent>
-            {canAssignSuperAdmin && (
-              <SelectItem value="superAdmin">Super Admin</SelectItem>
-            )}
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="team_member">Team Member</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {canEditAccess ? (
+        <div className="space-y-2">
+          <Label htmlFor="access">Access</Label>
+          <Select
+            value={formData.access}
+            onValueChange={(value) =>
+              setFormData({ ...formData, access: value as string })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select access level" />
+            </SelectTrigger>
+            <SelectContent>
+              {canAssignSuperAdmin && (
+                <SelectItem value="superAdmin">Super Admin</SelectItem>
+              )}
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="team_member">Team Member</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label>Workspace Access</Label>
+          <Input value={member.access ?? "team_member"} disabled />
+          <p className="text-xs text-muted-foreground">
+            Admins can update role and status here. Access level changes remain restricted.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="status">Status</Label>

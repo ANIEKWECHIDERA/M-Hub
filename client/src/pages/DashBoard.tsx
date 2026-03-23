@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useProjectContext } from "@/context/ProjectContext";
 import { useFilteredProjects } from "../hooks/useFilteredProjects";
 import { useProjectStats } from "../hooks/useProjectStats";
@@ -23,7 +23,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useTaskContext } from "@/context/TaskContext";
 import { useClientContext } from "@/context/ClientContext";
 import {
@@ -35,29 +35,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import ProjectForm from "@/components/ProjectForm";
-import type { CreateProjectDTO, DailyFocusItem } from "@/Types/types";
+import type { CreateProjectDTO } from "@/Types/types";
 import { DashboardSkeleton } from "@/components/DashBoardSkeleton";
 import { useAuthContext } from "@/context/AuthContext";
-import { useRetentionSnapshot } from "@/hooks/useRetentionSnapshot";
-import {
-  DailyFocusCard,
-  DecisionFeedCard,
-  WorkspaceHealthCard,
-} from "@/components/retention/RetentionPanels";
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const { authStatus } = useAuthContext();
   const { addProject, projects, loading, error } = useProjectContext();
   const { tasks } = useTaskContext();
   const { clients } = useClientContext();
-  const { snapshot, loading: loadingRetention, error: retentionError } =
-    useRetentionSnapshot();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
-  const [decisionFilter, setDecisionFilter] = useState<
-    "all" | "decision" | "action-item" | "blocker"
-  >("all");
   const filteredProjects = useFilteredProjects(
     projects,
     statusFilter,
@@ -67,41 +55,8 @@ export default function Dashboard() {
   const [showCompactOverview, setShowCompactOverview] = useState(false);
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
-  const canSeeWorkspaceHealth =
-    authStatus?.access === "admin" || authStatus?.access === "superAdmin";
   const { totalProjects, activeProjects, completedProjects, overdueProjects } =
     useProjectStats(projects, tasks);
-  const decisionFeedItems = useMemo(() => {
-    const items = snapshot?.decisionFeed.items ?? [];
-    if (decisionFilter === "all") {
-      return items;
-    }
-
-    return items.filter((item) => item.tags.includes(decisionFilter));
-  }, [decisionFilter, snapshot?.decisionFeed.items]);
-
-  const handleOpenFocusItem = (item: DailyFocusItem) => {
-    if (item.kind === "task") {
-      if (item.project?.id) {
-        navigate(`/projectdetails/${item.project.id}`);
-        return;
-      }
-
-      navigate("/mytasks");
-      return;
-    }
-
-    if (item.conversation?.id) {
-      const params = new URLSearchParams({
-        conversationId: item.conversation.id,
-        panel: "summary",
-      });
-      if (item.messageId) {
-        params.set("messageId", item.messageId);
-      }
-      navigate(`/chat?${params.toString()}`);
-    }
-  };
 
   if (loading)
     return (
@@ -121,7 +76,7 @@ export default function Dashboard() {
             Dashboard
           </h1>
           <p className="text-sm text-muted-foreground sm:text-base">
-            Overview of your projects, today&apos;s focus, and the decisions shaping work.
+            Overview of your workspace activity, current delivery load, and project momentum.
           </p>
         </div>
         <Button
@@ -139,57 +94,6 @@ export default function Dashboard() {
           />
         </Button>
       </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
-        <DailyFocusCard
-          items={snapshot?.dailyFocus.items ?? []}
-          loading={loadingRetention}
-          error={retentionError}
-          onOpenTask={handleOpenFocusItem}
-          onOpenDecision={handleOpenFocusItem}
-        />
-        {canSeeWorkspaceHealth ? (
-          <WorkspaceHealthCard
-            score={snapshot?.workspaceHealth ?? null}
-            loading={loadingRetention}
-            error={retentionError}
-          />
-        ) : (
-          <DecisionFeedCard
-            items={decisionFeedItems.slice(0, 4)}
-            counts={snapshot?.decisionFeed.counts ?? {}}
-            loading={loadingRetention}
-            error={retentionError}
-            activeFilter={decisionFilter}
-            onFilterChange={setDecisionFilter}
-            onOpenItem={(item) => {
-              const params = new URLSearchParams({
-                conversationId: item.conversationId,
-                panel: "summary",
-                messageId: item.messageId,
-              });
-              navigate(`/chat?${params.toString()}`);
-            }}
-          />
-        )}
-      </div>
-
-      <DecisionFeedCard
-        items={decisionFeedItems}
-        counts={snapshot?.decisionFeed.counts ?? {}}
-        loading={loadingRetention}
-        error={retentionError}
-        activeFilter={decisionFilter}
-        onFilterChange={setDecisionFilter}
-        onOpenItem={(item) => {
-          const params = new URLSearchParams({
-            conversationId: item.conversationId,
-            panel: "summary",
-            messageId: item.messageId,
-          });
-          navigate(`/chat?${params.toString()}`);
-        }}
-      />
 
       {/* Stats Cards */}
       <div

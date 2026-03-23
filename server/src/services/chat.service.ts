@@ -311,7 +311,7 @@ async function insertGeneralSystemMessage(params: {
         ${params.conversationId}::uuid,
         ${params.companyId}::uuid,
         NULL,
-        ${"General chat created"},
+        ${"General is the shared room for quick updates, key decisions, and cross-team coordination."},
         ${"system"},
         NOW(),
         NOW()

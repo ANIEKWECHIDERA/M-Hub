@@ -69,7 +69,6 @@ import {
 } from "@/components/ui/table";
 import {
   getAllowedSettingsSections,
-  type SettingsSection,
 } from "@/config/settings-nav";
 import { useAuthContext } from "@/context/AuthContext";
 import { useSettingsContext } from "@/context/SettingsContext";
@@ -207,8 +206,8 @@ export default function Settings() {
 
   const passwordDirty = Object.values(securityForm).some(Boolean);
   const sections = useMemo(() => getAllowedSettingsSections(isTeamMember), [isTeamMember]);
-  const activeSection = useMemo(() => {
-    const section = searchParams.get("section") as SettingsSection | null;
+  const activeSection: string = useMemo(() => {
+    const section = searchParams.get("section");
 
     return (
       sections.find((item) => item.id === section)?.id ??
@@ -218,7 +217,7 @@ export default function Settings() {
   }, [searchParams, sections]);
 
   useEffect(() => {
-    const currentSection = searchParams.get("section") as SettingsSection | null;
+    const currentSection = searchParams.get("section");
 
     if (!sections.some((section) => section.id === currentSection)) {
       setSearchParams({ section: sections[0]?.id ?? "profile" }, { replace: true });
@@ -467,11 +466,11 @@ export default function Settings() {
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="avatar">Profile Photo</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Input
-                      id="avatar"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="sr-only"
+                      <Input
+                        id="avatar"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        className="sr-only"
                       onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
                     />
                     <Button
@@ -996,6 +995,7 @@ export default function Settings() {
             <TeamMemberForm
               member={teamMembers.find((member: any) => member.id === editingUserId)}
               canAssignSuperAdmin={isSuperAdmin}
+              canEditAccess={isSuperAdmin}
               onSave={async (data) => {
                 if (!editingUserId) return;
                 await updateTeamMember(editingUserId, data);

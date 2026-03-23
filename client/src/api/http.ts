@@ -54,8 +54,14 @@ export async function apiFetch<T>(
   const data = raw ? JSON.parse(raw) : null;
 
   if (!res.ok) {
+    const fallbackMessage =
+      res.status === 401
+        ? "Your session or workspace membership may have changed. Refresh the app and sign in again."
+        : res.status === 403
+          ? "You no longer have permission to perform this workspace action."
+          : data?.error || data?.message || `Request failed (${res.status})`;
     throw new ApiError(
-      data?.error || data?.message || `Request failed (${res.status})`,
+      fallbackMessage,
       res.status,
       data?.code,
       data?.details,

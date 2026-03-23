@@ -21,6 +21,8 @@ import {
   Trash2,
   BriefcaseBusiness,
   Users,
+  HeartPulse,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/context/AuthContext";
@@ -48,6 +50,13 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
+import { useRetentionSnapshot } from "@/hooks/useRetentionSnapshot";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface NavItem {
   name: string;
@@ -64,7 +73,7 @@ const baseNavigation: NavItem[] = [
 ];
 
 const workspaceManagerSections: Array<{
-  id: "details" | "workload" | "delete";
+  id: "details" | "workload" | "team" | "invites" | "delete";
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   superAdminOnly?: boolean;
@@ -78,6 +87,16 @@ const workspaceManagerSections: Array<{
     id: "workload",
     label: "Team Workload",
     icon: Users,
+  },
+  {
+    id: "team",
+    label: "Team",
+    icon: Users,
+  },
+  {
+    id: "invites",
+    label: "Invites",
+    icon: BriefcaseBusiness,
   },
   {
     id: "delete",
@@ -111,7 +130,11 @@ function SidebarPanel({
   const { authStatus } = useAuthContext();
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
+  const canSeeWorkspaceHealth =
+    authStatus?.access === "admin" || authStatus?.access === "superAdmin";
   const { totalUnreadCount, unreadBySection } = useChatContext();
+  const { snapshot: retentionSnapshot, loading: retentionLoading } =
+    useRetentionSnapshot({ enabled: canSeeWorkspaceHealth });
   const navigation = useMemo(
     () =>
       isTeamMember
@@ -149,6 +172,7 @@ function SidebarPanel({
     const params = new URLSearchParams(search);
     return params.get("section") ?? "details";
   }, [search]);
+  const workspaceHealth = retentionSnapshot?.workspaceHealth ?? null;
 
   useEffect(() => {
     if (pathname === "/chat") {
@@ -306,6 +330,9 @@ function SidebarPanel({
                             >
                               {totalChatUnread}
                             </Badge>
+                          )}
+                          {!isExpanded && totalChatUnread > 0 && (
+                            <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-sidebar" />
                           )}
                         </SidebarMenuButton>
 
@@ -557,17 +584,75 @@ function SidebarPanel({
       </SidebarBody>
 
       <SidebarFooter className={cn("space-y-2", !isExpanded && "px-2")}>
-        {isExpanded ? (
+        {isExpanded ? canSeeWorkspaceHealth ? (
+          <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium">Workspace Health</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A quick pulse check on delivery pressure in this workspace.
+                </p>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">See more workspace health options</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link to="/workspace-manager?section=workload" onClick={handleNavClick}>
+                      Open team workload
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/projects" onClick={handleNavClick}>
+                      Review workspace projects
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar/80">
+                <HeartPulse className="h-5 w-5 text-foreground" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-semibold leading-none">
+                  {retentionLoading ? "..." : workspaceHealth?.score ?? "--"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {retentionLoading
+                    ? "Checking activity..."
+                    : workspaceHealth?.status ?? "Health unavailable"}
+                </p>
+              </div>
+            </div>
+            {workspaceHealth?.summary && (
+              <p className="mt-3 line-clamp-2 text-xs text-muted-foreground">
+                {workspaceHealth.summary}
+              </p>
+            )}
+          </div>
+        ) : (
           <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
             <p className="text-sm font-medium">Workspace controls</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Switch teams and keep each company workspace isolated.
+              Switch teams and keep each workspace isolated.
             </p>
           </div>
         ) : (
           <div className="flex justify-center">
-            <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-2">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
+            <div className="relative rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-2">
+              {canSeeWorkspaceHealth ? (
+                <HeartPulse className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+              )}
             </div>
           </div>
         )}

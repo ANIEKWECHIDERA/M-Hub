@@ -166,7 +166,7 @@ Relevant files:
 
 ### 3d. Invite management now supports copy/resend/delete actions
 
-Invite handling in Settings is no longer cancel-only.
+Invite handling is no longer cancel-only and now lives under Workspace Manager instead of being a top-level Settings surface for admins.
 
 Current per-invite actions:
 
@@ -176,16 +176,17 @@ Current per-invite actions:
 
 Implementation notes:
 
-- the invite row now uses an ellipsis menu in Settings
+- the invite row now uses an ellipsis menu in Workspace Manager
 - copy-link and resend both refresh the invite token/hash and expiration, then:
   - copy returns a valid accept URL
   - resend sends a new email with the refreshed token
 - delete now removes the invite record entirely instead of only marking it cancelled
 - accepted invites cannot be resent
+- accepted invites no longer show `Copy invite link` or `Resend invite`; they only expose `Delete invite`
 
 Relevant files:
 
-- `client/src/pages/Settings.tsx`
+- `client/src/pages/WorkspaceManager.tsx`
 - `client/src/api/invite.api.ts`
 - `server/src/controllers/invite.controller.ts`
 - `server/src/routes/invite.routes.ts`
@@ -303,9 +304,11 @@ Workspace Health behavior:
 
 Home-surface placement:
 
-- admins / superAdmins see these features on `Dashboard`
-- lower-access users still land on `My Tasks`, so Daily Focus and Decision Feed are also shown there
-- Workspace Health remains admin-only
+- `Dashboard` is intentionally lighter again and no longer shows Daily Focus, Decision Feed, or Workspace Health
+- `Daily Focus` now lives on `My Tasks` only
+- `Decision Feed` now lives inside `Chat`, alongside the tagged summary/decision-capture area
+- `Workspace Health` now lives in the sidebar footer area for `admin` and `superAdmin`
+- lower-access users do not see Workspace Health
 
 Caching and freshness:
 
@@ -324,7 +327,7 @@ Responsive/UI notes:
 - retention cards follow the app's mobile/tablet/desktop spacing system
 - loading uses skeletons instead of abrupt blank states
 - empty and error states are intentional and inline
-- dashboard no longer hides retention features when there are zero projects
+- Workspace Health in the sidebar uses progressive disclosure via an ellipsis menu instead of showing too much detail inline
 
 Chat deep-link note:
 
@@ -334,10 +337,19 @@ Chat deep-link note:
 
 Playwright verification completed for:
 
-- Dashboard rendering of Daily Focus, Decision Feed, and Workspace Health
-- My Tasks rendering of Daily Focus and Decision Feed
-- Decision Feed click-through into the correct chat conversation
-- local retention endpoint success in the browser network layer
+- Workspace Manager submenu expansion without accidental routing
+- Workspace Manager invite actions:
+  - accepted invite shows only `Delete invite`
+  - pending invite shows `Copy invite link`, `Resend invite`, and `Delete invite`
+  - copy invite link succeeds
+  - resend invite succeeds
+  - delete invite cancel keeps the UI responsive
+  - delete invite removes the row
+- toast behavior on small viewport:
+  - top-center placement with more distance from the header
+  - controlled width
+  - auto-dismiss
+- My Tasks drag-and-drop reordering with persisted local workspace order
 
 Known limitations:
 
@@ -351,6 +363,68 @@ Future expansion path:
 - automatic decision extraction and suggestion
 - decision-to-task conversion
 - workspace health trend history and alerts
+
+### 3g. Refinement pass: calmer IA, chat polish, onboarding hardening
+
+This pass focused on reducing visual overwhelm and moving secondary/admin tools behind better information architecture.
+
+Navigation and IA changes:
+
+- `Workspace Manager` is now the admin home for:
+  - `Workspace Details`
+  - `Team Workload`
+  - `Team`
+  - `Invites`
+  - `Delete Workspace`
+- clicking the Workspace Manager parent item expands the submenu first; it does not force navigation
+- `Settings` is now reduced back to:
+  - `Profile`
+  - `Notifications`
+  - `Security`
+
+Chat polish changes:
+
+- the seeded General group intro message is now a meaningful workspace-use description instead of `General chat created`
+- chat renders subtle per-day separators client-side when a new day starts in the thread
+- direct-message headers now show the teammate's role instead of a generic `Direct message` label
+- in direct messages, the other person's message bubble no longer shows the hover ellipsis action menu
+- the chat summary/tagged area is now framed as `Decision Feed`
+- the collapsed sidebar now shows a subtle unread dot on the chat button when unread chat items exist
+
+Workspace / terminology changes:
+
+- visible frontend copy now prefers `Workspace` over `Company`
+- workspace logo upload now accepts SVG in addition to JPG/PNG/WebP
+- workspace/team/invite data uses skeleton states instead of abrupt empty flashes
+- My Tasks skeletons now use shared theme-aware skeleton primitives instead of hardcoded light-only shimmer blocks
+
+Onboarding and signup flow hardening:
+
+- the frontend no longer forces newly created users into manual workspace creation after profile completion
+- successful profile completion now routes to:
+  - pending invite acceptance when a pending invite token exists
+  - otherwise `/dashboard`
+- signup now refreshes backend auth status before redirecting so `My Workspace` creation settles before the shell loads
+- first-time users should now rely on backend auto-creation of `My Workspace` instead of manual workspace setup
+
+Task ordering:
+
+- My Tasks supports drag-and-drop reordering
+- order is persisted per workspace in local storage using:
+  - `crevo:my-task-order:{companyId}`
+
+Permission and membership UX:
+
+- admins can now update team member role and status and remove members
+- admins cannot edit workspace access level
+- superAdmins still control access-level changes and superAdmin assignment
+- generic API permission failures now show clearer workspace-membership/session guidance instead of cryptic failures
+
+Known limitations:
+
+- Team and Invite rendering was moved into Workspace Manager, but the older Settings implementation still exists in code as unreachable fallback UI and can be cleaned up later
+- the new My Tasks ordering currently persists client-side per workspace rather than syncing to the backend
+- I did not run a real browser signup test in this pass because doing so would mutate the active auth session and test data
 
 ### 4. Context-heavy frontend
 
