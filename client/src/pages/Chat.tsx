@@ -465,10 +465,12 @@ function MessageBubble({
 
   if (message.message_type === "system") {
     return (
-      <div className="flex justify-center py-1">
-        <div className="inline-flex max-w-[90%] items-center gap-2 rounded-full border border-dashed bg-muted/45 px-4 py-2 text-center text-xs font-medium text-muted-foreground">
+      <div className="flex flex-col items-center gap-1.5 py-1">
+        <div className="inline-flex max-w-[90%] items-center rounded-full border border-dashed bg-muted/45 px-4 py-2 text-center text-xs font-medium text-muted-foreground">
           <span>{message.body}</span>
-          <span className="whitespace-nowrap text-[11px]">
+        </div>
+        <div className="inline-flex items-center rounded-full border border-dashed bg-background/80 px-3 py-1 text-[11px] font-medium text-muted-foreground/90">
+          <span className="whitespace-nowrap">
             {new Date(message.created_at).toLocaleString([], {
               month: "short",
               day: "numeric",
