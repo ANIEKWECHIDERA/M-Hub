@@ -374,6 +374,8 @@ export default function WorkspaceManager() {
   const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(
     null,
   );
+  const [isInviteDeleteDialogOpen, setIsInviteDeleteDialogOpen] =
+    useState(false);
 
   const loadWorkspaceManager = async (options?: { force?: boolean }) => {
     const snapshot = await getManagerSnapshot({
@@ -484,8 +486,10 @@ export default function WorkspaceManager() {
     access: "admin" | "team_member";
   }) => {
     await inviteMember(payload);
-    await loadInvites();
     setIsInviteDialogOpen(false);
+    void loadInvites().catch((error: any) => {
+      toast.error(error?.message || "Failed to refresh invites");
+    });
   };
 
   const handleCopyInviteLink = async (inviteId: string) => {
@@ -1252,13 +1256,16 @@ export default function WorkspaceManager() {
                                     Resend invite
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem
-                                  className="text-red-600 focus:text-red-600"
-                                  onClick={() => setInviteToDelete(invite)}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete invite
-                                </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600"
+                                    onClick={() => {
+                                      setInviteToDelete(invite);
+                                      setIsInviteDeleteDialogOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete invite
+                                  </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -1380,10 +1387,14 @@ export default function WorkspaceManager() {
       </AlertDialog>
 
       <AlertDialog
-        open={Boolean(inviteToDelete)}
+        open={isInviteDeleteDialogOpen}
         onOpenChange={(open) => {
+          setIsInviteDeleteDialogOpen(open);
+
           if (!open) {
-            setInviteToDelete(null);
+            window.setTimeout(() => {
+              setInviteToDelete(null);
+            }, 180);
           }
         }}
       >
@@ -1392,7 +1403,7 @@ export default function WorkspaceManager() {
             <AlertDialogTitle>Delete Invite</AlertDialogTitle>
             <AlertDialogDescription>
               Delete the invite for{" "}
-              <strong>{inviteToDelete?.email ?? "this teammate"}</strong>? This
+              <strong>{inviteToDelete?.email ?? "this invite"}</strong>? This
               removes the current invite link and it can no longer be used.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1405,8 +1416,9 @@ export default function WorkspaceManager() {
                 }
 
                 const inviteId = inviteToDelete.id;
-                setInviteToDelete(null);
+                setIsInviteDeleteDialogOpen(false);
                 await handleDeleteInvite(inviteId);
+                setInviteToDelete(null);
               }}
             >
               Delete Invite

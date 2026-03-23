@@ -192,6 +192,11 @@ Relevant files:
 - `server/src/routes/invite.routes.ts`
 - `server/src/services/invite.service.ts`
 
+UX notes:
+
+- successful `Invite Team Member` submissions should close the dialog immediately, then refresh the invite list in the background
+- delete-invite confirmation should keep the invite email visible through the close animation instead of flashing a generic fallback label
+
 ### 3e. Workspace workload/capacity cues
 
 Workspace Manager now exposes lightweight capacity signals for active members in the current workspace.

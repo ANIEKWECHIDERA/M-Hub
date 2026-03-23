@@ -163,6 +163,8 @@ export default function Settings() {
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(null);
+  const [isInviteDeleteDialogOpen, setIsInviteDeleteDialogOpen] =
+    useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
@@ -329,8 +331,10 @@ export default function Settings() {
     access: "admin" | "team_member";
   }) => {
     await inviteMember(data);
-    await loadInvites();
     setIsUserDialogOpen(false);
+    void loadInvites().catch((error: any) => {
+      toast.error(error?.message || "Failed to refresh invites");
+    });
   };
 
   const handleDeleteInvite = async (inviteId: string) => {
@@ -1003,7 +1007,10 @@ export default function Settings() {
                                   )}
                                   <DropdownMenuItem
                                     className="text-red-600 focus:text-red-600"
-                                    onClick={() => setInviteToDelete(invite)}
+                                    onClick={() => {
+                                      setInviteToDelete(invite);
+                                      setIsInviteDeleteDialogOpen(true);
+                                    }}
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     Delete invite
@@ -1082,10 +1089,14 @@ export default function Settings() {
 
       {!isTeamMember && (
         <AlertDialog
-          open={Boolean(inviteToDelete)}
+          open={isInviteDeleteDialogOpen}
           onOpenChange={(open) => {
+            setIsInviteDeleteDialogOpen(open);
+
             if (!open) {
-              setInviteToDelete(null);
+              window.setTimeout(() => {
+                setInviteToDelete(null);
+              }, 180);
             }
           }}
         >
@@ -1094,18 +1105,19 @@ export default function Settings() {
               <AlertDialogTitle>Delete Invite</AlertDialogTitle>
               <AlertDialogDescription>
                 Permanently delete the invite for{" "}
-                <strong>{inviteToDelete?.email}</strong>? This removes the invite
+                <strong>{inviteToDelete?.email ?? "this invite"}</strong>? This removes the invite
                 record and the old link will stop working.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setInviteToDelete(null)}>
+              <AlertDialogCancel>
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
                 className="bg-red-600 hover:bg-red-700"
                 onClick={async () => {
                   if (!inviteToDelete) return;
+                  setIsInviteDeleteDialogOpen(false);
                   await handleDeleteInvite(inviteToDelete.id);
                   setInviteToDelete(null);
                 }}
