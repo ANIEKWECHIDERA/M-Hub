@@ -9,6 +9,7 @@ import {
   Crown,
   Flag,
   Hash,
+  HelpCircle,
   Loader2,
   ListFilter,
   Mail,
@@ -71,6 +72,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const MESSAGE_TAG_CONFIG = {
   decision: {
@@ -204,9 +210,11 @@ function getMemberRoleBadge(access?: string | null, role?: string | null) {
 function PersonBadge({
   access,
   role,
+  className,
 }: {
   access?: string | null;
   role?: string | null;
+  className?: string;
 }) {
   const badge = getMemberRoleBadge(access, role);
   const Icon = badge.icon;
@@ -215,12 +223,13 @@ function PersonBadge({
     <Badge
       variant="outline"
       className={cn(
-        "gap-1.5 rounded-full px-2.5 py-0.5 text-[11px]",
+        "max-w-full gap-1.5 rounded-full px-2.5 py-0.5 text-[11px]",
         badge.className,
+        className,
       )}
     >
       <Icon className="h-3 w-3" />
-      {badge.label}
+      <span className="truncate">{badge.label}</span>
     </Badge>
   );
 }
@@ -1512,12 +1521,12 @@ export default function Chat() {
               </div>
 
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search conversations..."
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="pl-10"
+                  className="pl-14"
                 />
               </div>
 
@@ -1870,6 +1879,7 @@ export default function Chat() {
                     <Button
                       type="button"
                       size="sm"
+                      className="h-8 rounded-full px-3 text-[11px] sm:text-xs"
                       variant={
                         chatPanelMode === "messages" ? "default" : "outline"
                       }
@@ -1880,6 +1890,7 @@ export default function Chat() {
                     <Button
                       type="button"
                       size="sm"
+                      className="h-8 rounded-full px-3 text-[11px] sm:text-xs"
                       variant={
                         chatPanelMode === "summary" ? "default" : "outline"
                       }
@@ -1887,6 +1898,30 @@ export default function Chat() {
                     >
                       <ListFilter className="mr-2 h-4 w-4" />
                       Decision Feed
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                            onClick={(event) => event.preventDefault()}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                              }
+                            }}
+                          >
+                            <HelpCircle className="h-3.5 w-3.5" />
+                            <span className="sr-only">
+                              What decision feed means
+                            </span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+                          Review the key decisions, blockers, and action items from
+                          this group without rereading the full chat stream.
+                        </TooltipContent>
+                      </Tooltip>
                       <Badge
                         variant="secondary"
                         className="ml-2 rounded-full px-2 py-0 text-[10px]"
@@ -1897,14 +1932,11 @@ export default function Chat() {
                   </div>
                   {chatPanelMode === "summary" && (
                     <div className="mt-2.5 space-y-2">
-                      <p className="text-xs text-muted-foreground sm:text-sm">
-                        Review the key decisions, blockers, and action items from
-                        this group without rereading the full chat stream.
-                      </p>
                       <div className="flex flex-wrap gap-2">
                         <Button
                           type="button"
                           size="sm"
+                          className="h-8 rounded-full px-3 text-[11px] sm:text-xs"
                           variant={
                             activeTagFilter === "all" ? "default" : "outline"
                           }
@@ -1919,7 +1951,7 @@ export default function Chat() {
                               key={tag}
                               type="button"
                               className={cn(
-                                "premium-interactive inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs",
+                                "premium-interactive inline-flex h-8 items-center gap-1 rounded-full border px-3 text-[11px] font-medium transition-colors sm:text-xs",
                                 activeTagFilter === tag
                                   ? config.chipClassName
                                   : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -2257,7 +2289,7 @@ export default function Chat() {
       </div>
 
       <Dialog open={isCreateDirectOpen} onOpenChange={setIsCreateDirectOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="top-[8vh] max-h-[82vh] max-w-2xl translate-y-0 overflow-hidden sm:top-1/2 sm:max-h-[85vh] sm:-translate-y-1/2">
           <DialogHeader>
             <DialogTitle>Start direct conversation</DialogTitle>
             <DialogDescription>
@@ -2266,18 +2298,18 @@ export default function Chat() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex min-h-0 flex-col space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={directMemberSearch}
                 onChange={(event) => setDirectMemberSearch(event.target.value)}
                 placeholder="Search workspace members..."
-                className="pl-10"
+                className="pl-14"
               />
             </div>
 
-            <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
+            <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1 sm:max-h-[26rem]">
               {loadingWorkspaceMembers ? (
                 <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -2299,38 +2331,41 @@ export default function Chat() {
                 filteredDirectMembers.map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border p-3"
+                    className="flex items-center justify-between gap-2 rounded-xl border p-3 sm:gap-3"
                   >
-                    <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                       <MemberAvatar
                         member={member}
                         onPreview={() => setProfilePreviewMember(member)}
                         showPresence
                       />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
                           <p className="truncate font-medium">{member.name}</p>
                           <PersonBadge
                             access={member.access}
                             role={member.role}
+                            className="hidden max-w-[7.5rem] sm:inline-flex"
                           />
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
                           <span className="truncate">{member.email}</span>
                           {member.online && (
-                            <span className="text-emerald-600">Online</span>
+                            <span className="shrink-0 text-emerald-600">Online</span>
                           )}
                         </div>
                       </div>
                     </div>
 
                     <Button
+                      size="sm"
+                      className="shrink-0 px-3"
                       onClick={() =>
                         void handleCreateDirectConversation(member)
                       }
                     >
-                      <MessageSquare className="mr-2 h-4 w-4" />
-                      Chat
+                      <MessageSquare className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Chat</span>
                     </Button>
                   </div>
                 ))
@@ -2352,7 +2387,7 @@ export default function Chat() {
           }
         }}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="top-[6vh] max-h-[84vh] max-w-2xl translate-y-0 overflow-hidden sm:top-1/2 sm:max-h-[85vh] sm:-translate-y-1/2">
           <DialogHeader>
             <DialogTitle>Create group chat</DialogTitle>
             <DialogDescription>
@@ -2361,7 +2396,7 @@ export default function Chat() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex min-h-0 flex-col space-y-4">
             <div className="space-y-2">
               <Label htmlFor="group-name">Group name</Label>
               <Input
@@ -2384,24 +2419,24 @@ export default function Chat() {
             </div>
 
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={groupMemberSearch}
                 onChange={(event) => setGroupMemberSearch(event.target.value)}
                 placeholder="Search members to add..."
-                className="pl-10"
+                className="pl-14"
               />
             </div>
 
-            <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
+            <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1 sm:max-h-[26rem]">
               {filteredGroupMembers.map((member) => {
                 const checked = selectedGroupMembers.includes(member.id);
                 return (
                   <label
                     key={member.id}
-                    className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3"
+                    className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border p-3 sm:gap-3"
                   >
-                    <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                       <Checkbox
                         checked={checked}
                         onCheckedChange={(nextChecked) => {
@@ -2417,12 +2452,13 @@ export default function Chat() {
                         onPreview={() => setProfilePreviewMember(member)}
                         showPresence
                       />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
                           <p className="truncate font-medium">{member.name}</p>
                           <PersonBadge
                             access={member.access}
                             role={member.role}
+                            className="hidden max-w-[7.5rem] sm:inline-flex"
                           />
                         </div>
                         <p className="truncate text-sm text-muted-foreground">
@@ -2431,8 +2467,12 @@ export default function Chat() {
                       </div>
                     </div>
                     {member.online && (
-                      <Badge variant="outline" className="rounded-full">
-                        Online
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 rounded-full px-2 py-0 text-[10px]"
+                      >
+                        <span className="hidden sm:inline">Online</span>
+                        <span className="sm:hidden">On</span>
                       </Badge>
                     )}
                   </label>
@@ -2441,7 +2481,7 @@ export default function Chat() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setIsCreateGroupOpen(false)}
@@ -2503,7 +2543,7 @@ export default function Chat() {
       </Dialog>
 
       <Dialog open={isDirectoryOpen} onOpenChange={setIsDirectoryOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="top-[6vh] max-h-[84vh] max-w-3xl translate-y-0 overflow-hidden sm:top-1/2 sm:max-h-[85vh] sm:-translate-y-1/2">
           <DialogHeader>
             <DialogTitle>Workspace people</DialogTitle>
             <DialogDescription>
@@ -2512,60 +2552,65 @@ export default function Chat() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex min-h-0 flex-col space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={directorySearch}
                 onChange={(event) => setDirectorySearch(event.target.value)}
                 placeholder="Search by name, email, or role..."
-                className="pl-10"
+                className="pl-14"
               />
             </div>
 
-            <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+            <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1 sm:max-h-[30rem]">
               {filteredDirectoryMembers.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border p-3"
+                  className="flex items-center justify-between gap-2 rounded-xl border p-3 sm:gap-3"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                     <MemberAvatar
                       member={member}
                       onPreview={() => setProfilePreviewMember(member)}
                       showPresence
                     />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
                         <p className="truncate font-medium">{member.name}</p>
                         <PersonBadge
                           access={member.access}
                           role={member.role}
+                          className="hidden max-w-[7.5rem] sm:inline-flex"
                         />
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Mail className="h-3.5 w-3.5" />
+                      <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+                        <Mail className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">{member.email}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                     {member.online && (
                       <Badge
                         variant="outline"
-                        className="rounded-full text-emerald-600"
+                        className="rounded-full px-2 py-0 text-[10px] text-emerald-600"
                       >
-                        Online
+                        <span className="hidden sm:inline">Online</span>
+                        <span className="sm:hidden">On</span>
                       </Badge>
                     )}
                     <Button
                       variant="outline"
+                      size="sm"
+                      className="shrink-0 px-3"
                       onClick={() =>
                         void handleCreateDirectConversation(member)
                       }
                     >
-                      Start chat
+                      <span className="hidden sm:inline">Start chat</span>
+                      <span className="sm:hidden">Chat</span>
                     </Button>
                   </div>
                 </div>

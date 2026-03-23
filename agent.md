@@ -1395,6 +1395,10 @@ Assumptions currently in use:
   - switch them to another remaining active workspace if one exists
   - otherwise set `has_company = false` and clear `company_id`
   - keep the delete operation transactional so a successful workspace delete cannot still bubble up as a `500`
+- Team-member reactivation should not fail when a previously inactive member is restored:
+  - the general-chat membership sync must reactivate a removed `chat_conversation_members` row before inserting a new one
+  - avoid creating duplicate active conversation-member rows that violate `chat_conversation_members_active_user_key`
+  - verified via browser flow by changing a member from `active -> inactive -> active` with both PATCH requests returning `200`
 - Playwright refinement pass verified:
   - workspace submenu expands without routing on parent click
   - invite ellipsis menu opens correctly
@@ -1417,9 +1421,77 @@ Assumptions currently in use:
   - reduce message bubble padding/text size slightly on phones without hurting readability
   - keep group-tagging and send actions intact while making the composer denser
 - Toasts should prefer content-fit width rather than stretching wide across the viewport
+- Workspace Health messaging should explain the score contextually:
+  - `Healthy` means pressure is manageable and delivery is moving steadily
+  - `At Risk` means work is still moving, but overdue tasks, blockers, or uneven capacity could start slipping delivery
+  - `Critical` means delivery is under material pressure and needs intervention soon
+  - avoid presenting the number as scientific precision; the score is a weighted operational cue
+  - both the sidebar summary and the fuller card should expose a compact help affordance that explains the status bands
+  - render `Healthy`, `At Risk`, and `Critical` as badges, paired with matching status icons
+  - keep the sidebar version compact: score, badge, icon, and short summary only
+- Icon-bearing inputs and search fields should leave more breathing room between the icon and text:
+  - prefer `pointer-events-none` on decorative icons
+  - use larger left padding (`pl-12` range) for icon-led inputs on key auth, search, notes, and chat surfaces
+  - this is especially important after the mobile density reductions so placeholder text does not visually collide with icons
+- Load-testing note:
+  - a 50-concurrent mixed authenticated burst is currently dominated by the backend rate limiter and returns `429` before it meaningfully exercises app-query capacity
+  - this means current load-test results mostly reflect protection settings, not the raw throughput of workspace, task, retention, or chat endpoints
 - The sidebar footer should be treated as a retention surface, not static instructional copy
   - current experiment is `Retention Lab` with three selectable concept cards:
     - `Team Pulse`
     - `Win Streaks`
     - `Friday Wrap`
 - Mobile sidebar sheet content now includes hidden title/description so Playwright/browser a11y checks stay clean
+- The sidebar now treats personal execution surfaces as a grouped area:
+  - use a parent `Focus` menu in the main sidebar
+  - child routes:
+    - `/mytasks?section=tasks`
+    - `/mytasks?section=daily-focus`
+  - keep `My Tasks` and `Daily Focus` separate instead of stacking both on the same page by default
+  - `My Tasks` remains the task-list surface
+  - `Daily Focus` is the lighter prioritization surface for what needs attention now
+  - place `Focus` above `Chat` in the sidebar order
+  - use the `ListTodo` icon for the `My Tasks` child item so the nav matches the page identity
+- Chat navigation copy should say `Groups`, not `Projects`, for the group-chat section label
+  - keep the internal section id as `projects` if that avoids route or API churn
+- The dashboard button in the sidebar should surface a subtle unread red dot when chat has unread items
+  - this is intentionally lighter than the full unread badge shown on the Chat parent item
+- For icon-led inputs and searchbars, preserve breathing room between the icon and user text
+  - continue using `pointer-events-none` on decorative icons
+  - prefer `pl-12` to `pl-14` spacing on icon-bearing inputs
+  - especially for:
+    - Chat `Search conversations`
+    - Projects search
+    - Notes search
+    - My Tasks search
+- `My Tasks` page identity should be dynamic:
+  - `?section=tasks` uses `My Tasks`
+  - `?section=daily-focus` uses `Daily Focus`
+  - update the leading icon and supporting copy to match the active section
+- `Daily Focus` and `Decision Feed` should include compact help tooltips, similar to Workspace Health, so users understand what each surface is for without adding heavier visible copy
+  - for chat-side `Decision Feed`, move explanatory helper copy into the tooltip instead of showing it as a persistent paragraph
+  - keep Decision Feed filter/actions visually compact with smaller rounded controls
+- Workspace Manager polish:
+  - keep the `Workspace Name` field and `Workspace Owner` field at the same visual height
+  - keep workload/team/invite badges visually uniform on smaller screens
+  - truncate long names/emails in tables and expose the full value on tooltip hover/focus
+- Dashboard project cards should keep a consistent vertical structure even when some data is missing
+  - avoid cards collapsing unevenly because a deadline, task count, or member text is absent
+  - reserve stable rows for metadata and CTA alignment
+- Settings `Compact mode` should include a lightweight help tooltip explaining that it reduces spacing in supported areas without changing the underlying layout
+- Project Details mobile/tab behavior:
+  - the `Overview` tab must own a real scroll container on smaller screens
+  - verify it scrolls instead of relying on parent-page overflow
+- Permission-change handling:
+  - when workspace membership or access changes and API requests start failing with `401` or `403`, show a refresh-focused toast
+  - throttle that toast so repeated failures do not spam the UI
+- Chat creation dialogs need extra mobile care:
+  - on small screens, move the direct-chat and group-chat dialogs closer to the top of the viewport instead of centering them perfectly
+  - keep enough vertical headroom so the on-screen keyboard does not immediately consume the remaining usable space
+  - apply the same top-positioning and row-truncation treatment to the `Workspace people` modal, not only direct/group creation
+  - member rows in `Workspace people` / `New direct chat` / `New group chat` should preserve the primary action button area
+  - truncate long names/emails with ellipses rather than letting content push the `Chat` / selection controls off screen
+  - role/access badges inside those rows should hide or compress on the smallest screens before the action button is allowed to wrap away
+- Unread chat dot placement rule:
+  - do not show the unread red dot on the dashboard nav item
+  - show it on the header `SidebarTrigger` only when the sidebar is closed

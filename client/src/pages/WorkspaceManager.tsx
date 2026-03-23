@@ -34,6 +34,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Table,
   TableBody,
   TableCell,
@@ -127,6 +132,28 @@ const roleLabels = {
   team_member: "Team Member",
   member: "Team Member",
 } as const;
+
+const compactBadgeClass =
+  "inline-flex h-6 min-w-[6.5rem] items-center justify-center rounded-full px-2 text-[10px] font-medium sm:text-xs";
+
+function OverflowTooltip({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <p className={className}>{label}</p>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs break-words text-left">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 async function copyTextToClipboard(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -690,22 +717,25 @@ export default function WorkspaceManager() {
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   disabled={!isSuperAdmin || saving}
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Workspace Owner</Label>
-                <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2">
+                <div className="flex h-11 items-center gap-3 rounded-lg border bg-muted/20 px-3">
                   <Avatar className="h-9 w-9">
                     <AvatarImage src={data.owner?.avatar || undefined} />
                     <AvatarFallback>{ownerInitials}</AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {data.owner?.name ?? "Unknown owner"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {data.owner?.email ?? "No owner email"}
-                    </p>
+                  <div className="min-w-0">
+                    <OverflowTooltip
+                      label={data.owner?.name ?? "Unknown owner"}
+                      className="truncate text-sm font-medium"
+                    />
+                    <OverflowTooltip
+                      label={data.owner?.email ?? "No owner email"}
+                      className="truncate text-xs text-muted-foreground"
+                    />
                   </div>
                 </div>
               </div>
@@ -883,15 +913,21 @@ export default function WorkspaceManager() {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium">{member.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {member.email}
-                              </p>
+                              <OverflowTooltip
+                                label={member.name}
+                                className="max-w-[12rem] truncate font-medium"
+                              />
+                              <OverflowTooltip
+                                label={member.email}
+                                className="max-w-[12rem] truncate text-sm text-muted-foreground"
+                              />
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{member.role}</Badge>
+                          <Badge variant="secondary" className={compactBadgeClass}>
+                            <span className="truncate">{member.role}</span>
+                          </Badge>
                         </TableCell>
                         <TableCell>{member.assignedTaskCount}</TableCell>
                         <TableCell>{member.completedTaskCount}</TableCell>
@@ -900,7 +936,7 @@ export default function WorkspaceManager() {
                         <TableCell>
                           <Badge
                             variant="outline"
-                            className={capacityBadgeClasses[member.capacityStatus]}
+                            className={`${compactBadgeClass} ${capacityBadgeClasses[member.capacityStatus]}`}
                           >
                             {member.capacityStatus}
                           </Badge>
@@ -994,18 +1030,27 @@ export default function WorkspaceManager() {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="font-medium">{member.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {member.email}
-                              </div>
+                              <OverflowTooltip
+                                label={member.name ?? "Unknown member"}
+                                className="max-w-[12rem] truncate font-medium"
+                              />
+                              <OverflowTooltip
+                                label={member.email ?? "No email"}
+                                className="max-w-[12rem] truncate text-sm text-muted-foreground"
+                              />
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{member.role}</Badge>
+                          <Badge variant="outline" className={compactBadgeClass}>
+                            <span className="truncate">{member.role}</span>
+                          </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-emerald-600">
+                          <Badge
+                            variant="outline"
+                            className={`${compactBadgeClass} text-emerald-600`}
+                          >
                             {member.status}
                           </Badge>
                         </TableCell>
@@ -1015,7 +1060,7 @@ export default function WorkspaceManager() {
                             : "Never"}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">
+                          <Badge variant="secondary" className={compactBadgeClass}>
                             {roleLabels[
                               member.access as keyof typeof roleLabels
                             ] || "Team Member"}
@@ -1151,11 +1196,30 @@ export default function WorkspaceManager() {
                     <TableBody>
                       {invites.map((invite) => (
                         <TableRow key={invite.id}>
-                          <TableCell>{invite.email}</TableCell>
-                          <TableCell>{invite.role}</TableCell>
-                          <TableCell>{invite.access}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{invite.status}</Badge>
+                            <OverflowTooltip
+                              label={invite.email}
+                              className="max-w-[12rem] truncate"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={compactBadgeClass}>
+                              <span className="truncate">{invite.role}</span>
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={compactBadgeClass}>
+                              <span className="truncate">
+                                {roleLabels[
+                                  invite.access as keyof typeof roleLabels
+                                ] || invite.access}
+                              </span>
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={compactBadgeClass}>
+                              <span className="truncate">{invite.status}</span>
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             {formatRelativeTimestamp(invite.expires_at)}

@@ -397,6 +397,29 @@ async function ensureGeneralConversation(companyId: string): Promise<EnsureGener
 
     for (const member of activeMembers) {
       await tx.$executeRaw`
+        WITH reactivated AS (
+          UPDATE chat_conversation_members
+          SET removed_at = NULL,
+              removed_by = NULL,
+              team_member_id = ${member.id}::uuid
+          WHERE id = (
+            SELECT cm.id
+            FROM chat_conversation_members cm
+            WHERE cm.conversation_id = ${conversationId}::uuid
+              AND cm.user_id = ${member.user_id}::uuid
+              AND cm.removed_at IS NOT NULL
+            ORDER BY cm.joined_at DESC NULLS LAST, cm.id DESC
+            LIMIT 1
+          )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM chat_conversation_members active_cm
+              WHERE active_cm.conversation_id = ${conversationId}::uuid
+                AND active_cm.user_id = ${member.user_id}::uuid
+                AND active_cm.removed_at IS NULL
+            )
+          RETURNING id
+        )
         INSERT INTO chat_conversation_members (
           conversation_id,
           user_id,
@@ -411,21 +434,15 @@ async function ensureGeneralConversation(companyId: string): Promise<EnsureGener
           NOW(),
           ${member.user_id}::uuid
         WHERE NOT EXISTS (
-          SELECT 1
-          FROM chat_conversation_members cm
-          WHERE cm.conversation_id = ${conversationId}::uuid
-            AND cm.user_id = ${member.user_id}::uuid
-            AND cm.removed_at IS NULL
-        )`;
+          SELECT 1 FROM reactivated
+        )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM chat_conversation_members cm
+            WHERE cm.conversation_id = ${conversationId}::uuid
+              AND cm.user_id = ${member.user_id}::uuid
+          )`;
 
-      await tx.$executeRaw`
-        UPDATE chat_conversation_members
-        SET removed_at = NULL,
-            removed_by = NULL,
-            team_member_id = ${member.id}::uuid
-        WHERE conversation_id = ${conversationId}::uuid
-          AND user_id = ${member.user_id}::uuid
-          AND removed_at IS NOT NULL`;
     }
 
     return { conversationId, created };

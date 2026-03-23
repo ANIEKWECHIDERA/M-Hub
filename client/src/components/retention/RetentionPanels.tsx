@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   CircleDot,
   FileText,
+  HelpCircle,
   MessageSquareQuote,
   Sparkles,
 } from "lucide-react";
@@ -22,6 +23,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type {
   DailyFocusItem,
   DecisionFeedItem,
@@ -74,6 +80,31 @@ function FocusIcon({ kind }: { kind: DailyFocusItem["kind"] }) {
   }
 }
 
+function getHealthStatusMeta(status?: WorkspaceHealthScore["status"]) {
+  switch (status) {
+    case "Healthy":
+      return {
+        icon: CheckCircle2,
+        badgeClass: "text-emerald-700 border-emerald-200 bg-emerald-100",
+      };
+    case "At Risk":
+      return {
+        icon: AlertTriangle,
+        badgeClass: "text-amber-700 border-amber-200 bg-amber-100",
+      };
+    case "Critical":
+      return {
+        icon: CircleDot,
+        badgeClass: "text-rose-700 border-rose-200 bg-rose-100",
+      };
+    default:
+      return {
+        icon: CircleDot,
+        badgeClass: "text-slate-700 border-slate-200 bg-slate-100",
+      };
+  }
+}
+
 export function DailyFocusCard({
   items,
   loading,
@@ -92,9 +123,27 @@ export function DailyFocusCard({
       <CardHeader className="space-y-1 p-3 sm:p-4 lg:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-base font-semibold sm:text-lg">
-              Daily Focus
-            </CardTitle>
+            <div className="flex items-center gap-1.5">
+              <CardTitle className="text-base font-semibold sm:text-lg">
+                Daily Focus
+              </CardTitle>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                    <span className="sr-only">What Daily Focus means</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+                  Daily Focus pulls together your most urgent tasks, nearby deadlines,
+                  blockers, and relevant tagged decisions so you can see what
+                  deserves attention first.
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <p className="text-xs text-muted-foreground sm:text-sm">
               The handful of tasks and decisions most likely to move your day.
             </p>
@@ -233,9 +282,27 @@ export function DecisionFeedCard({
     <Card className="app-surface">
       <CardHeader className="space-y-3 p-3 sm:p-4 lg:p-5">
         <div className="space-y-1">
-          <CardTitle className="text-base font-semibold sm:text-lg">
-            Decision Feed
-          </CardTitle>
+          <div className="flex items-center gap-1.5">
+            <CardTitle className="text-base font-semibold sm:text-lg">
+              Decision Feed
+            </CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  <span className="sr-only">What Decision Feed means</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+                Decision Feed surfaces the important tagged moments from chat,
+                like decisions, blockers, and action items, without making you
+                read the full conversation history.
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <p className="text-xs text-muted-foreground sm:text-sm">
             Important tagged chat outcomes, without the surrounding thread noise.
           </p>
@@ -370,19 +437,31 @@ export function WorkspaceHealthCard({
   loading: boolean;
   error: string | null;
 }) {
-  const statusTone =
-    score?.status === "Healthy"
-      ? "text-emerald-700 border-emerald-200 bg-emerald-100"
-      : score?.status === "At Risk"
-        ? "text-amber-700 border-amber-200 bg-amber-100"
-        : "text-rose-700 border-rose-200 bg-rose-100";
+  const healthMeta = getHealthStatusMeta(score?.status);
+  const HealthIcon = healthMeta.icon;
 
   return (
     <Card className="app-surface">
       <CardHeader className="space-y-1 p-3 sm:p-4 lg:p-5">
-        <CardTitle className="text-base font-semibold sm:text-lg">
-          Workspace Health
-        </CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base font-semibold sm:text-lg">
+            Workspace Health
+          </CardTitle>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                <span className="sr-only">How workspace health is calculated</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+              Healthy: 75+. At Risk: 45-74. Critical: below 45. The score is a weighted signal based on overdue tasks, blockers, overloaded teammates, and completion rate.
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <p className="text-xs text-muted-foreground sm:text-sm">
           A quick operational read on task pressure, blockers, and delivery flow.
         </p>
@@ -422,22 +501,29 @@ export function WorkspaceHealthCard({
           </Empty>
         ) : (
           <>
-            <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <p className="text-4xl font-bold leading-none">{score.score}</p>
-                  <p className="mt-2 text-xs text-muted-foreground sm:text-sm">
-                    out of 100
-                  </p>
+            <div className="rounded-2xl border border-border/70 bg-muted/20 p-3.5 sm:p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-background/80">
+                    <HealthIcon className="h-4.5 w-4.5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-3xl font-bold leading-none sm:text-4xl">{score.score}</p>
+                      <Badge
+                        variant="outline"
+                        className={cn("rounded-full px-2.5 py-1 text-[10px] font-medium sm:text-xs", healthMeta.badgeClass)}
+                      >
+                        {score.status}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                      weighted score out of 100
+                    </p>
+                  </div>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={cn("rounded-full px-3 py-1 text-xs font-medium", statusTone)}
-                >
-                  {score.status}
-                </Badge>
               </div>
-              <p className="mt-4 text-sm text-muted-foreground">{score.summary}</p>
+              <p className="mt-3 text-sm text-muted-foreground">{score.summary}</p>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

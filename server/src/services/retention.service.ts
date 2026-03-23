@@ -208,6 +208,13 @@ export function buildWorkspaceHealthScore(
         ? "At Risk"
         : "Critical";
 
+  const statusContext =
+    status === "Healthy"
+      ? "Healthy means delivery pressure is manageable and the workspace is moving steadily."
+      : status === "At Risk"
+        ? "At Risk means the workspace is still moving, but overdue work, blockers, or uneven capacity could start slipping delivery."
+        : "Critical means delivery is under material pressure and the workspace needs intervention soon.";
+
   const driverPhrases: string[] = [];
   if (inputs.overdueTasks > 0) {
     driverPhrases.push(
@@ -230,13 +237,13 @@ export function buildWorkspaceHealthScore(
     );
   }
 
-  const summary =
-    driverPhrases[0] ??
-    (inputs.totalTasks === 0
-      ? "This workspace is clear of active task pressure right now."
+  const summary = driverPhrases[0]
+    ? `${statusContext} Right now, ${driverPhrases[0]}.`
+    : inputs.totalTasks === 0
+      ? "Healthy means there is no meaningful task pressure in this workspace right now."
       : completionRate >= 0.65
-        ? "Delivery is moving steadily with manageable risk."
-        : "Work is progressing, but delivery discipline needs attention.");
+        ? `${statusContext} Completion is holding up well.`
+        : `${statusContext} Work is progressing, but delivery discipline needs attention.`;
 
   return {
     score: normalizedScore,

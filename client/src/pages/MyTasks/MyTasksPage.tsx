@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { DailyFocusItem, TaskStatus, TaskWithAssigneesDTO } from "@/Types/types";
 import { useMyTasksContext } from "@/context/MyTaskContext";
@@ -9,17 +9,20 @@ import { MyTasksStats } from "./components/TasksStats";
 import { TasksList } from "./components/TasksList";
 import { TaskDetailsSheet } from "./components/TaskDetailsSheet";
 import { MyTasksToolbar } from "./components/MyTasksToolbar";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, ListTodo, Sparkles } from "lucide-react";
 import { MyTasksSkeleton } from "@/components/MyTasksSkeleton";
 import { MyTasksHeader } from "./components/MyTaskHeader";
 import { useAuthContext } from "@/context/AuthContext";
 import { useRetentionSnapshot } from "@/hooks/useRetentionSnapshot";
 import { DailyFocusCard } from "@/components/retention/RetentionPanels";
+import { Button } from "@/components/ui/button";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
+type FocusSection = "tasks" | "daily-focus";
 
 export function MyTasksPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   /* ---------------- Context ---------------- */
   const { authStatus } = useAuthContext();
   const { tasks, loading, error, refetch, updateTaskOptimistic } =
@@ -34,6 +37,7 @@ export function MyTasksPage() {
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const activeSection = (searchParams.get("section") as FocusSection | null) ?? "tasks";
   const workspaceKey = authStatus?.companyId ?? "default";
   const orderStorageKey = `crevo:my-task-order:${workspaceKey}`;
   const [taskOrder, setTaskOrder] = useState<string[]>([]);
@@ -43,6 +47,14 @@ export function MyTasksPage() {
     setDetailsOpen(false);
     setViewMode("all");
   }, [workspaceKey]);
+
+  useEffect(() => {
+    const section = searchParams.get("section");
+    if (section === "tasks" || section === "daily-focus") {
+      return;
+    }
+    setSearchParams({ section: "tasks" }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(orderStorageKey);
@@ -212,18 +224,48 @@ export function MyTasksPage() {
 
   return (
     <div key={workspaceKey} className="space-y-4 sm:space-y-5 lg:space-y-6">
-      <MyTasksHeader />
-      <div className="grid grid-cols-1 gap-4">
-        <DailyFocusCard
-          items={snapshot?.dailyFocus.items ?? []}
-          loading={retentionLoading}
-          error={retentionError}
-          onOpenTask={handleOpenFocusItem}
-          onOpenDecision={handleOpenFocusItem}
-        />
+      <MyTasksHeader
+        title={activeSection === "daily-focus" ? "Daily Focus" : "My Tasks"}
+        description={
+          activeSection === "daily-focus"
+            ? "See the tasks, blockers, and decision signals most likely to shape today."
+            : "Your task list for the active workspace, with filters and saved ordering."
+        }
+        icon={activeSection === "daily-focus" ? Sparkles : ListTodo}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant={activeSection === "tasks" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSearchParams({ section: "tasks" }, { replace: true })}
+        >
+          My Tasks
+        </Button>
+        <Button
+          type="button"
+          variant={activeSection === "daily-focus" ? "default" : "outline"}
+          size="sm"
+          onClick={() =>
+            setSearchParams({ section: "daily-focus" }, { replace: true })
+          }
+        >
+          Daily Focus
+        </Button>
       </div>
+      {activeSection === "daily-focus" && (
+        <div className="grid grid-cols-1 gap-4">
+          <DailyFocusCard
+            items={snapshot?.dailyFocus.items ?? []}
+            loading={retentionLoading}
+            error={retentionError}
+            onOpenTask={handleOpenFocusItem}
+            onOpenDecision={handleOpenFocusItem}
+          />
+        </div>
+      )}
       {/* Toolbar */}
-      {tasks.length > 0 && (
+      {activeSection === "tasks" && tasks.length > 0 && (
         <div className="sticky top-0 z-10 -mx-1 rounded-xl bg-background/95 px-1 pb-3 backdrop-blur">
           <MyTasksToolbar
             search={filters.search}
@@ -239,7 +281,7 @@ export function MyTasksPage() {
       )}
 
       {/* Stats */}
-      {tasks.length > 0 && (
+      {activeSection === "tasks" && tasks.length > 0 && (
         <MyTasksStats
           stats={{
             total: stats.total,
@@ -254,7 +296,7 @@ export function MyTasksPage() {
       )}
 
       {/* Tasks */}
-      {tasks.length === 0 ? (
+      {activeSection === "tasks" && tasks.length === 0 ? (
         // First-time user (no assigned tasks at all)
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <ClipboardList className="h-10 w-10 text-muted-foreground mb-4" />
@@ -263,7 +305,7 @@ export function MyTasksPage() {
             When someone assigns you a task, it will appear here.
           </p>
         </div>
-      ) : tasksForView.length === 0 ? (
+      ) : activeSection === "tasks" && tasksForView.length === 0 ? (
         // Filters or view mode returned no results
         <div className="border rounded-lg p-12 text-center bg-muted/20">
           {filters.hasActiveFilters ? (
@@ -286,14 +328,14 @@ export function MyTasksPage() {
             </>
           )}
         </div>
-      ) : (
+      ) : activeSection === "tasks" ? (
         <TasksList
           tasks={orderedTasksForView}
           onOpenTask={handleOpenTask}
           onToggleStatus={handleToggleTaskStatus}
           onReorder={handleReorderTasks}
         />
-      )}
+      ) : null}
 
       {/* Details */}
       <TaskDetailsSheet

@@ -15,6 +15,8 @@ import {
   FileText,
   Settings,
   Target,
+  Sparkles,
+  ListTodo,
   Building2,
   Loader2,
   ChevronDown,
@@ -23,6 +25,10 @@ import {
   Users,
   HeartPulse,
   MoreHorizontal,
+  CheckCircle2,
+  AlertTriangle,
+  CircleDot,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/context/AuthContext";
@@ -57,6 +63,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface NavItem {
   name: string;
@@ -67,10 +78,49 @@ interface NavItem {
 const baseNavigation: NavItem[] = [
   { name: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", to: "/projects", icon: FolderOpen },
-  { name: "My Tasks", to: "/mytasks", icon: Target },
   { name: "Chat", to: "/chat", icon: MessageSquare },
   { name: "Notes", to: "/notepad", icon: FileText },
 ];
+
+const focusSections = [
+  {
+    id: "tasks",
+    label: "My Tasks",
+    icon: ListTodo,
+  },
+  {
+    id: "daily-focus",
+    label: "Daily Focus",
+    icon: Sparkles,
+  },
+] as const;
+
+function getWorkspaceHealthMeta(
+  status?: "Healthy" | "At Risk" | "Critical" | null,
+) {
+  switch (status) {
+    case "Healthy":
+      return {
+        icon: CheckCircle2,
+        badgeClass: "border-emerald-200 bg-emerald-100 text-emerald-800",
+      };
+    case "At Risk":
+      return {
+        icon: AlertTriangle,
+        badgeClass: "border-amber-200 bg-amber-100 text-amber-800",
+      };
+    case "Critical":
+      return {
+        icon: CircleDot,
+        badgeClass: "border-rose-200 bg-rose-100 text-rose-800",
+      };
+    default:
+      return {
+        icon: HeartPulse,
+        badgeClass: "border-slate-200 bg-slate-100 text-slate-700",
+      };
+  }
+}
 
 const workspaceManagerSections: Array<{
   id: "details" | "workload" | "team" | "invites" | "delete";
@@ -148,6 +198,10 @@ function SidebarPanel({
 
     return chatSections.find((item) => item.id === section)?.id ?? "projects";
   }, [search]);
+  const activeFocusSection = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.get("section") ?? "tasks";
+  }, [search]);
   const totalChatUnread = useMemo(() => totalUnreadCount, [totalUnreadCount]);
   const settingsSections = getAllowedSettingsSections(isTeamMember);
   const activeSettingsSection = useMemo(() => {
@@ -161,9 +215,11 @@ function SidebarPanel({
     );
   }, [search, settingsSections]);
   const chatOpenByDefault = pathname === "/chat";
+  const focusOpenByDefault = pathname === "/mytasks";
   const settingsOpenByDefault = pathname === "/settings";
   const workspaceManagerOpenByDefault = pathname === "/workspace-manager";
   const [chatOpen, setChatOpen] = useState(chatOpenByDefault);
+  const [focusOpen, setFocusOpen] = useState(focusOpenByDefault);
   const [settingsOpen, setSettingsOpen] = useState(settingsOpenByDefault);
   const [workspaceManagerOpen, setWorkspaceManagerOpen] = useState(
     workspaceManagerOpenByDefault,
@@ -173,6 +229,8 @@ function SidebarPanel({
     return params.get("section") ?? "details";
   }, [search]);
   const workspaceHealth = retentionSnapshot?.workspaceHealth ?? null;
+  const workspaceHealthMeta = getWorkspaceHealthMeta(workspaceHealth?.status);
+  const WorkspaceHealthIcon = workspaceHealthMeta.icon;
 
   useEffect(() => {
     if (pathname === "/chat") {
@@ -181,6 +239,10 @@ function SidebarPanel({
 
     if (pathname === "/settings") {
       setSettingsOpen(true);
+    }
+
+    if (pathname === "/mytasks") {
+      setFocusOpen(true);
     }
 
     if (pathname === "/workspace-manager") {
@@ -300,7 +362,9 @@ function SidebarPanel({
             <SidebarMenu
               className={cn(!isExpanded && "flex flex-col items-center")}
             >
-              {navigation.map((item) => {
+              {navigation
+                .filter((item) => item.to === "/dashboard" || item.to === "/projects")
+                .map((item) => {
                 const isActive =
                   pathname === item.to ||
                   (item.to !== "/dashboard" &&
@@ -400,6 +464,52 @@ function SidebarPanel({
                   );
                 }
 
+                if (item.to === "/dashboard") {
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <div className={cn("relative", !isExpanded && "w-10")}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={!isExpanded ? item.name : undefined}
+                          aria-label={item.name}
+                          className={cn(
+                            !isExpanded &&
+                              "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
+                          )}
+                        >
+                          <Link to={item.to} onClick={handleNavClick}>
+                            <item.icon className="h-5 w-5" />
+                            {isExpanded && <span>{item.name}</span>}
+                          </Link>
+                        </SidebarMenuButton>
+                      </div>
+                    </SidebarMenuItem>
+                  );
+                }
+
+                if (item.to === "/projects") {
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={!isExpanded ? item.name : undefined}
+                        aria-label={item.name}
+                        className={cn(
+                          !isExpanded &&
+                            "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
+                        )}
+                      >
+                        <Link to={item.to} onClick={handleNavClick}>
+                          <item.icon className="h-5 w-5" />
+                          {isExpanded && <span>{item.name}</span>}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                }
+
                 return (
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton
@@ -419,7 +529,199 @@ function SidebarPanel({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
-              })}
+                })}
+
+              <SidebarMenuItem>
+                <div className={cn("relative", !isExpanded && "w-10")}>
+                  <SidebarMenuButton
+                    isActive={pathname === "/mytasks"}
+                    tooltip={!isExpanded ? "Focus" : undefined}
+                    aria-label="Focus"
+                    className={cn(
+                      !isExpanded &&
+                        "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
+                      isExpanded && focusOpen && "pr-10",
+                    )}
+                    onClick={() => handleParentSubmenuClick(setFocusOpen)}
+                  >
+                    <Target className="h-5 w-5" />
+                    {isExpanded && <span>Focus</span>}
+                  </SidebarMenuButton>
+
+                  {isExpanded && (
+                    <button
+                      type="button"
+                      aria-label={
+                        focusOpen ? "Collapse focus menu" : "Expand focus menu"
+                      }
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setFocusOpen((value) => !value);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                    >
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 transition-transform",
+                          focusOpen && "rotate-180",
+                        )}
+                      />
+                    </button>
+                  )}
+                </div>
+
+                {isExpanded && focusOpen && (
+                  <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                    {focusSections.map((section) => {
+                      const Icon = section.icon;
+                      const isSectionActive =
+                        pathname === "/mytasks" &&
+                        activeFocusSection === section.id;
+
+                      return (
+                        <Link
+                          key={section.id}
+                          to={`/mytasks?section=${section.id}`}
+                          onClick={handleNavClick}
+                          className={cn(
+                            "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
+                            isSectionActive
+                              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                              : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{section.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </SidebarMenuItem>
+
+              {navigation
+                .filter((item) => item.to === "/chat" || item.to === "/notepad")
+                .map((item) => {
+                  const isActive =
+                    pathname === item.to ||
+                    (item.to !== "/dashboard" &&
+                      pathname.startsWith(item.to + "/"));
+
+                  if (item.to === "/chat") {
+                    return (
+                      <SidebarMenuItem key={item.name}>
+                        <div className={cn("relative", !isExpanded && "w-10")}>
+                          <SidebarMenuButton
+                            isActive={isActive}
+                            tooltip={!isExpanded ? item.name : undefined}
+                            aria-label={item.name}
+                            className={cn(
+                              !isExpanded &&
+                                "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
+                              isExpanded && chatOpen && "pr-10",
+                            )}
+                            onClick={() => handleParentSubmenuClick(setChatOpen)}
+                          >
+                            <item.icon className="h-5 w-5" />
+                            {isExpanded && <span>{item.name}</span>}
+                            {isExpanded && totalChatUnread > 0 && (
+                              <Badge
+                                variant="destructive"
+                                className="ml-auto mr-8 rounded-full px-2 py-0 text-[11px]"
+                              >
+                                {totalChatUnread}
+                              </Badge>
+                            )}
+                            {!isExpanded && totalChatUnread > 0 && (
+                              <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-sidebar" />
+                            )}
+                          </SidebarMenuButton>
+
+                          {isExpanded && (
+                            <button
+                              type="button"
+                              aria-label={
+                                chatOpen
+                                  ? "Collapse chat menu"
+                                  : "Expand chat menu"
+                              }
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setChatOpen((value) => !value);
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                            >
+                              <ChevronDown
+                                className={cn(
+                                  "h-4 w-4 transition-transform",
+                                  chatOpen && "rotate-180",
+                                )}
+                              />
+                            </button>
+                          )}
+                        </div>
+
+                        {isExpanded && chatOpen && (
+                          <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                            {chatSections.map((section) => {
+                              const Icon = section.icon;
+                              const isSectionActive =
+                                pathname === "/chat" &&
+                                activeChatSection === section.id;
+
+                              return (
+                                <Link
+                                  key={section.id}
+                                  to={`/chat?section=${section.id}`}
+                                  onClick={handleNavClick}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
+                                    isSectionActive
+                                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                      : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                                  )}
+                                >
+                                  <Icon className="h-4 w-4" />
+                                  <span>{section.label}</span>
+                                  {(unreadBySection[section.id] ?? 0) > 0 && (
+                                    <Badge
+                                      variant="destructive"
+                                      className="ml-auto rounded-full px-2 py-0 text-[11px]"
+                                    >
+                                      {unreadBySection[section.id]}
+                                    </Badge>
+                                  )}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  }
+
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={!isExpanded ? item.name : undefined}
+                        aria-label={item.name}
+                        className={cn(
+                          !isExpanded &&
+                            "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
+                        )}
+                      >
+                        <Link to={item.to} onClick={handleNavClick}>
+                          <item.icon className="h-5 w-5" />
+                          {isExpanded && <span>{item.name}</span>}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
 
               {!isTeamMember && (
                 <SidebarMenuItem>
@@ -470,7 +772,9 @@ function SidebarPanel({
                     <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
                       {workspaceManagerSections
                         .filter(
-                          (section) => !section.superAdminOnly || authStatus?.access === "superAdmin",
+                          (section) =>
+                            !section.superAdminOnly ||
+                            authStatus?.access === "superAdmin",
                         )
                         .map((section) => {
                           const Icon = section.icon;
@@ -502,149 +806,197 @@ function SidebarPanel({
                 </SidebarMenuItem>
               )}
 
-              {[{ name: "Settings", to: "/settings", icon: Settings }].map((item) => {
-                const isSettingsRoute = pathname === item.to;
-                const isActive = isSettingsRoute;
-                return (
-                  <SidebarMenuItem key={item.name}>
-                    <div className={cn("relative", !isExpanded && "w-10")}>
-                      <SidebarMenuButton
-                        isActive={isActive}
-                        tooltip={!isExpanded ? item.name : undefined}
-                        aria-label={item.name}
-                        className={cn(
-                          !isExpanded &&
-                            "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
-                          isExpanded && settingsOpen && "pr-10",
-                        )}
-                        onClick={() => handleParentSubmenuClick(setSettingsOpen)}
-                      >
-                        <item.icon className="h-5 w-5" />
-                        {isExpanded && <span>{item.name}</span>}
-                      </SidebarMenuButton>
-
-                      {isExpanded && (
-                        <button
-                          type="button"
-                          aria-label={
-                            settingsOpen
-                              ? "Collapse settings menu"
-                              : "Expand settings menu"
+              {[{ name: "Settings", to: "/settings", icon: Settings }].map(
+                (item) => {
+                  const isSettingsRoute = pathname === item.to;
+                  const isActive = isSettingsRoute;
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <div className={cn("relative", !isExpanded && "w-10")}>
+                        <SidebarMenuButton
+                          isActive={isActive}
+                          tooltip={!isExpanded ? item.name : undefined}
+                          aria-label={item.name}
+                          className={cn(
+                            !isExpanded &&
+                              "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
+                            isExpanded && settingsOpen && "pr-10",
+                          )}
+                          onClick={() =>
+                            handleParentSubmenuClick(setSettingsOpen)
                           }
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            setSettingsOpen((value) => !value);
-                          }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                         >
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 transition-transform",
-                              settingsOpen && "rotate-180",
-                            )}
-                          />
-                        </button>
-                      )}
-                    </div>
+                          <item.icon className="h-5 w-5" />
+                          {isExpanded && <span>{item.name}</span>}
+                        </SidebarMenuButton>
 
-                    {isExpanded && settingsOpen && (
-                      <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
-                        {settingsSections.map((section) => {
-                          const Icon = section.icon;
-                          const isSectionActive =
-                            isSettingsRoute &&
-                            activeSettingsSection === section.id;
-
-                          return (
-                            <Link
-                              key={section.id}
-                              to={`/settings?section=${section.id}`}
-                              onClick={handleNavClick}
+                        {isExpanded && (
+                          <button
+                            type="button"
+                            aria-label={
+                              settingsOpen
+                                ? "Collapse settings menu"
+                                : "Expand settings menu"
+                            }
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setSettingsOpen((value) => !value);
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                          >
+                            <ChevronDown
                               className={cn(
-                                "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
-                                isSectionActive
-                                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                                  : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                                "h-4 w-4 transition-transform",
+                                settingsOpen && "rotate-180",
                               )}
-                            >
-                              <Icon className="h-4 w-4" />
-                              <span>{section.label}</span>
-                            </Link>
-                          );
-                        })}
+                            />
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </SidebarMenuItem>
-                );
-              })}
+
+                      {isExpanded && settingsOpen && (
+                        <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                          {settingsSections.map((section) => {
+                            const Icon = section.icon;
+                            const isSectionActive =
+                              isSettingsRoute &&
+                              activeSettingsSection === section.id;
+
+                            return (
+                              <Link
+                                key={section.id}
+                                to={`/settings?section=${section.id}`}
+                                onClick={handleNavClick}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
+                                  isSectionActive
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                                <span>{section.label}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                },
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarBody>
 
       <SidebarFooter className={cn("space-y-2", !isExpanded && "px-2")}>
-        {isExpanded ? canSeeWorkspaceHealth ? (
-          <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-sm font-medium">Workspace Health</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  A quick pulse check on delivery pressure in this workspace.
-                </p>
+        {isExpanded ? (
+          canSeeWorkspaceHealth ? (
+            <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium">Workspace Health</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <HelpCircle className="h-3.5 w-3.5" />
+                          <span className="sr-only">
+                            What workspace health means
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[220px] text-left leading-relaxed">
+                        Healthy: 75+. At Risk: 45-74. Critical: below 45. The
+                        score reflects overdue work, blockers, overloaded
+                        teammates, and completion pace.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    A compact pulse check on delivery pressure.
+                  </p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                      <span className="sr-only">
+                        See more workspace health options
+                      </span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/workspace-manager?section=workload"
+                        onClick={handleNavClick}
+                      >
+                        Open team workload
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/projects" onClick={handleNavClick}>
+                        Review workspace projects
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">See more workspace health options</span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link to="/workspace-manager?section=workload" onClick={handleNavClick}>
-                      Open team workload
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/projects" onClick={handleNavClick}>
-                      Review workspace projects
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-sidebar-border/70 bg-sidebar/60 px-2.5 py-2">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar/90">
+                    <WorkspaceHealthIcon className="h-8 w-8 text-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-base font-semibold leading-none">
+                        {retentionLoading
+                          ? "..."
+                          : (workspaceHealth?.score ?? "--")}
+                      </p>
+                      {!retentionLoading && workspaceHealth?.status ? (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "rounded-full px-2 py-0 text-[10px] font-medium",
+                            workspaceHealthMeta.badgeClass,
+                          )}
+                        >
+                          {workspaceHealth.status}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {retentionLoading
+                        ? "Checking activity..."
+                        : "Weighted score out of 100"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {workspaceHealth?.summary && (
+                <p className="mt-2 line-clamp-2 text-[11px] text-muted-foreground">
+                  {workspaceHealth.summary}
+                </p>
+              )}
             </div>
-            <div className="mt-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar/80">
-                <HeartPulse className="h-5 w-5 text-foreground" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-lg font-semibold leading-none">
-                  {retentionLoading ? "..." : workspaceHealth?.score ?? "--"}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {retentionLoading
-                    ? "Checking activity..."
-                    : workspaceHealth?.status ?? "Health unavailable"}
-                </p>
-              </div>
-            </div>
-            {workspaceHealth?.summary && (
-              <p className="mt-3 line-clamp-2 text-xs text-muted-foreground">
-                {workspaceHealth.summary}
+          ) : (
+            <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
+              <p className="text-sm font-medium">Workspace controls</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Switch teams and keep each workspace isolated.
               </p>
-            )}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
-            <p className="text-sm font-medium">Workspace controls</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Switch teams and keep each workspace isolated.
-            </p>
-          </div>
+            </div>
+          )
         ) : (
           <div className="flex justify-center">
             <div className="relative rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-2">
@@ -673,12 +1025,8 @@ export function Sidebar() {
     finishWorkspaceSwitch,
   } = useAuthContext();
   const { open } = useSidebar();
-  const {
-    workspaces,
-    currentWorkspace,
-    loadingWorkspaces,
-    refreshWorkspaces,
-  } = useWorkspaceContext();
+  const { workspaces, currentWorkspace, loadingWorkspaces, refreshWorkspaces } =
+    useWorkspaceContext();
 
   const handleSwitchWorkspace = async (companyId: string) => {
     if (!idToken || companyId === authStatus?.companyId) {

@@ -58,6 +58,19 @@ export default function Dashboard() {
   const { totalProjects, activeProjects, completedProjects, overdueProjects } =
     useProjectStats(projects, tasks);
 
+  const formatProjectDeadline = (deadline?: string | null) => {
+    if (!deadline) {
+      return "No deadline";
+    }
+
+    const parsed = new Date(deadline);
+    if (Number.isNaN(parsed.getTime())) {
+      return "No deadline";
+    }
+
+    return parsed.toLocaleDateString();
+  };
+
   if (loading)
     return (
       <div className="min-h-[60vh]">
@@ -235,8 +248,8 @@ export default function Dashboard() {
                         </Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="flex flex-1 flex-col justify-between gap-4">
-                      <div className="space-y-2">
+                    <CardContent className="flex flex-1 flex-col gap-4">
+                      <div className="min-h-[3.25rem] space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>Progress</span>
                           <span>{project.progress}%</span>
@@ -244,35 +257,30 @@ export default function Dashboard() {
                         <Progress value={project.progress} className="h-2" />
                       </div>
 
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
+                      <div className="grid min-h-[3.5rem] grid-cols-2 gap-3 text-sm text-muted-foreground">
+                        <div className="flex min-w-0 items-center gap-1.5">
                           <Calendar className="h-4 w-4" />
-                          <span>
-                            {project.deadline
-                              ? new Date(project.deadline).toLocaleDateString()
-                              : "No deadline"}
+                          <span className="truncate" title={formatProjectDeadline(project.deadline)}>
+                            {formatProjectDeadline(project.deadline)}
                           </span>
                         </div>
-                        {project.task_count > 0 ? (
-                          <div className="flex items-center gap-1">
-                            <CheckCircle className="h-4 w-4" />
-                            <span>
-                              {project.task_count}{" "}
-                              {project.task_count === 1 ? "task" : "tasks"}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <CheckCircle className="h-4 w-4" />
-                            <span>No tasks</span>
-                          </div>
-                        )}
+                        <div className="flex min-w-0 items-center gap-1.5 justify-self-end">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="truncate">
+                            {project.task_count > 0
+                              ? `${project.task_count} ${project.task_count === 1 ? "task" : "tasks"}`
+                              : "No tasks"}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
+                      <div className="mt-auto flex min-h-[2.5rem] items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-1.5">
                           <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">
+                          <span
+                            className="truncate text-sm text-muted-foreground"
+                            title={`${project.team_members?.length ?? 0} ${(project.team_members?.length ?? 0) <= 1 ? "member" : "members"}`}
+                          >
                             {project.team_members?.length ?? 0}{" "}
                             {project.team_members?.length <= 1
                               ? "member"

@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -39,12 +40,15 @@ export function MyTasksToolbar({
   return (
     <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
       {/* Search */}
-      <Input
-        placeholder="Search tasks..."
-        value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-        className="lg:max-w-sm"
-      />
+      <div className="relative lg:max-w-sm">
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search tasks..."
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="pl-14 lg:max-w-sm"
+        />
+      </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">

@@ -5,6 +5,7 @@ import {
   Bell,
   Copy,
   Ellipsis,
+  HelpCircle,
   KeyRound,
   Loader,
   Mail,
@@ -59,6 +60,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -593,7 +599,29 @@ export default function Settings() {
                   className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3"
                 >
                   <div className="space-y-0.5">
-                    <Label>{item.label}</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label>{item.label}</Label>
+                      {item.key === "compactMode" && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                              <HelpCircle className="h-3.5 w-3.5" />
+                              <span className="sr-only">
+                                What compact mode means
+                              </span>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+                            Compact mode reduces spacing in supported areas of the
+                            app so you can fit more content on screen without
+                            changing the core layout.
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {item.description}
                     </p>

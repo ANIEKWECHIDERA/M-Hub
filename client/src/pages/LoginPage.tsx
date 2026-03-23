@@ -234,7 +234,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
@@ -243,7 +243,7 @@ export default function LoginPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
                       }
-                      className={`h-10 pl-11 sm:h-11 ${
+                      className={`h-10 pl-12 sm:h-11 sm:pl-12 ${
                         errors.email
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -259,7 +259,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -268,7 +268,7 @@ export default function LoginPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, password: e.target.value })
                       }
-                      className={`h-10 pl-11 pr-10 sm:h-11 ${
+                      className={`h-10 pl-12 pr-10 sm:h-11 sm:pl-12 ${
                         errors.password
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
