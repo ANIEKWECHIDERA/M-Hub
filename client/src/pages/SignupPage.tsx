@@ -22,7 +22,7 @@ import {
   CircleCheckBig,
   //   Building,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import { FcGoogle } from "react-icons/fc";
 import { toast } from "sonner";
@@ -31,9 +31,11 @@ import { API_CONFIG } from "@/lib/api";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebase/firebase";
 import { CrevoMark } from "@/components/CrevoMark";
+import type { AuthStatus } from "@/Types/types";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     signUp,
     signInWithGoogle,
@@ -60,6 +62,26 @@ export default function SignUpPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const inviteFlow = new URLSearchParams(location.search).get("invite") === "1";
+
+  const waitForReadyOnboardingState = async () => {
+    let latestStatus: AuthStatus | null = null;
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      latestStatus = await refreshStatus();
+
+      if (
+        latestStatus?.onboardingState === "ACTIVE" ||
+        latestStatus?.onboardingState === "AUTHENTICATED_NO_PROFILE"
+      ) {
+        return latestStatus;
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+    }
+
+    return latestStatus;
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -184,14 +206,18 @@ export default function SignUpPage() {
       // Clear saved form data from localStorage
       localStorage.removeItem("signUpFormData");
 
-      await refreshStatus();
-      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      const latestStatus = await waitForReadyOnboardingState();
+      const pendingInviteToken = inviteFlow
+        ? localStorage.getItem("pendingInviteToken")
+        : null;
 
       // Redirect to dashboard ONLY on full success
       navigate(
         pendingInviteToken
           ? `/invite/accept/${pendingInviteToken}`
-          : "/dashboard",
+          : latestStatus?.onboardingState === "PROFILE_COMPLETE_NO_COMPANY"
+            ? "/onboarding/company"
+            : "/dashboard",
         { replace: true },
       );
     } catch (err: any) {
@@ -219,7 +245,10 @@ export default function SignUpPage() {
 
   useEffect(() => {
     clearError();
-  }, []);
+    if (!inviteFlow) {
+      localStorage.removeItem("pendingInviteToken");
+    }
+  }, [clearError, inviteFlow]);
 
   const handleGoogleSignUp = async () => {
     clearError();
@@ -228,7 +257,9 @@ export default function SignUpPage() {
     const result = await signInWithGoogle();
 
     if (result) {
-      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      const pendingInviteToken = inviteFlow
+        ? localStorage.getItem("pendingInviteToken")
+        : null;
       navigate(
         pendingInviteToken
           ? `/invite/accept/${pendingInviteToken}`
@@ -611,7 +642,7 @@ export default function SignUpPage() {
               <div className="text-center text-xs text-muted-foreground sm:text-sm">
                 Already have an account?{" "}
                 <Link
-                  to="/login"
+                  to={inviteFlow ? "/login?invite=1" : "/login"}
                   className="text-primary hover:underline font-medium"
                 >
                   Sign in

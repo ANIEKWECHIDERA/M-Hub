@@ -80,7 +80,7 @@ export default function AcceptInvitePage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50 px-4 py-5 sm:p-6">
+    <div className="flex min-h-screen items-start justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50 px-4 py-5 sm:items-center sm:p-6">
       <Card className="premium-interactive w-full max-w-lg shadow-xl">
         <CardHeader className="text-center">
           <div className="mb-4 flex items-center justify-center gap-3">
@@ -117,13 +117,13 @@ export default function AcceptInvitePage() {
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Button
                   variant="outline"
-                  onClick={() => navigate("/login", { replace: true })}
+                  onClick={() => navigate("/login?invite=1", { replace: true })}
                   className="w-full sm:w-auto"
                 >
                   Log In
                 </Button>
                 <Button
-                  onClick={() => navigate("/signup", { replace: true })}
+                  onClick={() => navigate("/signup?invite=1", { replace: true })}
                   className="w-full sm:w-auto"
                 >
                   <UserPlus className="mr-2 h-4 w-4" />

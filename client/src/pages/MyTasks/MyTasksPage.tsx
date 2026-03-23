@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { DailyFocusItem, TaskStatus, TaskWithAssigneesDTO } from "@/Types/types";
@@ -41,11 +41,13 @@ export function MyTasksPage() {
   const workspaceKey = authStatus?.companyId ?? "default";
   const orderStorageKey = `crevo:my-task-order:${workspaceKey}`;
   const [taskOrder, setTaskOrder] = useState<string[]>([]);
+  const [hydratedOrderKey, setHydratedOrderKey] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedTask(null);
     setDetailsOpen(false);
     setViewMode("all");
+    setHydratedOrderKey(null);
   }, [workspaceKey]);
 
   useEffect(() => {
@@ -56,10 +58,11 @@ export function MyTasksPage() {
     setSearchParams({ section: "tasks" }, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const raw = window.localStorage.getItem(orderStorageKey);
     if (!raw) {
       setTaskOrder([]);
+      setHydratedOrderKey(orderStorageKey);
       return;
     }
 
@@ -69,9 +72,14 @@ export function MyTasksPage() {
     } catch {
       setTaskOrder([]);
     }
+    setHydratedOrderKey(orderStorageKey);
   }, [orderStorageKey]);
 
   useEffect(() => {
+    if (hydratedOrderKey !== orderStorageKey) {
+      return;
+    }
+
     setTaskOrder((previous) => {
       const taskIds = tasks.map((task) => task.id);
       const next = [
@@ -86,7 +94,7 @@ export function MyTasksPage() {
       window.localStorage.setItem(orderStorageKey, JSON.stringify(next));
       return next;
     });
-  }, [orderStorageKey, tasks]);
+  }, [hydratedOrderKey, orderStorageKey, tasks]);
 
   /* ---------------- Filters ---------------- */
   const filters = useMyTasksFilters(tasks);
@@ -176,22 +184,46 @@ export function MyTasksPage() {
     });
   };
 
-  const handleReorderTasks = (draggedTaskId: string, targetTaskId: string) => {
+  const handleReorderTasks = (nextVisibleOrder: string[]) => {
     setTaskOrder((previous) => {
-      const baseOrder =
-        previous.length > 0
-          ? [...previous]
-          : tasks.map((task) => task.id);
-      const draggedIndex = baseOrder.indexOf(draggedTaskId);
-      const targetIndex = baseOrder.indexOf(targetTaskId);
+      const allTaskIds = tasks.map((task) => task.id);
+      const baseOrder = [
+        ...previous.filter((taskId) => allTaskIds.includes(taskId)),
+        ...allTaskIds.filter((taskId) => !previous.includes(taskId)),
+      ];
 
-      if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) {
+      if (nextVisibleOrder.length === 0) {
         return previous;
       }
 
-      const next = [...baseOrder];
-      const [draggedItem] = next.splice(draggedIndex, 1);
-      next.splice(targetIndex, 0, draggedItem);
+      const visibleTaskIds = tasksForView.map((task) => task.id);
+      const visibleTaskIdSet = new Set(visibleTaskIds);
+
+      if (
+        nextVisibleOrder.length !== visibleTaskIds.length ||
+        nextVisibleOrder.some((taskId) => !visibleTaskIdSet.has(taskId))
+      ) {
+        return previous;
+      }
+
+      let visibleIndex = 0;
+      const next = baseOrder.map((taskId) => {
+        if (!visibleTaskIdSet.has(taskId)) {
+          return taskId;
+        }
+
+        const nextTaskId = nextVisibleOrder[visibleIndex];
+        visibleIndex += 1;
+        return nextTaskId;
+      });
+
+      if (
+        next.length === previous.length &&
+        next.every((taskId, index) => taskId === previous[index])
+      ) {
+        return previous;
+      }
+
       window.localStorage.setItem(orderStorageKey, JSON.stringify(next));
       return next;
     });

@@ -57,6 +57,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { useRetentionSnapshot } from "@/hooks/useRetentionSnapshot";
+import { useSettingsContext } from "@/context/SettingsContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -178,13 +179,16 @@ function SidebarPanel({
   const isExpanded = !collapsed;
   const { isMobile, setOpenMobile, setOpen } = useSidebar();
   const { authStatus } = useAuthContext();
+  const { preferences, setPreferences } = useSettingsContext();
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
   const canSeeWorkspaceHealth =
     authStatus?.access === "admin" || authStatus?.access === "superAdmin";
   const { totalUnreadCount, unreadBySection } = useChatContext();
   const { snapshot: retentionSnapshot, loading: retentionLoading } =
-    useRetentionSnapshot({ enabled: canSeeWorkspaceHealth });
+    useRetentionSnapshot({
+      enabled: canSeeWorkspaceHealth && preferences.workspaceHealth,
+    });
   const navigation = useMemo(
     () =>
       isTeamMember
@@ -893,7 +897,7 @@ function SidebarPanel({
 
       <SidebarFooter className={cn("space-y-2", !isExpanded && "px-2")}>
         {isExpanded ? (
-          canSeeWorkspaceHealth ? (
+          canSeeWorkspaceHealth && preferences.workspaceHealth ? (
             <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -989,6 +993,30 @@ function SidebarPanel({
                 </p>
               )}
             </div>
+          ) : canSeeWorkspaceHealth ? (
+            <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Workspace Health</p>
+                  <p className="text-xs text-muted-foreground">
+                    Keep the sidebar quieter until you want the delivery pulse
+                    card back.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPreferences((prev) => ({
+                      ...prev,
+                      workspaceHealth: true,
+                    }))
+                  }
+                  className="shrink-0 rounded-md border border-sidebar-border bg-sidebar px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-sidebar-accent"
+                >
+                  Turn on
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
               <p className="text-sm font-medium">Workspace controls</p>
@@ -1000,7 +1028,7 @@ function SidebarPanel({
         ) : (
           <div className="flex justify-center">
             <div className="relative rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-2">
-              {canSeeWorkspaceHealth ? (
+              {canSeeWorkspaceHealth && preferences.workspaceHealth ? (
                 <HeartPulse className="h-4 w-4 text-muted-foreground" />
               ) : (
                 <Building2 className="h-4 w-4 text-muted-foreground" />

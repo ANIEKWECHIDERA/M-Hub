@@ -14,13 +14,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { CrevoMark } from "@/components/CrevoMark";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     signIn,
     signInWithGoogle,
@@ -38,11 +39,15 @@ export default function LoginPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const inviteFlow = new URLSearchParams(location.search).get("invite") === "1";
 
   // Redirect if already logged in
   useEffect(() => {
+    const pendingInviteToken = inviteFlow
+      ? localStorage.getItem("pendingInviteToken")
+      : null;
+
     if (currentUser) {
-      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
       navigate(
         pendingInviteToken
           ? `/invite/accept/${pendingInviteToken}`
@@ -50,11 +55,14 @@ export default function LoginPage() {
         { replace: true },
       );
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, inviteFlow, navigate]);
 
   useEffect(() => {
     clearError();
-  }, []);
+    if (!inviteFlow) {
+      localStorage.removeItem("pendingInviteToken");
+    }
+  }, [clearError, inviteFlow]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -87,7 +95,9 @@ export default function LoginPage() {
       return;
     }
     if (user) {
-      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      const pendingInviteToken = inviteFlow
+        ? localStorage.getItem("pendingInviteToken")
+        : null;
       navigate(
         pendingInviteToken
           ? `/invite/accept/${pendingInviteToken}`
@@ -104,7 +114,9 @@ export default function LoginPage() {
     const result = await signInWithGoogle();
 
     if (result) {
-      const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+      const pendingInviteToken = inviteFlow
+        ? localStorage.getItem("pendingInviteToken")
+        : null;
       navigate(
         pendingInviteToken
           ? `/invite/accept/${pendingInviteToken}`
@@ -311,11 +323,11 @@ export default function LoginPage() {
                       Remember me
                     </Label>
                   </div>
-                  <Link
-                    to="/forgot-password"
-                    className="text-sm text-primary hover:underline font-medium"
-                  >
-                    Forgot password?
+          <Link
+            to={inviteFlow ? "/forgot-password?invite=1" : "/forgot-password"}
+            className="text-sm text-primary hover:underline font-medium"
+          >
+            Forgot password?
                   </Link>
                 </div>
 
@@ -338,7 +350,7 @@ export default function LoginPage() {
               <div className="text-center text-xs text-muted-foreground sm:text-sm">
                 Don't have an account?{" "}
                 <Link
-                  to="/signup"
+                  to={inviteFlow ? "/signup?invite=1" : "/signup"}
                   className="text-primary hover:underline font-medium"
                 >
                   Sign up for free

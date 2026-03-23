@@ -13,6 +13,7 @@ import { UserAPI } from "@/api/user.api";
 import { useAuthContext } from "@/context/AuthContext";
 import { useUploadStatus } from "@/context/UploadStatusContext";
 import { prepareImageUpload } from "@/lib/image-upload";
+import type { AuthStatus } from "@/Types/types";
 
 export default function CompleteProfile() {
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,25 @@ export default function CompleteProfile() {
   const navigate = useNavigate();
   const { idToken, currentUser, refreshStatus, logout } = useAuthContext();
   const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
+
+  const waitForReadyOnboardingState = async () => {
+    let latestStatus: AuthStatus | null = null;
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      latestStatus = await refreshStatus();
+
+      if (
+        latestStatus?.onboardingState === "ACTIVE" ||
+        latestStatus?.onboardingState === "AUTHENTICATED_NO_PROFILE"
+      ) {
+        return latestStatus;
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+    }
+
+    return latestStatus;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,12 +90,14 @@ export default function CompleteProfile() {
 
       toast.success("Profile completed!");
       finishUpload({ success: true, message: "Profile uploaded successfully" });
-      await refreshStatus();
+      const latestStatus = await waitForReadyOnboardingState();
       const pendingInviteToken = localStorage.getItem("pendingInviteToken");
       navigate(
         pendingInviteToken
           ? `/invite/accept/${pendingInviteToken}`
-          : "/dashboard",
+          : latestStatus?.onboardingState === "PROFILE_COMPLETE_NO_COMPANY"
+            ? "/onboarding/company"
+            : "/dashboard",
       );
     } catch (err: any) {
       finishUpload({

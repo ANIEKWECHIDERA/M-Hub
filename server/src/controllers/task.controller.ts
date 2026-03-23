@@ -71,27 +71,33 @@ export const TaskController = {
     const { projectId } = req.params;
     const companyId = req.user.company_id;
     const actorUserId = req.user.user_id;
+    const normalizedTeamMemberIds = Array.isArray(req.body.team_member_ids)
+      ? req.body.team_member_ids
+      : Array.isArray(req.body.assigneeIds)
+        ? req.body.assigneeIds
+        : undefined;
 
     try {
       const task = await TaskService.create({
         ...req.body,
+        team_member_ids: normalizedTeamMemberIds,
         company_id: companyId,
         project_id: projectId,
       });
 
-      if (Array.isArray(req.body.team_member_ids) && req.body.team_member_ids.length) {
+      if (Array.isArray(normalizedTeamMemberIds) && normalizedTeamMemberIds.length) {
         await NotificationService.createTaskAssignmentNotifications({
           companyId,
           projectId,
           taskId: task.id,
           taskTitle: task.title,
-          teamMemberIds: req.body.team_member_ids,
+          teamMemberIds: normalizedTeamMemberIds,
           actorUserId,
         });
         void EmailNotificationService.sendTaskAssignmentEmails({
           companyId,
           taskId: task.id,
-          teamMemberIds: req.body.team_member_ids,
+          teamMemberIds: normalizedTeamMemberIds,
           actorUserId,
         }).catch((error: any) => {
           logger.error("TaskController.createTask: assignment email failed", {
@@ -112,17 +118,25 @@ export const TaskController = {
     const { taskId } = req.params;
     const companyId = req.user.company_id;
     const actorUserId = req.user.user_id;
+    const normalizedTeamMemberIds = Array.isArray(req.body.team_member_ids)
+      ? req.body.team_member_ids
+      : Array.isArray(req.body.assigneeIds)
+        ? req.body.assigneeIds
+        : undefined;
 
     try {
       const previousTask = await TaskService.findByIdEnriched(taskId, companyId);
-      const updatedTask = await TaskService.update(taskId, companyId, req.body);
+      const updatedTask = await TaskService.update(taskId, companyId, {
+        ...req.body,
+        team_member_ids: normalizedTeamMemberIds,
+      });
 
       if (updatedTask) {
-        if (Array.isArray(req.body.team_member_ids)) {
+        if (Array.isArray(normalizedTeamMemberIds)) {
           const previousIds = new Set(
             previousTask?.assignees?.map((assignee: any) => assignee.id) ?? [],
           );
-          const newAssigneeIds = req.body.team_member_ids.filter(
+          const newAssigneeIds = normalizedTeamMemberIds.filter(
             (teamMemberId: string) => !previousIds.has(teamMemberId),
           );
 

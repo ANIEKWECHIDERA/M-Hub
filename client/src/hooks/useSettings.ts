@@ -7,6 +7,7 @@ import {
 import { useAuthContext } from "@/context/AuthContext";
 
 const LOCAL_THEME_KEY = "crevo-theme";
+const LOCAL_WORKSPACE_HEALTH_KEY = "crevo-workspace-health";
 
 const DEFAULT_PREFERENCES: Preferences = {
   notifications: true,
@@ -15,6 +16,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   projectUpdates: true,
   commentNotifications: true,
   compactMode: false,
+  workspaceHealth: true,
 };
 
 export const useSettings = () => {
@@ -45,6 +47,21 @@ export const useSettings = () => {
     } else {
       applyTheme("light");
     }
+  }, []);
+
+  useEffect(() => {
+    const storedWorkspaceHealth = localStorage.getItem(
+      LOCAL_WORKSPACE_HEALTH_KEY,
+    );
+
+    if (storedWorkspaceHealth === null) {
+      return;
+    }
+
+    setPreferencesState((previous) => ({
+      ...previous,
+      workspaceHealth: storedWorkspaceHealth === "true",
+    }));
   }, []);
 
   useEffect(() => {
@@ -80,6 +97,10 @@ export const useSettings = () => {
           projectUpdates: settings.project_update_notifications,
           commentNotifications: settings.comment_notifications,
           compactMode: settings.compact_mode,
+          workspaceHealth:
+            localStorage.getItem(LOCAL_WORKSPACE_HEALTH_KEY) === null
+              ? DEFAULT_PREFERENCES.workspaceHealth
+              : localStorage.getItem(LOCAL_WORKSPACE_HEALTH_KEY) === "true",
         });
         hydratedRef.current = true;
       } catch (settingsError: any) {
@@ -154,6 +175,10 @@ export const useSettings = () => {
         typeof value === "function" ? value(prev) : value;
 
       if (hydratedRef.current) {
+        localStorage.setItem(
+          LOCAL_WORKSPACE_HEALTH_KEY,
+          String(nextPreferences.workspaceHealth),
+        );
         void patchSettings({
           notifications_enabled: nextPreferences.notifications,
           email_notifications_enabled: nextPreferences.emailNotifications,
@@ -162,6 +187,13 @@ export const useSettings = () => {
           comment_notifications: nextPreferences.commentNotifications,
           compact_mode: nextPreferences.compactMode,
         });
+      }
+
+      if (!hydratedRef.current) {
+        localStorage.setItem(
+          LOCAL_WORKSPACE_HEALTH_KEY,
+          String(nextPreferences.workspaceHealth),
+        );
       }
 
       return nextPreferences;

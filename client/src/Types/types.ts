@@ -626,6 +626,7 @@ export interface Preferences {
   projectUpdates: boolean;
   commentNotifications: boolean;
   compactMode: boolean;
+  workspaceHealth: boolean;
 }
 
 export interface SettingsContextType {
@@ -726,7 +727,7 @@ export interface AuthContextType {
   // signUpWithGoogle: () => Promise<any>;
   idToken: string | null;
   authStatus: AuthStatus | null;
-  refreshStatus: () => Promise<void>;
+  refreshStatus: () => Promise<AuthStatus | null>;
   isAppReady: boolean;
   isWorkspaceSwitching: boolean;
   workspaceSwitchCompanyId: string | null;

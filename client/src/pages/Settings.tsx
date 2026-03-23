@@ -154,6 +154,8 @@ export default function Settings() {
   const isTeamMember =
     authStatus?.access === "team_member" || authStatus?.access === "member";
   const isSuperAdmin = authStatus?.access === "superAdmin";
+  const canSeeWorkspaceHealth =
+    authStatus?.access === "admin" || authStatus?.access === "superAdmin";
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -562,11 +564,11 @@ export default function Settings() {
                 <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
               </div>
 
-              {[
-                {
-                  key: "notifications",
-                  label: "In-app notifications",
-                  description: "Allow Crevo to show notification updates in the app.",
+                {[
+                  {
+                    key: "notifications",
+                    label: "In-app notifications",
+                    description: "Allow Crevo to show notification updates in the app.",
                 },
                 {
                   key: "taskAssignments",
@@ -588,12 +590,22 @@ export default function Settings() {
                   label: "Email notifications",
                   description: "Prepare your account for email delivery once outbound email is enabled.",
                 },
-                {
-                  key: "compactMode",
-                  label: "Compact mode",
-                  description: "Use denser spacing in supported parts of the app.",
-                },
-              ].map((item) => (
+                  {
+                    key: "compactMode",
+                    label: "Compact mode",
+                    description: "Use denser spacing in supported parts of the app.",
+                  },
+                  ...(canSeeWorkspaceHealth
+                    ? [
+                        {
+                          key: "workspaceHealth",
+                          label: "Workspace health in sidebar",
+                          description:
+                            "Show the workspace health pulse card in the sidebar when you want a quick delivery snapshot.",
+                        },
+                      ]
+                    : []),
+                ].map((item) => (
                 <div
                   key={item.key}
                   className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3"
@@ -601,7 +613,8 @@ export default function Settings() {
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1.5">
                       <Label>{item.label}</Label>
-                      {item.key === "compactMode" && (
+                      {(item.key === "compactMode" ||
+                        item.key === "workspaceHealth") && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
@@ -609,18 +622,20 @@ export default function Settings() {
                               className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
                             >
                               <HelpCircle className="h-3.5 w-3.5" />
-                              <span className="sr-only">
-                                What compact mode means
-                              </span>
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-[260px] text-left leading-relaxed">
-                            Compact mode reduces spacing in supported areas of the
-                            app so you can fit more content on screen without
-                            changing the core layout.
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
+                                <span className="sr-only">
+                                  {item.key === "workspaceHealth"
+                                    ? "What workspace health in sidebar means"
+                                    : "What compact mode means"}
+                                </span>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+                              {item.key === "workspaceHealth"
+                                ? "Use this to show or hide the sidebar workspace health pulse card. Turning it off keeps the sidebar quieter without affecting the underlying health calculation."
+                                : "Compact mode reduces spacing in supported areas of the app so you can fit more content on screen without changing the core layout."}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {item.description}

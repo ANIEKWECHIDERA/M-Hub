@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,13 +14,69 @@ import { prepareImageUpload } from "@/lib/image-upload";
 
 export default function CreateCompany() {
   const [loading, setLoading] = useState(false);
+  const [autoCreating, setAutoCreating] = useState(true);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logo, setLogo] = useState<File | null>(null);
+  const autoSetupAttemptedRef = useRef(false);
 
   const navigate = useNavigate();
-  const { idToken, refreshStatus, logout } = useAuthContext();
+  const { authStatus, idToken, refreshStatus, logout } = useAuthContext();
   const { startUpload, setUploadProgress, finishUpload } = useUploadStatus();
+
+  useEffect(() => {
+    const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+
+    if (authStatus?.onboardingState === "ACTIVE") {
+      navigate(
+        pendingInviteToken
+          ? `/invite/accept/${pendingInviteToken}`
+          : "/dashboard",
+        { replace: true },
+      );
+    }
+  }, [authStatus?.onboardingState, navigate]);
+
+  useEffect(() => {
+    if (!idToken || autoSetupAttemptedRef.current) {
+      return;
+    }
+
+    autoSetupAttemptedRef.current = true;
+
+    const autoCreateWorkspace = async () => {
+      startUpload("Setting up your workspace...");
+
+      try {
+        const formData = new FormData();
+        formData.append("name", "My Workspace");
+
+        setUploadProgress(70);
+        await CompanyAPI.create(formData, idToken);
+        setUploadProgress(100);
+        finishUpload({ success: true, message: "Workspace setup completed" });
+
+        await refreshStatus();
+        const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+
+        toast.success("Your workspace is ready");
+        navigate(
+          pendingInviteToken
+            ? `/invite/accept/${pendingInviteToken}`
+            : "/dashboard",
+          { replace: true },
+        );
+      } catch (err: any) {
+        finishUpload({
+          success: false,
+          message: err.message || "Automatic workspace setup failed",
+        });
+        setAutoCreating(false);
+      }
+    };
+
+    void autoCreateWorkspace();
+  }, [idToken, navigate, refreshStatus]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,61 +148,78 @@ export default function CreateCompany() {
             Create Your Workspace
           </CardTitle>
           <p className="text-muted-foreground mt-2">
-            Set up your workspace to get started
+            {autoCreating
+              ? "We're setting up your workspace so you can get started faster"
+              : "Set up your workspace to get started"}
           </p>
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label>Workspace Name *</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="My Workspace"
-                required
-                disabled={loading}
-              />
+          {autoCreating ? (
+            <div className="flex flex-col items-center gap-4 py-6 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Creating My Workspace</p>
+                <p className="text-sm text-muted-foreground">
+                  You do not need to create one manually. We will take you in
+                  automatically.
+                </p>
+              </div>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label>Workspace Name *</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="My Workspace"
+                  required
+                  disabled={loading}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Description (Optional)</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What is this workspace for?"
-                disabled={loading}
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Description (Optional)</Label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="What is this workspace for?"
+                  disabled={loading}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Logo (Optional)</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                disabled={loading}
-                onChange={(e) =>
-                  setLogo(e.target.files ? e.target.files[0] : null)
-                }
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Logo (Optional)</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  disabled={loading}
+                  onChange={(e) =>
+                    setLogo(e.target.files ? e.target.files[0] : null)
+                  }
+                />
+              </div>
 
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full"
-              disabled={loading || !name.trim()}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Workspace"
-              )}
-            </Button>
-          </form>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+                disabled={loading || !name.trim()}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Workspace"
+                )}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1468,6 +1468,52 @@ Assumptions currently in use:
   - `?section=tasks` uses `My Tasks`
   - `?section=daily-focus` uses `Daily Focus`
   - update the leading icon and supporting copy to match the active section
+- My Tasks drag-and-drop now uses `dnd-kit`
+  - implementation lives in:
+    - `client/src/pages/MyTasks/components/TasksList.tsx`
+    - `client/src/pages/MyTasks/components/TaskCard.tsx`
+  - packages in use:
+    - `@dnd-kit/core`
+    - `@dnd-kit/sortable`
+    - `@dnd-kit/utilities`
+  - old `swapy` dependency has been removed
+  - current behavior:
+    - vertical sortable list using `DndContext` + `SortableContext`
+    - pointer, touch, and keyboard sensors enabled
+    - dedicated drag handle on each task row
+    - drag completion passes ordered visible task ids back to the page for persistence
+    - task-detail opening is briefly suppressed after a drag so releasing the pointer does not open the task drawer accidentally
+    - task order still persists per workspace in local storage under `crevo:my-task-order:{companyId}`
+  - mobile polish:
+    - task cards remain denser for smaller phones
+    - drag grip stays visible without crowding badges/metadata
+    - task list now has a little extra inset/padding on small phones so rows feel less cramped
+  - laptop polish:
+    - keep icon/input spacing consistent with the broader visual-polish guide
+    - preserve cleaner toolbar/header spacing on larger breakpoints too
+    - reduce task-card corner radius for a calmer, less pill-like list
+  - backend compatibility fix landed alongside the drag work:
+    - task create/update now accepts `assigneeIds` as an alias to `team_member_ids`
+    - this removes `500` noise from callers that still post the older frontend-shaped field
+  - browser verification notes:
+    - the prior React render-loop / Swapy runtime console errors are gone
+    - opening task details from the longer seeded list still works
+    - explicit browser drag of `Swapy load task 7` into `Swapy load task 4`'s position now reorders correctly
+    - the reordered task list survives page reload through the saved per-workspace local order key
+- Workspace Health sidebar visibility is now user-toggleable for admins and superAdmins
+  - settings preference key: `workspaceHealth`
+  - stored client-side through `useSettings` with local storage fallback key `crevo-workspace-health`
+  - when enabled:
+    - show the compact sidebar Workspace Health card
+  - when disabled:
+    - hide the health card details
+    - show a small `Turn on` affordance in the sidebar so the user can restore it quickly
+  - non-admin roles should not see this toggle or the sidebar health surface
+- Browser verification completed for the latest My Tasks / sidebar retention changes:
+  - toggling `Workspace health in sidebar` off replaces the card with a compact `Turn on` state
+  - clicking `Turn on` restores the sidebar health card
+  - My Tasks drag-and-drop reorders correctly with `dnd-kit`
+  - refreshed page keeps the saved task order instead of snapping back
 - `Daily Focus` and `Decision Feed` should include compact help tooltips, similar to Workspace Health, so users understand what each surface is for without adding heavier visible copy
   - for chat-side `Decision Feed`, move explanatory helper copy into the tooltip instead of showing it as a persistent paragraph
   - keep Decision Feed filter/actions visually compact with smaller rounded controls
@@ -1495,3 +1541,21 @@ Assumptions currently in use:
 - Unread chat dot placement rule:
   - do not show the unread red dot on the dashboard nav item
   - show it on the header `SidebarTrigger` only when the sidebar is closed
+- Accept-invite mobile positioning:
+  - the full-page invite acceptance card should sit higher on small screens instead of centering vertically
+  - match the same mobile principle used in chat creation dialogs so software keyboards leave usable space
+- First-time signup fallback:
+  - every first-time signup should still receive `My Workspace` automatically
+  - as a frontend safety net, if a user ever lands on `/onboarding/company`, the page should auto-attempt to create `My Workspace` and move the user forward without asking for manual setup
+  - keep the manual workspace form only as a fallback if that automatic step fails
+- Register-flow observation from a real browser pass:
+  - logging out and creating a fresh email/password account on the current live site still routed to `/onboarding/company`
+  - this indicates the deployed end-to-end flow is still exposing manual workspace setup even though the intended product rule is automatic `My Workspace` creation
+  - re-test this after the next deploy so the live flow matches the fallback now present in the frontend code
+- Pending invite token handling should be explicit, not ambient:
+  - only preserve `pendingInviteToken` across login/signup when the user is intentionally in an invite flow (`?invite=1`)
+  - normal visits to `/login` or `/signup` should clear stale invite tokens so old links do not hijack unrelated onboarding
+  - invite-entry buttons from the accept-invite page should route to `/login?invite=1` and `/signup?invite=1`
+- Signup stabilization:
+  - after account creation or profile completion, poll onboarding status briefly before redirecting so the app is less likely to race into stale post-auth state
+  - if the status still resolves to `PROFILE_COMPLETE_NO_COMPANY`, let the `/onboarding/company` page handle the automatic `My Workspace` fallback instead of leaving the user stranded

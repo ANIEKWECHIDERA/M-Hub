@@ -10,13 +10,15 @@ export function MyTasksHeader({
   icon: LucideIcon;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-          <Icon className="h-7 w-7" />
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 lg:gap-5">
+      <div className="space-y-1.5 lg:space-y-2">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">
+          <Icon className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8" />
           {title}
         </h1>
-        <p className="text-muted-foreground">{description}</p>
+        <p className="text-sm text-muted-foreground sm:text-base lg:max-w-2xl">
+          {description}
+        </p>
       </div>
     </div>
   );
