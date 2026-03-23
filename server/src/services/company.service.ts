@@ -282,14 +282,13 @@ export const CompanyService = {
         WHERE tm.company_id = ${companyId}::uuid
           AND tm.user_id IS NOT NULL`;
 
-      const { error } = await supabaseAdmin
-        .from("companies")
-        .delete()
-        .eq("id", companyId);
+      const deletedCompanies = await tx.$queryRaw<Array<Record<string, any>>>`
+        DELETE FROM companies
+        WHERE id = ${companyId}::uuid
+        RETURNING id`;
 
-      if (error) {
-        logger.error("CompanyService.deleteById: supabase error", { error });
-        throw error;
+      if (!deletedCompanies[0]?.id) {
+        throw new Error("Company not found");
       }
 
       for (const member of members) {
@@ -302,6 +301,7 @@ export const CompanyService = {
           FROM team_members tm
           WHERE tm.user_id = ${member.user_id}::uuid
             AND tm.status = ${"active"}
+            AND tm.company_id <> ${companyId}::uuid
           ORDER BY tm.created_at ASC
           LIMIT 1`;
 

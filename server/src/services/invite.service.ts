@@ -8,6 +8,10 @@ import { ChatService } from "./chat.service";
 import { CompanyService } from "./company.service";
 import { emailConfig } from "../config/email";
 
+function normalizeInviteStatus(status: string | null | undefined) {
+  return String(status ?? "").trim().toUpperCase();
+}
+
 async function getActiveMembershipContext(userId: string) {
   const { data: user, error: userError } = await supabaseAdmin
     .from("users")
@@ -305,7 +309,7 @@ export const InviteService = {
       throw new Error("Invite not found");
     }
 
-    if (invite.status === "ACCEPTED") {
+    if (normalizeInviteStatus(invite.status) === "ACCEPTED") {
       throw new Error("Accepted invites cannot be resent");
     }
 

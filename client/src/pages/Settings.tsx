@@ -119,6 +119,10 @@ async function copyTextToClipboard(value: string) {
   }
 }
 
+function isAcceptedInviteStatus(status: string | null | undefined) {
+  return String(status ?? "").trim().toUpperCase() === "ACCEPTED";
+}
+
 export default function Settings() {
   const {
     teamMembers,
@@ -340,6 +344,12 @@ export default function Settings() {
   const handleCopyInviteLink = async (inviteId: string) => {
     if (!idToken) return;
 
+    const invite = invites.find((item) => item.id === inviteId);
+    if (invite && !canCopyInviteLink(invite)) {
+      toast.error("Accepted invites no longer have a shareable link");
+      return;
+    }
+
     const result = await inviteAPI.copyLink(inviteId, idToken);
     const copied = await copyTextToClipboard(result.link);
 
@@ -354,6 +364,12 @@ export default function Settings() {
   const handleResendInvite = async (inviteId: string) => {
     if (!idToken) return;
 
+    const invite = invites.find((item) => item.id === inviteId);
+    if (invite && !canResendInvite(invite)) {
+      toast.error("Accepted invites cannot be resent");
+      return;
+    }
+
     const promise = inviteAPI.resend(inviteId, idToken);
 
     toast.promise(promise, {
@@ -365,6 +381,12 @@ export default function Settings() {
     await promise;
     await loadInvites();
   };
+
+  const canCopyInviteLink = (invite: InviteRecord) =>
+    !isAcceptedInviteStatus(invite.status);
+
+  const canResendInvite = (invite: InviteRecord) =>
+    !isAcceptedInviteStatus(invite.status);
 
   const handleSecurityPlaceholder = () => {
     toast.info("Password and 2FA management UI is ready. Backend actions come next.");
@@ -921,13 +943,15 @@ export default function Settings() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => handleCopyInviteLink(invite.id)}
-                                  >
-                                    <Copy className="mr-2 h-4 w-4" />
-                                    Copy invite link
-                                  </DropdownMenuItem>
-                                  {invite.status !== "ACCEPTED" && (
+                                  {canCopyInviteLink(invite) && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleCopyInviteLink(invite.id)}
+                                    >
+                                      <Copy className="mr-2 h-4 w-4" />
+                                      Copy invite link
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canResendInvite(invite) && (
                                     <DropdownMenuItem
                                       onClick={() => handleResendInvite(invite.id)}
                                     >

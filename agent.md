@@ -1307,6 +1307,11 @@ Assumptions currently in use:
   - copy invite link
   - resend invite
   - delete invite
+- Accepted invites should not offer actions that depend on a still-valid acceptance token:
+  - hide `Resend invite`
+  - hide `Copy invite link`
+  - keep `Delete invite` available
+  - normalize status checks defensively so casing differences do not reintroduce the bug
 - Copy invite link should use a clipboard fallback, not only `navigator.clipboard.writeText`, so the action still works in stricter browser contexts
 - Delete workspace UX rules:
   - only `superAdmin` can access the destructive action
@@ -1315,6 +1320,7 @@ Assumptions currently in use:
 - Backend workspace deletion should update impacted users so they are not left pointing at a deleted workspace:
   - switch them to another remaining active workspace if one exists
   - otherwise set `has_company = false` and clear `company_id`
+  - keep the delete operation transactional so a successful workspace delete cannot still bubble up as a `500`
 - Playwright refinement pass verified:
   - workspace submenu expands without routing on parent click
   - invite ellipsis menu opens correctly

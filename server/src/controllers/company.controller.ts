@@ -105,6 +105,9 @@ export const CompanyController = {
       return res.json({ success: true });
     } catch (error) {
       logger.error("deleteCompany failed", { error });
+      if (error instanceof Error && error.message === "Company not found") {
+        return res.status(404).json({ error: "Company not found" });
+      }
       return res.status(500).json({ error: "Failed to delete company" });
     }
   },
