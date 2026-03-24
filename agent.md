@@ -25,6 +25,24 @@ There is no root workspace package script. Treat `client` and `server` as separa
 - Data: PostgreSQL, Prisma schema and migrations, Supabase JS runtime queries
 - Uploads: Cloudinary
 
+## Dependency Safety Notes
+
+- Safe patch pass completed on 2026-03-24:
+  - frontend:
+    - `react-router-dom` updated to `^7.13.2`
+    - safe `npm audit fix` reduced frontend audit output to a single low-severity `quill` advisory
+  - backend:
+    - `express-rate-limit` updated to `^8.3.1`
+    - `multer` updated to `^2.1.1`
+    - safe `npm audit fix` reduced backend audit output, but remaining findings are still tied mainly to:
+      - Prisma toolchain internals
+      - `firebase-admin` transitive Google packages
+- Current audit posture after the safe pass:
+  - frontend: `1 low`
+  - backend: `19 total` (`6 high`, `5 moderate`, `8 low`)
+- Important constraint:
+  - clearing the remaining backend issues cleanly will likely require a coordinated upgrade path rather than another blind patch pass, especially around Prisma and `firebase-admin`
+
 ## Key Architectural Facts
 
 ### 1. Prisma and Supabase are both in use
