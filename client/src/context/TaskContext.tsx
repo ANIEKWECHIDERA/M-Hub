@@ -13,6 +13,7 @@ import { useAuthContext } from "./AuthContext";
 import { normalizeTask } from "@/mapper/task.mapper";
 import { useProjectContext } from "./ProjectContext";
 import { useWorkspaceContext } from "./WorkspaceContext";
+import { dispatchTaskSync } from "@/lib/task-sync";
 
 const TaskContext = createContext<TaskContextType | null>(null);
 
@@ -221,13 +222,15 @@ export const TaskContextProvider = ({
 
     try {
       const savedTask = await promise;
+      const normalizedSavedTask = normalizeTask(savedTask);
 
       setTasks((prev) =>
-        prev.map((t) => (t.id === tempId ? normalizeTask(savedTask) : t)),
+        prev.map((t) => (t.id === tempId ? normalizedSavedTask : t)),
       );
       invalidateRetentionSnapshot();
+      dispatchTaskSync({ type: "upsert", task: normalizedSavedTask });
 
-      return normalizeTask(savedTask);
+      return normalizedSavedTask;
     } catch (err) {
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
       updateProjectTaskStats(targetProjectId, (current) => ({
@@ -309,6 +312,7 @@ export const TaskContextProvider = ({
       );
       setSelectedTask((task) => (task?.id === id ? normalizedTask : task));
       invalidateRetentionSnapshot();
+      dispatchTaskSync({ type: "upsert", task: normalizedTask });
 
       return normalizedTask;
     } catch (err) {
@@ -352,6 +356,7 @@ export const TaskContextProvider = ({
     try {
       await promise;
       invalidateRetentionSnapshot();
+      dispatchTaskSync({ type: "delete", taskId: id });
     } catch (err) {
       setTasks(prevTasks); // rollback
       setProjects(previousProjects);

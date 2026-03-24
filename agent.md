@@ -1599,6 +1599,8 @@ Assumptions currently in use:
     - maintain a memoized `projectsById` map so optimistic update flows and current-project sync avoid repeated `find(...)`
   - MyTaskContext / TaskDetailsSheet:
     - use keyed task lookup for syncing global-task updates into personal-task state and for opening the active task sheet
+    - listen for shared task sync events so updates coming from project-detail task providers propagate into `My Tasks` immediately without requiring a manual refresh
+    - task create/update/delete operations should broadcast a shared client-side task sync event after successful persistence
   - Workspace Manager / Sidebar:
     - use memoized maps for invite/member lookup in workspace-manager actions so copy/resend/edit flows do not repeatedly scan table data
     - use memoized section lookup maps in the sidebar so active chat/focus/settings/workspace-manager section resolution stays direct and predictable
