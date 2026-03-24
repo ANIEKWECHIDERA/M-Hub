@@ -376,6 +376,17 @@ export default function WorkspaceManager() {
   );
   const [isInviteDeleteDialogOpen, setIsInviteDeleteDialogOpen] =
     useState(false);
+  const teamMembersById = useMemo<Map<string, TeamMember>>(
+    () =>
+      new Map(
+        teamMembers.map((member: TeamMember) => [member.id, member] as const),
+      ),
+    [teamMembers],
+  );
+  const invitesById = useMemo(
+    () => new Map(invites.map((invite) => [invite.id, invite] as const)),
+    [invites],
+  );
 
   const loadWorkspaceManager = async (options?: { force?: boolean }) => {
     const snapshot = await getManagerSnapshot({
@@ -497,7 +508,7 @@ export default function WorkspaceManager() {
       return;
     }
 
-    const invite = invites.find((item) => item.id === inviteId);
+    const invite = invitesById.get(inviteId);
     if (invite && !canCopyInviteLink(invite)) {
       toast.error("Accepted invites no longer have a shareable link");
       return;
@@ -519,7 +530,7 @@ export default function WorkspaceManager() {
       return;
     }
 
-    const invite = invites.find((item) => item.id === inviteId);
+    const invite = invitesById.get(inviteId);
     if (invite && !canResendInvite(invite)) {
       toast.error("Accepted invites cannot be resent");
       return;
@@ -1348,7 +1359,7 @@ export default function WorkspaceManager() {
             </DialogDescription>
           </DialogHeader>
           <TeamMemberForm
-            member={teamMembers.find((member: TeamMember) => member.id === editingUserId)}
+            member={editingUserId ? teamMembersById.get(editingUserId) : undefined}
             canAssignSuperAdmin={isSuperAdmin}
             canEditAccess={isSuperAdmin}
             onSave={async (nextData) => {

@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+} from "react";
 import { toast } from "sonner";
 
 import type { TaskContextType, TaskWithAssigneesDTO } from "@/Types/types";
@@ -9,6 +15,12 @@ import { useProjectContext } from "./ProjectContext";
 import { useWorkspaceContext } from "./WorkspaceContext";
 
 const TaskContext = createContext<TaskContextType | null>(null);
+
+function dedupeTasksById(tasks: TaskWithAssigneesDTO[]) {
+  return Array.from(
+    new Map(tasks.map((task) => [task.id, task] as const)).values(),
+  );
+}
 
 export const useTaskContext = () => {
   const context = useContext(TaskContext);
@@ -40,6 +52,10 @@ export const TaskContextProvider = ({
   const { invalidateRetentionSnapshot } = useWorkspaceContext();
   const { projects, setProjects, currentProject, setCurrentProject } =
     useProjectContext();
+  const taskMap = useMemo(
+    () => new Map(tasks.map((task) => [task.id, task])),
+    [tasks],
+  );
 
   const ids = projectIds?.length ? projectIds : projectId ? [projectId] : [];
 
@@ -124,7 +140,7 @@ export const TaskContextProvider = ({
         ids.map((id) => tasksAPI.getAllByProject(id, idToken)),
       );
       // Flatten the results and normalize
-      setTasks(allTasks.flat().map(normalizeTask));
+      setTasks(dedupeTasksById(allTasks.flat().map(normalizeTask)));
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to fetch tasks");
@@ -140,6 +156,22 @@ export const TaskContextProvider = ({
     }
     fetchTasks();
   }, [projectId, projectIds, idToken]);
+
+  useEffect(() => {
+    if (!selectedTask) {
+      return;
+    }
+
+    const syncedTask = taskMap.get(selectedTask.id);
+    if (syncedTask && syncedTask !== selectedTask) {
+      setSelectedTask(syncedTask);
+      return;
+    }
+
+    if (!syncedTask && !selectedTask.id.startsWith("temp-")) {
+      setSelectedTask(null);
+    }
+  }, [selectedTask, taskMap]);
 
   // Optimistic add
   const addTask = async (
@@ -221,8 +253,7 @@ export const TaskContextProvider = ({
     const previousProjects = projects;
     const previousSelectedTask = selectedTask;
     const previousCurrentProject = currentProject;
-    const optimisticTask =
-      tasks.find((task) => task.id === id) ?? selectedTask ?? null;
+    const optimisticTask = taskMap.get(id) ?? selectedTask ?? null;
 
     if (optimisticTask) {
       const mergedTask = {
@@ -299,7 +330,7 @@ export const TaskContextProvider = ({
     const prevTasks = tasks;
     const previousProjects = projects;
     const previousCurrentProject = currentProject;
-    const taskToRemove = tasks.find((task) => task.id === id) ?? null;
+    const taskToRemove = taskMap.get(id) ?? null;
 
     setTasks((prev) => prev.filter((t) => t.id !== id));
     if (taskToRemove) {

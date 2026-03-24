@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { MyTasksContextType, TaskWithAssigneesDTO } from "@/Types/types";
 import { tasksAPI } from "@/api/tasks.api";
 import { useAuthContext } from "./AuthContext";
@@ -24,6 +24,10 @@ export const MyTasksProvider = ({
   const [tasks, setTasks] = useState<TaskWithAssigneesDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const allTasksById = useMemo(
+    () => new Map(allTasks.map((task) => [task.id, task] as const)),
+    [allTasks],
+  );
 
   const fetchMyTasks = async () => {
     if (!idToken) {
@@ -56,11 +60,11 @@ export const MyTasksProvider = ({
   useEffect(() => {
     setTasks((prev) =>
       prev.map((myTask) => {
-        const globalMatch = allTasks.find((t) => t.id === myTask.id);
+        const globalMatch = allTasksById.get(myTask.id);
         return globalMatch ?? myTask;
       }),
     );
-  }, [allTasks]);
+  }, [allTasksById]);
 
   const updateTaskOptimistic = async (
     taskId: string,

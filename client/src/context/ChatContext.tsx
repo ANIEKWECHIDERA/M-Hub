@@ -181,6 +181,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       : null;
   const scopeKeyRef = useRef<string | null>(scopeKey);
   const lastReadMessageIdRef = useRef<string | null>(null);
+  const conversationsById = useMemo(
+    () => new Map(conversations.map((conversation) => [conversation.id, conversation])),
+    [conversations],
+  );
+  const messagesById = useMemo(
+    () => new Map(messages.map((message) => [message.id, message])),
+    [messages],
+  );
+  const taggedMessagesById = useMemo(
+    () => new Map(taggedMessages.map((message) => [message.id, message])),
+    [taggedMessages],
+  );
 
   useEffect(() => {
     idTokenRef.current = idToken;
@@ -434,7 +446,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const conversationType =
         conversationDetails?.id === conversationId
           ? conversationDetails.type
-          : conversations.find((conversation) => conversation.id === conversationId)?.type;
+          : conversationsById.get(conversationId)?.type;
       if (conversationType !== "group") {
         setTaggedMessages([]);
         taggedRefreshKeyRef.current = null;
@@ -488,7 +500,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [conversationDetails, conversations],
+    [conversationDetails, conversationsById],
   );
 
   const scheduleRefreshConversations = useCallback(
@@ -986,7 +998,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const previousMessage = messages.find((message) => message.id === messageId) ?? null;
+    const previousMessage = messagesById.get(messageId) ?? null;
     const optimisticEditedAt = new Date().toISOString();
 
     setMessages((prev) =>
@@ -1038,7 +1050,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
       throw error;
     }
-  }, [messages, scheduleRefreshConversations]);
+  }, [messagesById, scheduleRefreshConversations]);
 
   const deleteMessage = useCallback(async (messageId: string) => {
     const token = idTokenRef.current;
@@ -1046,7 +1058,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const previousMessage = messages.find((message) => message.id === messageId) ?? null;
+    const previousMessage = messagesById.get(messageId) ?? null;
     const deletedAt = new Date().toISOString();
 
     setMessages((prev) =>
@@ -1078,7 +1090,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
       throw error;
     }
-  }, [messages, scheduleRefreshConversations]);
+  }, [messagesById, scheduleRefreshConversations]);
 
   const sendTypingIndicator = useCallback(async (isTyping: boolean) => {
     const token = idTokenRef.current;
@@ -1103,8 +1115,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       const normalizedTags = [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
       const previousMessage =
-        messages.find((message) => message.id === messageId) ??
-        taggedMessages.find((message) => message.id === messageId) ??
+        messagesById.get(messageId) ??
+        taggedMessagesById.get(messageId) ??
         null;
 
       if (previousMessage) {
@@ -1173,7 +1185,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
     },
-    [invalidateRetentionSnapshot, messages, scheduleRefreshConversations, taggedMessages],
+    [
+      invalidateRetentionSnapshot,
+      messagesById,
+      scheduleRefreshConversations,
+      taggedMessagesById,
+    ],
   );
 
   useEffect(() => {
@@ -1302,9 +1319,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const activeConversation = useMemo(
     () =>
-      conversations.find((conversation) => conversation.id === activeConversationId) ??
-      null,
-    [activeConversationId, conversations],
+      (activeConversationId
+        ? conversationsById.get(activeConversationId) ?? null
+        : null),
+    [activeConversationId, conversationsById],
   );
 
   const typingUserIds = useMemo(() => {
