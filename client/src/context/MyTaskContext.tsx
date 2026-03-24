@@ -1,8 +1,10 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { MyTasksContextType, TaskWithAssigneesDTO } from "@/Types/types";
 import { tasksAPI } from "@/api/tasks.api";
 import { useAuthContext } from "./AuthContext";
 import { useTaskContext } from "./TaskContext";
+import { useTeamContext } from "./TeamMemberContext";
+import { subscribeToTaskSync, type TaskSyncPayload } from "@/lib/task-sync";
 
 const MyTasksContext = createContext<MyTasksContextType | null>(null);
 export const useMyTasksContext = () => {
@@ -20,10 +22,15 @@ export const MyTasksProvider = ({
 }) => {
   const { idToken, authStatus } = useAuthContext();
   const { tasks: allTasks, updateTask } = useTaskContext();
+  const { currentMember } = useTeamContext();
 
   const [tasks, setTasks] = useState<TaskWithAssigneesDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const allTasksById = useMemo(
+    () => new Map(allTasks.map((task) => [task.id, task] as const)),
+    [allTasks],
+  );
 
   const fetchMyTasks = async () => {
     if (!idToken) {
@@ -56,11 +63,11 @@ export const MyTasksProvider = ({
   useEffect(() => {
     setTasks((prev) =>
       prev.map((myTask) => {
-        const globalMatch = allTasks.find((t) => t.id === myTask.id);
+        const globalMatch = allTasksById.get(myTask.id);
         return globalMatch ?? myTask;
       }),
     );
-  }, [allTasks]);
+  }, [allTasksById]);
 
   const updateTaskOptimistic = async (
     taskId: string,
@@ -90,6 +97,53 @@ export const MyTasksProvider = ({
 
     fetchMyTasks();
   }, [idToken, authStatus?.companyId, authStatus?.onboardingState]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToTaskSync((payload: TaskSyncPayload) => {
+      if (payload.type === "delete") {
+        setTasks((prev) => prev.filter((task) => task.id !== payload.taskId));
+        return;
+      }
+
+      const assignedToCurrentMember = Boolean(
+        currentMember?.id &&
+          payload.task.team_members?.some((member) => member.id === currentMember.id),
+      );
+
+      setTasks((prev) => {
+        const existingIndex = prev.findIndex((task) => task.id === payload.task.id);
+        const existingTask = existingIndex >= 0 ? prev[existingIndex] : null;
+
+        if (!assignedToCurrentMember) {
+          return existingIndex >= 0
+            ? prev.filter((task) => task.id !== payload.task.id)
+            : prev;
+        }
+
+        const nextTask = existingTask
+          ? {
+              ...existingTask,
+              ...payload.task,
+              project: payload.task.project ?? existingTask.project,
+              team_members:
+                payload.task.team_members?.length || !existingTask.team_members?.length
+                  ? payload.task.team_members
+                  : existingTask.team_members,
+            }
+          : payload.task;
+
+        if (existingIndex >= 0) {
+          return prev.map((task) =>
+            task.id === payload.task.id ? nextTask : task,
+          );
+        }
+
+        return [nextTask, ...prev];
+      });
+    });
+
+    return unsubscribe;
+  }, [currentMember?.id]);
 
   return (
     <MyTasksContext.Provider

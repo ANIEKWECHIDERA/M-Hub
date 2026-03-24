@@ -25,6 +25,24 @@ There is no root workspace package script. Treat `client` and `server` as separa
 - Data: PostgreSQL, Prisma schema and migrations, Supabase JS runtime queries
 - Uploads: Cloudinary
 
+## Dependency Safety Notes
+
+- Safe patch pass completed on 2026-03-24:
+  - frontend:
+    - `react-router-dom` updated to `^7.13.2`
+    - safe `npm audit fix` reduced frontend audit output to a single low-severity `quill` advisory
+  - backend:
+    - `express-rate-limit` updated to `^8.3.1`
+    - `multer` updated to `^2.1.1`
+    - safe `npm audit fix` reduced backend audit output, but remaining findings are still tied mainly to:
+      - Prisma toolchain internals
+      - `firebase-admin` transitive Google packages
+- Current audit posture after the safe pass:
+  - frontend: `1 low`
+  - backend: `19 total` (`6 high`, `5 moderate`, `8 low`)
+- Important constraint:
+  - clearing the remaining backend issues cleanly will likely require a coordinated upgrade path rather than another blind patch pass, especially around Prisma and `firebase-admin`
+
 ## Key Architectural Facts
 
 ### 1. Prisma and Supabase are both in use
@@ -1564,3 +1582,29 @@ Assumptions currently in use:
 - Signup stabilization:
   - after account creation or profile completion, poll onboarding status briefly before redirecting so the app is less likely to race into stale post-auth state
   - if the status still resolves to `PROFILE_COMPLETE_NO_COMPANY`, let the `/onboarding/company` page handle the automatic `My Workspace` fallback instead of leaving the user stranded
+- Speed/reliability optimization pass:
+  - the app should continue leaning on `Map` / hash-map style lookups plus targeted invalidation as the main DSA pattern for performance-sensitive UI and backend hot paths
+  - TaskContext:
+    - maintain a memoized `taskMap` keyed by task id so optimistic update/delete and selected-task sync avoid repeated linear scans
+    - dedupe fetched tasks by id before storing them
+  - ChatContext:
+    - maintain memoized maps for conversations, messages, and tagged messages keyed by id
+    - use those maps for active-conversation lookup, tagged-message refresh routing, and edit/delete/tag rollback lookups
+  - WorkspaceContext:
+    - maintain a memoized `workspacesByCompanyId` map so active-workspace resolution can use direct keyed access instead of repeated fallback scans
+  - NotificationContext:
+    - maintain a memoized `notificationsById` map so mark-read and clear actions can resolve targets in constant time
+    - keep a synced ref for stream handlers so event processing can use keyed lookup without forcing stream re-subscription on every list change
+  - ProjectContext:
+    - maintain a memoized `projectsById` map so optimistic update flows and current-project sync avoid repeated `find(...)`
+  - MyTaskContext / TaskDetailsSheet:
+    - use keyed task lookup for syncing global-task updates into personal-task state and for opening the active task sheet
+    - listen for shared task sync events so updates coming from project-detail task providers propagate into `My Tasks` immediately without requiring a manual refresh
+    - task create/update/delete operations should broadcast a shared client-side task sync event after successful persistence
+  - Workspace Manager / Sidebar:
+    - use memoized maps for invite/member lookup in workspace-manager actions so copy/resend/edit flows do not repeatedly scan table data
+    - use memoized section lookup maps in the sidebar so active chat/focus/settings/workspace-manager section resolution stays direct and predictable
+  - guiding rule:
+    - prefer `Map` for keyed entity lookup and cache layers
+    - prefer `Set` for dedupe and invalidation groups
+    - reserve heavier structures like priority queues or graphs for later ranking/dependency features

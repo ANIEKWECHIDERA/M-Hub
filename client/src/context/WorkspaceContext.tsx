@@ -290,15 +290,23 @@ export function WorkspaceProvider({
     refreshWorkspaces,
   ]);
 
+  const workspacesByCompanyId = useMemo(
+    () =>
+      new Map(
+        workspaces.map((workspace) => [workspace.companyId, workspace] as const),
+      ),
+    [workspaces],
+  );
+
   const currentWorkspace = useMemo(
     () =>
       workspaces.find((workspace) => workspace.isActive) ??
-      workspaces.find(
-        (workspace) => workspace.companyId === authStatus?.companyId,
-      ) ??
+      (authStatus?.companyId
+        ? workspacesByCompanyId.get(authStatus.companyId) ?? null
+        : null) ??
       workspaces[0] ??
       null,
-    [authStatus?.companyId, workspaces],
+    [authStatus?.companyId, workspaces, workspacesByCompanyId],
   );
 
   const value = useMemo<WorkspaceContextValue>(

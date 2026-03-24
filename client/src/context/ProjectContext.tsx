@@ -4,6 +4,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import { toast } from "sonner";
 import { useAuthContext } from "./AuthContext";
@@ -67,6 +68,10 @@ export const ProjectContextProvider = ({
 
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const projectsById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project] as const)),
+    [projects],
+  );
 
   const fetchProjects = useCallback(async () => {
     if (!idToken) {
@@ -80,10 +85,13 @@ export const ProjectContextProvider = ({
 
     try {
       const fetchedProjects = await ProjectAPI.getAll(idToken);
+      const fetchedProjectsById = new Map(
+        fetchedProjects.map((project) => [project.id, project] as const),
+      );
       setProjects(fetchedProjects);
       setCurrentProject((prev) =>
         prev
-          ? fetchedProjects.find((project) => project.id === prev.id) ?? prev
+          ? fetchedProjectsById.get(prev.id) ?? prev
           : prev,
       );
     } catch (err: any) {
@@ -142,7 +150,7 @@ export const ProjectContextProvider = ({
     }
     const previousProjects = projects;
     const previousCurrentProject = currentProject;
-    const existingProject = projects.find((proj) => proj.id === id) ?? null;
+    const existingProject = projectsById.get(id) ?? null;
     const optimisticProject = buildOptimisticProject(data, existingProject);
 
     setProjects((prev) =>
@@ -203,9 +211,9 @@ export const ProjectContextProvider = ({
   };
 
   const confirmDelete = () => {
-    if (projectToDelete?.id) {
-      deleteProject(projectToDelete.id);
-    }
+      if (projectToDelete?.id) {
+        deleteProject(projectToDelete.id);
+      }
     setProjectToDelete(null);
     setIsDeleteDialogOpen(false);
   };

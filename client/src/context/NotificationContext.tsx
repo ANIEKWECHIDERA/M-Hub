@@ -102,10 +102,22 @@ export const NotificationProvider = ({
   const refreshScopeRef = useRef<string | null>(null);
   const idTokenRef = useRef<string | null>(idToken);
   const scopeKeyRef = useRef<string | null>(null);
+  const notificationsById = useMemo(
+    () =>
+      new Map(
+        notifications.map((notification) => [notification.id, notification] as const),
+      ),
+    [notifications],
+  );
+  const notificationsByIdRef = useRef(notificationsById);
 
   useEffect(() => {
     idTokenRef.current = idToken;
   }, [idToken]);
+
+  useEffect(() => {
+    notificationsByIdRef.current = notificationsById;
+  }, [notificationsById]);
 
   const scopeKey =
     Boolean(idToken) &&
@@ -192,7 +204,7 @@ export const NotificationProvider = ({
 
       const previousNotifications = notifications;
       const previousUnreadCount = unreadCount;
-      const target = notifications.find((notification) => notification.id === id);
+      const target = notificationsById.get(id);
 
       if (!target || target.read) {
         return;
@@ -219,7 +231,7 @@ export const NotificationProvider = ({
         setError(markError.message || "Failed to update notification");
       }
     },
-    [idToken, notifications, unreadCount],
+    [idToken, notifications, notificationsById, unreadCount],
   );
 
   const markAllAsRead = useCallback(async () => {
@@ -253,7 +265,7 @@ export const NotificationProvider = ({
 
       const previousNotifications = notifications;
       const previousUnreadCount = unreadCount;
-      const target = notifications.find((notification) => notification.id === id);
+      const target = notificationsById.get(id);
 
       if (!target) {
         return;
@@ -276,7 +288,7 @@ export const NotificationProvider = ({
         setError(clearError.message || "Failed to clear notification");
       }
     },
-    [idToken, notifications, unreadCount],
+    [idToken, notifications, notificationsById, unreadCount],
   );
 
   const clearAllNotifications = useCallback(async () => {
@@ -360,9 +372,7 @@ export const NotificationProvider = ({
 
         if (payload.type === "notification.created") {
           setNotifications((prev) => {
-            const exists = prev.some(
-              (notification) => notification.id === payload.notification.id,
-            );
+            const exists = notificationsByIdRef.current.has(payload.notification.id);
 
             if (!exists && !payload.notification.read) {
               setUnreadCount((count) => count + 1);
@@ -375,9 +385,7 @@ export const NotificationProvider = ({
 
         if (payload.type === "notification.read") {
           setNotifications((prev) => {
-            const target = prev.find(
-              (notification) => notification.id === payload.notificationId,
-            );
+            const target = notificationsByIdRef.current.get(payload.notificationId);
 
             if (target && !target.read) {
               setUnreadCount((count) => Math.max(0, count - 1));
@@ -394,9 +402,7 @@ export const NotificationProvider = ({
 
         if (payload.type === "notification.deleted") {
           setNotifications((prev) => {
-            const target = prev.find(
-              (notification) => notification.id === payload.notificationId,
-            );
+            const target = notificationsByIdRef.current.get(payload.notificationId);
 
             if (target && !target.read) {
               setUnreadCount((count) => Math.max(0, count - 1));
@@ -442,7 +448,12 @@ export const NotificationProvider = ({
       streamRef.current = null;
       stopFallbackPolling();
     };
-  }, [authStatus?.companyId, preferences.notifications, refreshNotifications, scopeKey]);
+  }, [
+    authStatus?.companyId,
+    preferences.notifications,
+    refreshNotifications,
+    scopeKey,
+  ]);
 
   const value = useMemo<NotificationContextType>(
     () => ({

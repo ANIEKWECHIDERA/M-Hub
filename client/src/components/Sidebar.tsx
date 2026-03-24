@@ -96,6 +96,11 @@ const focusSections = [
   },
 ] as const;
 
+const chatSectionsById = new Map(chatSections.map((section) => [section.id, section] as const));
+const focusSectionsById = new Map(
+  focusSections.map((section) => [section.id, section] as const),
+);
+
 function getWorkspaceHealthMeta(
   status?: "Healthy" | "At Risk" | "Critical" | null,
 ) {
@@ -157,6 +162,10 @@ const workspaceManagerSections: Array<{
   },
 ] as const;
 
+const workspaceManagerSectionsById = new Map(
+  workspaceManagerSections.map((section) => [section.id, section] as const),
+);
+
 interface SidebarPanelProps {
   collapsed: boolean;
   workspaces: Workspace[];
@@ -200,24 +209,31 @@ function SidebarPanel({
     const params = new URLSearchParams(search);
     const section = params.get("section") as ChatSection | null;
 
-    return chatSections.find((item) => item.id === section)?.id ?? "projects";
+    return (section ? chatSectionsById.get(section)?.id : null) ?? "projects";
   }, [search]);
   const activeFocusSection = useMemo(() => {
     const params = new URLSearchParams(search);
-    return params.get("section") ?? "tasks";
+    const section = params.get("section") as
+      | (typeof focusSections)[number]["id"]
+      | null;
+    return (section ? focusSectionsById.get(section)?.id : null) ?? "tasks";
   }, [search]);
   const totalChatUnread = useMemo(() => totalUnreadCount, [totalUnreadCount]);
   const settingsSections = getAllowedSettingsSections(isTeamMember);
+  const settingsSectionsById = useMemo(
+    () => new Map(settingsSections.map((section) => [section.id, section] as const)),
+    [settingsSections],
+  );
   const activeSettingsSection = useMemo(() => {
     const params = new URLSearchParams(search);
     const section = params.get("section") as SettingsSection | null;
 
     return (
-      settingsSections.find((item) => item.id === section)?.id ??
+      (section ? settingsSectionsById.get(section)?.id : null) ??
       settingsSections[0]?.id ??
       "profile"
     );
-  }, [search, settingsSections]);
+  }, [search, settingsSections, settingsSectionsById]);
   const chatOpenByDefault = pathname === "/chat";
   const focusOpenByDefault = pathname === "/mytasks";
   const settingsOpenByDefault = pathname === "/settings";
@@ -230,7 +246,10 @@ function SidebarPanel({
   );
   const activeWorkspaceSection = useMemo(() => {
     const params = new URLSearchParams(search);
-    return params.get("section") ?? "details";
+    const section = params.get("section") as
+      | (typeof workspaceManagerSections)[number]["id"]
+      | null;
+    return (section ? workspaceManagerSectionsById.get(section)?.id : null) ?? "details";
   }, [search]);
   const workspaceHealth = retentionSnapshot?.workspaceHealth ?? null;
   const workspaceHealthMeta = getWorkspaceHealthMeta(workspaceHealth?.status);

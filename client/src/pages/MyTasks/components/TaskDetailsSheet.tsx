@@ -34,11 +34,15 @@ export function TaskDetailsSheet({
   onStatusChange,
 }: TaskDetailsSheetProps) {
   const { tasks } = useMyTasksContext();
+  const tasksById = useMemo(
+    () => new Map(tasks.map((task) => [task.id, task] as const)),
+    [tasks],
+  );
 
   const task = useMemo(() => {
     if (!taskId) return null;
-    return tasks.find((t) => t.id === taskId) ?? null;
-  }, [tasks, taskId]);
+    return tasksById.get(taskId) ?? null;
+  }, [taskId, tasksById]);
 
   if (!task) return null;
 
