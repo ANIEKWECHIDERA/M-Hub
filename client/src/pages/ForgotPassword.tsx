@@ -12,6 +12,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { CrevoMark } from "@/components/CrevoMark";
+import { MotionSurface } from "@/components/ui/motion-surface";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -86,7 +88,8 @@ export default function ForgotPasswordPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md space-y-6">
-          <Card className="border-0 shadow-lg">
+          <MotionSurface>
+          <Card className="border-border/75 bg-card/96 shadow-[var(--shadow-card)]">
             <CardHeader className="text-center pb-6">
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
@@ -120,6 +123,7 @@ export default function ForgotPasswordPage() {
               </Button>
             </CardContent>
           </Card>
+          </MotionSurface>
         </div>
       </div>
     );
@@ -131,16 +135,17 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo */}
         <div className="text-center">
-          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-xl font-bold text-primary-foreground">C</span>
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-primary/25 bg-primary/12 text-primary">
+            <CrevoMark className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold">Crevo</h1>
-          <p className="text-muted-foreground">Creative Workflow Management</p>
+          <h1 className="text-2xl font-semibold" data-display-font="true">Crevo</h1>
+          <p className="text-muted-foreground">Get back into your workspace fast.</p>
         </div>
 
-        <Card className="border-0 shadow-lg">
+        <MotionSurface>
+        <Card className="border-border/75 bg-card/96 shadow-[var(--shadow-card)]">
           <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl font-bold text-center">
+            <CardTitle className="text-center text-2xl font-semibold" data-display-font="true">
               Forgot your password?
             </CardTitle>
             <CardDescription className="text-center">
@@ -160,14 +165,14 @@ export default function ForgotPasswordPage() {
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Mail className="field-icon" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 pl-12"
+                    className="field-with-icon h-11"
                     disabled={isLoading}
                   />
                 </div>
@@ -199,6 +204,7 @@ export default function ForgotPasswordPage() {
             </Button>
           </CardContent>
         </Card>
+        </MotionSurface>
       </div>
     </div>
   );

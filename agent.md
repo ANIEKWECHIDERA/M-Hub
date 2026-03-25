@@ -1608,3 +1608,92 @@ Assumptions currently in use:
     - prefer `Map` for keyed entity lookup and cache layers
     - prefer `Set` for dedupe and invalidation groups
     - reserve heavier structures like priority queues or graphs for later ranking/dependency features
+- Frontend branding workflow:
+  - treat the current clean frontend state as `BASE`
+  - `BASE` is the visual fallback point before any new branding experiment
+  - when iterating on visual design, pair these two documents:
+    - `01_crevo_brand_identity.md`
+    - `03_crevo_app_design_brief.md`
+  - use them together like this:
+    - `01_crevo_brand_identity.md` defines the emotional target, palette, typography intent, motion personality, and voice
+    - `03_crevo_app_design_brief.md` defines how that identity should show up inside the authenticated product shell and core screens
+  - iteration rule:
+    - start every branding pass from `BASE`
+    - apply changes in narrow layers, not full redesigns
+    - preferred order:
+      1. color tokens
+      2. status colors and active states
+      3. surface treatment
+      4. typography emphasis
+      5. motion polish
+      6. only then layout refinements if still needed
+  - safety rule:
+    - if a branding pass makes the app feel too different, revert to `BASE` and keep only the smallest successful layer
+  - dark/light mode interpretation:
+    - dark mode is the expressive primary brand experience
+    - light mode should remain fully designed, but should be a softer translation of the same system rather than a separate personality
+- brand application rule:
+    - the work stays the hero
+    - avoid decorative branding that competes with tasks, projects, chat, or workspace content
+- BASE-to-brand implementation pass notes:
+  - the current branded UI layer now applies the Crevo palette from the paired identity/app briefs without rebuilding page structure from scratch
+  - shared token changes live in `client/src/index.css`
+    - light mode uses a softer mist/cloud translation of the brand palette
+    - dark mode uses the primary void/ink/volt system
+    - borders and outlines stay muted; volt is reserved for active states, primary CTAs, and earned moments
+    - the shell background now uses subtle radial atmosphere plus light grain instead of flat color
+  - shared primitives updated for the branded system:
+    - `button.tsx`
+    - `card.tsx`
+    - `input.tsx`
+    - `badge.tsx`
+    - `tooltip.tsx`
+    - `sonner.tsx`
+    - `sidebar.tsx`
+  - Framer Motion is now part of the client stack and should be used lightly:
+    - `MotionConfig` wraps the app in `client/src/App.tsx`
+    - shell/header/content transitions use smooth, reduced-motion-safe fades/offsets
+    - use motion to reinforce hierarchy and state changes, not to decorate every element
+  - icon/input spacing rule:
+    - decorative svg icons in fields should use a shared `field-icon` class
+    - matching inputs should use `field-with-icon`
+    - this rule now applies to the auth forms plus key search bars in Chat, Projects, Notes, and My Tasks
+  - brand typography rule:
+    - headings and display moments should opt into the display font treatment
+    - body/UI copy stays on the body font stack
+  - brand safety rule:
+    - avoid large volt surface fills for message bubbles, tooltips, or wide content blocks
+    - prefer volt-tinted accents and borders over full fills except for primary CTA buttons
+- Marketing website app:
+  - the public marketing site now lives as a separate Next.js App Router project in `website/`
+  - keep it isolated from the product app in `client/`; do not mix routing, state, or styling concerns across those two apps
+  - source-of-truth documents for the marketing site:
+    - `01_crevo_brand_identity.md`
+    - `02_crevo_landing_page_brief.md`
+  - technical baseline:
+    - Next.js App Router
+    - TypeScript
+    - Tailwind CSS
+    - shadcn-style local UI primitives in `website/components/ui`
+    - Framer Motion for subtle reveal/interaction polish
+    - Supabase-backed waitlist server action
+  - route structure currently shipped:
+    - `/`
+    - `/about`
+    - `/contact`
+    - `/privacy-policy`
+    - `/terms`
+    - `/features`
+    - `/pricing`
+    - `/for-agencies`
+    - `/waitlist`
+  - waitlist/referral rules:
+    - waitlist insert is handled in `website/actions/waitlist.ts`
+    - use `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the server side
+    - referral links use `NEXT_PUBLIC_SITE_URL`
+    - inbound `?ref=` codes are captured on the client and stored in localStorage under `crevo_ref`
+    - once signup succeeds, show the user their referral link with copy/share actions
+  - marketing-site environment file:
+    - `website/.env.example`
+  - deployment note:
+    - `website/netlify.toml` is included for the separate site build target

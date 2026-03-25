@@ -18,6 +18,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { CrevoMark } from "@/components/CrevoMark";
+import { MotionSurface } from "@/components/ui/motion-surface";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -143,22 +144,22 @@ export default function LoginPage() {
     : errors.general;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background">
       {/* Left Side - Branding */}
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/80 lg:flex lg:w-1/2">
-        <div className="absolute inset-0 bg-black/10" />
+      <div className="relative hidden overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(200,241,53,0.22),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.18),transparent_28%),linear-gradient(160deg,#0c0c0f,#1a1a24_58%,#12121a)] lg:flex lg:w-1/2">
+        <div className="absolute inset-0 bg-black/8" />
         <div className="relative z-10 flex flex-col items-center justify-center p-12 text-white">
           <div className="mb-8">
             <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
-                <CrevoMark className="h-9 w-9 text-white" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-[#c8f135] backdrop-blur-sm">
+                <CrevoMark className="h-9 w-9" />
               </div>
-              <span className="text-4xl font-bold tracking-tight">Crevo</span>
+              <span className="text-4xl font-semibold tracking-tight" data-display-font="true">Crevo</span>
             </div>
-            <h1 className="text-4xl font-bold mb-4">Welcome to Crevo</h1>
-            <p className="text-xl text-white/90 max-w-md text-center leading-relaxed">
-              Streamline your agency workflow with our comprehensive project
-              management platform
+            <h1 className="mb-4 text-4xl font-semibold" data-display-font="true">Built for agency work that never stands still.</h1>
+            <p className="max-w-md text-center text-xl leading-relaxed text-white/78">
+              Keep projects, chats, approvals, and deadlines in one place that
+              feels made for the way creative teams actually move.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-6 mt-8 max-w-md">
@@ -184,20 +185,21 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center bg-background px-4 py-5 sm:p-8">
         <div className="w-full max-w-md space-y-4 sm:space-y-6">
           <div className="mb-6 flex items-center justify-center gap-3 text-center lg:hidden">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-primary/25 bg-primary/12 text-primary shadow-sm">
               <CrevoMark className="h-6 w-6" />
             </div>
             <div className="text-left">
-              <h1 className="text-xl font-bold tracking-tight">Crevo</h1>
+              <h1 className="text-xl font-semibold tracking-tight" data-display-font="true">Crevo</h1>
               <p className="text-xs text-muted-foreground sm:text-sm">
-                Creative Workflow Management
+                Where agency work actually lives
               </p>
             </div>
           </div>
 
-          <Card className="border-0 shadow-lg premium-interactive">
+          <MotionSurface>
+          <Card className="border-border/75 bg-card/96 shadow-[var(--shadow-card)]">
             <CardHeader className="space-y-1 pb-4 sm:pb-6">
-              <CardTitle className="text-center text-xl font-bold sm:text-2xl">
+              <CardTitle className="text-center text-xl font-semibold sm:text-2xl" data-display-font="true">
                 Sign in to your account
               </CardTitle>
               <CardDescription className="text-center text-xs sm:text-sm">
@@ -246,7 +248,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email address</Label>
                   <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Mail className="field-icon" />
                     <Input
                       id="email"
                       type="email"
@@ -255,7 +257,7 @@ export default function LoginPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
                       }
-                      className={`h-10 pl-12 sm:h-11 sm:pl-12 ${
+                      className={`field-with-icon h-10 sm:h-11 ${
                         errors.email
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -271,7 +273,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
-                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Lock className="field-icon" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -280,7 +282,7 @@ export default function LoginPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, password: e.target.value })
                       }
-                      className={`h-10 pl-12 pr-10 sm:h-11 sm:pl-12 ${
+                      className={`field-with-icon h-10 pr-10 sm:h-11 ${
                         errors.password
                           ? "border-red-500 focus-visible:ring-red-500"
                           : ""
@@ -358,6 +360,7 @@ export default function LoginPage() {
               </div>
             </CardContent>
           </Card>
+          </MotionSurface>
 
           <div className="text-center text-xs text-muted-foreground">
             <p>

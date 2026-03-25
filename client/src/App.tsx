@@ -24,19 +24,8 @@ import CreateCompany from "./pages/CreateCompany";
 import { Loader } from "lucide-react";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import { UploadStatusProvider } from "./context/UploadStatusContext";
-
-function useRedirectPath() {
-  const { currentUser, authStatus } = useAuthContext();
-
-  if (!currentUser) {
-    return "/signup";
-  }
-
-  return authStatus?.access === "team_member" ||
-    authStatus?.access === "member"
-    ? "/mytasks"
-    : "/dashboard";
-}
+import { MotionConfig } from "framer-motion";
+import LandingPage from "./pages/LandingPage";
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, loading, authStatus } = useAuthContext();
@@ -101,14 +90,19 @@ function DashboardRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <AuthProvider>
-      <UserProvider>
-        <UploadStatusProvider>
-          <Toaster position="top-center" richColors />
-          <AppWithAuth />
-        </UploadStatusProvider>
-      </UserProvider>
-    </AuthProvider>
+    <MotionConfig
+      reducedMotion="user"
+      transition={{ duration: 0.22, ease: [0, 0, 0.2, 1] }}
+    >
+      <AuthProvider>
+        <UserProvider>
+          <UploadStatusProvider>
+            <Toaster position="top-center" richColors />
+            <AppWithAuth />
+          </UploadStatusProvider>
+        </UserProvider>
+      </AuthProvider>
+    </MotionConfig>
   );
 }
 
@@ -123,7 +117,24 @@ function AppProvidersLayout() {
 }
 
 function AppWithAuth() {
-  const redirectPath = useRedirectPath();
+  const { currentUser, authStatus, loading } = useAuthContext();
+
+  const homeElement = loading ? (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader className="animate-spin" />
+    </div>
+  ) : currentUser ? (
+    <Navigate
+      to={
+        authStatus?.access === "team_member" || authStatus?.access === "member"
+          ? "/mytasks"
+          : "/dashboard"
+      }
+      replace
+    />
+  ) : (
+    <LandingPage />
+  );
 
   return (
     <Routes>
@@ -153,7 +164,7 @@ function AppWithAuth() {
       />
       <Route path="/invite/accept/:token" element={<AcceptInvitePage />} />
 
-      <Route path="/" element={<Navigate to={redirectPath} replace />} />
+      <Route path="/" element={homeElement} />
 
       <Route element={<AuthGuard />}>
         <Route path="/onboarding/profile" element={<CompleteProfile />} />
@@ -193,7 +204,7 @@ function AppWithAuth() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to={redirectPath} replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
