@@ -20,6 +20,7 @@ type ExistingWaitlistRow = {
 type WaitlistInsertPayload = {
   email: string;
   name: string | null;
+  agency?: string | null;
   referral_code: string;
   referred_by: string | null;
 };
@@ -81,6 +82,7 @@ export async function joinWaitlist(
 ): Promise<WaitlistActionState> {
   const email = normaliseEmail(formData.get("email"));
   const name = normaliseText(formData.get("name"));
+  const agency = normaliseText(formData.get("agency"));
   const referredBy = normaliseText(formData.get("referredBy"));
 
   if (!email || !email.includes("@")) {
@@ -106,12 +108,21 @@ export async function joinWaitlist(
     const referralCode = existing?.referral_code ?? (await generateReferralCode());
 
     if (!existing) {
-      const { error } = await supabase.from("waitlist").insert({
+      const payload: WaitlistInsertPayload = {
         email,
         name,
+        agency,
         referral_code: referralCode,
         referred_by: referredBy,
-      });
+      };
+
+      let { error } = await supabase.from("waitlist").insert(payload);
+
+      if (error && error.message.toLowerCase().includes("agency")) {
+        const legacyPayload = { ...payload };
+        delete legacyPayload.agency;
+        ({ error } = await supabase.from("waitlist").insert(legacyPayload));
+      }
 
       if (error) {
         if (error.code === "23505") {

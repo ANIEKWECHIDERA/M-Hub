@@ -1697,3 +1697,22 @@ Assumptions currently in use:
     - `website/.env.example`
   - deployment note:
     - `website/netlify.toml` is included for the separate site build target
+  - website default-theme rule:
+    - the marketing site should ship dark-first by default
+    - any light-mode support should be intentional and secondary, not the first-render experience
+  - website polish notes:
+    - `website/app/icon.tsx` now owns the Crevo favicon/app icon
+    - homepage hero polish should prioritize stronger contrast, cleaner conversion hierarchy, and richer product-mockup credibility before broad page-wide redesigns
+    - waitlist conversion polish should prioritize confidence cues, referral motivation, and a cleaner split-layout on larger screens
+    - the waitlist form should avoid reading browser-only referral state during render; use a client-safe subscription/snapshot pattern so static pages do not hydrate differently from the server
+    - `website/supabase/waitlist.sql` contains the baseline waitlist table schema expected by the current server action
+    - the waitlist schema now also supports `agency`, and the join action should stay backward-compatible if an older table has not been altered yet
+    - private waitlist operations now live at `/ops/login` and `/ops`
+      - auth is env-backed and cookie-based through `website/lib/ops-auth.ts`
+      - use `WAITLIST_ADMIN_EMAIL`, `WAITLIST_ADMIN_PASSWORD`, and `WAITLIST_ADMIN_SESSION_SECRET`
+      - keep ops pages `noindex`
+      - support search, direct vs referred filters, CSV export, and quick email-list actions
+      - show a warning if the server-side Supabase key is still anon so production hardening is not forgotten
+  - product shell defaults:
+    - the main app should default to dark mode unless the user explicitly chose light mode
+    - keep the product favicon aligned with the website favicon/mark treatment so the brand stays consistent across both apps

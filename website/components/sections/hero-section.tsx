@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Bell, ChevronDown, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  ChevronDown,
+  CircleAlert,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 
 import { Reveal } from "@/components/shared/reveal";
 import { Button } from "@/components/ui/button";
@@ -10,11 +17,26 @@ const stats = [
   { label: "Pending Approvals", value: "3", tone: "text-[color:var(--coral)]" },
 ];
 
+const microWins = [
+  {
+    title: "Clients stop chasing updates",
+    copy: "Context, approvals, and progress stay visible.",
+  },
+  {
+    title: "Your team ships with less drag",
+    copy: "Projects, chat, and tasks stay in one rhythm.",
+  },
+  {
+    title: "Ops gets a clearer picture",
+    copy: "Deadlines, scope, and decision signals stay readable.",
+  },
+];
+
 export function HeroSection() {
   return (
     <section className="section-shell">
       <div className="container-shell">
-        <div className="hero-grid">
+        <div className="hero-grid gap-y-12">
           <div className="space-y-6 sm:space-y-7">
             <Reveal>
               <span className="label-pill">
@@ -66,20 +88,38 @@ export function HeroSection() {
                 <span>Joined by 400+ agency teams</span>
               </div>
             </Reveal>
+
+            <Reveal delay={0.48}>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {microWins.map((item) => (
+                  <div
+                    key={item.title}
+                    className="rounded-[22px] border border-border/65 bg-card/72 px-4 py-4"
+                  >
+                    <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {item.copy}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
           </div>
 
           <Reveal delay={0.18}>
             <div
-              className="relative mx-auto w-full max-w-[560px] rounded-[24px] border border-white/8 bg-card p-4 shadow-[0_32px_80px_rgba(0,0,0,0.6),0_0_80px_rgba(200,241,53,0.12)]"
+              className="relative mx-auto w-full max-w-[580px] rounded-[28px] border border-white/8 bg-card p-4 shadow-[0_32px_80px_rgba(0,0,0,0.6),0_0_80px_rgba(200,241,53,0.12)]"
               style={{
                 transform: "perspective(1000px) rotateY(-8deg) rotateX(4deg)",
               }}
             >
-              <div className="rounded-[18px] border border-border/70 bg-background/55 p-4">
+              <div className="rounded-[22px] border border-border/70 bg-background/55 p-4">
                 <div className="flex items-center justify-between border-b border-border/70 pb-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Good morning, Alex</p>
-                    <p className="text-lg font-semibold text-foreground">Here&apos;s the state of the agency.</p>
+                    <p className="text-lg font-semibold text-foreground">
+                      Here&apos;s the state of the agency.
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <Bell className="h-4 w-4 text-muted-foreground" />
@@ -89,11 +129,22 @@ export function HeroSection() {
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   {stats.map((stat) => (
-                    <div key={stat.label} className="rounded-2xl border border-border/70 bg-card/65 p-3">
+                    <div
+                      key={stat.label}
+                      className="rounded-2xl border border-border/70 bg-card/65 p-3"
+                    >
                       <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                         {stat.label}
                       </p>
-                      <p className={`mt-2 text-xl font-semibold ${stat.tone}`}>{stat.value}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <p className={`text-xl font-semibold ${stat.tone}`}>{stat.value}</p>
+                        {stat.label === "Active Projects" ? (
+                          <TrendingUp className="h-4 w-4 text-[color:var(--mint)]" />
+                        ) : null}
+                        {stat.label === "Pending Approvals" ? (
+                          <CircleAlert className="h-4 w-4 text-[color:var(--coral)]" />
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -104,16 +155,23 @@ export function HeroSection() {
                     ["Velt Agency", "Website Redesign", "REVIEW", "62%", "bg-[color:var(--amber)]"],
                     ["Nord Creative", "Social Q4", "OVERDUE", "94%", "bg-[color:var(--coral)]"],
                   ].map(([client, project, status, budget, tone]) => (
-                    <div key={client} className="grid grid-cols-[1.25fr_1fr_auto] items-center gap-3 rounded-xl bg-background/36 px-3 py-3 text-sm">
+                    <div
+                      key={client}
+                      className="grid grid-cols-[1.25fr_1fr_auto] items-center gap-3 rounded-xl bg-background/36 px-3 py-3 text-sm"
+                    >
                       <div className="min-w-0">
                         <p className="truncate font-medium text-foreground">{client}</p>
                         <p className="truncate text-xs text-muted-foreground">{project}</p>
                       </div>
-                      <span className={`inline-flex h-7 items-center justify-center rounded-full px-2 text-[10px] font-semibold tracking-[0.14em] text-black ${tone}`}>
+                      <span
+                        className={`inline-flex h-7 items-center justify-center rounded-full px-2 text-[10px] font-semibold tracking-[0.14em] text-black ${tone}`}
+                      >
                         {status}
                       </span>
                       <div className="min-w-[92px]">
-                        <p className="mb-1 text-right text-xs text-muted-foreground">{budget} budget</p>
+                        <p className="mb-1 text-right text-xs text-muted-foreground">
+                          {budget} budget
+                        </p>
                         <div className="h-2 rounded-full bg-white/8">
                           <div className={`h-2 rounded-full ${tone}`} style={{ width: budget }} />
                         </div>
