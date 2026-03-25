@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { guardPublicForm } from "@/lib/form-guard";
+import { sendWaitlistAcknowledgement } from "@/lib/mailer";
 import { getSupabaseAdminClient } from "@/lib/supabaseClient";
 import { siteConfig } from "@/lib/site";
 
@@ -93,6 +95,12 @@ export async function joinWaitlist(
   }
 
   try {
+    await guardPublicForm({
+      formName: "waitlist",
+      formData,
+      email,
+    });
+
     const supabase = getSupabaseAdminClient() as unknown as WaitlistSupabaseClient;
 
     const existingResult = await supabase
@@ -141,11 +149,23 @@ export async function joinWaitlist(
 
     revalidatePath("/waitlist");
 
+    const referralLink = `${siteConfig.siteUrl}/?ref=${referralCode}`;
+
+    try {
+      await sendWaitlistAcknowledgement({
+        email,
+        name,
+        referralLink,
+      });
+    } catch (ackError) {
+      console.error("Waitlist acknowledgement failed", ackError);
+    }
+
     return {
       status: "success",
       message: "You're on the waitlist.",
       referralCode,
-      referralLink: `${siteConfig.siteUrl}/?ref=${referralCode}`,
+      referralLink,
       positionEstimate: "Founding access unlocked",
     };
   } catch (error) {

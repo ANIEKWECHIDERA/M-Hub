@@ -15,10 +15,12 @@ export default function ContactPage() {
         <div className="container-shell grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
           <div className="space-y-4">
             <span className="label-pill">Contact</span>
-            <h1 className="section-title">Tell us what your agency is juggling.</h1>
+            <h1 className="section-title">
+              Tell us what your agency is juggling.
+            </h1>
             <p className="section-copy max-w-xl">
-              If you&apos;re exploring Crevo, partnerships, or early-access questions, send a note.
-              We&apos;ll keep it human.
+              If you&apos;re exploring Crevo, partnerships, or early-access
+              questions, send a note. We&apos;d love to hear from you.
             </p>
           </div>
           <ContactForm />

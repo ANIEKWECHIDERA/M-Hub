@@ -1705,8 +1705,22 @@ Assumptions currently in use:
     - homepage hero polish should prioritize stronger contrast, cleaner conversion hierarchy, and richer product-mockup credibility before broad page-wide redesigns
     - waitlist conversion polish should prioritize confidence cues, referral motivation, and a cleaner split-layout on larger screens
     - the waitlist form should avoid reading browser-only referral state during render; use a client-safe subscription/snapshot pattern so static pages do not hydrate differently from the server
+    - public marketing forms should use layered spam protection:
+      - hidden honeypot field
+      - minimum fill time
+      - server-side in-memory rate limiting keyed by request fingerprint and email
     - `website/supabase/waitlist.sql` contains the baseline waitlist table schema expected by the current server action
     - the waitlist schema now also supports `agency`, and the join action should stay backward-compatible if an older table has not been altered yet
+    - the marketing site should resolve to `http://localhost:3000` by default in development and `https://www.trycrevo.com` by default in production if `NEXT_PUBLIC_SITE_URL` is not explicitly set
+    - metadata and canonical URLs should derive from `website/lib/site.ts` so domain changes stay centralized
+    - contact form delivery now targets `hi@trycrevo.com` through SMTP-backed server mail in `website/lib/mailer.ts`
+      - requires `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+      - optional `SMTP_FROM`, defaulting to `notify@trycrevo.com`
+      - recipient defaults to `CONTACT_INBOX_EMAIL` or `hi@trycrevo.com`
+      - both contact and waitlist flows should send acknowledgement emails back to the submitter from the notify sender when SMTP is configured
+      - the current working SMTP host for trycrevo mail is `mail.trycrevo.com`
+    - the waitlist success state should prioritize copying the referral link and explain that referrals can unlock future discounts; avoid generic share-button clutter
+      - if the mail server enforces sender/user matching, authenticate as `notify@trycrevo.com` so acknowledgements can come from that mailbox while inbound contact still routes to `hi@trycrevo.com`
     - private waitlist operations now live at `/ops/login` and `/ops`
       - auth is env-backed and cookie-based through `website/lib/ops-auth.ts`
       - use `WAITLIST_ADMIN_EMAIL`, `WAITLIST_ADMIN_PASSWORD`, and `WAITLIST_ADMIN_SESSION_SECRET`

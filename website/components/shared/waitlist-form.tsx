@@ -4,9 +4,10 @@ import {
   useActionState,
   useEffect,
   useMemo,
+  useRef,
   useSyncExternalStore,
 } from "react";
-import { CheckCircle2, Copy, Link2, Share2, Sparkles, User } from "lucide-react";
+import { CheckCircle2, Copy, Link2, Sparkles, User } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 
@@ -60,11 +61,18 @@ export function WaitlistForm({
   description?: string;
 }) {
   const [state, formAction] = useActionState(joinWaitlist, initialState);
+  const startedAtRef = useRef<HTMLInputElement | null>(null);
   const storedReferral = useSyncExternalStore(
     () => () => undefined,
     getStoredReferralCodeClient,
     () => "",
   );
+
+  const stampFormStart = () => {
+    if (startedAtRef.current && !startedAtRef.current.value) {
+      startedAtRef.current.value = String(Date.now());
+    }
+  };
 
   useEffect(() => {
     if (!storedReferral) return;
@@ -81,25 +89,15 @@ export function WaitlistForm({
     }
   }, [state]);
 
-  const shareLink = useMemo(() => state.referralLink || "", [state.referralLink]);
+  const shareLink = useMemo(
+    () => state.referralLink || "",
+    [state.referralLink],
+  );
 
   const copyLink = async () => {
     if (!shareLink) return;
     await navigator.clipboard.writeText(shareLink);
     toast.success("Referral link copied.");
-  };
-
-  const shareReferral = async () => {
-    if (!shareLink) return;
-    if (navigator.share) {
-      await navigator.share({
-        title: "Crevo waitlist",
-        text: "Join me on the Crevo waitlist.",
-        url: shareLink,
-      });
-      return;
-    }
-    await copyLink();
   };
 
   if (state.status === "success" && shareLink) {
@@ -114,7 +112,8 @@ export function WaitlistForm({
           </div>
           <CardTitle>Now turn one signup into two.</CardTitle>
           <CardDescription>
-            Share your link to move your team into the front row faster.
+            Copy your referral link and share it with other teams. Referral
+            signups can unlock launch discounts later.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -126,24 +125,14 @@ export function WaitlistForm({
               {shareLink}
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button type="button" onClick={copyLink} className="sm:flex-1">
-              <Copy className="h-4 w-4" />
-              Copy link
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={shareReferral}
-              className="sm:flex-1"
-            >
-              <Share2 className="h-4 w-4" />
-              Share
-            </Button>
-          </div>
+          <Button type="button" onClick={copyLink} className="w-full">
+            <Copy className="h-4 w-4" />
+            Copy referral link
+          </Button>
           {state.positionEstimate ? (
             <p className="text-sm text-muted-foreground">
               {state.positionEstimate} · Founding member perks are still open.
+              Keep your link handy for future discount rewards.
             </p>
           ) : null}
         </CardContent>
@@ -164,17 +153,44 @@ export function WaitlistForm({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-4">
+        <form
+          action={formAction}
+          className="space-y-4"
+          onFocusCapture={stampFormStart}
+          onPointerDownCapture={stampFormStart}
+        >
+          <input
+            ref={startedAtRef}
+            type="hidden"
+            name="startedAt"
+            defaultValue=""
+          />
           <input type="hidden" name="referredBy" value={storedReferral} />
+          <div className="hidden" aria-hidden="true">
+            <label htmlFor="waitlist-company-website">
+              Leave this field empty
+            </label>
+            <Input
+              id="waitlist-company-website"
+              name="companyWebsite"
+              tabIndex={-1}
+              autoComplete="off"
+            />
+          </div>
 
           <div
             className={cn(
               "grid gap-3",
-              showAgency ? "sm:grid-cols-2" : "sm:grid-cols-[1fr_auto] sm:items-end",
+              showAgency
+                ? "sm:grid-cols-2"
+                : "sm:grid-cols-[1fr_auto] sm:items-end",
             )}
           >
             <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium text-foreground">
+              <label
+                htmlFor="name"
+                className="text-sm font-medium text-foreground"
+              >
                 Name
               </label>
               <div className="relative">
@@ -189,7 +205,10 @@ export function WaitlistForm({
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-foreground">
+              <label
+                htmlFor="email"
+                className="text-sm font-medium text-foreground"
+              >
                 Email
               </label>
               <div className="relative">
@@ -208,10 +227,17 @@ export function WaitlistForm({
 
           {showAgency ? (
             <div className="space-y-2">
-              <label htmlFor="agency" className="text-sm font-medium text-foreground">
+              <label
+                htmlFor="agency"
+                className="text-sm font-medium text-foreground"
+              >
                 Agency name
               </label>
-              <Input id="agency" name="agency" placeholder="Your studio or agency" />
+              <Input
+                id="agency"
+                name="agency"
+                placeholder="Your studio or agency"
+              />
             </div>
           ) : null}
 

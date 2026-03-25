@@ -32,9 +32,9 @@ export default function WaitlistPage() {
               <span className="label-pill">Early Access</span>
               <h1 className="section-title max-w-3xl">The waitlist is open.</h1>
               <p className="section-copy mx-auto max-w-2xl lg:mx-0">
-                Crevo is in private beta. Join the list and be first in. Early access
-                gets your agency closer to launch pricing, direct product feedback loops,
-                and a smoother migration when the doors open.
+                Crevo is in private beta. Join the list and be first in. Early
+                access gets your agency closer to launch pricing, direct product
+                feedback loops, and a smoother migration when the doors open.
               </p>
             </div>
 
@@ -57,7 +57,9 @@ export default function WaitlistPage() {
               <span className="rounded-full border border-primary/24 bg-primary/10 px-3 py-1 text-primary">
                 412 agencies already on the list
               </span>
-              <span>Share your referral link after signup to bring your team with you.</span>
+              <span>
+                Share your referral link to inform other teams about Crevo.
+              </span>
             </div>
           </div>
 

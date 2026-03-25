@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 
 import { Toaster } from "@/components/ui/sonner";
+import { siteConfig } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://trycrevo.com"),
+  metadataBase: new URL(siteConfig.siteUrl),
   title: {
     default: "Crevo | Built for agencies. Not adapted for them.",
     template: "%s | Crevo",
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
     title: "Crevo | Built for agencies. Not adapted for them.",
     description:
       "The project hub your agency actually deserves. Join the Crevo waitlist.",
-    url: "https://trycrevo.com",
+    url: siteConfig.siteUrl,
     siteName: "Crevo",
     type: "website",
   },
@@ -24,6 +25,9 @@ export const metadata: Metadata = {
     title: "Crevo | Built for agencies. Not adapted for them.",
     description:
       "The project hub your agency actually deserves. Join the Crevo waitlist.",
+  },
+  alternates: {
+    canonical: siteConfig.siteUrl,
   },
 };
 
