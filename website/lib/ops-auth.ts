@@ -1,7 +1,10 @@
+import "server-only";
+
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getServerEnv } from "@/lib/server-env";
 
 const OPS_SESSION_COOKIE = "crevo_ops_session";
 const OPS_SESSION_TTL_SECONDS = 60 * 60 * 12;
@@ -12,9 +15,11 @@ type SessionPayload = {
 };
 
 function getRequiredOpsEnv() {
-  const email = process.env.WAITLIST_ADMIN_EMAIL;
-  const password = process.env.WAITLIST_ADMIN_PASSWORD;
-  const secret = process.env.WAITLIST_ADMIN_SESSION_SECRET;
+  const {
+    waitlistAdminEmail: email,
+    waitlistAdminPassword: password,
+    waitlistAdminSessionSecret: secret,
+  } = getServerEnv();
 
   if (!email || !password || !secret) {
     throw new Error(

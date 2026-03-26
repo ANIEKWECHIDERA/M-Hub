@@ -1,3 +1,5 @@
+import "server-only";
+
 import { getSupabaseAdminClient } from "@/lib/supabaseClient";
 
 export type WaitlistLead = {
@@ -20,20 +22,6 @@ export type WaitlistSnapshot = {
   topReferrers: Array<{ referralCode: string; count: number }>;
   usesAnonKey: boolean;
 };
-
-function getSupabaseRoleFromKey() {
-  const raw = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!raw) return null;
-
-  try {
-    const payload = JSON.parse(
-      Buffer.from(raw.split(".")[1], "base64url").toString("utf8"),
-    ) as { role?: string };
-    return payload.role ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export async function getWaitlistSnapshot(options?: {
   query?: string;
@@ -91,7 +79,7 @@ export async function getWaitlistSnapshot(options?: {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([referralCode, count]) => ({ referralCode, count })),
-    usesAnonKey: getSupabaseRoleFromKey() === "anon",
+    usesAnonKey: false,
   } satisfies WaitlistSnapshot;
 }
 

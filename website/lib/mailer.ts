@@ -1,31 +1,27 @@
+import "server-only";
+
 import nodemailer from "nodemailer";
 
 import { siteConfig } from "@/lib/site";
-
-const defaultInbox = "hi@trycrevo.com";
-const defaultNotifyFrom = "Crevo <notify@trycrevo.com>";
+import { getServerEnv, serverEnvDefaults } from "@/lib/server-env";
 
 function getSmtpConfig() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 465);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || defaultNotifyFrom;
-  const inbox = process.env.CONTACT_INBOX_EMAIL || defaultInbox;
+  const { smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, contactInboxEmail } =
+    getServerEnv();
 
-  if (!host || !user || !pass) {
+  if (!smtpPass) {
     throw new Error(
-      "Missing SMTP_HOST, SMTP_USER, or SMTP_PASS. Configure website email delivery before using the contact form in production.",
+      "Missing SMTP_PASS. Configure website email delivery before using the contact form in production.",
     );
   }
 
   return {
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-    from,
-    inbox,
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: { user: smtpUser, pass: smtpPass },
+    from: smtpFrom,
+    inbox: contactInboxEmail,
   };
 }
 
@@ -98,7 +94,7 @@ function renderEmailShell({
               <td style="padding:0 20px 24px;">
                 <div style="border-top:1px solid rgba(240,238,232,0.08);padding-top:18px;font-size:12px;line-height:1.7;color:#7e7b88;">
                   <div>${escapeHtml(siteConfig.name)} · ${escapeHtml(siteConfig.domain)}</div>
-                  <div>Questions? Reply to this email or reach us at <a href="mailto:${defaultInbox}" style="color:#f0eee8;">${defaultInbox}</a>.</div>
+                  <div>Questions? Reply to this email or reach us at <a href="mailto:${serverEnvDefaults.defaultInbox}" style="color:#f0eee8;">${serverEnvDefaults.defaultInbox}</a>.</div>
                 </div>
               </td>
             </tr>
@@ -153,7 +149,7 @@ export async function sendContactInboxEmail({
   email: string;
   message: string;
 }) {
-  const inbox = process.env.CONTACT_INBOX_EMAIL || defaultInbox;
+  const { contactInboxEmail } = getServerEnv();
   const html = renderEmailShell({
     preheader: `New contact message from ${name}`,
     eyebrow: "New contact",
@@ -170,7 +166,7 @@ export async function sendContactInboxEmail({
   });
 
   await sendMail({
-    to: inbox,
+    to: contactInboxEmail,
     replyTo: email,
     subject: `New website contact from ${name}`,
     text: [`Name: ${name}`, `Email: ${email}`, "", message].join("\n"),
