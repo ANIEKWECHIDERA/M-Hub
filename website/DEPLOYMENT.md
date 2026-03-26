@@ -32,12 +32,15 @@ Set these in the Netlify site dashboard for the website project:
 - `WAITLIST_ADMIN_EMAIL=...`
 - `WAITLIST_ADMIN_PASSWORD=...`
 - `WAITLIST_ADMIN_SESSION_SECRET=...`
-- `CONTACT_INBOX_EMAIL=hi@trycrevo.com`
-- `SMTP_HOST=mail.trycrevo.com`
-- `SMTP_PORT=465`
-- `SMTP_USER=notify@trycrevo.com`
 - `SMTP_PASS=...`
-- `SMTP_FROM=Crevo <notify@trycrevo.com>`
+
+Optional mail overrides only if you really need them:
+
+- `CONTACT_INBOX_EMAIL`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USER`
+- `SMTP_FROM`
 
 ## Domain Setup
 
@@ -70,3 +73,17 @@ The safe approach is:
 - product on `app.trycrevo.com`
 
 Then the website can always send visitors to the product login URL without route collisions.
+
+## Secrets Scanning Safety
+
+To reduce secret exposure risk in deploy output:
+
+- keep real secrets only in the Netlify environment dashboard
+- do not commit `website/.env`
+- only `NEXT_PUBLIC_*` values should be considered browser-safe
+- the website now uses safe defaults for these non-secret mail values, so you can usually omit them from Netlify entirely:
+  - inbox email
+  - SMTP host
+  - SMTP port
+  - SMTP user
+  - SMTP from

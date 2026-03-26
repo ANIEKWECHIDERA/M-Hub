@@ -1729,8 +1729,20 @@ Assumptions currently in use:
       - recipient defaults to `CONTACT_INBOX_EMAIL` or `hi@trycrevo.com`
       - both contact and waitlist flows should send acknowledgement emails back to the submitter from the notify sender when SMTP is configured
       - the current working SMTP host for trycrevo mail is `mail.trycrevo.com`
-    - the waitlist success state should prioritize copying the referral link and explain that referrals can unlock future discounts; avoid generic share-button clutter
+      - the waitlist success state should prioritize copying the referral link and explain that referrals can unlock future discounts; avoid generic share-button clutter
       - if the mail server enforces sender/user matching, authenticate as `notify@trycrevo.com` so acknowledgements can come from that mailbox while inbound contact still routes to `hi@trycrevo.com`
+      - website server env access now runs through `website/lib/server-env.ts` with `server-only`
+      - for Netlify-safe deploys, prefer setting only real secrets in the env dashboard:
+        - `SUPABASE_SERVICE_ROLE_KEY`
+        - `WAITLIST_ADMIN_PASSWORD`
+        - `WAITLIST_ADMIN_SESSION_SECRET`
+        - `SMTP_PASS`
+      - non-secret mail settings can be omitted from Netlify because the website now has safe defaults for:
+        - inbox email
+        - SMTP host
+        - SMTP port
+        - SMTP user
+        - SMTP from
     - private waitlist operations now live at `/ops/login` and `/ops`
       - auth is env-backed and cookie-based through `website/lib/ops-auth.ts`
       - use `WAITLIST_ADMIN_EMAIL`, `WAITLIST_ADMIN_PASSWORD`, and `WAITLIST_ADMIN_SESSION_SECRET`
