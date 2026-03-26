@@ -42,6 +42,21 @@ Optional mail overrides only if you really need them:
 - `SMTP_USER`
 - `SMTP_FROM`
 
+Netlify secrets scanning:
+
+- keep secrets scanning enabled
+- allow Netlify to ignore expected public/non-secret keys that appear in build output:
+  - `NEXT_PUBLIC_SITE_URL`
+  - `NEXT_PUBLIC_APP_URL`
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `SMTP_HOST`
+  - `SMTP_PORT`
+  - `SMTP_USER`
+  - `SMTP_FROM`
+  - `CONTACT_INBOX_EMAIL`
+  - `WAITLIST_ADMIN_EMAIL`
+- this is already configured in `website/netlify.toml`
+
 ## Domain Setup
 
 Recommended:
