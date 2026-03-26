@@ -1,0 +1,72 @@
+# Website Deployment Guide
+
+This website is a separate Next.js marketing app inside the `website/` folder.
+
+## Recommended Production Setup
+
+- Marketing website: `https://www.trycrevo.com`
+- Product app: `https://app.trycrevo.com`
+- Product login route: `https://app.trycrevo.com/login`
+
+This split keeps the public landing site on the root domain and avoids routing conflicts with the authenticated product app.
+
+## Netlify Project Settings
+
+If you deploy from the repo root, the root `netlify.toml` already points Netlify at `website/`.
+
+Equivalent Netlify UI settings:
+
+- Base directory: `website`
+- Build command: `npm run build`
+- Publish directory: leave blank for Next.js runtime
+- Node version: `20`
+
+## Required Environment Variables
+
+Set these in the Netlify site dashboard for the website project:
+
+- `NEXT_PUBLIC_SITE_URL=https://www.trycrevo.com`
+- `NEXT_PUBLIC_APP_URL=https://app.trycrevo.com/login`
+- `NEXT_PUBLIC_SUPABASE_URL=...`
+- `SUPABASE_SERVICE_ROLE_KEY=...`
+- `WAITLIST_ADMIN_EMAIL=...`
+- `WAITLIST_ADMIN_PASSWORD=...`
+- `WAITLIST_ADMIN_SESSION_SECRET=...`
+- `CONTACT_INBOX_EMAIL=hi@trycrevo.com`
+- `SMTP_HOST=mail.trycrevo.com`
+- `SMTP_PORT=465`
+- `SMTP_USER=notify@trycrevo.com`
+- `SMTP_PASS=...`
+- `SMTP_FROM=Crevo <notify@trycrevo.com>`
+
+## Domain Setup
+
+Recommended:
+
+1. Connect `www.trycrevo.com` to the Netlify website project.
+2. Keep the product app on `app.trycrevo.com`.
+3. Configure DNS so `www` points to Netlify and `app` points to the product host.
+
+If you later want `trycrevo.com` without `www`, make it redirect to `https://www.trycrevo.com`.
+
+## Safe Deployment Checklist
+
+1. Replace the current Supabase anon key with the real service-role key for the website server actions.
+2. Confirm the `waitlist` table exists in Supabase using `website/supabase/waitlist.sql`.
+3. Confirm SMTP auth still succeeds for `notify@trycrevo.com`.
+4. Verify `/waitlist`, `/contact`, and `/ops/login` after deploy.
+5. Verify `Log in` on the website opens `https://app.trycrevo.com/login`.
+6. Keep the website and product app as separate deployments.
+
+## Why The App Link Changed
+
+The product app now treats unauthenticated users as `/login` and authenticated users as `/dashboard`.
+
+That is fine, but the marketing website should not own those same routes on `www.trycrevo.com`.
+
+The safe approach is:
+
+- website on `www.trycrevo.com`
+- product on `app.trycrevo.com`
+
+Then the website can always send visitors to the product login URL without route collisions.

@@ -1,5 +1,10 @@
 const isProduction = process.env.NODE_ENV === "production";
-const defaultSiteUrl = isProduction ? "https://www.trycrevo.com" : "http://localhost:3000";
+const defaultSiteUrl = isProduction
+  ? "https://www.trycrevo.com"
+  : "http://localhost:3000";
+const defaultAppUrl = isProduction
+  ? "https://app.trycrevo.com/login"
+  : "http://localhost:5173/login";
 
 export const siteConfig = {
   name: "Crevo",
@@ -8,7 +13,7 @@ export const siteConfig = {
     "The project hub your agency actually deserves. Manage clients, projects, budgets, approvals, and deliverables in one place.",
   tagline: "Built for agencies. Not adapted for them.",
   secondaryTagline: "Where agency work actually lives.",
-  appUrl: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5173/login",
+  appUrl: process.env.NEXT_PUBLIC_APP_URL || defaultAppUrl,
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || defaultSiteUrl,
 };
 

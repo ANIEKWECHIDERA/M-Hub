@@ -80,6 +80,11 @@ export function WaitlistForm({
   }, [storedReferral]);
 
   useEffect(() => {
+    if (state.status !== "success" || !storedReferral) return;
+    window.localStorage.removeItem("crevo_ref");
+  }, [state.status, storedReferral]);
+
+  useEffect(() => {
     if (state.status === "success" && state.message) {
       toast.success(state.message);
     }

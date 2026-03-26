@@ -1695,6 +1695,16 @@ Assumptions currently in use:
     - once signup succeeds, show the user their referral link with copy/share actions
   - marketing-site environment file:
     - `website/.env.example`
+  - deployment split:
+    - public marketing site should own `https://www.trycrevo.com`
+    - product app should live on a separate app host such as `https://app.trycrevo.com`
+    - the website should link `Log in` to `NEXT_PUBLIC_APP_URL`, defaulting to:
+      - dev: `http://localhost:5173/login`
+      - prod: `https://app.trycrevo.com/login`
+    - keep the website and product as separate deployments to avoid route conflicts on `/`, `/login`, and `/dashboard`
+  - Netlify deployment:
+    - repo root `netlify.toml` now points Netlify at `website/` as the build base
+    - deployment instructions live in `website/DEPLOYMENT.md`
   - deployment note:
     - `website/netlify.toml` is included for the separate site build target
   - website default-theme rule:
