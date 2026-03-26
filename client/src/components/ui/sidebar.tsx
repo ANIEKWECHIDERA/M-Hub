@@ -71,7 +71,7 @@ export function SidebarProvider({
 
   return (
     <SidebarContext.Provider value={value}>
-      <TooltipProvider delayDuration={120}>{children}</TooltipProvider>
+      <TooltipProvider delayDuration={400}>{children}</TooltipProvider>
     </SidebarContext.Provider>
   );
 }
@@ -97,7 +97,10 @@ export function SidebarTrigger({
       type="button"
       variant="ghost"
       size="icon"
-      className={cn("h-10 w-10 rounded-lg sm:h-9 sm:w-9", className)}
+      className={cn(
+        "h-10 w-10 rounded-md border border-border/35 bg-card/65 shadow-sm sm:h-9 sm:w-9",
+        className,
+      )}
       onClick={toggleSidebar}
       {...props}
     >
@@ -136,7 +139,7 @@ export function Sidebar({
     <>
       <aside
         className={cn(
-          "hidden h-screen shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex lg:flex-col",
+          "hidden h-screen shrink-0 border-r border-sidebar-border/45 bg-sidebar/95 text-sidebar-foreground backdrop-blur-xl lg:flex lg:flex-col",
           open ? "lg:w-72" : "lg:w-20",
           className,
         )}
@@ -147,7 +150,7 @@ export function Sidebar({
       <Sheet open={openMobile} onOpenChange={setOpenMobile}>
         <SheetContent
           side="left"
-          className="w-[20rem] border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground sm:w-[22rem] sm:max-w-none"
+          className="w-[20rem] border-r border-sidebar-border/45 bg-sidebar/95 p-0 text-sidebar-foreground backdrop-blur-xl sm:w-[22rem] sm:max-w-none"
         >
           <aside className="flex h-full flex-col">{children}</aside>
         </SheetContent>
@@ -162,7 +165,7 @@ export function SidebarHeader({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("border-b border-sidebar-border p-2 sm:p-3", className)}
+      className={cn("border-b border-sidebar-border/45 p-2 sm:p-3", className)}
       {...props}
     />
   );
@@ -175,7 +178,7 @@ export function SidebarContent({
   return (
     <div
       className={cn(
-        "flex flex-1 flex-col gap-3 overflow-y-auto p-2 sm:gap-4 sm:p-3",
+        "flex flex-1 flex-col gap-3 overflow-y-auto p-2.5 sm:gap-4 sm:p-3",
         className,
       )}
       {...props}
@@ -189,7 +192,7 @@ export function SidebarFooter({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("border-t border-sidebar-border p-2 sm:p-3", className)}
+      className={cn("border-t border-sidebar-border/45 p-2 sm:p-3", className)}
       {...props}
     />
   );
@@ -251,9 +254,11 @@ export function SidebarMenuButton({
     <Button
       variant={isActive ? "secondary" : "ghost"}
       className={cn(
-        "h-10 w-full justify-start gap-3 rounded-lg border border-transparent px-2.5 text-sm font-medium shadow-none sm:px-3",
+        "relative h-10 w-full justify-start gap-3 rounded-md border border-sidebar-border/30 px-2.5 text-sm font-medium shadow-none sm:px-3",
         isActive &&
-          "border-border bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/90",
+          "border-sidebar-border/30 bg-primary/[0.06] text-foreground shadow-sm after:absolute after:left-0 after:top-[7px] after:h-[26px] after:w-[2px] after:bg-primary",
+        !isActive &&
+          "text-muted-foreground hover:border-primary/10 hover:bg-primary/[0.035] hover:text-foreground",
         className,
       )}
       {...props}

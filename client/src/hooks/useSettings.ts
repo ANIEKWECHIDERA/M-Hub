@@ -21,7 +21,7 @@ const DEFAULT_PREFERENCES: Preferences = {
 
 export const useSettings = () => {
   const { idToken, authStatus } = useAuthContext();
-  const [theme, setThemeState] = useState<"light" | "dark">("light");
+  const [theme, setThemeState] = useState<"light" | "dark">("dark");
   const [language, setLanguageState] = useState<"en" | "es" | "fr">("en");
   const [preferences, setPreferencesState] =
     useState<Preferences>(DEFAULT_PREFERENCES);
@@ -45,7 +45,7 @@ export const useSettings = () => {
       setThemeState(storedTheme);
       applyTheme(storedTheme);
     } else {
-      applyTheme("light");
+      applyTheme("dark");
     }
   }, []);
 

@@ -1,0 +1,227 @@
+@import url("https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@400,500,700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --background: #0c0c0f;
+  --foreground: #f0eee8;
+  --card: #1a1a24;
+  --card-foreground: #f0eee8;
+  --popover: #16161e;
+  --popover-foreground: #f0eee8;
+  --primary: #c8f135;
+  --primary-foreground: #0c0c0f;
+  --secondary: #20202b;
+  --secondary-foreground: #f0eee8;
+  --muted: #1f1f2a;
+  --muted-foreground: #9492a0;
+  --accent: #20202b;
+  --accent-foreground: #f0eee8;
+  --destructive: #ff6b6b;
+  --destructive-foreground: #0c0c0f;
+  --border: rgba(240, 238, 232, 0.08);
+  --input: rgba(240, 238, 232, 0.08);
+  --ring: rgba(200, 241, 53, 0.32);
+  --surface-elevated: #2e2e3e;
+  --text-secondary: #9492a0;
+  --text-muted: #5c5a6b;
+  --mint: #4adeaa;
+  --sky: #60a5fa;
+  --amber: #ffb547;
+  --coral: #ff6b6b;
+  --shadow-card: 0 22px 60px rgba(0, 0, 0, 0.34);
+  --shadow-volt: 0 0 32px rgba(200, 241, 53, 0.22);
+  --header-background: rgba(12, 12, 15, 0.85);
+}
+
+.light {
+  --background: #f5f4f0;
+  --foreground: #1a1a24;
+  --card: #eeecea;
+  --card-foreground: #1a1a24;
+  --popover: #f2f0ec;
+  --popover-foreground: #1a1a24;
+  --primary: #9dbd1b;
+  --primary-foreground: #111111;
+  --secondary: #e7e4e0;
+  --secondary-foreground: #1a1a24;
+  --muted: #ece9e5;
+  --muted-foreground: #4a4858;
+  --accent: #e7e4e0;
+  --accent-foreground: #1a1a24;
+  --destructive: #d95b5b;
+  --destructive-foreground: #ffffff;
+  --border: rgba(26, 26, 36, 0.08);
+  --input: rgba(26, 26, 36, 0.1);
+  --ring: rgba(157, 189, 27, 0.28);
+  --surface-elevated: #ddd8d2;
+  --text-secondary: #4a4858;
+  --text-muted: #6c6979;
+  --shadow-card: 0 18px 46px rgba(28, 28, 36, 0.08);
+  --shadow-volt: 0 0 24px rgba(157, 189, 27, 0.16);
+  --header-background: rgba(245, 244, 240, 0.82);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: "Satoshi", "DM Sans", sans-serif;
+  --font-display: "Clash Display", "Satoshi", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 15% 25%, rgba(200, 241, 53, 0.08) 0%, transparent 45%),
+    radial-gradient(ellipse at 82% 2%, rgba(96, 165, 250, 0.06) 0%, transparent 38%),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.04;
+  mix-blend-mode: soft-light;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.7) 0 0.5px, transparent 0.5px),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.55) 0 0.6px, transparent 0.6px);
+  background-size: 24px 24px, 31px 31px;
+}
+
+body::after {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.06;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--foreground) 6%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--foreground) 6%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at center, black 40%, transparent 88%);
+}
+
+[data-display-font="true"] {
+  font-family: var(--font-display);
+}
+
+.container-shell {
+  @apply mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6;
+}
+
+.section-shell {
+  @apply py-16 sm:py-20 lg:py-28;
+}
+
+.section-title {
+  @apply text-3xl font-semibold tracking-tight text-balance sm:text-4xl lg:text-5xl;
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+.section-copy {
+  @apply text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7;
+}
+
+.label-pill {
+  @apply inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em];
+  border-color: rgba(200, 241, 53, 0.28);
+  background: rgba(200, 241, 53, 0.08);
+  color: var(--primary);
+}
+
+.hero-grid {
+  @apply grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(380px,0.9fr)] lg:gap-12;
+}
+
+.grain-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.grain-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02)),
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.28) 1px, transparent 0);
+  background-size: 100% 100%, 16px 16px;
+  opacity: 0.04;
+}
+
+.field-icon {
+  pointer-events: none;
+  position: absolute;
+  left: 0.95rem;
+  top: 50%;
+  height: 1rem;
+  width: 1rem;
+  transform: translateY(-50%);
+  color: color-mix(in srgb, var(--text-secondary) 84%, transparent);
+}
+
+.field-with-icon {
+  padding-left: 2.9rem;
+}
+
+.surface-outline {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

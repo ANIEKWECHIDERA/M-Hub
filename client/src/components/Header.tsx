@@ -38,6 +38,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useMemo, useState } from "react";
 import { useSidebar } from "@/components/ui/sidebar";
+import { motion } from "framer-motion";
 
 export function Header() {
   const { toggleTheme, preferences } = useSettingsContext();
@@ -112,7 +113,10 @@ export function Header() {
 
   if (userLoading) {
     return (
-      <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <motion.header
+        layout
+        className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/78 backdrop-blur-xl supports-[backdrop-filter]:bg-background/66"
+      >
         <div className="flex h-12 items-center justify-between gap-2 px-4 sm:h-14 sm:px-6 lg:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div className="relative">
@@ -134,12 +138,15 @@ export function Header() {
             <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
           </div>
         </div>
-      </header>
+      </motion.header>
     );
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+    <motion.header
+      layout
+      className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/78 backdrop-blur-xl supports-[backdrop-filter]:bg-background/66"
+    >
       <div className="flex h-12 items-center justify-between gap-2 px-4 sm:h-14 sm:px-6 lg:px-8">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="relative">
@@ -195,15 +202,15 @@ export function Header() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
+            <PopoverContent className="w-80 rounded-xl border border-border/35 bg-popover p-0 shadow-[var(--shadow-card)]" align="end">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold">Notifications</h4>
-                  <div className="flex items-center gap-1">
+                <div className="border-b border-border/35 px-4 pb-3 pt-4">
+                  <h4 className="text-sm font-semibold tracking-tight" data-display-font="true">Notifications</h4>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 px-2 text-xs"
+                      className="h-7 rounded-md border border-border/25 px-2 text-[11px]"
                       onClick={() => refreshNotifications()}
                       aria-label="Refresh notifications"
                     >
@@ -212,7 +219,7 @@ export function Header() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-xs"
+                      className="h-7 rounded-md border border-border/25 px-2.5 text-[11px]"
                       onClick={markAllAsRead}
                       disabled={unreadCount === 0}
                     >
@@ -221,7 +228,7 @@ export function Header() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-xs"
+                      className="h-7 rounded-md border border-border/25 px-2.5 text-[11px]"
                       onClick={clearAllNotifications}
                       disabled={notifications.length === 0}
                     >
@@ -229,7 +236,7 @@ export function Header() {
                     </Button>
                   </div>
                 </div>
-                <div className="space-y-2 max-h-80 overflow-y-auto">
+                <div className="max-h-80 space-y-2 overflow-y-auto px-4 pb-4">
                   {!preferences.notifications ? (
                     <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                       <p className="font-medium text-foreground">
@@ -361,6 +368,6 @@ export function Header() {
           </DropdownMenu>
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 }

@@ -1608,3 +1608,135 @@ Assumptions currently in use:
     - prefer `Map` for keyed entity lookup and cache layers
     - prefer `Set` for dedupe and invalidation groups
     - reserve heavier structures like priority queues or graphs for later ranking/dependency features
+- Frontend branding workflow:
+  - treat the current clean frontend state as `BASE`
+  - `BASE` is the visual fallback point before any new branding experiment
+  - when iterating on visual design, pair these two documents:
+    - `01_crevo_brand_identity.md`
+    - `03_crevo_app_design_brief.md`
+  - use them together like this:
+    - `01_crevo_brand_identity.md` defines the emotional target, palette, typography intent, motion personality, and voice
+    - `03_crevo_app_design_brief.md` defines how that identity should show up inside the authenticated product shell and core screens
+  - iteration rule:
+    - start every branding pass from `BASE`
+    - apply changes in narrow layers, not full redesigns
+    - preferred order:
+      1. color tokens
+      2. status colors and active states
+      3. surface treatment
+      4. typography emphasis
+      5. motion polish
+      6. only then layout refinements if still needed
+  - safety rule:
+    - if a branding pass makes the app feel too different, revert to `BASE` and keep only the smallest successful layer
+  - dark/light mode interpretation:
+    - dark mode is the expressive primary brand experience
+    - light mode should remain fully designed, but should be a softer translation of the same system rather than a separate personality
+- brand application rule:
+    - the work stays the hero
+    - avoid decorative branding that competes with tasks, projects, chat, or workspace content
+- BASE-to-brand implementation pass notes:
+  - the current branded UI layer now applies the Crevo palette from the paired identity/app briefs without rebuilding page structure from scratch
+  - shared token changes live in `client/src/index.css`
+    - light mode uses a softer mist/cloud translation of the brand palette
+    - dark mode uses the primary void/ink/volt system
+    - borders and outlines stay muted; volt is reserved for active states, primary CTAs, and earned moments
+    - the shell background now uses subtle radial atmosphere plus light grain instead of flat color
+  - shared primitives updated for the branded system:
+    - `button.tsx`
+    - `card.tsx`
+    - `input.tsx`
+    - `badge.tsx`
+    - `tooltip.tsx`
+    - `sonner.tsx`
+    - `sidebar.tsx`
+  - Framer Motion is now part of the client stack and should be used lightly:
+    - `MotionConfig` wraps the app in `client/src/App.tsx`
+    - shell/header/content transitions use smooth, reduced-motion-safe fades/offsets
+    - use motion to reinforce hierarchy and state changes, not to decorate every element
+  - icon/input spacing rule:
+    - decorative svg icons in fields should use a shared `field-icon` class
+    - matching inputs should use `field-with-icon`
+    - this rule now applies to the auth forms plus key search bars in Chat, Projects, Notes, and My Tasks
+  - brand typography rule:
+    - headings and display moments should opt into the display font treatment
+    - body/UI copy stays on the body font stack
+  - brand safety rule:
+    - avoid large volt surface fills for message bubbles, tooltips, or wide content blocks
+    - prefer volt-tinted accents and borders over full fills except for primary CTA buttons
+- Marketing website app:
+  - the public marketing site now lives as a separate Next.js App Router project in `website/`
+  - keep it isolated from the product app in `client/`; do not mix routing, state, or styling concerns across those two apps
+  - source-of-truth documents for the marketing site:
+    - `01_crevo_brand_identity.md`
+    - `02_crevo_landing_page_brief.md`
+  - technical baseline:
+    - Next.js App Router
+    - TypeScript
+    - Tailwind CSS
+    - shadcn-style local UI primitives in `website/components/ui`
+    - Framer Motion for subtle reveal/interaction polish
+    - Supabase-backed waitlist server action
+  - route structure currently shipped:
+    - `/`
+    - `/about`
+    - `/contact`
+    - `/privacy-policy`
+    - `/terms`
+    - `/features`
+    - `/pricing`
+    - `/for-agencies`
+    - `/waitlist`
+  - waitlist/referral rules:
+    - waitlist insert is handled in `website/actions/waitlist.ts`
+    - use `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the server side
+    - referral links use `NEXT_PUBLIC_SITE_URL`
+    - inbound `?ref=` codes are captured on the client and stored in localStorage under `crevo_ref`
+    - once signup succeeds, show the user their referral link with copy/share actions
+  - marketing-site environment file:
+    - `website/.env.example`
+  - deployment split:
+    - public marketing site should own `https://www.trycrevo.com`
+    - product app should live on a separate app host such as `https://app.trycrevo.com`
+    - the website should link `Log in` to `NEXT_PUBLIC_APP_URL`, defaulting to:
+      - dev: `http://localhost:5173/login`
+      - prod: `https://app.trycrevo.com/login`
+    - keep the website and product as separate deployments to avoid route conflicts on `/`, `/login`, and `/dashboard`
+  - Netlify deployment:
+    - repo root `netlify.toml` now points Netlify at `website/` as the build base
+    - deployment instructions live in `website/DEPLOYMENT.md`
+  - deployment note:
+    - `website/netlify.toml` is included for the separate site build target
+  - website default-theme rule:
+    - the marketing site should ship dark-first by default
+    - any light-mode support should be intentional and secondary, not the first-render experience
+  - website polish notes:
+    - `website/app/icon.tsx` now owns the Crevo favicon/app icon
+    - homepage hero polish should prioritize stronger contrast, cleaner conversion hierarchy, and richer product-mockup credibility before broad page-wide redesigns
+    - waitlist conversion polish should prioritize confidence cues, referral motivation, and a cleaner split-layout on larger screens
+    - the waitlist form should avoid reading browser-only referral state during render; use a client-safe subscription/snapshot pattern so static pages do not hydrate differently from the server
+    - public marketing forms should use layered spam protection:
+      - hidden honeypot field
+      - minimum fill time
+      - server-side in-memory rate limiting keyed by request fingerprint and email
+    - `website/supabase/waitlist.sql` contains the baseline waitlist table schema expected by the current server action
+    - the waitlist schema now also supports `agency`, and the join action should stay backward-compatible if an older table has not been altered yet
+    - the marketing site should resolve to `http://localhost:3000` by default in development and `https://www.trycrevo.com` by default in production if `NEXT_PUBLIC_SITE_URL` is not explicitly set
+    - metadata and canonical URLs should derive from `website/lib/site.ts` so domain changes stay centralized
+    - contact form delivery now targets `hi@trycrevo.com` through SMTP-backed server mail in `website/lib/mailer.ts`
+      - requires `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+      - optional `SMTP_FROM`, defaulting to `notify@trycrevo.com`
+      - recipient defaults to `CONTACT_INBOX_EMAIL` or `hi@trycrevo.com`
+      - both contact and waitlist flows should send acknowledgement emails back to the submitter from the notify sender when SMTP is configured
+      - the current working SMTP host for trycrevo mail is `mail.trycrevo.com`
+    - the waitlist success state should prioritize copying the referral link and explain that referrals can unlock future discounts; avoid generic share-button clutter
+      - if the mail server enforces sender/user matching, authenticate as `notify@trycrevo.com` so acknowledgements can come from that mailbox while inbound contact still routes to `hi@trycrevo.com`
+    - private waitlist operations now live at `/ops/login` and `/ops`
+      - auth is env-backed and cookie-based through `website/lib/ops-auth.ts`
+      - use `WAITLIST_ADMIN_EMAIL`, `WAITLIST_ADMIN_PASSWORD`, and `WAITLIST_ADMIN_SESSION_SECRET`
+      - keep ops pages `noindex`
+      - support search, direct vs referred filters, CSV export, and quick email-list actions
+      - show a warning if the server-side Supabase key is still anon so production hardening is not forgotten
+  - product shell defaults:
+    - the main app should default to dark mode unless the user explicitly chose light mode
+    - keep the product favicon aligned with the website favicon/mark treatment so the brand stays consistent across both apps

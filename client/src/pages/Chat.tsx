@@ -581,7 +581,7 @@ function MessageBubble({
           className={cn(
             "rounded-2xl border px-3 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] sm:px-4 sm:py-3 sm:text-sm",
             isCurrentUser
-              ? "border-primary bg-primary text-primary-foreground"
+              ? "border-primary/20 bg-primary/10 text-foreground shadow-sm"
               : "bg-muted/60",
             message.is_deleted && "italic opacity-80",
           )}
@@ -591,7 +591,7 @@ function MessageBubble({
               className={cn(
                 "mb-2 rounded-xl border px-3 py-2 text-xs",
                 isCurrentUser
-                  ? "border-primary-foreground/20 bg-primary-foreground/10"
+                  ? "border-primary/20 bg-background/70"
                   : "border-border bg-background/70",
               )}
             >
@@ -710,8 +710,9 @@ export default function Chat() {
   );
   const [selectedAddMembers, setSelectedAddMembers] = useState<string[]>([]);
   const [editValue, setEditValue] = useState("");
-  const [selectedTagsByConversation, setSelectedTagsByConversation] =
-    useState<Record<string, MessageTag[]>>({});
+  const [selectedTagsByConversation, setSelectedTagsByConversation] = useState<
+    Record<string, MessageTag[]>
+  >({});
   const [activeTagFilter, setActiveTagFilter] = useState<MessageTag | "all">(
     "all",
   );
@@ -826,7 +827,7 @@ export default function Chat() {
       return;
     }
 
-     if (
+    if (
       requestedConversationId &&
       filteredChats.some(
         (conversation) => conversation.id === requestedConversationId,
@@ -935,7 +936,7 @@ export default function Chat() {
     ? getConversationDisplayName(deleteConversationTarget, profile?.id)
     : "";
   const selectedTags = currentChat?.id
-    ? selectedTagsByConversation[currentChat.id] ?? []
+    ? (selectedTagsByConversation[currentChat.id] ?? [])
     : [];
   const typingNames = typingUserIds
     .map(
@@ -1523,12 +1524,12 @@ export default function Chat() {
               </div>
 
               <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="field-icon" />
                 <Input
                   placeholder="Search conversations..."
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="pl-14"
+                  className="field-with-icon"
                 />
               </div>
 
@@ -1920,8 +1921,9 @@ export default function Chat() {
                           </span>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-[260px] text-left leading-relaxed">
-                          Review the key decisions, blockers, and action items from
-                          this group without rereading the full chat stream.
+                          Review the key decisions, blockers, and action items
+                          from this group without rereading the full chat
+                          stream.
                         </TooltipContent>
                       </Tooltip>
                       <Badge
@@ -1985,7 +1987,7 @@ export default function Chat() {
                 )}
                 <div
                   ref={messageScrollContainerRef}
-                    className="h-full overflow-y-auto p-3 sm:p-4"
+                  className="h-full overflow-y-auto p-3 sm:p-4"
                   onScroll={() => {
                     if (!isScrolledFarFromBottom()) {
                       setShowNewMessageJump(false);
@@ -2101,7 +2103,9 @@ export default function Chat() {
                           const previousMessage = messages[index - 1];
                           const showDaySeparator =
                             !previousMessage ||
-                            new Date(previousMessage.created_at).toDateString() !==
+                            new Date(
+                              previousMessage.created_at,
+                            ).toDateString() !==
                               new Date(message.created_at).toDateString();
                           const isCurrentUserMessage =
                             message.sender.user_id === profile?.id;
@@ -2111,14 +2115,13 @@ export default function Chat() {
                               {showDaySeparator && (
                                 <div className="flex justify-center py-1.5">
                                   <div className="inline-flex items-center rounded-full border bg-background/90 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
-                                    {new Date(message.created_at).toLocaleDateString(
-                                      [],
-                                      {
-                                        weekday: "short",
-                                        month: "short",
-                                        day: "numeric",
-                                      },
-                                    )}
+                                    {new Date(
+                                      message.created_at,
+                                    ).toLocaleDateString([], {
+                                      weekday: "short",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
                                   </div>
                                 </div>
                               )}
@@ -2302,12 +2305,12 @@ export default function Chat() {
 
           <div className="flex min-h-0 flex-col space-y-4">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="field-icon" />
               <Input
                 value={directMemberSearch}
                 onChange={(event) => setDirectMemberSearch(event.target.value)}
                 placeholder="Search workspace members..."
-                className="pl-14"
+                className="field-with-icon"
               />
             </div>
 
@@ -2353,7 +2356,9 @@ export default function Chat() {
                         <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
                           <span className="truncate">{member.email}</span>
                           {member.online && (
-                            <span className="shrink-0 text-emerald-600">Online</span>
+                            <span className="shrink-0 text-emerald-600">
+                              Online
+                            </span>
                           )}
                         </div>
                       </div>
@@ -2421,12 +2426,12 @@ export default function Chat() {
             </div>
 
             <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="field-icon" />
               <Input
                 value={groupMemberSearch}
                 onChange={(event) => setGroupMemberSearch(event.target.value)}
                 placeholder="Search members to add..."
-                className="pl-14"
+                className="field-with-icon"
               />
             </div>
 
@@ -2556,12 +2561,12 @@ export default function Chat() {
 
           <div className="flex min-h-0 flex-col space-y-4">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="field-icon" />
               <Input
                 value={directorySearch}
                 onChange={(event) => setDirectorySearch(event.target.value)}
                 placeholder="Search by name, email, or role..."
-                className="pl-14"
+                className="field-with-icon"
               />
             </div>
 

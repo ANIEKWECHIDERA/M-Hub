@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
@@ -75,18 +76,30 @@ function WorkspaceSwitchOverlay() {
 export default function Layout() {
   return (
     <SidebarProvider defaultOpen>
-      <div className="app-shell relative flex h-screen overflow-hidden">
+      <motion.div
+        layout
+        className="app-shell relative flex h-screen overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.28, ease: [0, 0, 0.2, 1] }}
+      >
         <WorkspaceSwitchOverlay />
         <Sidebar />
         <SidebarInset className="h-screen overflow-hidden">
           <Header />
-          <main className="relative flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+          <motion.main
+            layout
+            className="relative flex-1 overflow-hidden"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.32, ease: [0, 0, 0.2, 1], delay: 0.04 }}
+          >
+            <div className="h-full overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
               <Outlet />
             </div>
-          </main>
+          </motion.main>
         </SidebarInset>
-      </div>
+      </motion.div>
     </SidebarProvider>
   );
 }

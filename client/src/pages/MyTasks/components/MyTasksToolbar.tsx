@@ -41,12 +41,12 @@ export function MyTasksToolbar({
     <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-5">
       {/* Search */}
       <div className="relative lg:max-w-md">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground lg:left-4.5" />
+        <Search className="field-icon" />
         <Input
           placeholder="Search tasks..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-14 pr-4 lg:h-11 lg:max-w-md lg:pl-[3.65rem]"
+          className="field-with-icon pr-4 lg:h-11 lg:max-w-md"
         />
       </div>
 

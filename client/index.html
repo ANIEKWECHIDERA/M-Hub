@@ -27,6 +27,15 @@
       name="twitter:description"
       content="Built for agencies. Not adapted for them."
     />
+    <script>
+      (function () {
+        try {
+          var savedTheme = localStorage.getItem("crevo-theme");
+          if (savedTheme === "light") return;
+        } catch (error) {}
+        document.documentElement.classList.add("dark");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
