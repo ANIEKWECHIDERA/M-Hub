@@ -6,8 +6,14 @@ import { siteConfig } from "@/lib/site";
 import { getServerEnv, serverEnvDefaults } from "@/lib/server-env";
 
 function getSmtpConfig() {
-  const { smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, contactInboxEmail } =
-    getServerEnv();
+  const {
+    smtpHost,
+    smtpPort,
+    smtpUser,
+    smtpPass,
+    smtpFrom,
+    contactInboxEmail,
+  } = getServerEnv();
 
   if (!smtpPass) {
     throw new Error(
