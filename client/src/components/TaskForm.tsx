@@ -79,12 +79,12 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
       className={`space-y-4 ${loading ? "pointer-events-none opacity-60" : ""}`}
     >
       <div className="space-y-2">
-        <Label htmlFor="task-title">Task Title</Label>
+        <Label htmlFor="task-title">Task title</Label>
         <Input
           id="task-title"
           value={formData.title}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          placeholder="Enter task title"
+          placeholder="What needs to happen?"
           required
         />
       </div>
@@ -97,14 +97,14 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
           onChange={(e) =>
             setFormData({ ...formData, description: e.target.value })
           }
-          placeholder="Task description..."
+          placeholder="Add context, a handoff note, or the expected outcome."
           rows={3}
         />
       </div>
 
       {projectTeamMembers.length > 0 && (
-        <div className="space-y-2">
-          <Label>Assignee(s)</Label>
+      <div className="space-y-2">
+        <Label>Assigned teammates</Label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
             {projectTeamMembers.map((member) => {
               const checked = formData.assignees.includes(member.id);
@@ -180,7 +180,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="due-date">Due Date</Label>
+        <Label htmlFor="due-date">Due date</Label>
         <Input
           id="due-date"
           type="date"
@@ -202,7 +202,7 @@ const TaskForm = ({ onSave, onCancel, defaultValues }: TaskFormProps) => {
           Cancel
         </Button>
         <Button type="submit" disabled={!isDirty || loading}>
-          {loading ? "Saving..." : defaultValues ? "Update Task" : "Add Task"}
+          {loading ? "Saving..." : defaultValues ? "Save changes" : "Create task"}
         </Button>
       </div>
     </form>

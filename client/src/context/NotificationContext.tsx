@@ -380,6 +380,11 @@ export const NotificationProvider = ({
 
             return mergeNotificationLists(prev, [payload.notification]);
           });
+          window.dispatchEvent(
+            new CustomEvent("crevo:notification-created", {
+              detail: payload.notification,
+            }),
+          );
           return;
         }
 

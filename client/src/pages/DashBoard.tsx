@@ -79,6 +79,7 @@ export default function Dashboard() {
   if (error) return <div>Error: {error}</div>;
 
   const hasProjects = projects.length > 0;
+  const hasFilteredProjects = filteredProjects.length > 0;
 
   return (
     <div className="space-y-4 sm:space-y-5 lg:space-y-6">
@@ -206,97 +207,121 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredProjects.map((project) => {
-          // console.log("DASHBOARD tasks length:", tasks.length);
+          {hasFilteredProjects ? (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {filteredProjects.map((project) => {
+                return (
+                  <Link
+                    key={project.id}
+                    to={`/projectdetails/${project.id}`}
+                    className="block h-full"
+                  >
+                    <Card className="flex h-full min-h-[265px] flex-col transition-colors hover:border-foreground/20">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0 flex-1 pr-3 space-y-1">
+                            <CardTitle
+                              className="truncate text-lg"
+                              title={project.title}
+                            >
+                              {project.title}
+                            </CardTitle>
+                            <p
+                              className="truncate text-sm text-muted-foreground"
+                              title={project.client?.name}
+                            >
+                              {project.client?.name}
+                            </p>
+                          </div>
+                          <Badge
+                            className="inline-flex h-6 min-w-[100px] shrink-0 items-center justify-center whitespace-nowrap px-2 text-center"
+                            variant={
+                              project.status === "Completed"
+                                ? "default"
+                                : project.status === "In Progress"
+                                  ? "secondary"
+                                  : "outline"
+                            }
+                          >
+                            {project.status}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="flex flex-1 flex-col gap-4">
+                        <div className="min-h-[3.25rem] space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Progress</span>
+                            <span>{project.progress}%</span>
+                          </div>
+                          <Progress value={project.progress} className="h-2" />
+                        </div>
 
-              return (
-                <Link
-                  key={project.id}
-                  to={`/projectdetails/${project.id}`}
-                  className="block h-full"
+                        <div className="grid min-h-[3.5rem] grid-cols-2 gap-3 text-sm text-muted-foreground">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <Calendar className="h-4 w-4" />
+                            <span
+                              className="truncate"
+                              title={formatProjectDeadline(project.deadline)}
+                            >
+                              {formatProjectDeadline(project.deadline)}
+                            </span>
+                          </div>
+                          <div className="flex min-w-0 items-center gap-1.5 justify-self-end">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="truncate">
+                              {project.task_count > 0
+                                ? `${project.task_count} ${project.task_count === 1 ? "task" : "tasks"}`
+                                : "No tasks"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-auto flex min-h-[2.5rem] items-center justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span
+                              className="truncate text-sm text-muted-foreground"
+                              title={`${project.team_members?.length ?? 0} ${(project.team_members?.length ?? 0) <= 1 ? "member" : "members"}`}
+                            >
+                              {project.team_members?.length ?? 0}{" "}
+                              {project.team_members?.length <= 1
+                                ? "member"
+                                : "members"}
+                            </span>
+                          </div>
+
+                          <Button variant="outline" size="sm" onClick={() => {}}>
+                            View Details
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="app-surface">
+              <CardContent className="flex min-h-[18rem] flex-col items-center justify-center gap-4 px-6 py-10 text-center">
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold">No projects match these filters</h2>
+                  <p className="max-w-md text-sm text-muted-foreground sm:text-base">
+                    Try a different status or client filter, or reset the view to
+                    see everything that is currently in motion.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setClientFilter("all");
+                  }}
                 >
-                  <Card className="flex h-full min-h-[265px] flex-col transition-colors hover:border-foreground/20">
-                    <CardHeader className="pb-4">
-                      <div className="flex items-start justify-between">
-                        <div className="min-w-0 flex-1 pr-3 space-y-1">
-                          <CardTitle
-                            className="truncate text-lg"
-                            title={project.title}
-                          >
-                            {project.title}
-                          </CardTitle>
-                          <p
-                            className="truncate text-sm text-muted-foreground"
-                            title={project.client?.name}
-                          >
-                            {project.client?.name}
-                          </p>
-                        </div>
-                        <Badge
-                          className="inline-flex h-6 min-w-[100px] shrink-0 items-center justify-center whitespace-nowrap px-2 text-center"
-                          variant={
-                            project.status === "Completed"
-                              ? "default"
-                              : project.status === "In Progress"
-                                ? "secondary"
-                                : "outline"
-                          }
-                        >
-                          {project.status}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="flex flex-1 flex-col gap-4">
-                      <div className="min-h-[3.25rem] space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Progress</span>
-                          <span>{project.progress}%</span>
-                        </div>
-                        <Progress value={project.progress} className="h-2" />
-                      </div>
-
-                      <div className="grid min-h-[3.5rem] grid-cols-2 gap-3 text-sm text-muted-foreground">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <Calendar className="h-4 w-4" />
-                          <span className="truncate" title={formatProjectDeadline(project.deadline)}>
-                            {formatProjectDeadline(project.deadline)}
-                          </span>
-                        </div>
-                        <div className="flex min-w-0 items-center gap-1.5 justify-self-end">
-                          <CheckCircle className="h-4 w-4" />
-                          <span className="truncate">
-                            {project.task_count > 0
-                              ? `${project.task_count} ${project.task_count === 1 ? "task" : "tasks"}`
-                              : "No tasks"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-auto flex min-h-[2.5rem] items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span
-                            className="truncate text-sm text-muted-foreground"
-                            title={`${project.team_members?.length ?? 0} ${(project.team_members?.length ?? 0) <= 1 ? "member" : "members"}`}
-                          >
-                            {project.team_members?.length ?? 0}{" "}
-                            {project.team_members?.length <= 1
-                              ? "member"
-                              : "members"}
-                          </span>
-                        </div>
-
-                        <Button variant="outline" size="sm" onClick={() => {}}>
-                          View Details
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
+                  Reset Filters
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </>
       ) : (
         <div className="flex min-h-[52vh] items-center justify-center px-4 py-8 sm:px-0 sm:py-12">
@@ -307,17 +332,17 @@ export default function Dashboard() {
             </p>
 
             {!isTeamMember && (
-              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <>
                 <Button onClick={() => setIsCreateOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create Your First Project
                 </Button>
-
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
-                    <DialogTitle>Create New Project</DialogTitle>
+                    <DialogTitle>Start a project</DialogTitle>
                     <DialogDescription>
-                      Input project details.
+                      Give it a name now. You can shape the details as the work comes together.
                     </DialogDescription>
                   </DialogHeader>
 
@@ -341,7 +366,8 @@ export default function Dashboard() {
                     onCancel={() => setIsCreateOpen(false)}
                   />
                 </DialogContent>
-              </Dialog>
+                </Dialog>
+              </>
             )}
           </div>
         </div>

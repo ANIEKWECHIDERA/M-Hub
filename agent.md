@@ -1783,6 +1783,7 @@ Assumptions currently in use:
   - new-account dashboard stability:
     - a fresh signup was able to reach `/dashboard`, but the empty-state dashboard used to hit a `Maximum update depth exceeded` loop in the first-project dialog path
     - the new-user dashboard now renders cleanly with the `No projects yet` state and `Create Your First Project` CTA
+    - the safer structure is to keep the first-project trigger button outside the controlled dialog tree and render the dialog separately; this avoids the ref/update loop that could appear on a brand-new account with no projects
   - dashboard empty state:
     - when there are no projects, do not render overview stats or decorative cards
     - the no-project dashboard should show only the create-project prompt and button
@@ -1799,3 +1800,32 @@ Assumptions currently in use:
     - personal tasks now preload only on `/mytasks` and `/projectdetails/*`
     - subtasks now preload only on `/mytasks`
     - this removes unnecessary first-load requests from the dashboard route without changing the product shell contract
+    - to reduce the feeling that Focus and Chat always have to \"load on click\", the sidebar now starts a lighter background prefetch when those parent groups open:
+      - opening `Focus` from the dashboard triggers `my-tasks` prefetch before navigation
+      - opening `Chat` starts the workspace-member preload before entering the chat screen
+      - this keeps the dashboard lighter than eager shell-wide fetching while making those sections feel less cold on entry
+- Sidebar interaction polish:
+  - desktop sidebar width now animates with Framer Motion instead of snapping between collapsed and expanded states
+  - nested sidebar menus now animate open/close with height and opacity transitions
+  - when a parent submenu like `Settings` opens, the sidebar now smooth-scrolls that revealed panel into view so users do not need to manually scroll to discover the newly opened options
+- Invite acceptance sync:
+  - notification-created events now dispatch a lightweight browser event when a realtime notification arrives
+  - accepted-invite notifications are now used to refresh:
+    - team members in `TeamMemberContext`
+    - workspace manager snapshot data
+    - the invites list when the invites section is open
+  - this keeps the team/invite surfaces fresher after an invite is accepted without waiting for a full page reload
+  - browser verification:
+    - with the Team tab already open, a newly accepted invite appeared in the team list without a manual refresh
+    - the same pass also showed the invite status move to `ACCEPTED` in Workspace Manager
+- Dashboard filtering behavior:
+  - if a workspace has projects but the current filters return zero matches, show a dedicated filtered-empty state instead of a blank grid
+  - the filtered-empty state should explain that no projects match the current filters and offer a one-click `Reset Filters` action
+- Task creation friction note:
+  - the inline quick-add task row in project detail was reverted
+  - task creation there currently goes through the full task dialog again until a narrower low-friction flow is reintroduced
+- Copy alignment rules:
+  - Crevo copy should feel warm, clear, and human rather than robotic or procedural
+  - prefer phrases like `Start a project`, `Invite a teammate`, `Delete project?`, and `This can't be undone`
+  - avoid scaffolding language such as `Input project details`, `Create New ...`, or metadata labels that read like implementation details
+  - group info should focus on purpose, members, and activity; remove labels like `Type: Group chat`

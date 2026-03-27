@@ -144,6 +144,49 @@ export function ProjectDetail() {
     }
   }, [project?.id, fetchFilesByProject]);
 
+  const handleSaveTask = async (data: Partial<TaskWithAssigneesDTO>) => {
+    let updatedTask;
+
+    if (editingTask) {
+      updatedTask = await updateTask(editingTask.id, data);
+    } else {
+      const created = await addTask(data);
+      if (!created) return;
+
+      const teamMembers: TeamMemberSummary[] =
+        project?.team_members
+          ?.filter((m) => data.team_member_ids?.includes(m.id))
+          .map((m) => ({
+            id: m.id,
+            name: m.name,
+            avatar: m.avatar ?? null,
+            role: m.role ?? "member",
+          })) ?? [];
+
+      updatedTask = {
+        ...created,
+        team_members: teamMembers,
+      };
+
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === created.id
+            ? {
+                ...created,
+                team_members: teamMembers,
+              }
+            : t,
+        ),
+      );
+    }
+
+    if (
+      updatedTask?.team_members?.some((member) => member.id === currentMember?.id)
+    ) {
+      await refetch();
+    }
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -360,10 +403,6 @@ export function ProjectDetail() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <CardTitle className="text-xl">Project Tasks</CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Track progress, assignees, due dates, and task status for
-                      this project.
-                    </p>
                   </div>
                   <Dialog
                     open={isTaskDialogOpen}
@@ -384,12 +423,12 @@ export function ProjectDetail() {
                     <DialogContent className="sm:max-w-[500px]">
                       <DialogHeader>
                         <DialogTitle>
-                          {editingTask ? "Update Task" : "Create New Task"}
+                          {editingTask ? "Edit task" : "Add task details"}
                         </DialogTitle>
                         <DialogDescription>
                           {editingTask
-                            ? "Update the task details and save your changes."
-                            : "Create New Task"}
+                            ? "Tighten the details, update the owner, or shift the timeline."
+                            : "Use the full task form when you need more than a quick title."}
                         </DialogDescription>
                       </DialogHeader>
                       <TaskForm
@@ -400,53 +439,7 @@ export function ProjectDetail() {
                           setEditingTask(null);
 
                           try {
-                            let updatedTask;
-
-                            if (editingTask) {
-                              updatedTask = await updateTask(
-                                editingTask.id,
-                                data,
-                              );
-                            } else {
-                              const created = await addTask(data);
-                              if (!created) return;
-
-                              const teamMembers: TeamMemberSummary[] =
-                                project.team_members
-                                  ?.filter((m) =>
-                                    data.team_member_ids.includes(m.id),
-                                  )
-                                  .map((m) => ({
-                                    id: m.id,
-                                    name: m.name,
-                                    avatar: m.avatar ?? null,
-                                    role: m.role ?? "member",
-                                  })) ?? [];
-
-                              updatedTask = {
-                                ...created,
-                                team_members: teamMembers,
-                              };
-
-                              setTasks((prev) =>
-                                prev.map((t) =>
-                                  t.id === created.id
-                                    ? {
-                                        ...created,
-                                        team_members: teamMembers,
-                                      }
-                                    : t,
-                                ),
-                              );
-                            }
-
-                            if (
-                              updatedTask?.team_members?.some(
-                                (m) => m.id === currentMember?.id,
-                              )
-                            ) {
-                              await refetch();
-                            }
+                            await handleSaveTask(data);
                           } catch (error) {
                             console.error("Failed to save task:", error);
                           }
@@ -468,9 +461,7 @@ export function ProjectDetail() {
                   </div>
                 ) : filteredTasks.length === 0 ? (
                   <div className="flex min-h-[24rem] flex-col items-center justify-center text-center space-y-4">
-                    <p className="text-muted-foreground">
-                      No tasks yet for this project.
-                    </p>
+                    <p className="text-muted-foreground">No tasks yet for this project.</p>
                     <Button onClick={() => setIsTaskDialogOpen(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Task
@@ -798,10 +789,9 @@ export function ProjectDetail() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {taskToDelete ? "Delete Task" : "Delete File"}
+              {taskToDelete ? "Delete task?" : "Delete file?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{" "}
               <strong>
                 {taskToDelete
                   ? `${taskToDelete.title}`
@@ -809,7 +799,8 @@ export function ProjectDetail() {
                     ? `${fileToDelete.name}`
                     : "No item selected for deletion"}
               </strong>
-              ? This action cannot be undone.
+              {" "}
+              will be removed from this project. This can't be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex justify-end gap-2 pt-4">

@@ -902,9 +902,9 @@ export default function Settings() {
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[500px]">
                       <DialogHeader>
-                        <DialogTitle>Invite Team Member</DialogTitle>
+                        <DialogTitle>Invite a teammate</DialogTitle>
                         <DialogDescription>
-                          Invite a teammate into your current workspace.
+                          Bring someone into this workspace and set the right role from the start.
                         </DialogDescription>
                       </DialogHeader>
                       <InviteForm
@@ -1037,9 +1037,9 @@ export default function Settings() {
         >
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Edit Team Member</DialogTitle>
+              <DialogTitle>Edit teammate</DialogTitle>
               <DialogDescription>
-                Update the team member details and save your changes.
+                Update their role or access so the workspace stays aligned.
               </DialogDescription>
             </DialogHeader>
             <TeamMemberForm
@@ -1102,11 +1102,10 @@ export default function Settings() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Invite</AlertDialogTitle>
+              <AlertDialogTitle>Delete invite?</AlertDialogTitle>
               <AlertDialogDescription>
-                Permanently delete the invite for{" "}
-                <strong>{inviteToDelete?.email ?? "this invite"}</strong>? This removes the invite
-                record and the old link will stop working.
+                <strong>{inviteToDelete?.email ?? "This invite"}</strong> will
+                stop working right away, and the current link will no longer be usable.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

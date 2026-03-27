@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Select,
@@ -58,6 +59,7 @@ import { Badge } from "@/components/ui/badge";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { useRetentionSnapshot } from "@/hooks/useRetentionSnapshot";
 import { useSettingsContext } from "@/context/SettingsContext";
+import { useMyTasksContext } from "@/context/MyTaskContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +76,37 @@ interface NavItem {
   name: string;
   to: string;
   icon: React.ComponentType<{ className?: string }>;
+}
+
+const submenuMotionProps = {
+  initial: { height: 0, opacity: 0, marginTop: 0 },
+  animate: { height: "auto", opacity: 1, marginTop: 4 },
+  exit: { height: 0, opacity: 0, marginTop: 0 },
+  transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const },
+};
+
+function SidebarSubmenu({
+  open,
+  children,
+  panelRef,
+}: {
+  open: boolean;
+  children: React.ReactNode;
+  panelRef?: React.RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <AnimatePresence initial={false}>
+      {open ? (
+        <motion.div
+          ref={panelRef}
+          {...submenuMotionProps}
+          className="overflow-hidden"
+        >
+          {children}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
 }
 
 const baseNavigation: NavItem[] = [
@@ -193,7 +226,9 @@ function SidebarPanel({
     authStatus?.access === "team_member" || authStatus?.access === "member";
   const canSeeWorkspaceHealth =
     authStatus?.access === "admin" || authStatus?.access === "superAdmin";
-  const { totalUnreadCount, unreadBySection } = useChatContext();
+  const { totalUnreadCount, unreadBySection, refreshWorkspaceMembers } =
+    useChatContext();
+  const { refetch: refetchMyTasks } = useMyTasksContext();
   const { snapshot: retentionSnapshot, loading: retentionLoading } =
     useRetentionSnapshot({
       enabled: canSeeWorkspaceHealth && preferences.workspaceHealth,
@@ -244,6 +279,10 @@ function SidebarPanel({
   const [workspaceManagerOpen, setWorkspaceManagerOpen] = useState(
     workspaceManagerOpenByDefault,
   );
+  const focusPanelRef = useRef<HTMLDivElement | null>(null);
+  const chatPanelRef = useRef<HTMLDivElement | null>(null);
+  const settingsPanelRef = useRef<HTMLDivElement | null>(null);
+  const workspaceManagerPanelRef = useRef<HTMLDivElement | null>(null);
   const activeWorkspaceSection = useMemo(() => {
     const params = new URLSearchParams(search);
     const section = params.get("section") as
@@ -273,6 +312,35 @@ function SidebarPanel({
     }
   }, [pathname]);
 
+  const scrollPanelIntoView = (
+    panelRef: React.RefObject<HTMLDivElement | null>,
+  ) => {
+    window.requestAnimationFrame(() => {
+      panelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
+    });
+  };
+
+  const toggleSubmenu = (
+    setExpanded: React.Dispatch<React.SetStateAction<boolean>>,
+    panelRef: React.RefObject<HTMLDivElement | null>,
+    options?: { prefetch?: () => void },
+  ) => {
+    setExpanded((value) => {
+      const next = !value;
+
+      if (next) {
+        options?.prefetch?.();
+        scrollPanelIntoView(panelRef);
+      }
+
+      return next;
+    });
+  };
+
   const handleNavClick = () => {
     if (isMobile) {
       setOpenMobile(false);
@@ -281,13 +349,18 @@ function SidebarPanel({
 
   const handleParentSubmenuClick = (
     setExpanded: React.Dispatch<React.SetStateAction<boolean>>,
+    panelRef: React.RefObject<HTMLDivElement | null>,
+    options?: { prefetch?: () => void },
   ) => {
     if (!isExpanded) {
       setOpen(true);
+      setExpanded(true);
+      options?.prefetch?.();
+      window.setTimeout(() => scrollPanelIntoView(panelRef), 140);
       return;
     }
 
-    setExpanded((value) => !value);
+    toggleSubmenu(setExpanded, panelRef, options);
   };
 
   return (
@@ -406,7 +479,13 @@ function SidebarPanel({
                               "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
                             isExpanded && chatOpen && "pr-10",
                           )}
-                          onClick={() => handleParentSubmenuClick(setChatOpen)}
+                          onClick={() =>
+                            handleParentSubmenuClick(setChatOpen, chatPanelRef, {
+                              prefetch: () => {
+                                void refreshWorkspaceMembers();
+                              },
+                            })
+                          }
                         >
                           <item.icon className="h-5 w-5" />
                           {isExpanded && <span>{item.name}</span>}
@@ -434,7 +513,11 @@ function SidebarPanel({
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
-                              setChatOpen((value) => !value);
+                              toggleSubmenu(setChatOpen, chatPanelRef, {
+                                prefetch: () => {
+                                  void refreshWorkspaceMembers();
+                                },
+                              });
                             }}
                             className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                           >
@@ -565,7 +648,13 @@ function SidebarPanel({
                         "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
                       isExpanded && focusOpen && "pr-10",
                     )}
-                    onClick={() => handleParentSubmenuClick(setFocusOpen)}
+                    onClick={() =>
+                      handleParentSubmenuClick(setFocusOpen, focusPanelRef, {
+                        prefetch: () => {
+                          void refetchMyTasks();
+                        },
+                      })
+                    }
                   >
                     <Target className="h-5 w-5" />
                     {isExpanded && <span>Focus</span>}
@@ -580,7 +669,11 @@ function SidebarPanel({
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        setFocusOpen((value) => !value);
+                        toggleSubmenu(setFocusOpen, focusPanelRef, {
+                          prefetch: () => {
+                            void refetchMyTasks();
+                          },
+                        });
                       }}
                       className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                     >
@@ -594,8 +687,8 @@ function SidebarPanel({
                   )}
                 </div>
 
-                {isExpanded && focusOpen && (
-                  <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                <SidebarSubmenu open={isExpanded && focusOpen} panelRef={focusPanelRef}>
+                  <div className="ml-6 space-y-1 border-l border-sidebar-border pl-3">
                     {focusSections.map((section) => {
                       const Icon = section.icon;
                       const isSectionActive =
@@ -620,7 +713,7 @@ function SidebarPanel({
                       );
                     })}
                   </div>
-                )}
+                </SidebarSubmenu>
               </SidebarMenuItem>
 
               {navigation
@@ -644,7 +737,17 @@ function SidebarPanel({
                                 "mx-auto h-10 w-10 items-center justify-center px-0 text-center [&>svg]:mx-0",
                               isExpanded && chatOpen && "pr-10",
                             )}
-                            onClick={() => handleParentSubmenuClick(setChatOpen)}
+                            onClick={() =>
+                              handleParentSubmenuClick(
+                                setChatOpen,
+                                chatPanelRef,
+                                {
+                                  prefetch: () => {
+                                    void refreshWorkspaceMembers();
+                                  },
+                                },
+                              )
+                            }
                           >
                             <item.icon className="h-5 w-5" />
                             {isExpanded && <span>{item.name}</span>}
@@ -672,7 +775,11 @@ function SidebarPanel({
                               onClick={(event) => {
                                 event.preventDefault();
                                 event.stopPropagation();
-                                setChatOpen((value) => !value);
+                                toggleSubmenu(setChatOpen, chatPanelRef, {
+                                  prefetch: () => {
+                                    void refreshWorkspaceMembers();
+                                  },
+                                });
                               }}
                               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                             >
@@ -686,8 +793,8 @@ function SidebarPanel({
                           )}
                         </div>
 
-                        {isExpanded && chatOpen && (
-                          <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                        <SidebarSubmenu open={isExpanded && chatOpen} panelRef={chatPanelRef}>
+                          <div className="ml-6 space-y-1 border-l border-sidebar-border pl-3">
                             {chatSections.map((section) => {
                               const Icon = section.icon;
                               const isSectionActive =
@@ -720,7 +827,7 @@ function SidebarPanel({
                               );
                             })}
                           </div>
-                        )}
+                        </SidebarSubmenu>
                       </SidebarMenuItem>
                     );
                   }
@@ -759,7 +866,10 @@ function SidebarPanel({
                         isExpanded && workspaceManagerOpen && "pr-10",
                       )}
                       onClick={() => {
-                        handleParentSubmenuClick(setWorkspaceManagerOpen);
+                        handleParentSubmenuClick(
+                          setWorkspaceManagerOpen,
+                          workspaceManagerPanelRef,
+                        );
                       }}
                     >
                       <Building2 className="h-5 w-5" />
@@ -777,7 +887,10 @@ function SidebarPanel({
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
-                          setWorkspaceManagerOpen((value) => !value);
+                          toggleSubmenu(
+                            setWorkspaceManagerOpen,
+                            workspaceManagerPanelRef,
+                          );
                         }}
                         className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                       >
@@ -791,8 +904,11 @@ function SidebarPanel({
                     )}
                   </div>
 
-                  {isExpanded && workspaceManagerOpen && (
-                    <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                  <SidebarSubmenu
+                    open={isExpanded && workspaceManagerOpen}
+                    panelRef={workspaceManagerPanelRef}
+                  >
+                    <div className="ml-6 space-y-1 border-l border-sidebar-border pl-3">
                       {workspaceManagerSections
                         .filter(
                           (section) =>
@@ -825,7 +941,7 @@ function SidebarPanel({
                           );
                         })}
                     </div>
-                  )}
+                  </SidebarSubmenu>
                 </SidebarMenuItem>
               )}
 
@@ -846,7 +962,10 @@ function SidebarPanel({
                             isExpanded && settingsOpen && "pr-10",
                           )}
                           onClick={() =>
-                            handleParentSubmenuClick(setSettingsOpen)
+                            handleParentSubmenuClick(
+                              setSettingsOpen,
+                              settingsPanelRef,
+                            )
                           }
                         >
                           <item.icon className="h-5 w-5" />
@@ -864,7 +983,10 @@ function SidebarPanel({
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
-                              setSettingsOpen((value) => !value);
+                              toggleSubmenu(
+                                setSettingsOpen,
+                                settingsPanelRef,
+                              );
                             }}
                             className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                           >
@@ -878,8 +1000,8 @@ function SidebarPanel({
                         )}
                       </div>
 
-                      {isExpanded && settingsOpen && (
-                        <div className="ml-6 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                      <SidebarSubmenu open={isExpanded && settingsOpen} panelRef={settingsPanelRef}>
+                        <div className="ml-6 space-y-1 border-l border-sidebar-border pl-3">
                           {settingsSections.map((section) => {
                             const Icon = section.icon;
                             const isSectionActive =
@@ -904,7 +1026,7 @@ function SidebarPanel({
                             );
                           })}
                         </div>
-                      )}
+                      </SidebarSubmenu>
                     </SidebarMenuItem>
                   );
                 },
