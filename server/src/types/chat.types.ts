@@ -219,6 +219,9 @@ export type ChatRealtimeEvent =
       company_id: string;
       conversation_id: string;
       message_id: string;
+      sender_user_id: string | null;
+      created_at: string;
+      message: ChatMessageListItem;
       user_ids: string[];
     }
   | {
@@ -226,6 +229,7 @@ export type ChatRealtimeEvent =
       company_id: string;
       conversation_id: string;
       message_id: string;
+      message: ChatMessageListItem;
       user_ids: string[];
     }
   | {
@@ -233,6 +237,7 @@ export type ChatRealtimeEvent =
       company_id: string;
       conversation_id: string;
       message_id: string;
+      message: ChatMessageListItem;
       user_ids: string[];
     }
   | {

@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "../config/supabaseClient";
 import { prisma } from "../lib/prisma";
-import { ChatRealtimeEvent } from "../types/chat.types";
+import { ChatMessageListItem, ChatRealtimeEvent } from "../types/chat.types";
 import { logger } from "../utils/logger";
 
 const CHAT_TYPING_TTL_MS = 4000;
@@ -404,13 +404,99 @@ class ChatRealtimeService {
     return rows.map((row) => row.user_id as string);
   }
 
+  private mapMessage(row: Record<string, any>): ChatMessageListItem {
+    return {
+      id: row.id,
+      conversation_id: row.conversation_id,
+      company_id: row.company_id,
+      sender_team_member_id: row.sender_team_member_id ?? null,
+      body: row.body,
+      message_type: row.message_type,
+      edited_at: row.edited_at ?? null,
+      deleted_at: row.deleted_at ?? null,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      reply_to_message_id: row.reply_to_message_id ?? null,
+      metadata: row.metadata ?? null,
+      sender: {
+        team_member_id: row.sender_team_member_id ?? null,
+        user_id: row.sender_user_id ?? null,
+        name: row.sender_name ?? null,
+        avatar: row.sender_avatar ?? null,
+      },
+      tags: Array.isArray(row.tags) ? row.tags : [],
+      reply_to: row.reply_to_message ?? null,
+      is_edited: Boolean(row.edited_at),
+      is_deleted: Boolean(row.deleted_at),
+    };
+  }
+
+  private async getMessageListItemById(messageId: string) {
+    const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+      SELECT
+        m.*,
+        tm.user_id AS sender_user_id,
+        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.display_name, tm.email) AS sender_name,
+        COALESCE(u.avatar, u.photo_url) AS sender_avatar,
+        COALESCE(tags.tags, '[]'::json) AS tags,
+        COALESCE(reply.reply_to_message, 'null'::json) AS reply_to_message
+      FROM chat_messages m
+      LEFT JOIN team_members tm ON tm.id = m.sender_team_member_id
+      LEFT JOIN users u ON u.id = tm.user_id
+      LEFT JOIN LATERAL (
+        SELECT json_agg(t.tag ORDER BY t.tag ASC) AS tags
+        FROM chat_message_tags t
+        WHERE t.message_id = m.id
+      ) tags ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT json_build_object(
+          'id', rm.id,
+          'body', rm.body,
+          'message_type', rm.message_type,
+          'created_at', rm.created_at,
+          'edited_at', rm.edited_at,
+          'deleted_at', rm.deleted_at,
+          'sender_team_member_id', rm.sender_team_member_id,
+          'sender_user_id', rtm.user_id,
+          'sender_name', COALESCE(NULLIF(TRIM(CONCAT(COALESCE(ru.first_name, ''), ' ', COALESCE(ru.last_name, ''))), ''), ru.display_name, rtm.email),
+          'sender_avatar', COALESCE(ru.avatar, ru.photo_url)
+        ) AS reply_to_message
+        FROM chat_messages rm
+        LEFT JOIN team_members rtm ON rtm.id = rm.sender_team_member_id
+        LEFT JOIN users ru ON ru.id = rtm.user_id
+        WHERE rm.id = m.reply_to_message_id
+      ) reply ON TRUE
+      WHERE m.id = ${messageId}::uuid
+      LIMIT 1`;
+
+    return rows[0] ? this.mapMessage(rows[0]) : null;
+  }
+
   private async handleMessageInsert(row: Record<string, any>) {
+    const message = await this.getMessageListItemById(row.id);
+    if (!message) {
+      return;
+    }
+
+    let senderUserId: string | null = null;
+    if (row.sender_team_member_id) {
+      const senderRows = await prisma.$queryRaw<Array<Record<string, any>>>`
+        SELECT user_id
+        FROM team_members
+        WHERE id = ${row.sender_team_member_id}::uuid
+        LIMIT 1`;
+      senderUserId = (senderRows[0]?.user_id as string | undefined) ?? null;
+    }
+
     const userIds = await this.getConversationUserIds(row.conversation_id);
     this.emit({
       type: "chat.message.created",
       company_id: row.company_id,
       conversation_id: row.conversation_id,
       message_id: row.id,
+      sender_user_id: senderUserId,
+      created_at: row.created_at,
+      message,
       user_ids: userIds,
     });
   }
@@ -420,6 +506,10 @@ class ChatRealtimeService {
     previousRow: Record<string, any>,
   ) {
     const userIds = await this.getConversationUserIds(nextRow.conversation_id);
+    const message = await this.getMessageListItemById(nextRow.id);
+    if (!message) {
+      return;
+    }
 
     if (!previousRow.deleted_at && nextRow.deleted_at) {
       this.emit({
@@ -427,6 +517,7 @@ class ChatRealtimeService {
         company_id: nextRow.company_id,
         conversation_id: nextRow.conversation_id,
         message_id: nextRow.id,
+        message,
         user_ids: userIds,
       });
       return;
@@ -437,6 +528,7 @@ class ChatRealtimeService {
       company_id: nextRow.company_id,
       conversation_id: nextRow.conversation_id,
       message_id: nextRow.id,
+      message,
       user_ids: userIds,
     });
   }

@@ -9,6 +9,9 @@ import { useAuthContext } from "@/context/AuthContext";
 const LOCAL_THEME_KEY = "crevo-theme";
 const LOCAL_WORKSPACE_HEALTH_KEY = "crevo-workspace-health";
 
+const getWorkspaceHealthStorageKey = (userId?: string | null) =>
+  userId ? `${LOCAL_WORKSPACE_HEALTH_KEY}:${userId}` : LOCAL_WORKSPACE_HEALTH_KEY;
+
 const DEFAULT_PREFERENCES: Preferences = {
   notifications: true,
   emailNotifications: true,
@@ -16,11 +19,11 @@ const DEFAULT_PREFERENCES: Preferences = {
   projectUpdates: true,
   commentNotifications: true,
   compactMode: false,
-  workspaceHealth: true,
+  workspaceHealth: false,
 };
 
 export const useSettings = () => {
-  const { idToken, authStatus } = useAuthContext();
+  const { idToken, authStatus, currentUser } = useAuthContext();
   const [theme, setThemeState] = useState<"light" | "dark">("dark");
   const [language, setLanguageState] = useState<"en" | "es" | "fr">("en");
   const [preferences, setPreferencesState] =
@@ -51,7 +54,7 @@ export const useSettings = () => {
 
   useEffect(() => {
     const storedWorkspaceHealth = localStorage.getItem(
-      LOCAL_WORKSPACE_HEALTH_KEY,
+      getWorkspaceHealthStorageKey(currentUser?.uid),
     );
 
     if (storedWorkspaceHealth === null) {
@@ -62,7 +65,7 @@ export const useSettings = () => {
       ...previous,
       workspaceHealth: storedWorkspaceHealth === "true",
     }));
-  }, []);
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     applyTheme(theme);
@@ -90,6 +93,9 @@ export const useSettings = () => {
         const nextTheme = settings.theme === "dark" ? "dark" : "light";
         setThemeState(nextTheme);
         setLanguageState((settings.language as "en" | "es" | "fr") ?? "en");
+        const storedWorkspaceHealth = localStorage.getItem(
+          getWorkspaceHealthStorageKey(currentUser?.uid),
+        );
         setPreferencesState({
           notifications: settings.notifications_enabled,
           emailNotifications: settings.email_notifications_enabled,
@@ -98,9 +104,9 @@ export const useSettings = () => {
           commentNotifications: settings.comment_notifications,
           compactMode: settings.compact_mode,
           workspaceHealth:
-            localStorage.getItem(LOCAL_WORKSPACE_HEALTH_KEY) === null
+            storedWorkspaceHealth === null
               ? DEFAULT_PREFERENCES.workspaceHealth
-              : localStorage.getItem(LOCAL_WORKSPACE_HEALTH_KEY) === "true",
+              : storedWorkspaceHealth === "true",
         });
         hydratedRef.current = true;
       } catch (settingsError: any) {
@@ -119,7 +125,7 @@ export const useSettings = () => {
     return () => {
       cancelled = true;
     };
-  }, [authStatus?.onboardingState, idToken]);
+  }, [authStatus?.onboardingState, currentUser?.uid, idToken]);
 
   const patchSettings = async (payload: UpdateUserSettingsInput) => {
     if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
@@ -176,7 +182,7 @@ export const useSettings = () => {
 
       if (hydratedRef.current) {
         localStorage.setItem(
-          LOCAL_WORKSPACE_HEALTH_KEY,
+          getWorkspaceHealthStorageKey(currentUser?.uid),
           String(nextPreferences.workspaceHealth),
         );
         void patchSettings({
@@ -191,7 +197,7 @@ export const useSettings = () => {
 
       if (!hydratedRef.current) {
         localStorage.setItem(
-          LOCAL_WORKSPACE_HEALTH_KEY,
+          getWorkspaceHealthStorageKey(currentUser?.uid),
           String(nextPreferences.workspaceHealth),
         );
       }

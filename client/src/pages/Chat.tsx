@@ -2296,10 +2296,9 @@ export default function Chat() {
       <Dialog open={isCreateDirectOpen} onOpenChange={setIsCreateDirectOpen}>
         <DialogContent className="top-[8vh] max-h-[82vh] max-w-2xl translate-y-0 overflow-hidden sm:top-1/2 sm:max-h-[85vh] sm:-translate-y-1/2">
           <DialogHeader>
-            <DialogTitle>Start direct conversation</DialogTitle>
+            <DialogTitle>Start a direct chat</DialogTitle>
             <DialogDescription>
-              Everyone in the current workspace is listed here so you can start
-              a direct chat quickly.
+              Pick a teammate and start talking without leaving your flow.
             </DialogDescription>
           </DialogHeader>
 
@@ -2396,10 +2395,10 @@ export default function Chat() {
       >
         <DialogContent className="top-[6vh] max-h-[84vh] max-w-2xl translate-y-0 overflow-hidden sm:top-1/2 sm:max-h-[85vh] sm:-translate-y-1/2">
           <DialogHeader>
-            <DialogTitle>Create group chat</DialogTitle>
+            <DialogTitle>Create a group</DialogTitle>
             <DialogDescription>
-              Name the group, choose members from this workspace, and start
-              collaborating.
+              Give the room a clear purpose, add the right people, and start the
+              conversation.
             </DialogDescription>
           </DialogHeader>
 
@@ -2420,7 +2419,7 @@ export default function Chat() {
                 id="group-description"
                 value={groupDescription}
                 onChange={(event) => setGroupDescription(event.target.value)}
-                placeholder="What is this group about?"
+                placeholder="What should this group help everyone stay aligned on?"
                 className="min-h-[96px]"
               />
             </div>
@@ -2518,13 +2517,13 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>
               {deleteConversationTarget?.type === "group"
-                ? "Delete group chat"
-                : "Delete personal chat"}
+                ? "Delete this group?"
+                : "Delete this direct chat?"}
             </DialogTitle>
             <DialogDescription>
               {deleteConversationTarget?.type === "group"
-                ? `This will remove ${deleteConversationTargetName || "this group"} from the workspace chat list for everyone.`
-                : `This will remove the personal chat with ${deleteConversationTargetName || "this member"}.`}
+                ? `${deleteConversationTargetName || "This group"} will be removed from the workspace chat list for everyone.`
+                : `This will clear the direct chat with ${deleteConversationTargetName || "this teammate"} from view.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -2542,8 +2541,8 @@ export default function Chat() {
               onClick={() => void handleDeleteConversation()}
             >
               {deleteConversationTarget?.type === "group"
-                ? "Delete group chat"
-                : "Delete personal chat"}
+                ? "Delete group"
+                : "Delete chat"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2632,7 +2631,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Rename group</DialogTitle>
             <DialogDescription>
-              Update the group name for everyone in this conversation.
+              Make the group easier to recognize for everyone in this
+              conversation.
             </DialogDescription>
           </DialogHeader>
 
@@ -2662,7 +2662,7 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Group info</DialogTitle>
             <DialogDescription>
-              Overview for this group conversation.
+              A quick snapshot of who's here and what this group is for.
             </DialogDescription>
           </DialogHeader>
 
@@ -2670,14 +2670,6 @@ export default function Chat() {
             <div className="rounded-xl border bg-muted/20 p-4">
               <p className="text-sm font-medium">{currentConversationName}</p>
               <div className="mt-2 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
-                <div>
-                  <p className="text-xs uppercase tracking-wide">Type</p>
-                  <p className="font-medium text-foreground">
-                    {currentChat?.metadata?.kind === "general"
-                      ? "General group"
-                      : "Group chat"}
-                  </p>
-                </div>
                 <div>
                   <p className="text-xs uppercase tracking-wide">Members</p>
                   <p className="font-medium text-foreground">
@@ -2895,7 +2887,7 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Edit message</DialogTitle>
             <DialogDescription>
-              Update the message body and save your changes.
+              Tighten the wording and save the updated message.
             </DialogDescription>
           </DialogHeader>
 
@@ -2923,10 +2915,10 @@ export default function Chat() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete message</DialogTitle>
+            <DialogTitle>Delete this message?</DialogTitle>
             <DialogDescription>
-              This will soft-delete the message and keep the timeline intact for
-              everyone in the conversation.
+              The message will be removed, but the conversation timeline will
+              stay intact for everyone.
             </DialogDescription>
           </DialogHeader>
 

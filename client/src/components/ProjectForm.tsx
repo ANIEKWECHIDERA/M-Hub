@@ -78,12 +78,12 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
   return (
     <form onSubmit={handleSubmit} className={`space-y-4 ${loading ? "pointer-events-none opacity-60" : ""}`}>
       <div className="space-y-2">
-        <Label htmlFor="title">Project Title</Label>
+        <Label htmlFor="title">Project name</Label>
         <Input
           id="title"
           value={formData.title}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          placeholder="Enter project title"
+          placeholder="Name the workstream, campaign, or retainer"
           required
         />
       </div>
@@ -96,7 +96,7 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
             ref={newClientInputRef} // Attach ref here
             value={newClient}
             onChange={(e) => setNewClient(e.target.value)}
-            placeholder="Enter new client name"
+            placeholder="Add a new client name"
             required
           />
         ) : (
@@ -122,7 +122,7 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
                   {client.name}
                 </SelectItem>
               ))}
-              <SelectItem value="NewClient">+ Add New Client</SelectItem>
+              <SelectItem value="NewClient">+ Add new client</SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -176,14 +176,14 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
           onChange={(e) =>
             setFormData({ ...formData, description: e.target.value })
           }
-          placeholder="Project description..."
+          placeholder="Add the outcome, scope, or any setup notes."
           rows={3}
         />
       </div>
 
       {teamMembers.length > 0 && (
         <div className="space-y-2">
-          <Label>Team Members</Label>
+          <Label>Team members</Label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
             {teamMembers.map((member: any) => {
               const checked = formData.team_member_ids.includes(member.id);
@@ -217,8 +217,7 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
             })}
           </div>
           <p className="text-xs text-muted-foreground">
-            Select one or more members to assign to this project. These members
-            will be available to assign tasks to.
+            Pick the teammates who should be ready to work inside this project.
           </p>
         </div>
       )}
@@ -236,8 +235,8 @@ const ProjectForm = ({ project = {}, onSave, onCancel }: ProjectFormProps) => {
           {loading
             ? "Saving..."
             : project.id
-              ? "Update Project"
-              : "Create Project"}
+              ? "Save changes"
+              : "Create project"}
         </Button>
       </div>
     </form>

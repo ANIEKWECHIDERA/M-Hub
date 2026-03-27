@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,6 +67,7 @@ import { useTeamContext } from "@/context/TeamMemberContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { CompanyAPI } from "@/api/company.api";
 import { inviteAPI, type InviteRecord } from "@/api/invite.api";
+import type { NotificationRecord } from "@/api/notifications.api";
 import type { TeamMember, WorkspaceManagerSnapshot } from "@/Types/types";
 import {
   Dialog,
@@ -388,7 +389,7 @@ export default function WorkspaceManager() {
     [invites],
   );
 
-  const loadWorkspaceManager = async (options?: { force?: boolean }) => {
+  const loadWorkspaceManager = useCallback(async (options?: { force?: boolean }) => {
     const snapshot = await getManagerSnapshot({
       force: options?.force,
     });
@@ -402,9 +403,9 @@ export default function WorkspaceManager() {
 
     setData(null);
     return null;
-  };
+  }, [getManagerSnapshot]);
 
-  const loadInvites = async () => {
+  const loadInvites = useCallback(async () => {
     if (
       !idToken ||
       activeSection !== "invites" ||
@@ -422,7 +423,7 @@ export default function WorkspaceManager() {
     } finally {
       setInvitesLoading(false);
     }
-  };
+  }, [activeSection, authStatus?.onboardingState, idToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -455,7 +456,50 @@ export default function WorkspaceManager() {
     }
 
     void loadInvites();
-  }, [activeSection, authStatus?.companyId, idToken]);
+  }, [activeSection, authStatus?.companyId, idToken, loadInvites]);
+
+  useEffect(() => {
+    if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
+      return;
+    }
+
+    const handleNotificationCreated = (event: Event) => {
+      const notification = (event as CustomEvent<NotificationRecord>).detail;
+
+      if (
+        !notification ||
+        notification.company_id !== authStatus?.companyId ||
+        !notification.type.startsWith("invite_accepted:")
+      ) {
+        return;
+      }
+
+      if (activeSection === "invites") {
+        void loadInvites();
+      }
+
+      void loadWorkspaceManager({ force: true });
+    };
+
+    window.addEventListener(
+      "crevo:notification-created",
+      handleNotificationCreated as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "crevo:notification-created",
+        handleNotificationCreated as EventListener,
+      );
+    };
+  }, [
+    activeSection,
+    authStatus?.companyId,
+    authStatus?.onboardingState,
+    idToken,
+    loadInvites,
+    loadWorkspaceManager,
+  ]);
 
   useEffect(() => {
     if (!logoFile) {
@@ -1139,9 +1183,9 @@ export default function WorkspaceManager() {
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
-                      <DialogTitle>Invite Team Member</DialogTitle>
+                      <DialogTitle>Invite a teammate</DialogTitle>
                       <DialogDescription>
-                        Invite a teammate into your current workspace.
+                        Bring someone into this workspace and set the right role from the start.
                       </DialogDescription>
                     </DialogHeader>
                     <InviteForm
@@ -1353,9 +1397,9 @@ export default function WorkspaceManager() {
       >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Edit Team Member</DialogTitle>
+            <DialogTitle>Edit teammate</DialogTitle>
             <DialogDescription>
-              Update the team member details and save your changes.
+              Update their role or access so the workspace stays in sync with how your team works.
             </DialogDescription>
           </DialogHeader>
           <TeamMemberForm
@@ -1381,17 +1425,16 @@ export default function WorkspaceManager() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
+            <AlertDialogTitle>Remove teammate?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove{" "}
-              <strong>{memberToDelete?.name || "this team member"}</strong> from
-              the workspace? They will lose access immediately.
+              <strong>{memberToDelete?.name || "This teammate"}</strong> will
+              lose access to this workspace right away.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>
-              Remove Member
+              Remove teammate
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1411,11 +1454,10 @@ export default function WorkspaceManager() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Invite</AlertDialogTitle>
+            <AlertDialogTitle>Delete invite?</AlertDialogTitle>
             <AlertDialogDescription>
-              Delete the invite for{" "}
-              <strong>{inviteToDelete?.email ?? "this invite"}</strong>? This
-              removes the current invite link and it can no longer be used.
+              <strong>{inviteToDelete?.email ?? "This invite"}</strong> will
+              stop working right away, and the current link will no longer be usable.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1432,7 +1474,7 @@ export default function WorkspaceManager() {
                 setInviteToDelete(null);
               }}
             >
-              Delete Invite
+              Delete invite
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

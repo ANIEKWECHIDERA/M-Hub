@@ -1,5 +1,6 @@
 import * as React from "react";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { motion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -137,7 +138,9 @@ export function Sidebar({
 
   return (
     <>
-      <aside
+      <motion.aside
+        layout
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
           "hidden h-screen shrink-0 border-r border-sidebar-border/45 bg-sidebar/95 text-sidebar-foreground backdrop-blur-xl lg:flex lg:flex-col",
           open ? "lg:w-72" : "lg:w-20",
@@ -145,7 +148,7 @@ export function Sidebar({
         )}
       >
         {children}
-      </aside>
+      </motion.aside>
 
       <Sheet open={openMobile} onOpenChange={setOpenMobile}>
         <SheetContent

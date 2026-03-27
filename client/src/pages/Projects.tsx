@@ -140,8 +140,10 @@ export default function Projects() {
           )}
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Create New Project</DialogTitle>
-              <DialogDescription>Input project details.</DialogDescription>
+              <DialogTitle>Start a project</DialogTitle>
+              <DialogDescription>
+                Give it a name now. You can shape the rest as the work takes form.
+              </DialogDescription>
             </DialogHeader>
             <ProjectForm
               onSave={async (data) => {
@@ -252,8 +254,10 @@ export default function Projects() {
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
-                    <DialogTitle>Create New Project</DialogTitle>
-                    <DialogDescription>Input project details.</DialogDescription>
+                    <DialogTitle>Start a project</DialogTitle>
+                    <DialogDescription>
+                      Give it a name now. You can shape the rest as the work takes form.
+                    </DialogDescription>
                   </DialogHeader>
                   <ProjectForm
                     onSave={async (data) => {
@@ -387,9 +391,9 @@ export default function Projects() {
         >
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Edit Project</DialogTitle>
+              <DialogTitle>Edit project</DialogTitle>
               <DialogDescription>
-                Update the project details and save your changes.
+                Update the essentials and keep the work moving.
               </DialogDescription>
             </DialogHeader>
             <ProjectForm
@@ -414,11 +418,10 @@ export default function Projects() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Project</AlertDialogTitle>
+              <AlertDialogTitle>Delete project?</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete{" "}
-                <strong>{projectToDelete?.title}</strong>? This action cannot be
-                undone.
+                <strong>{projectToDelete?.title}</strong> will be removed from
+                your workspace. This can't be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="flex justify-end gap-2 pt-4">
@@ -429,7 +432,7 @@ export default function Projects() {
                 onClick={confirmDelete}
                 className="bg-red-600 hover:bg-red-700"
               >
-                Delete
+                Delete project
               </AlertDialogAction>
             </div>
           </AlertDialogContent>

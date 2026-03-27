@@ -1752,3 +1752,88 @@ Assumptions currently in use:
   - product shell defaults:
     - the main app should default to dark mode unless the user explicitly chose light mode
     - keep the product favicon aligned with the website favicon/mark treatment so the brand stays consistent across both apps
+- Chat transport and scaling notes:
+  - current production-safe migration strategy is phased:
+    - first reduce false-positive chat `429`s
+    - then reduce noisy refresh churn on the client
+    - then introduce WebSockets alongside the existing stream path before any full cutover
+  - chat rate-limiter adjustments:
+    - the global `/api` limiter should skip `/api/chat/*` requests because chat has its own route-specific controls and higher read frequency
+    - chat message limit is now tuned for active group use at `75/minute/user`
+    - chat typing limit is now tuned for real typing bursts at `60/10s/user`
+  - chat refresh policy:
+    - conversation-list refreshes should be coalesced and throttled rather than rescheduled on every event
+    - active-conversation refreshes should also be throttled so busy rooms do not hammer the backend with repeated fetches
+  - WebSocket migration foundation:
+    - backend WebSocket entrypoint now exists at `/api/chat/ws`
+    - it authenticates with the same Firebase token query-param pattern used by the SSE stream
+    - it forwards the same `ChatRealtimeEvent` payloads as the SSE transport
+    - presence still opens and closes through the existing chat realtime service
+    - the client now attempts WebSocket first and falls back to SSE automatically if the socket transport is unavailable
+  - unread sync behavior:
+    - the last selected conversation should only be treated as actively viewed while the user is actually on `/chat`
+    - leaving `/chat` must not keep marking that thread as read from background state alone
+    - off-screen `chat.message.created` events should bump in-memory unread counts immediately so the sidebar/header badge updates before the reconciliation fetch returns
+    - lightweight message-event dedupe is now used during migration so optimistic unread updates do not double-count if the same message is observed through overlapping event paths
+  - safety rule:
+    - do not remove the SSE path until WebSocket behavior has been verified under real multi-user load in direct chat, group chat, presence, typing, and workspace switching flows
+- Settings and first-run behavior:
+  - `Workspace Health` should default to off for new users so the sidebar stays quieter until an admin explicitly enables it
+  - the workspace-health sidebar preference is now stored per-user instead of globally in browser local storage, so one account does not leak that toggle state into another on the same device
+  - new-account dashboard stability:
+    - a fresh signup was able to reach `/dashboard`, but the empty-state dashboard used to hit a `Maximum update depth exceeded` loop in the first-project dialog path
+    - the new-user dashboard now renders cleanly with the `No projects yet` state and `Create Your First Project` CTA
+    - the safer structure is to keep the first-project trigger button outside the controlled dialog tree and render the dialog separately; this avoids the ref/update loop that could appear on a brand-new account with no projects
+  - dashboard empty state:
+    - when there are no projects, do not render overview stats or decorative cards
+    - the no-project dashboard should show only the create-project prompt and button
+- Perceived performance notes:
+  - first dashboard load is currently dominated by multiple app-shell providers fetching in parallel, including user, settings, workspaces, projects, tasks, clients, team members, notifications, and chat conversations
+  - chat tagging felt functionally correct, but the UI was doing unnecessary follow-up GETs after each quick tag change
+  - tag updates are now treated as local-first:
+    - optimistic message/tag state is updated immediately
+    - the client seeds a short-lived realtime dedupe key for its own `chat.message.updated` event before the PATCH resolves
+    - conversation-list refresh is no longer forced after every tag toggle because tag edits do not change the sidebar conversation summary
+    - this keeps rapid tag/untag interactions to the PATCH itself instead of bouncing through a full active-conversation refresh loop
+  - dashboard preload pass:
+    - chat conversation list still preloads for unread state, but chat workspace-member fetch is now deferred until the user is actually on `/chat`
+    - personal tasks now preload only on `/mytasks` and `/projectdetails/*`
+    - subtasks now preload only on `/mytasks`
+    - this removes unnecessary first-load requests from the dashboard route without changing the product shell contract
+    - to reduce the feeling that Focus and Chat always have to \"load on click\", the sidebar now starts a lighter background prefetch when those parent groups open:
+      - opening `Focus` from the dashboard triggers `my-tasks` prefetch before navigation
+      - opening `Chat` starts the workspace-member preload before entering the chat screen
+      - this keeps the dashboard lighter than eager shell-wide fetching while making those sections feel less cold on entry
+- Sidebar interaction polish:
+  - desktop sidebar width now animates with Framer Motion instead of snapping between collapsed and expanded states
+  - nested sidebar menus now animate open/close with height and opacity transitions
+  - when a parent submenu like `Settings` opens, the sidebar now smooth-scrolls that revealed panel into view so users do not need to manually scroll to discover the newly opened options
+- Invite acceptance sync:
+  - notification-created events now dispatch a lightweight browser event when a realtime notification arrives
+  - accepted-invite notifications are now used to refresh:
+    - team members in `TeamMemberContext`
+    - workspace manager snapshot data
+    - the invites list when the invites section is open
+  - this keeps the team/invite surfaces fresher after an invite is accepted without waiting for a full page reload
+  - browser verification:
+    - with the Team tab already open, a newly accepted invite appeared in the team list without a manual refresh
+    - the same pass also showed the invite status move to `ACCEPTED` in Workspace Manager
+- Chat send-path optimization:
+  - chat message realtime events now carry the updated message payload instead of only IDs
+  - the client applies `chat.message.created`, `chat.message.updated`, and `chat.message.deleted` locally to messages, tagged messages, conversation previews, and unread counts
+  - own send/edit/delete actions seed short-lived realtime dedupe keys so the returning socket event does not trigger redundant safety refreshes
+  - structural events like conversation updates and membership changes still schedule background refreshes as a safety net
+  - browser verification:
+    - after a fresh chat load, sending a tagged message produced the initial conversation boot GETs and the expected `POST /messages`
+    - there was no extra post-send GET fan-out after the message was created
+- Dashboard filtering behavior:
+  - if a workspace has projects but the current filters return zero matches, show a dedicated filtered-empty state instead of a blank grid
+  - the filtered-empty state should explain that no projects match the current filters and offer a one-click `Reset Filters` action
+- Task creation friction note:
+  - the inline quick-add task row in project detail was reverted
+  - task creation there currently goes through the full task dialog again until a narrower low-friction flow is reintroduced
+- Copy alignment rules:
+  - Crevo copy should feel warm, clear, and human rather than robotic or procedural
+  - prefer phrases like `Start a project`, `Invite a teammate`, `Delete project?`, and `This can't be undone`
+  - avoid scaffolding language such as `Input project details`, `Create New ...`, or metadata labels that read like implementation details
+  - group info should focus on purpose, members, and activity; remove labels like `Type: Group chat`

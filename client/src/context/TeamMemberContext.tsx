@@ -1,8 +1,9 @@
 import { teamMembersAPI } from "@/api/teamMember.api";
 import { inviteAPI } from "@/api/invite.api";
 import { ApiError } from "@/api/http";
+import type { NotificationRecord } from "@/api/notifications.api";
 import type { TeamMember } from "@/Types/types";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAuthContext } from "./AuthContext";
 import { useUser } from "./UserContext";
@@ -55,7 +56,7 @@ export const TeamContextProvider = ({
   const currentMember =
     teamMembers.find((member) => member.user_id === profile?.id) ?? null;
 
-  const fetchTeamMembers = async () => {
+  const fetchTeamMembers = useCallback(async () => {
     if (!idToken || !authStatus?.companyId) {
       setTeamMembers([]);
       return;
@@ -72,7 +73,7 @@ export const TeamContextProvider = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [authStatus?.companyId, idToken]);
 
   const inviteMember = async (payload: {
     email: string;
@@ -156,11 +157,54 @@ export const TeamContextProvider = ({
       return;
     }
 
-    fetchTeamMembers();
+    void fetchTeamMembers();
   }, [
+    fetchTeamMembers,
     idToken,
     authStatus?.companyId,
     authStatus?.onboardingState,
+    isRestrictedMember,
+  ]);
+
+  useEffect(() => {
+    if (
+      !idToken ||
+      authStatus?.onboardingState !== "ACTIVE" ||
+      isRestrictedMember
+    ) {
+      return;
+    }
+
+    const handleNotificationCreated = (event: Event) => {
+      const notification = (event as CustomEvent<NotificationRecord>).detail;
+
+      if (
+        !notification ||
+        notification.company_id !== authStatus?.companyId ||
+        !notification.type.startsWith("invite_accepted:")
+      ) {
+        return;
+      }
+
+      void fetchTeamMembers();
+    };
+
+    window.addEventListener(
+      "crevo:notification-created",
+      handleNotificationCreated as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "crevo:notification-created",
+        handleNotificationCreated as EventListener,
+      );
+    };
+  }, [
+    authStatus?.companyId,
+    authStatus?.onboardingState,
+    fetchTeamMembers,
+    idToken,
     isRestrictedMember,
   ]);
 

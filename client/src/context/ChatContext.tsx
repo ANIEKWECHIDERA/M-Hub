@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useLocation } from "react-router-dom";
 import { API_CONFIG } from "@/lib/api";
 import { useAuthContext } from "./AuthContext";
 import { useUser } from "./UserContext";
@@ -26,6 +27,7 @@ import {
   updateConversationPresence,
   upsertConversation,
 } from "@/lib/chat";
+import { openChatStreamTransport } from "@/lib/chatStreamTransport";
 import type { ChatSection } from "@/config/chat-nav";
 import { useWorkspaceContext } from "./WorkspaceContext";
 
@@ -89,6 +91,18 @@ function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
   return sortMessagesAscending(Array.from(map.values()));
 }
 
+function toMessageSummary(message: ChatMessage) {
+  return {
+    id: message.id,
+    body: message.body,
+    message_type: message.message_type,
+    created_at: message.created_at,
+    edited_at: message.edited_at,
+    deleted_at: message.deleted_at,
+    sender: message.sender,
+  };
+}
+
 function updateConversationById(
   current: ChatConversation[],
   conversationId: string,
@@ -135,6 +149,7 @@ export function useChatContext() {
 }
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
   const { idToken, authStatus, currentUser } = useAuthContext();
   const { profile } = useUser();
   const { invalidateRetentionSnapshot } = useWorkspaceContext();
@@ -160,11 +175,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     {},
   );
   const [nextMessageCursor, setNextMessageCursor] = useState<string | null>(null);
-  const streamRef = useRef<EventSource | null>(null);
+  const streamCleanupRef = useRef<(() => void) | null>(null);
   const conversationsRefreshTimeoutRef = useRef<number | null>(null);
   const activeRefreshTimeoutRef = useRef<number | null>(null);
   const conversationsRetryTimeoutRef = useRef<number | null>(null);
   const conversationsRetryCountRef = useRef(0);
+  const conversationsRefreshLastAtRef = useRef(0);
+  const activeRefreshLastAtRef = useRef(0);
+  const recentMessageEventKeysRef = useRef(new Map<string, number>());
   const idTokenRef = useRef<string | null>(idToken);
   const activeConversationIdRef = useRef<string | null>(activeConversationId);
   const conversationsRefreshRef = useRef<Promise<void> | null>(null);
@@ -172,6 +190,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const activeRefreshKeyRef = useRef<string | null>(null);
   const taggedRefreshRef = useRef<Promise<void> | null>(null);
   const taggedRefreshKeyRef = useRef<string | null>(null);
+  const isChatRoute = location.pathname === "/chat";
+  const isChatRouteRef = useRef<boolean>(isChatRoute);
   const scopeKey =
     Boolean(idToken) &&
     Boolean(currentUser) &&
@@ -205,6 +225,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
   }, [activeConversationId]);
+
+  useEffect(() => {
+    isChatRouteRef.current = isChatRoute;
+  }, [isChatRoute]);
 
   const resetState = useCallback(() => {
     setConversations([]);
@@ -240,6 +264,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       conversationsRetryTimeoutRef.current = null;
     }
     conversationsRetryCountRef.current = 0;
+    conversationsRefreshLastAtRef.current = 0;
+    activeRefreshLastAtRef.current = 0;
     lastReadMessageIdRef.current = null;
   }, []);
 
@@ -506,13 +532,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const scheduleRefreshConversations = useCallback(
     (options?: { silent?: boolean; delayMs?: number }) => {
       if (conversationsRefreshTimeoutRef.current) {
-        window.clearTimeout(conversationsRefreshTimeoutRef.current);
+        return;
       }
+
+      const elapsed = Date.now() - conversationsRefreshLastAtRef.current;
+      const minIntervalMs = options?.silent === false ? 0 : 1200;
+      const waitMs = Math.max(
+        options?.delayMs ?? 220,
+        Math.max(0, minIntervalMs - elapsed),
+      );
 
       conversationsRefreshTimeoutRef.current = window.setTimeout(() => {
         conversationsRefreshTimeoutRef.current = null;
+        conversationsRefreshLastAtRef.current = Date.now();
         void refreshConversations({ silent: options?.silent ?? true });
-      }, options?.delayMs ?? 120);
+      }, waitMs);
     },
     [refreshConversations],
   );
@@ -520,13 +554,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const scheduleRefreshActiveConversation = useCallback(
     (options?: { silent?: boolean; delayMs?: number }) => {
       if (activeRefreshTimeoutRef.current) {
-        window.clearTimeout(activeRefreshTimeoutRef.current);
+        return;
       }
+
+      const elapsed = Date.now() - activeRefreshLastAtRef.current;
+      const minIntervalMs = options?.silent === false ? 0 : 800;
+      const waitMs = Math.max(
+        options?.delayMs ?? 180,
+        Math.max(0, minIntervalMs - elapsed),
+      );
 
       activeRefreshTimeoutRef.current = window.setTimeout(() => {
         activeRefreshTimeoutRef.current = null;
+        activeRefreshLastAtRef.current = Date.now();
         void refreshActiveConversation({ silent: options?.silent ?? true });
-      }, options?.delayMs ?? 120);
+      }, waitMs);
     },
     [refreshActiveConversation],
   );
@@ -952,6 +994,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           { body: body.trim(), tags: options?.tags },
           token,
         );
+        recentMessageEventKeysRef.current.set(
+          `chat.message.created:${response.message.id}`,
+          Date.now(),
+        );
 
         setMessages((prev) =>
           mergeMessages(
@@ -1019,6 +1065,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     );
 
     try {
+      recentMessageEventKeysRef.current.set(
+        `chat.message.updated:${messageId}`,
+        Date.now(),
+      );
       const response = await chatAPI.editMessage(messageId, body, token);
       setMessages((prev) =>
         mergeMessages(
@@ -1075,6 +1125,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     );
 
     try {
+      recentMessageEventKeysRef.current.set(
+        `chat.message.deleted:${messageId}`,
+        Date.now(),
+      );
       await chatAPI.deleteMessage(messageId, token);
       setTaggedMessages((prev) =>
         prev.filter((message) => message.id !== messageId),
@@ -1148,6 +1202,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        recentMessageEventKeysRef.current.set(
+          `chat.message.updated:${messageId}`,
+          Date.now(),
+        );
         const response = await chatAPI.updateMessageTags(messageId, normalizedTags, token);
         setMessages((prev) =>
           mergeMessages(
@@ -1164,7 +1222,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             : withoutMessage;
         });
         invalidateRetentionSnapshot();
-        scheduleRefreshConversations({ silent: true });
       } catch (error) {
         if (previousMessage) {
           setMessages((prev) =>
@@ -1188,7 +1245,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     [
       invalidateRetentionSnapshot,
       messagesById,
-      scheduleRefreshConversations,
       taggedMessagesById,
     ],
   );
@@ -1199,8 +1255,25 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    void Promise.all([refreshConversations(), refreshWorkspaceMembers()]);
-  }, [refreshConversations, refreshWorkspaceMembers, resetState, scopeKey]);
+    void refreshConversations();
+    if (isChatRoute) {
+      void refreshWorkspaceMembers();
+    }
+  }, [
+    isChatRoute,
+    refreshConversations,
+    refreshWorkspaceMembers,
+    resetState,
+    scopeKey,
+  ]);
+
+  useEffect(() => {
+    if (!scopeKey || !isChatRoute || workspaceMembers.length > 0) {
+      return;
+    }
+
+    void refreshWorkspaceMembers();
+  }, [isChatRoute, refreshWorkspaceMembers, scopeKey, workspaceMembers.length]);
 
   useEffect(() => {
     if (!scopeKey || !activeConversationId) {
@@ -1225,90 +1298,242 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    void markActiveConversationRead();
-  }, [activeConversationId, markActiveConversationRead, messages]);
-
-  useEffect(() => {
-    if (!scopeKey || !idTokenRef.current) {
-      streamRef.current?.close();
-      streamRef.current = null;
+    if (!isChatRoute) {
       return;
     }
 
-    const stream = new EventSource(
-      `${API_CONFIG.backend}/api/chat/stream?token=${encodeURIComponent(
-        idTokenRef.current,
-      )}`,
-    );
+    void markActiveConversationRead();
+  }, [activeConversationId, isChatRoute, markActiveConversationRead, messages]);
 
-    const handleChatEvent = (event: MessageEvent<string>) => {
-      try {
-        const payload = JSON.parse(event.data) as ChatStreamEvent;
-        if (payload.company_id !== authStatus?.companyId) {
+  useEffect(() => {
+    if (!scopeKey || !isChatRoute || !activeConversationId) {
+      return;
+    }
+
+    void refreshActiveConversation({ silent: true });
+  }, [activeConversationId, isChatRoute, refreshActiveConversation, scopeKey]);
+
+  useEffect(() => {
+    if (!scopeKey || !idTokenRef.current) {
+      streamCleanupRef.current?.();
+      streamCleanupRef.current = null;
+      return;
+    }
+
+    const handleChatEvent = (payload: ChatStreamEvent) => {
+      if (payload.company_id !== authStatus?.companyId) {
+        return;
+      }
+
+      if ("message_id" in payload) {
+        const eventKey = `${payload.type}:${payload.message_id}`;
+        const now = Date.now();
+        const seenAt = recentMessageEventKeysRef.current.get(eventKey);
+
+        if (seenAt && now - seenAt < 4000) {
           return;
         }
 
-        if (payload.type === "chat.presence") {
-          setPresenceByUserId((prev) => ({
-            ...prev,
-            [payload.user_id]: payload.online,
-          }));
-          setConversations((prev) =>
-            prev.map((conversation) =>
-              updateConversationPresence(
-                conversation,
-                payload.user_id,
-                payload.online,
-              ),
+        recentMessageEventKeysRef.current.set(eventKey, now);
+        for (const [key, timestamp] of recentMessageEventKeysRef.current.entries()) {
+          if (now - timestamp > 15000) {
+            recentMessageEventKeysRef.current.delete(key);
+          }
+        }
+      }
+
+      const isConversationEvent = "conversation_id" in payload;
+      const isActiveConversationVisible =
+        isConversationEvent &&
+        isChatRouteRef.current &&
+        payload.conversation_id === activeConversationIdRef.current;
+
+      if (payload.type === "chat.presence") {
+        setPresenceByUserId((prev) => ({
+          ...prev,
+          [payload.user_id]: payload.online,
+        }));
+        setConversations((prev) =>
+          prev.map((conversation) =>
+            updateConversationPresence(
+              conversation,
+              payload.user_id,
+              payload.online,
             ),
+          ),
+        );
+        setConversationDetails((prev) =>
+          prev
+            ? updateConversationPresence(prev, payload.user_id, payload.online)
+            : prev,
+        );
+        return;
+      }
+
+      if (payload.type === "chat.typing") {
+        setTypingMap((prev) => {
+          const conversationTyping = { ...(prev[payload.conversation_id] ?? {}) };
+          if (payload.isTyping) {
+            conversationTyping[payload.user_id] = true;
+          } else {
+            delete conversationTyping[payload.user_id];
+          }
+
+          return {
+            ...prev,
+            [payload.conversation_id]: conversationTyping,
+          };
+        });
+        return;
+      }
+
+      if (payload.type === "chat.message.created" && isConversationEvent) {
+        setConversations((prev) => {
+          const conversation = prev.find(
+            (entry) => entry.id === payload.conversation_id,
+          );
+          if (!conversation) {
+            return prev;
+          }
+
+          const isOwnMessage =
+            payload.sender_user_id != null &&
+            payload.sender_user_id === profile?.id;
+          const nextUnreadCount = isActiveConversationVisible || isOwnMessage
+            ? 0
+            : Math.max(0, (conversation.unread_count ?? 0) + 1);
+          const nextTimestamp = payload.created_at ?? new Date().toISOString();
+
+          return updateConversationById(prev, payload.conversation_id, (entry) => ({
+            ...entry,
+            last_message: toMessageSummary(payload.message),
+            unread_count: nextUnreadCount,
+            last_message_at: nextTimestamp,
+            updated_at: nextTimestamp,
+          }));
+        });
+
+        if (payload.conversation_id === activeConversationIdRef.current) {
+          setMessages((prev) => mergeMessages(prev, [payload.message]));
+          setTaggedMessages((prev) =>
+            payload.message.tags.length
+              ? mergeMessages(
+                  prev.filter((message) => message.id !== payload.message.id),
+                  [payload.message],
+                )
+              : prev.filter((message) => message.id !== payload.message.id),
           );
           setConversationDetails((prev) =>
-            prev
-              ? updateConversationPresence(prev, payload.user_id, payload.online)
+            prev && prev.id === payload.conversation_id
+              ? {
+                  ...prev,
+                  last_message: toMessageSummary(payload.message),
+                }
               : prev,
           );
-          return;
         }
+      }
 
-        if (payload.type === "chat.typing") {
-          setTypingMap((prev) => {
-            const conversationTyping = { ...(prev[payload.conversation_id] ?? {}) };
-            if (payload.isTyping) {
-              conversationTyping[payload.user_id] = true;
-            } else {
-              delete conversationTyping[payload.user_id];
-            }
+      if (payload.type === "chat.message.updated" && isConversationEvent) {
+        setMessages((prev) =>
+          mergeMessages(
+            prev.map((message) =>
+              message.id === payload.message_id ? payload.message : message,
+            ),
+            [],
+          ),
+        );
+        setTaggedMessages((prev) => {
+          const withoutMessage = prev.filter(
+            (message) => message.id !== payload.message_id,
+          );
+          return payload.message.tags.length
+            ? mergeMessages(withoutMessage, [payload.message])
+            : withoutMessage;
+        });
+        setConversations((prev) =>
+          updateConversationById(prev, payload.conversation_id, (entry) =>
+            entry.last_message?.id === payload.message_id
+              ? {
+                  ...entry,
+                  last_message: toMessageSummary(payload.message),
+                }
+              : entry,
+          ),
+        );
+        setConversationDetails((prev) =>
+          prev && prev.id === payload.conversation_id
+            ? {
+                ...prev,
+                last_message:
+                  prev.last_message?.id === payload.message_id
+                    ? toMessageSummary(payload.message)
+                    : prev.last_message,
+              }
+            : prev,
+        );
+        return;
+      }
 
-            return {
-              ...prev,
-              [payload.conversation_id]: conversationTyping,
-            };
-          });
-          return;
-        }
+      if (payload.type === "chat.message.deleted" && isConversationEvent) {
+        setMessages((prev) =>
+          mergeMessages(
+            prev.map((message) =>
+              message.id === payload.message_id ? payload.message : message,
+            ),
+            [],
+          ),
+        );
+        setTaggedMessages((prev) =>
+          prev.filter((message) => message.id !== payload.message_id),
+        );
+        setConversations((prev) =>
+          updateConversationById(prev, payload.conversation_id, (entry) =>
+            entry.last_message?.id === payload.message_id
+              ? {
+                  ...entry,
+                  last_message: toMessageSummary(payload.message),
+                }
+              : entry,
+          ),
+        );
+        setConversationDetails((prev) =>
+          prev && prev.id === payload.conversation_id
+            ? {
+                ...prev,
+                last_message:
+                  prev.last_message?.id === payload.message_id
+                    ? toMessageSummary(payload.message)
+                    : prev.last_message,
+              }
+            : prev,
+        );
+        return;
+      }
 
-        if (
-          "conversation_id" in payload &&
-          payload.conversation_id === activeConversationIdRef.current
-        ) {
+      if (
+        payload.type === "chat.conversation.created" ||
+        payload.type === "chat.conversation.updated" ||
+        payload.type === "chat.member.added" ||
+        payload.type === "chat.member.removed"
+      ) {
+        if (isActiveConversationVisible) {
           scheduleRefreshActiveConversation({ silent: true });
         }
-
-        if (payload.type !== "chat.message.updated") {
-          scheduleRefreshConversations({ silent: true });
-        }
-      } catch {
-        // Ignore malformed events and let the next fetch reconcile state.
+        scheduleRefreshConversations({ silent: true });
       }
     };
 
-    stream.addEventListener("chat", handleChatEvent);
-    streamRef.current = stream;
+    const cleanup = openChatStreamTransport(API_CONFIG.backend, idTokenRef.current, {
+      onChatEvent: handleChatEvent,
+    });
+    streamCleanupRef.current = cleanup;
 
     return () => {
-      stream.removeEventListener("chat", handleChatEvent);
-      stream.close();
-      streamRef.current = null;
+      cleanup();
+      if (streamCleanupRef.current === cleanup) {
+        streamCleanupRef.current = null;
+      }
     };
   }, [
     authStatus?.companyId,
