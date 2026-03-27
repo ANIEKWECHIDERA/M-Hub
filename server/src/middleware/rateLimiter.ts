@@ -24,12 +24,20 @@ const userAwareKeyGenerator = (req: RequestWithUser) => {
 
 const ipOnlyKeyGenerator = (req: Request) => `ip:${normalizedIpKey(req)}`;
 
+const isChatRequest = (req: Request) => {
+  const path = req.originalUrl || req.url || req.path || "";
+  return path.includes("/api/chat/");
+};
+
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: ipOnlyKeyGenerator,
+  // Chat has its own route-level limiters and a noisier read pattern than the rest
+  // of the API. Skipping it here avoids false-positive 429s during active threads.
+  skip: isChatRequest,
   message: { error: "Too many requests, please try again later" },
 });
 
@@ -80,7 +88,7 @@ export const workspaceSwitchLimiter = rateLimit({
 
 export const chatMessageLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 40,
+  max: 75,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userAwareKeyGenerator,
@@ -89,7 +97,7 @@ export const chatMessageLimiter = rateLimit({
 
 export const chatTypingLimiter = rateLimit({
   windowMs: 10 * 1000,
-  max: 20,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userAwareKeyGenerator,

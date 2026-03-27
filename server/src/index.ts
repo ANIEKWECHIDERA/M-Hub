@@ -1,10 +1,12 @@
 import "dotenv/config";
 import "./observability/sentry";
+import { createServer } from "http";
 import app from "./app";
 import { logger } from "./utils/logger";
 import { sentry } from "./observability/sentry";
 import { testFirebaseConnection } from "./config/firebaseAdmin";
 import { testDbConnection } from "./lib/prisma";
+import { chatWebSocketService } from "./services/chatWebSocket.service";
 
 const PORT = process.env.PORT || 5000;
 
@@ -18,8 +20,11 @@ const startServer = async () => {
     const firebaseReady = await testFirebaseConnection();
     if (!firebaseReady) throw new Error("Firebase not ready");
 
-    // Start Express server only if all services are ready
-    app.listen(PORT, () => {
+    // Start a shared HTTP server so chat can migrate from SSE to WebSockets safely.
+    const server = createServer(app);
+    chatWebSocketService.initialize(server);
+
+    server.listen(PORT, () => {
       logger.info(`[INFO] Server running on port ${PORT}`);
     });
   } catch (err) {

@@ -32,7 +32,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import ProjectForm from "@/components/ProjectForm";
 import type { CreateProjectDTO } from "@/Types/types";
@@ -108,64 +107,64 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div
-        className={`grid grid-cols-1 gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-4 ${
-          showCompactOverview ? "grid" : "hidden sm:grid"
-        }`}
-      >
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Projects
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalProjects}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Projects
-            </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeProjects}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Overdue Projects
-            </CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">
-              {overdueProjects}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Completed Projects
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">
-              {completedProjects}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {hasProjects ? (
         <>
+          {/* Stats Cards */}
+          <div
+            className={`grid grid-cols-1 gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-4 ${
+              showCompactOverview ? "grid" : "hidden sm:grid"
+            }`}
+          >
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Projects
+                </CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalProjects}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Active Projects
+                </CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{activeProjects}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Overdue Projects
+                </CardTitle>
+                <AlertCircle className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-500">
+                  {overdueProjects}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Completed Projects
+                </CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-500">
+                  {completedProjects}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <Card
             className={`app-surface ${showCompactOverview ? "block" : "hidden sm:block"}`}
           >
@@ -300,56 +299,52 @@ export default function Dashboard() {
           </div>
         </>
       ) : (
-        <Card className="border-dashed">
-          <CardContent className="flex min-h-[22rem] items-center justify-center p-6 sm:p-10">
-            <div className="space-y-4 text-center">
-              <h2 className="text-xl font-semibold">No projects yet</h2>
-              <p className="text-muted-foreground">
-                Get started by creating your first project.
-              </p>
+        <div className="flex min-h-[52vh] items-center justify-center px-4 py-8 sm:px-0 sm:py-12">
+          <div className="mx-auto max-w-md space-y-4 text-center">
+            <h2 className="text-xl font-semibold">No projects yet</h2>
+            <p className="text-muted-foreground">
+              Get started by creating your first project.
+            </p>
 
-              {!isTeamMember && (
-                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Your First Project
-                    </Button>
-                  </DialogTrigger>
+            {!isTeamMember && (
+              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <Button onClick={() => setIsCreateOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Your First Project
+                </Button>
 
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>Create New Project</DialogTitle>
-                      <DialogDescription>
-                        Input project details.
-                      </DialogDescription>
-                    </DialogHeader>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Create New Project</DialogTitle>
+                    <DialogDescription>
+                      Input project details.
+                    </DialogDescription>
+                  </DialogHeader>
 
-                    <ProjectForm
-                      onSave={async (data) => {
-                        const newProject: CreateProjectDTO = {
-                          title: data.title || "",
-                          client_id: data.client_id || undefined,
-                          client: data.client,
-                          status: data.status || "Planning",
-                          deadline: data.deadline || undefined,
-                          description: data.description || undefined,
-                          team_member_ids: Array.isArray(data.team_member_ids)
-                            ? (data.team_member_ids as string[])
-                            : [],
-                        };
+                  <ProjectForm
+                    onSave={async (data) => {
+                      const newProject: CreateProjectDTO = {
+                        title: data.title || "",
+                        client_id: data.client_id || undefined,
+                        client: data.client,
+                        status: data.status || "Planning",
+                        deadline: data.deadline || undefined,
+                        description: data.description || undefined,
+                        team_member_ids: Array.isArray(data.team_member_ids)
+                          ? (data.team_member_ids as string[])
+                          : [],
+                      };
 
-                        setIsCreateOpen(false);
-                        await addProject(newProject);
-                      }}
-                      onCancel={() => setIsCreateOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                      setIsCreateOpen(false);
+                      await addProject(newProject);
+                    }}
+                    onCancel={() => setIsCreateOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

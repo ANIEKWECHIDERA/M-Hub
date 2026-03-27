@@ -405,12 +405,24 @@ class ChatRealtimeService {
   }
 
   private async handleMessageInsert(row: Record<string, any>) {
+    let senderUserId: string | null = null;
+    if (row.sender_team_member_id) {
+      const senderRows = await prisma.$queryRaw<Array<Record<string, any>>>`
+        SELECT user_id
+        FROM team_members
+        WHERE id = ${row.sender_team_member_id}::uuid
+        LIMIT 1`;
+      senderUserId = (senderRows[0]?.user_id as string | undefined) ?? null;
+    }
+
     const userIds = await this.getConversationUserIds(row.conversation_id);
     this.emit({
       type: "chat.message.created",
       company_id: row.company_id,
       conversation_id: row.conversation_id,
       message_id: row.id,
+      sender_user_id: senderUserId,
+      created_at: row.created_at,
       user_ids: userIds,
     });
   }

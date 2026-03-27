@@ -5,6 +5,7 @@ import {
   useEffect,
   useCallback,
 } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuthContext } from "./AuthContext";
 import type {
@@ -34,9 +35,11 @@ export const SubTasksContextProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
+  const location = useLocation();
   const { idToken } = useAuthContext();
   const { profile } = useUser();
   const { currentMember } = useTeamContext();
+  const shouldPreloadSubtasks = location.pathname === "/mytasks";
 
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,8 +68,13 @@ export const SubTasksContextProvider = ({
   }, [idToken]);
 
   useEffect(() => {
+    if (!shouldPreloadSubtasks) {
+      setLoading(false);
+      return;
+    }
+
     fetchSubtasks();
-  }, [fetchSubtasks]);
+  }, [fetchSubtasks, shouldPreloadSubtasks]);
 
   const addSubtask = async (data: CreateSubtaskDTO): Promise<Subtask> => {
     if (!idToken) {

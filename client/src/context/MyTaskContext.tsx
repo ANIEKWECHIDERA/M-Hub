@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import type { MyTasksContextType, TaskWithAssigneesDTO } from "@/Types/types";
 import { tasksAPI } from "@/api/tasks.api";
 import { useAuthContext } from "./AuthContext";
@@ -20,9 +21,13 @@ export const MyTasksProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
+  const location = useLocation();
   const { idToken, authStatus } = useAuthContext();
   const { tasks: allTasks, updateTask } = useTaskContext();
   const { currentMember } = useTeamContext();
+  const shouldPreloadMyTasks =
+    location.pathname === "/mytasks" ||
+    location.pathname.startsWith("/projectdetails/");
 
   const [tasks, setTasks] = useState<TaskWithAssigneesDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,8 +100,18 @@ export const MyTasksProvider = ({
       return;
     }
 
+    if (!shouldPreloadMyTasks) {
+      setLoading(false);
+      return;
+    }
+
     fetchMyTasks();
-  }, [idToken, authStatus?.companyId, authStatus?.onboardingState]);
+  }, [
+    authStatus?.companyId,
+    authStatus?.onboardingState,
+    idToken,
+    shouldPreloadMyTasks,
+  ]);
 
   useEffect(() => {
     const unsubscribe = subscribeToTaskSync((payload: TaskSyncPayload) => {

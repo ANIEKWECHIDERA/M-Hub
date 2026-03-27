@@ -481,7 +481,15 @@ async function emitConversationEvent(
         conversation_id: string;
       }
     | {
-        type: "chat.message.created" | "chat.message.updated" | "chat.message.deleted";
+        type: "chat.message.created";
+        company_id: string;
+        conversation_id: string;
+        message_id: string;
+        sender_user_id: string | null;
+        created_at: string;
+      }
+    | {
+        type: "chat.message.updated" | "chat.message.deleted";
         company_id: string;
         conversation_id: string;
         message_id: string;
@@ -1754,6 +1762,8 @@ export const ChatService = {
       company_id: params.company_id,
       conversation_id: params.conversation_id,
       message_id: rows[0].id,
+      sender_user_id: params.requesterUserId,
+      created_at: rows[0].created_at,
     });
 
     return (await getMessageListItemById(rows[0].id)) ?? mapMessageListItem(rows[0]);

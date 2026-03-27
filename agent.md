@@ -1752,3 +1752,50 @@ Assumptions currently in use:
   - product shell defaults:
     - the main app should default to dark mode unless the user explicitly chose light mode
     - keep the product favicon aligned with the website favicon/mark treatment so the brand stays consistent across both apps
+- Chat transport and scaling notes:
+  - current production-safe migration strategy is phased:
+    - first reduce false-positive chat `429`s
+    - then reduce noisy refresh churn on the client
+    - then introduce WebSockets alongside the existing stream path before any full cutover
+  - chat rate-limiter adjustments:
+    - the global `/api` limiter should skip `/api/chat/*` requests because chat has its own route-specific controls and higher read frequency
+    - chat message limit is now tuned for active group use at `75/minute/user`
+    - chat typing limit is now tuned for real typing bursts at `60/10s/user`
+  - chat refresh policy:
+    - conversation-list refreshes should be coalesced and throttled rather than rescheduled on every event
+    - active-conversation refreshes should also be throttled so busy rooms do not hammer the backend with repeated fetches
+  - WebSocket migration foundation:
+    - backend WebSocket entrypoint now exists at `/api/chat/ws`
+    - it authenticates with the same Firebase token query-param pattern used by the SSE stream
+    - it forwards the same `ChatRealtimeEvent` payloads as the SSE transport
+    - presence still opens and closes through the existing chat realtime service
+    - the client now attempts WebSocket first and falls back to SSE automatically if the socket transport is unavailable
+  - unread sync behavior:
+    - the last selected conversation should only be treated as actively viewed while the user is actually on `/chat`
+    - leaving `/chat` must not keep marking that thread as read from background state alone
+    - off-screen `chat.message.created` events should bump in-memory unread counts immediately so the sidebar/header badge updates before the reconciliation fetch returns
+    - lightweight message-event dedupe is now used during migration so optimistic unread updates do not double-count if the same message is observed through overlapping event paths
+  - safety rule:
+    - do not remove the SSE path until WebSocket behavior has been verified under real multi-user load in direct chat, group chat, presence, typing, and workspace switching flows
+- Settings and first-run behavior:
+  - `Workspace Health` should default to off for new users so the sidebar stays quieter until an admin explicitly enables it
+  - the workspace-health sidebar preference is now stored per-user instead of globally in browser local storage, so one account does not leak that toggle state into another on the same device
+  - new-account dashboard stability:
+    - a fresh signup was able to reach `/dashboard`, but the empty-state dashboard used to hit a `Maximum update depth exceeded` loop in the first-project dialog path
+    - the new-user dashboard now renders cleanly with the `No projects yet` state and `Create Your First Project` CTA
+  - dashboard empty state:
+    - when there are no projects, do not render overview stats or decorative cards
+    - the no-project dashboard should show only the create-project prompt and button
+- Perceived performance notes:
+  - first dashboard load is currently dominated by multiple app-shell providers fetching in parallel, including user, settings, workspaces, projects, tasks, clients, team members, notifications, and chat conversations
+  - chat tagging felt functionally correct, but the UI was doing unnecessary follow-up GETs after each quick tag change
+  - tag updates are now treated as local-first:
+    - optimistic message/tag state is updated immediately
+    - the client seeds a short-lived realtime dedupe key for its own `chat.message.updated` event before the PATCH resolves
+    - conversation-list refresh is no longer forced after every tag toggle because tag edits do not change the sidebar conversation summary
+    - this keeps rapid tag/untag interactions to the PATCH itself instead of bouncing through a full active-conversation refresh loop
+  - dashboard preload pass:
+    - chat conversation list still preloads for unread state, but chat workspace-member fetch is now deferred until the user is actually on `/chat`
+    - personal tasks now preload only on `/mytasks` and `/projectdetails/*`
+    - subtasks now preload only on `/mytasks`
+    - this removes unnecessary first-load requests from the dashboard route without changing the product shell contract

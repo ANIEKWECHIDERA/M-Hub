@@ -219,6 +219,8 @@ export type ChatRealtimeEvent =
       company_id: string;
       conversation_id: string;
       message_id: string;
+      sender_user_id: string | null;
+      created_at: string;
       user_ids: string[];
     }
   | {
