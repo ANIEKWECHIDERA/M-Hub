@@ -2397,7 +2397,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Create a group</DialogTitle>
             <DialogDescription>
-              Give the room a clear purpose, add the right people, and start the conversation.
+              Give the room a clear purpose, add the right people, and start the
+              conversation.
             </DialogDescription>
           </DialogHeader>
 
@@ -2630,7 +2631,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Rename group</DialogTitle>
             <DialogDescription>
-              Make the group easier to recognize for everyone in this conversation.
+              Make the group easier to recognize for everyone in this
+              conversation.
             </DialogDescription>
           </DialogHeader>
 
@@ -2915,7 +2917,8 @@ export default function Chat() {
           <DialogHeader>
             <DialogTitle>Delete this message?</DialogTitle>
             <DialogDescription>
-              The message will be removed, but the conversation timeline will stay intact for everyone.
+              The message will be removed, but the conversation timeline will
+              stay intact for everyone.
             </DialogDescription>
           </DialogHeader>
 

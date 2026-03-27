@@ -91,6 +91,18 @@ function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
   return sortMessagesAscending(Array.from(map.values()));
 }
 
+function toMessageSummary(message: ChatMessage) {
+  return {
+    id: message.id,
+    body: message.body,
+    message_type: message.message_type,
+    created_at: message.created_at,
+    edited_at: message.edited_at,
+    deleted_at: message.deleted_at,
+    sender: message.sender,
+  };
+}
+
 function updateConversationById(
   current: ChatConversation[],
   conversationId: string,
@@ -982,6 +994,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           { body: body.trim(), tags: options?.tags },
           token,
         );
+        recentMessageEventKeysRef.current.set(
+          `chat.message.created:${response.message.id}`,
+          Date.now(),
+        );
 
         setMessages((prev) =>
           mergeMessages(
@@ -1049,6 +1065,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     );
 
     try {
+      recentMessageEventKeysRef.current.set(
+        `chat.message.updated:${messageId}`,
+        Date.now(),
+      );
       const response = await chatAPI.editMessage(messageId, body, token);
       setMessages((prev) =>
         mergeMessages(
@@ -1105,6 +1125,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     );
 
     try {
+      recentMessageEventKeysRef.current.set(
+        `chat.message.deleted:${messageId}`,
+        Date.now(),
+      );
       await chatAPI.deleteMessage(messageId, token);
       setTaggedMessages((prev) =>
         prev.filter((message) => message.id !== messageId),
@@ -1382,18 +1406,120 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
           return updateConversationById(prev, payload.conversation_id, (entry) => ({
             ...entry,
+            last_message: toMessageSummary(payload.message),
             unread_count: nextUnreadCount,
             last_message_at: nextTimestamp,
             updated_at: nextTimestamp,
           }));
         });
+
+        if (payload.conversation_id === activeConversationIdRef.current) {
+          setMessages((prev) => mergeMessages(prev, [payload.message]));
+          setTaggedMessages((prev) =>
+            payload.message.tags.length
+              ? mergeMessages(
+                  prev.filter((message) => message.id !== payload.message.id),
+                  [payload.message],
+                )
+              : prev.filter((message) => message.id !== payload.message.id),
+          );
+          setConversationDetails((prev) =>
+            prev && prev.id === payload.conversation_id
+              ? {
+                  ...prev,
+                  last_message: toMessageSummary(payload.message),
+                }
+              : prev,
+          );
+        }
       }
 
-      if (isActiveConversationVisible) {
-        scheduleRefreshActiveConversation({ silent: true });
+      if (payload.type === "chat.message.updated" && isConversationEvent) {
+        setMessages((prev) =>
+          mergeMessages(
+            prev.map((message) =>
+              message.id === payload.message_id ? payload.message : message,
+            ),
+            [],
+          ),
+        );
+        setTaggedMessages((prev) => {
+          const withoutMessage = prev.filter(
+            (message) => message.id !== payload.message_id,
+          );
+          return payload.message.tags.length
+            ? mergeMessages(withoutMessage, [payload.message])
+            : withoutMessage;
+        });
+        setConversations((prev) =>
+          updateConversationById(prev, payload.conversation_id, (entry) =>
+            entry.last_message?.id === payload.message_id
+              ? {
+                  ...entry,
+                  last_message: toMessageSummary(payload.message),
+                }
+              : entry,
+          ),
+        );
+        setConversationDetails((prev) =>
+          prev && prev.id === payload.conversation_id
+            ? {
+                ...prev,
+                last_message:
+                  prev.last_message?.id === payload.message_id
+                    ? toMessageSummary(payload.message)
+                    : prev.last_message,
+              }
+            : prev,
+        );
+        return;
       }
 
-      if (payload.type !== "chat.message.updated") {
+      if (payload.type === "chat.message.deleted" && isConversationEvent) {
+        setMessages((prev) =>
+          mergeMessages(
+            prev.map((message) =>
+              message.id === payload.message_id ? payload.message : message,
+            ),
+            [],
+          ),
+        );
+        setTaggedMessages((prev) =>
+          prev.filter((message) => message.id !== payload.message_id),
+        );
+        setConversations((prev) =>
+          updateConversationById(prev, payload.conversation_id, (entry) =>
+            entry.last_message?.id === payload.message_id
+              ? {
+                  ...entry,
+                  last_message: toMessageSummary(payload.message),
+                }
+              : entry,
+          ),
+        );
+        setConversationDetails((prev) =>
+          prev && prev.id === payload.conversation_id
+            ? {
+                ...prev,
+                last_message:
+                  prev.last_message?.id === payload.message_id
+                    ? toMessageSummary(payload.message)
+                    : prev.last_message,
+              }
+            : prev,
+        );
+        return;
+      }
+
+      if (
+        payload.type === "chat.conversation.created" ||
+        payload.type === "chat.conversation.updated" ||
+        payload.type === "chat.member.added" ||
+        payload.type === "chat.member.removed"
+      ) {
+        if (isActiveConversationVisible) {
+          scheduleRefreshActiveConversation({ silent: true });
+        }
         scheduleRefreshConversations({ silent: true });
       }
     };

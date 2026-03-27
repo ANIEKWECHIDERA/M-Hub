@@ -487,12 +487,14 @@ async function emitConversationEvent(
         message_id: string;
         sender_user_id: string | null;
         created_at: string;
+        message: ChatMessageListItem;
       }
     | {
         type: "chat.message.updated" | "chat.message.deleted";
         company_id: string;
         conversation_id: string;
         message_id: string;
+        message: ChatMessageListItem;
       }
     | {
         type: "chat.member.added" | "chat.member.removed";
@@ -1764,6 +1766,9 @@ export const ChatService = {
       message_id: rows[0].id,
       sender_user_id: params.requesterUserId,
       created_at: rows[0].created_at,
+      message:
+        ((await getMessageListItemById(rows[0].id)) ??
+          mapMessageListItem(rows[0])) as ChatMessageListItem,
     });
 
     return (await getMessageListItemById(rows[0].id)) ?? mapMessageListItem(rows[0]);
@@ -1823,13 +1828,6 @@ export const ChatService = {
       tagCount: nextTags.length,
     });
 
-    await emitConversationEvent({
-      type: "chat.message.updated",
-      company_id: params.companyId,
-      conversation_id: updated.conversation_id,
-      message_id: updated.id,
-    });
-
     const updatedMessage = await getMessageListItemById(updated.id);
     if (!updatedMessage) {
       throw new ChatHttpError(
@@ -1838,6 +1836,14 @@ export const ChatService = {
         "CHAT_TAG_RELOAD_FAILED",
       );
     }
+
+    await emitConversationEvent({
+      type: "chat.message.updated",
+      company_id: params.companyId,
+      conversation_id: updated.conversation_id,
+      message_id: updated.id,
+      message: updatedMessage,
+    });
 
     return updatedMessage;
   },
@@ -1916,6 +1922,9 @@ export const ChatService = {
       company_id: params.companyId,
       conversation_id: updated.conversation_id,
       message_id: updated.id,
+      message:
+        ((await getMessageListItemById(updated.id)) ??
+          mapMessageListItem(updated)) as ChatMessageListItem,
     });
 
     return (await getMessageListItemById(updated.id)) ?? mapMessageListItem(updated);
@@ -1988,6 +1997,9 @@ export const ChatService = {
       company_id: params.companyId,
       conversation_id: updated.conversation_id,
       message_id: updated.id,
+      message:
+        ((await getMessageListItemById(updated.id)) ??
+          mapMessageListItem(updated)) as ChatMessageListItem,
     });
 
     return { success: true };

@@ -197,11 +197,21 @@
 
   .field-icon {
     @apply pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground;
-    left: 1.05rem;
+    left: 0.95rem !important;
   }
 
   .field-with-icon {
-    padding-left: 3.65rem;
+    padding-left: 2.85rem !important;
+  }
+
+  @media (min-width: 1024px) {
+    .field-icon {
+      left: 1rem !important;
+    }
+
+    .field-with-icon {
+      padding-left: 2.95rem !important;
+    }
   }
 
   .brand-subtitle {

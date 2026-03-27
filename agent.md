@@ -1818,6 +1818,14 @@ Assumptions currently in use:
   - browser verification:
     - with the Team tab already open, a newly accepted invite appeared in the team list without a manual refresh
     - the same pass also showed the invite status move to `ACCEPTED` in Workspace Manager
+- Chat send-path optimization:
+  - chat message realtime events now carry the updated message payload instead of only IDs
+  - the client applies `chat.message.created`, `chat.message.updated`, and `chat.message.deleted` locally to messages, tagged messages, conversation previews, and unread counts
+  - own send/edit/delete actions seed short-lived realtime dedupe keys so the returning socket event does not trigger redundant safety refreshes
+  - structural events like conversation updates and membership changes still schedule background refreshes as a safety net
+  - browser verification:
+    - after a fresh chat load, sending a tagged message produced the initial conversation boot GETs and the expected `POST /messages`
+    - there was no extra post-send GET fan-out after the message was created
 - Dashboard filtering behavior:
   - if a workspace has projects but the current filters return zero matches, show a dedicated filtered-empty state instead of a blank grid
   - the filtered-empty state should explain that no projects match the current filters and offer a one-click `Reset Filters` action
