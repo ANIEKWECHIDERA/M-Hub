@@ -181,7 +181,9 @@ export function ProjectDetail() {
     }
 
     if (
-      updatedTask?.team_members?.some((member) => member.id === currentMember?.id)
+      updatedTask?.team_members?.some(
+        (member) => member.id === currentMember?.id,
+      )
     ) {
       await refetch();
     }
@@ -335,7 +337,7 @@ export function ProjectDetail() {
         </TabsList>
 
         <TabsContent
-          className="mt-4 min-h-0 flex-1 overflow-y-auto pb-2"
+          className="mt-4 min-h-full flex-1 overflow-y-auto pb-24"
           value="overview"
         >
           <Card className="app-surface">
@@ -461,7 +463,9 @@ export function ProjectDetail() {
                   </div>
                 ) : filteredTasks.length === 0 ? (
                   <div className="flex min-h-[24rem] flex-col items-center justify-center text-center space-y-4">
-                    <p className="text-muted-foreground">No tasks yet for this project.</p>
+                    <p className="text-muted-foreground">
+                      No tasks yet for this project.
+                    </p>
                     <Button onClick={() => setIsTaskDialogOpen(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Task
@@ -798,8 +802,7 @@ export function ProjectDetail() {
                   : fileToDelete
                     ? `${fileToDelete.name}`
                     : "No item selected for deletion"}
-              </strong>
-              {" "}
+              </strong>{" "}
               will be removed from this project. This can't be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

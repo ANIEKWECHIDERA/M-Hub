@@ -1,0 +1,197 @@
+Crevo Research Notes
+Trello + Notion pain points turned into product opportunities
+Date: 2026-03-28
+
+Purpose
+This file captures recurring issues users report with Trello and Notion, based on Reddit research, and turns those patterns into a practical feature roadmap for Crevo.
+
+Summary Positioning
+Crevo should aim to be:
+- faster than Notion
+- more operational than Trello
+- more connected than chat + PM tools stitched together
+
+It should not try to become:
+- a more customizable Notion clone
+- another kanban board with add-ons
+
+
+1. Recurring pain points users report
+
+Trello pain points
+- Weak hierarchy
+  - users struggle with real subtasks, rollups, and parent-child work
+- Poor multi-project visibility
+  - teams dislike switching board to board to understand workload and deadlines
+- Timeline, dependencies, and workload feel bolted on
+- Automations can be delayed or unreliable
+- Team integrations can feel shallow
+- Permissions and accidental edits can become messy in real team use
+
+Notion pain points
+- Slowness
+  - especially with bigger databases, rollups, and more complex pages
+- Weak or missing offline support
+- Sync can feel fragile
+  - delayed updates, overwritten work, uncertainty about whether data is current
+- Recurring tasks and reminders feel limited
+- Project management can feel setup-heavy
+  - users spend too much time building a system instead of using it
+- Permissions and row-level control are weaker than many teams want
+
+
+2. Product opportunities for Crevo
+
+High-value near-term opportunities
+- Native subtasks with rollups
+  - parent task progress
+  - rolled-up status
+  - subtask due dates and ownership
+
+- Cross-project command center
+  - one place for deadlines, blockers, overdue work, and owner workload
+
+- Reliable automations with execution logs
+  - show whether a rule ran, failed, or was delayed
+
+- Chat-to-task conversion
+  - create a task directly from a message with context attached
+
+- Decision-to-task linking
+  - turn decision feed items into action items with owners and due dates
+
+- Better recurring tasks and reminders
+  - daily, weekly, monthly recurrence
+  - snooze, reschedule, catch-up flows
+
+
+Next-level differentiators
+- Native dependencies and timeline view
+  - blocked by / blocking
+  - timeline planning for project work
+
+- Cross-project workload heatmap
+  - surface overloaded teammates and slipping work
+
+- Smarter permissions and row-level visibility
+  - “only mine”
+  - client-safe views
+  - department/team scoped views
+
+- Offline-safe drafting and sync confidence
+  - notes draft offline
+  - task draft offline
+  - chat compose recovery
+  - reconnect-safe recovery flows
+
+- Activity audit trail
+  - who changed what
+  - when it changed
+  - what the prior value was
+
+
+Later strategic additions
+- Native client-facing approvals
+  - approve / request changes
+  - approval history
+  - comment trail
+
+- Template-based operations workflows
+  - campaign kickoff
+  - sprint setup
+  - client onboarding
+  - creative review
+
+- Advanced automation builder
+  - triggers, conditions, actions, cross-project rules
+
+- AI operational layer
+  - decision summaries
+  - blocker detection
+  - risk signals
+  - suggested next steps
+
+
+3. Recommended roadmap
+
+Now
+1. Native subtasks with rollups
+2. Cross-project command center
+3. Reliable automations with logs
+4. Chat-to-task and decision-to-task conversion
+5. Recurring tasks and reminders
+
+Next
+6. Dependencies and timeline view
+7. Workload heatmap
+8. Smarter permissions and row-level visibility
+9. Offline drafting and sync confidence
+10. Activity audit trail
+
+Later
+11. Native client approvals
+12. Operations templates
+13. Advanced automation builder
+14. AI operational layer
+
+
+4. Why this order makes sense
+
+- Native subtasks fix a core Trello weakness quickly
+- Cross-project visibility reduces real coordination pain immediately
+- Reliable automations create trust and reduce manual work
+- Chat-to-task conversion leans into a natural Crevo advantage
+- Recurring tasks improve operational usefulness fast
+- Dependencies and workload tools become much more valuable after the task model is stronger
+- Offline and sync confidence become strategic once usage deepens
+
+
+5. Suggested Crevo product direction
+
+Crevo should feel like:
+- the place where work actually moves
+- not just where work is documented
+
+That means:
+- less setup
+- more action
+- stronger structure
+- faster performance
+- clearer visibility
+- better trust in automation and collaboration
+
+
+6. Source links used in research
+
+Trello pain points
+- https://www.reddit.com/r/trello/comments/1qbcp7i/what_dont_you_like_about_trello/
+- https://www.reddit.com/r/trello/comments/1j3znb1/automation_completely_not_working/
+- https://www.reddit.com/r/trello/comments/1g8o69h/trello_in_teams/
+- https://www.reddit.com/r/trello/comments/yhw6k7/what_is_everyones_opinion_about_trello/
+
+Notion pain points
+- https://www.reddit.com/r/Notion/comments/125fq7n/has_notion_become_the_allinone_productivity_app/
+- https://www.reddit.com/r/Notion/comments/tkus08/notion_is_so_slow_it_is_almost_unusable/
+- https://www.reddit.com/r/Notion/comments/12322on/i_find_notion_too_slow_for_any_serious_work_why/
+- https://www.reddit.com/r/Notion/comments/16spgdj/what_are_some_of_your_biggest_frustrations_with_notion/
+- https://www.reddit.com/r/Notion/comments/1e0qkn6/notion_losing_for_lack_of_offline_mode/
+- https://www.reddit.com/r/Notion/comments/1ddjmvi/slow_notion_databases_make_me_want_to_scream/
+
+Broader productivity context
+- https://www.reddit.com/r/productivity/comments/1eui6ft/i_spend_more_time_managing_productivity_platforms/
+- https://www.reddit.com/r/productivity/comments/1ijtcxp/which_one_should_i_use_trello_or_notion_i_cant/
+
+
+7. Best upgrade themes for Crevo
+
+When upgrading Crevo, prioritize:
+- speed
+- structure
+- cross-project visibility
+- low-setup workflows
+- reliable automations
+- permissions clarity
+- operational confidence
+
+End note
+This research should guide future product upgrades toward clearer practical value, not feature bloat.

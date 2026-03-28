@@ -609,16 +609,23 @@ export default function SignUpPage() {
                     className="text-xs font-normal leading-4 sm:text-sm sm:leading-5"
                   >
                     I agree to the{" "}
-                    <Link to="/terms" className="text-primary hover:underline">
-                      Terms of Service
-                    </Link>{" "}
-                    and{" "}
-                    <Link
-                      to="/privacy"
+                    <a
+                      href="https://www.trycrevo.com/terms"
                       className="text-primary hover:underline"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Terms of Service
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href="https://www.trycrevo.com/privacy-policy"
+                      className="text-primary hover:underline"
+                      target="_blank"
+                      rel="noreferrer"
                     >
                       Privacy Policy
-                    </Link>
+                    </a>
                   </Label>
                 </div>
                 {errors.agreeToTerms && (
