@@ -1837,3 +1837,7 @@ Assumptions currently in use:
   - prefer phrases like `Start a project`, `Invite a teammate`, `Delete project?`, and `This can't be undone`
   - avoid scaffolding language such as `Input project details`, `Create New ...`, or metadata labels that read like implementation details
   - group info should focus on purpose, members, and activity; remove labels like `Type: Group chat`
+- Product analytics:
+  - PostHog is now the app analytics path for the main client when `VITE_POSTHOG_KEY` is present
+  - the app tracks SPA pageviews manually on route changes, identifies authenticated users, groups them by company, and resets analytics state on logout
+  - Firebase Analytics initialization was removed from the main client to avoid running two browser analytics systems at once

@@ -26,6 +26,7 @@ import AcceptInvitePage from "./pages/AcceptInvitePage";
 import { UploadStatusProvider } from "./context/UploadStatusContext";
 import { MotionConfig } from "framer-motion";
 import LandingPage from "./pages/LandingPage";
+import { PostHogProvider } from "./components/PostHogProvider";
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, loading, authStatus } = useAuthContext();
@@ -97,8 +98,10 @@ function App() {
       <AuthProvider>
         <UserProvider>
           <UploadStatusProvider>
-            <Toaster position="top-center" richColors />
-            <AppWithAuth />
+            <PostHogProvider>
+              <Toaster position="top-center" richColors />
+              <AppWithAuth />
+            </PostHogProvider>
           </UploadStatusProvider>
         </UserProvider>
       </AuthProvider>

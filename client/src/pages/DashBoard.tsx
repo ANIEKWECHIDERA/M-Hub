@@ -89,7 +89,8 @@ export default function Dashboard() {
             Dashboard
           </h1>
           <p className="text-sm text-muted-foreground sm:text-base">
-            Overview of your workspace activity, current delivery load, and project momentum.
+            Overview of your workspace activity, current delivery load, and
+            project momentum.
           </p>
         </div>
         <Button
@@ -167,7 +168,7 @@ export default function Dashboard() {
           </div>
 
           <Card
-            className={`app-surface ${showCompactOverview ? "block" : "hidden sm:block"}`}
+            className={`app-surface ${showCompactOverview ? "block" : "hidden sm:block"} pt-3`}
           >
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -290,7 +291,11 @@ export default function Dashboard() {
                             </span>
                           </div>
 
-                          <Button variant="outline" size="sm" onClick={() => {}}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {}}
+                          >
                             View Details
                           </Button>
                         </div>
@@ -304,10 +309,12 @@ export default function Dashboard() {
             <Card className="app-surface">
               <CardContent className="flex min-h-[18rem] flex-col items-center justify-center gap-4 px-6 py-10 text-center">
                 <div className="space-y-2">
-                  <h2 className="text-xl font-semibold">No projects match these filters</h2>
+                  <h2 className="text-xl font-semibold">
+                    No projects match these filters
+                  </h2>
                   <p className="max-w-md text-sm text-muted-foreground sm:text-base">
-                    Try a different status or client filter, or reset the view to
-                    see everything that is currently in motion.
+                    Try a different status or client filter, or reset the view
+                    to see everything that is currently in motion.
                   </p>
                 </div>
                 <Button
@@ -338,34 +345,35 @@ export default function Dashboard() {
                   Create Your First Project
                 </Button>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>Start a project</DialogTitle>
-                    <DialogDescription>
-                      Give it a name now. You can shape the details as the work comes together.
-                    </DialogDescription>
-                  </DialogHeader>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Start a project</DialogTitle>
+                      <DialogDescription>
+                        Give it a name now. You can shape the details as the
+                        work comes together.
+                      </DialogDescription>
+                    </DialogHeader>
 
-                  <ProjectForm
-                    onSave={async (data) => {
-                      const newProject: CreateProjectDTO = {
-                        title: data.title || "",
-                        client_id: data.client_id || undefined,
-                        client: data.client,
-                        status: data.status || "Planning",
-                        deadline: data.deadline || undefined,
-                        description: data.description || undefined,
-                        team_member_ids: Array.isArray(data.team_member_ids)
-                          ? (data.team_member_ids as string[])
-                          : [],
-                      };
+                    <ProjectForm
+                      onSave={async (data) => {
+                        const newProject: CreateProjectDTO = {
+                          title: data.title || "",
+                          client_id: data.client_id || undefined,
+                          client: data.client,
+                          status: data.status || "Planning",
+                          deadline: data.deadline || undefined,
+                          description: data.description || undefined,
+                          team_member_ids: Array.isArray(data.team_member_ids)
+                            ? (data.team_member_ids as string[])
+                            : [],
+                        };
 
-                      setIsCreateOpen(false);
-                      await addProject(newProject);
-                    }}
-                    onCancel={() => setIsCreateOpen(false)}
-                  />
-                </DialogContent>
+                        setIsCreateOpen(false);
+                        await addProject(newProject);
+                      }}
+                      onCancel={() => setIsCreateOpen(false)}
+                    />
+                  </DialogContent>
                 </Dialog>
               </>
             )}

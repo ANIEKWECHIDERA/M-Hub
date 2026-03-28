@@ -154,9 +154,19 @@ export default function LoginPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-[#c8f135] backdrop-blur-sm">
                 <CrevoMark className="h-9 w-9" />
               </div>
-              <span className="text-4xl font-semibold tracking-tight" data-display-font="true">Crevo</span>
+              <span
+                className="text-4xl font-semibold tracking-tight"
+                data-display-font="true"
+              >
+                Crevo
+              </span>
             </div>
-            <h1 className="mb-4 text-4xl font-semibold" data-display-font="true">Built for agency work that never stands still.</h1>
+            <h1
+              className="mb-4 text-4xl font-semibold"
+              data-display-font="true"
+            >
+              Built for agency work that never stands still.
+            </h1>
             <p className="max-w-md text-center text-xl leading-relaxed text-white/78">
               Keep projects, chats, approvals, and deadlines in one place that
               feels made for the way creative teams actually move.
@@ -189,7 +199,12 @@ export default function LoginPage() {
               <CrevoMark className="h-6 w-6" />
             </div>
             <div className="text-left">
-              <h1 className="text-xl font-semibold tracking-tight" data-display-font="true">Crevo</h1>
+              <h1
+                className="text-xl font-semibold tracking-tight"
+                data-display-font="true"
+              >
+                Crevo
+              </h1>
               <p className="text-xs text-muted-foreground sm:text-sm">
                 Where agency work actually lives
               </p>
@@ -197,181 +212,201 @@ export default function LoginPage() {
           </div>
 
           <MotionSurface>
-          <Card className="border-border/75 bg-card/96 shadow-[var(--shadow-card)]">
-            <CardHeader className="space-y-1 pb-4 sm:pb-6">
-              <CardTitle className="text-center text-xl font-semibold sm:text-2xl" data-display-font="true">
-                Sign in to your account
-              </CardTitle>
-              <CardDescription className="text-center text-xs sm:text-sm">
-                Enter your credentials to access your dashboard
-              </CardDescription>
-            </CardHeader>
+            <Card className="border-border/75 bg-card/96 shadow-[var(--shadow-card)]">
+              <CardHeader className="space-y-1 pb-4 sm:pb-6">
+                <CardTitle
+                  className="text-center text-xl font-semibold sm:text-2xl"
+                  data-display-font="true"
+                >
+                  Sign in to your account
+                </CardTitle>
+                <CardDescription className="text-center text-xs sm:text-sm">
+                  Enter your credentials to access your dashboard
+                </CardDescription>
+              </CardHeader>
 
-            <CardContent className="space-y-3 sm:space-y-4">
-              {/* Unified Error Display */}
-              {displayError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="inline">
-                    {displayError}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Google Sign In */}
-              <Button
-                variant="outline"
-                className="h-10 w-full border-2 bg-transparent hover:bg-muted/50 sm:h-11"
-                onClick={handleGoogleSignIn}
-                disabled={isGoogleLoading || authLoading}
-              >
-                {isGoogleLoading || authLoading ? (
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                ) : (
-                  <FcGoogle className="w-5 h-5 mr-2" />
+              <CardContent className="space-y-3 sm:space-y-4">
+                {/* Unified Error Display */}
+                {displayError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="inline">
+                      {displayError}
+                    </AlertDescription>
+                  </Alert>
                 )}
-                Continue with Google
-              </Button>
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator className="w-full" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with email
-                  </span>
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email address</Label>
-                  <div className="relative">
-                    <Mail className="field-icon" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      className={`field-with-icon h-10 sm:h-11 ${
-                        errors.email
-                          ? "border-red-500 focus-visible:ring-red-500"
-                          : ""
-                      }`}
-                      disabled={authLoading}
-                    />
-                  </div>
-                  {errors.email && (
-                    <p className="text-sm text-red-500">{errors.email}</p>
+                {/* Google Sign In */}
+                <Button
+                  variant="outline"
+                  className="h-10 w-full border-2 bg-transparent hover:bg-muted/50 sm:h-11"
+                  onClick={handleGoogleSignIn}
+                  disabled={isGoogleLoading || authLoading}
+                >
+                  {isGoogleLoading || authLoading ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : (
+                    <FcGoogle className="w-5 h-5 mr-2" />
                   )}
+                  Continue with Google
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <Separator className="w-full" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Or continue with email
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Lock className="field-icon" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email address</Label>
+                    <div className="relative">
+                      <Mail className="field-icon" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="Enter your email"
+                        value={formData.email}
+                        onChange={(e) =>
+                          setFormData({ ...formData, email: e.target.value })
+                        }
+                        className={`field-with-icon h-10 sm:h-11 ${
+                          errors.email
+                            ? "border-red-500 focus-visible:ring-red-500"
+                            : ""
+                        }`}
+                        disabled={authLoading}
+                      />
+                    </div>
+                    {errors.email && (
+                      <p className="text-sm text-red-500">{errors.email}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Lock className="field-icon" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        value={formData.password}
+                        onChange={(e) =>
+                          setFormData({ ...formData, password: e.target.value })
+                        }
+                        className={`field-with-icon h-10 pr-10 sm:h-11 ${
+                          errors.password
+                            ? "border-red-500 focus-visible:ring-red-500"
+                            : ""
+                        }`}
+                        disabled={authLoading}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    {errors.password && (
+                      <p className="text-sm text-red-500">{errors.password}</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="remember"
+                        checked={formData.rememberMe}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            rememberMe: checked as boolean,
+                          })
+                        }
+                        disabled={authLoading}
+                      />
+                      <Label
+                        htmlFor="remember"
+                        className="text-xs font-normal sm:text-sm"
+                      >
+                        Remember me
+                      </Label>
+                    </div>
+                    <Link
+                      to={
+                        inviteFlow
+                          ? "/forgot-password?invite=1"
+                          : "/forgot-password"
                       }
-                      className={`field-with-icon h-10 pr-10 sm:h-11 ${
-                        errors.password
-                          ? "border-red-500 focus-visible:ring-red-500"
-                          : ""
-                      }`}
-                      disabled={authLoading}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-sm text-primary hover:underline font-medium"
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
+                      Forgot password?
+                    </Link>
                   </div>
-                  {errors.password && (
-                    <p className="text-sm text-red-500">{errors.password}</p>
-                  )}
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="remember"
-                      checked={formData.rememberMe}
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          rememberMe: checked as boolean,
-                        })
-                      }
-                      disabled={authLoading}
-                    />
-                    <Label htmlFor="remember" className="text-xs font-normal sm:text-sm">
-                      Remember me
-                    </Label>
-                  </div>
-          <Link
-            to={inviteFlow ? "/forgot-password?invite=1" : "/forgot-password"}
-            className="text-sm text-primary hover:underline font-medium"
-          >
-            Forgot password?
+                  <Button
+                    type="submit"
+                    className="h-10 w-full font-medium sm:h-11"
+                    disabled={authLoading}
+                  >
+                    {authLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                        Signing in...
+                      </>
+                    ) : (
+                      "Sign in"
+                    )}
+                  </Button>
+                </form>
+
+                <div className="text-center text-xs text-muted-foreground sm:text-sm">
+                  Don't have an account?{" "}
+                  <Link
+                    to={inviteFlow ? "/signup?invite=1" : "/signup"}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Sign up for free
                   </Link>
                 </div>
-
-                <Button
-                  type="submit"
-                  className="h-10 w-full font-medium sm:h-11"
-                  disabled={authLoading}
-                >
-                  {authLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign in"
-                  )}
-                </Button>
-              </form>
-
-              <div className="text-center text-xs text-muted-foreground sm:text-sm">
-                Don't have an account?{" "}
-                <Link
-                  to={inviteFlow ? "/signup?invite=1" : "/signup"}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Sign up for free
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
           </MotionSurface>
 
           <div className="text-center text-xs text-muted-foreground">
             <p>
               By signing in, you agree to our{" "}
-              <Link to="/terms" className="hover:underline">
+              <a
+                href="https://www.trycrevo.com/terms"
+                className="hover:underline"
+                target="_blank"
+                rel="noopener"
+              >
                 Terms of Service
-              </Link>{" "}
+              </a>{" "}
               and{" "}
-              <Link to="/privacy" className="hover:underline">
+              <a
+                href="https://www.trycrevo.com/privacy-policy"
+                className="hover:underline"
+                target="_blank"
+                rel="noopener"
+              >
                 Privacy Policy
-              </Link>
+              </a>
             </p>
           </div>
         </div>
