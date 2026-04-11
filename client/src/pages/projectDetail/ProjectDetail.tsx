@@ -210,7 +210,7 @@ export function ProjectDetail() {
   // console.log("current Project data:", currentProject);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
+    <div className="flex min-h-full flex-col gap-6">
       <div className="space-y-4">
         <Breadcrumb>
           <BreadcrumbList>
@@ -336,10 +336,7 @@ export function ProjectDetail() {
           <TabsTrigger value="comments">Comments</TabsTrigger>
         </TabsList>
 
-        <TabsContent
-          className="mt-4 min-h-full flex-1 overflow-y-auto pb-24"
-          value="overview"
-        >
+        <TabsContent className="mt-4 min-h-0 pb-24" value="overview">
           <Card className="app-surface">
             <CardHeader className="border-b pb-4">
               <CardTitle className="text-xl">Project Overview</CardTitle>

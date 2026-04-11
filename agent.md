@@ -1841,3 +1841,29 @@ Assumptions currently in use:
   - PostHog is now the app analytics path for the main client when `VITE_POSTHOG_KEY` is present
   - the app tracks SPA pageviews manually on route changes, identifies authenticated users, groups them by company, and resets analytics state on logout
   - Firebase Analytics initialization was removed from the main client to avoid running two browser analytics systems at once
+- Phase 1 critical bug-fix pass:
+  - project detail overview scrolling:
+    - removed the project detail page-level scroll trap by letting the app shell's main scroll container own overview scrolling
+    - the overview tab no longer creates an inner `overflow-y-auto` region, which reduces MacBook trackpad scroll traps and double-scroll behavior
+  - notes editor paste behavior:
+    - the Quill paste sanitizer now runs in the capture phase and stops the native paste event before Quill's internal listener can also process the same formatted paste
+    - formatted HTML paste still keeps allowed formatting, but inserts exactly once
+  - deleted chat messages:
+    - deleted messages no longer render the message action trigger at all
+    - this removes the ellipsis/action menu for deleted messages in the shared `MessageBubble` path used by group and direct chat
+  - projects list:
+    - removed the redundant eye icon action from the project table
+    - clicking or keyboard-opening the project row now navigates to the project detail page and sets the current project
+    - edit/delete buttons stop event propagation so they do not accidentally open the project row
+  - files touched:
+    - `client/src/pages/projectDetail/ProjectDetail.tsx`
+    - `client/src/components/notes/NoteEditor.tsx`
+    - `client/src/pages/Chat.tsx`
+    - `client/src/pages/Projects.tsx`
+  - verification:
+    - `client`: `npx tsc -b`
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright browser pass created a throwaway account/workspace and verified project row navigation, project overview wheel scrolling, formatted/plain note paste, chat message delete, and no deleted-message action trigger on hover
+  - observed follow-up:
+    - the first throwaway signup briefly exposed a dashboard `Maximum update depth exceeded` crash before a direct navigation recovered into the workspace; it did not reproduce after the workspace shell loaded, but it should stay on the follow-up radar if new users report blank dashboard behavior again

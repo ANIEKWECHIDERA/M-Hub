@@ -45,14 +45,15 @@ import {
 } from "@/components/ui/alert-dialog";
 // import { Toaster } from "@/components/ui/sonner";
 import ProjectForm from "@/components/ProjectForm";
-import { Plus, Search, Edit, Trash2, Eye, FolderOpen } from "lucide-react";
+import { Plus, Search, Edit, Trash2, FolderOpen } from "lucide-react";
 import { useProjectContext } from "@/context/ProjectContext";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import type { CreateProjectDTO } from "../Types/types";
 import { TableSkeleton } from "@/components/TableSkeleton";
 import { useAuthContext } from "@/context/AuthContext";
 
 export default function Projects() {
+  const navigate = useNavigate();
   const { authStatus } = useAuthContext();
   const {
     projects,
@@ -120,6 +121,11 @@ export default function Projects() {
   //     </div>
   //   );
   if (error) return <div>Error: {error}</div>;
+
+  const openProject = (project: (typeof projects)[number]) => {
+    setCurrentProject(project);
+    navigate(`/projectdetails/${project.id}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -304,12 +310,26 @@ export default function Projects() {
                   <TableHead>Client</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Deadline</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  {!isTeamMember && (
+                    <TableHead className="text-right">Actions</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProjects.map((project) => (
-                  <TableRow key={project.id} className="hover:bg-muted/50">
+                  <TableRow
+                    key={project.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => openProject(project)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openProject(project);
+                      }
+                    }}
+                  >
                     <TableCell>
                       <div>
                         <div className="font-medium">{project.title}</div>
@@ -337,44 +357,38 @@ export default function Projects() {
                         ? new Date(project.deadline).toLocaleDateString()
                         : "N/A"}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Link to={`/projectdetails/${project.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={`View details for ${project.title}`}
-                            onClick={() => setCurrentProject(project)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        {!isTeamMember && (
+                    {!isTeamMember && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
                             aria-label={`Edit ${project.title}`}
-                            onClick={() => setEditingProjectId(project.id)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setEditingProjectId(project.id);
+                            }}
+                            onKeyDown={(event) => event.stopPropagation()}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                        )}
-                        {!isTeamMember && (
                           <Button
                             variant="ghost"
                             size="sm"
                             className="text-red-500 hover:text-red-700"
                             aria-label={`Delete ${project.title}`}
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation();
                               setProjectToDelete(project);
                               setIsDeleteDialogOpen(true);
                             }}
+                            onKeyDown={(event) => event.stopPropagation()}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
-                      </div>
-                    </TableCell>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

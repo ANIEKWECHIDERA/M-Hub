@@ -462,6 +462,11 @@ function MessageBubble({
     !message.is_deleted &&
     !message.id.startsWith("optimistic-") &&
     messageAgeMs < editWindowMs;
+  const canShowActionMenu =
+    !message.is_deleted &&
+    !message.id.startsWith("optimistic-") &&
+    showActionMenu &&
+    (canTagMessage || canShowEditButton || canDelete);
 
   if (message.message_type === "system") {
     return (
@@ -513,7 +518,7 @@ function MessageBubble({
           <span>{message.sender.name || "Unknown"}</span>
           <span>{formatShortTime(message.created_at)}</span>
           {message.is_edited && <span>edited</span>}
-          {!message.id.startsWith("optimistic-") && showActionMenu && (
+          {canShowActionMenu && (
             <div className="opacity-0 transition-opacity group-hover:opacity-100">
               <ActionMenu
                 align={isCurrentUser ? "end" : "start"}
@@ -530,7 +535,7 @@ function MessageBubble({
               >
                 {({ close }) => (
                   <>
-                    {canTagMessage && !message.is_deleted && (
+                    {canTagMessage && (
                       <>
                         <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
                           Capture signal
