@@ -510,8 +510,7 @@ export default function Settings() {
                     </Button>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Optional. Images are optimized before upload to make profile
-                    updates faster and more reliable.
+                    Add a face to your name. We'll handle the rest.
                   </p>
                 </div>
               </div>
@@ -613,7 +612,13 @@ export default function Settings() {
                   key: "emailNotifications",
                   label: "Email notifications",
                   description:
-                    "Prepare your account for email delivery once outbound email is enabled.",
+                    "Allow important workspace updates to reach your inbox.",
+                },
+                {
+                  key: "dailyFocusEmail",
+                  label: "Receive Daily Focus Email",
+                  description:
+                    "Get a morning brief with daily tasks and key decisions from your workspace.",
                 },
                 {
                   key: "compactMode",

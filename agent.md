@@ -1867,3 +1867,56 @@ Assumptions currently in use:
     - Playwright browser pass created a throwaway account/workspace and verified project row navigation, project overview wheel scrolling, formatted/plain note paste, chat message delete, and no deleted-message action trigger on hover
   - observed follow-up:
     - the first throwaway signup briefly exposed a dashboard `Maximum update depth exceeded` crash before a direct navigation recovered into the workspace; it did not reproduce after the workspace shell loaded, but it should stay on the follow-up radar if new users report blank dashboard behavior again
+- Phase 2 notifications pass:
+  - blocking dashboard crash:
+    - PostHog session recording and autocapture are now disabled in the app client
+    - explicit route pageviews, user identify, and company grouping remain active
+    - this removes the recorder script path that was contributing to dashboard instability and noisy blocked-client console retries
+  - task due reminders:
+    - added `task_due_notification_log` to dedupe scheduled reminders by task, user, and milestone
+    - added server scheduler logic for:
+      - due today
+      - due in 2 days
+    - due reminders create in-app notifications and send the existing branded email path when the user's notification settings allow it
+    - reminder copy now uses the urgent-but-professional tone: `Please take action to avoid delays.`
+  - daily focus email preference:
+    - added `daily_focus_email_enabled` to user settings
+    - added the Settings toggle `Receive Daily Focus Email`
+    - the server scheduler can send one Daily Focus email per user per focus date when the preference and email notifications are enabled
+    - Daily Focus email content is sourced from the existing retention/daily-focus service so it can include today's tasks and key decisions
+  - frontend notification routing:
+    - task due notifications now route users to `/mytasks`
+    - task due notifications use the existing task/work icon language
+  - files touched:
+    - `client/src/Types/types.ts`
+    - `client/src/api/user-settings.api.ts`
+    - `client/src/hooks/useSettings.ts`
+    - `client/src/lib/notifications.ts`
+    - `client/src/lib/posthog.ts`
+    - `client/src/pages/Settings.tsx`
+    - `server/prisma/migrations/20260411224500_add_scheduled_notification_preferences/migration.sql`
+    - `server/src/index.ts`
+    - `server/src/services/emailNotification.service.ts`
+    - `server/src/services/scheduledNotification.service.ts`
+    - `server/src/services/userSettings.service.ts`
+    - `server/src/types/userSettings.types.ts`
+  - verification:
+    - applied migration with `npx prisma migrate deploy`
+    - `client`: `npx tsc -b`
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - dashboard loads without the previous `Maximum update depth exceeded` crash
+      - Settings > Notifications shows `Receive Daily Focus Email`
+      - the Daily Focus preference persists through the user settings API
+      - browser console showed no warnings/errors during the final dashboard/settings pass
+    - scheduler simulation:
+      - created one temporary due-today assigned task
+      - ran `ScheduledNotificationService.runOnce`
+      - verified one in-app `task_due:due_today:<taskId>` notification was created
+      - cleaned up the temporary task, assignment, notification, and notification log afterwards
+  - risks and follow-ups:
+    - the scheduler currently runs inside the API process; before multi-instance deployment, move it to an external cron/worker or add a distributed lock
+    - the scheduler hour uses the server process timezone; per-user timezone support would make Daily Focus emails feel more personal
+    - the local verification sent through the configured SMTP path even when the Resend key was blank, so future scheduler simulations should use a mailer mock flag before running against real accounts
+    - no checked-in Playwright test suite exists for the client, so browser verification for this phase was done through Playwright MCP/manual flows

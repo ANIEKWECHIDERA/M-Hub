@@ -8,6 +8,7 @@ export interface UserSettingsResponseDTO {
   task_assignment_notifications: boolean;
   project_update_notifications: boolean;
   comment_notifications: boolean;
+  daily_focus_email_enabled: boolean;
   compact_mode: boolean;
   created_at: string;
   updated_at: string;
@@ -21,5 +22,6 @@ export interface UpdateUserSettingsDTO {
   task_assignment_notifications?: boolean;
   project_update_notifications?: boolean;
   comment_notifications?: boolean;
+  daily_focus_email_enabled?: boolean;
   compact_mode?: boolean;
 }

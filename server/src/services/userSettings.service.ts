@@ -16,6 +16,7 @@ function toUserSettingsDTO(row: any): UserSettingsResponseDTO {
     task_assignment_notifications: row.task_assignment_notifications ?? true,
     project_update_notifications: row.project_update_notifications ?? true,
     comment_notifications: row.comment_notifications ?? true,
+    daily_focus_email_enabled: row.daily_focus_email_enabled ?? false,
     compact_mode: row.compact_mode,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -23,7 +24,7 @@ function toUserSettingsDTO(row: any): UserSettingsResponseDTO {
 }
 
 const SETTINGS_SELECT =
-  "id, user_id, theme, language, notifications_enabled, email_notifications_enabled, task_assignment_notifications, project_update_notifications, comment_notifications, compact_mode, created_at, updated_at";
+  "id, user_id, theme, language, notifications_enabled, email_notifications_enabled, task_assignment_notifications, project_update_notifications, comment_notifications, daily_focus_email_enabled, compact_mode, created_at, updated_at";
 
 export const UserSettingsService = {
   async findOrCreate(userId: string): Promise<UserSettingsResponseDTO> {

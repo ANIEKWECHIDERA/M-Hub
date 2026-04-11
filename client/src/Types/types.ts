@@ -625,6 +625,7 @@ export interface Preferences {
   taskAssignments: boolean;
   projectUpdates: boolean;
   commentNotifications: boolean;
+  dailyFocusEmail: boolean;
   compactMode: boolean;
   workspaceHealth: boolean;
 }

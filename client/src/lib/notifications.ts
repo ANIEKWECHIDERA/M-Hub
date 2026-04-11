@@ -20,6 +20,7 @@ export function getNotificationRoute(notification: NotificationRecord) {
   switch (baseType) {
     case "task_assigned":
     case "task_status":
+    case "task_due":
       return "/mytasks";
     case "task_comment":
       return parts[2] ? `/projectdetails/${parts[2]}` : "/mytasks";
@@ -38,6 +39,7 @@ export function getNotificationIcon(type: string): LucideIcon {
   switch (getNotificationBaseType(type)) {
     case "task_assigned":
     case "task_status":
+    case "task_due":
       return Briefcase;
     case "task_comment":
     case "project_comment":
