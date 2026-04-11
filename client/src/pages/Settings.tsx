@@ -73,9 +73,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  getAllowedSettingsSections,
-} from "@/config/settings-nav";
+import { getAllowedSettingsSections } from "@/config/settings-nav";
 import { useAuthContext } from "@/context/AuthContext";
 import { useSettingsContext } from "@/context/SettingsContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
@@ -125,7 +123,11 @@ async function copyTextToClipboard(value: string) {
 }
 
 function isAcceptedInviteStatus(status: string | null | undefined) {
-  return String(status ?? "").trim().toUpperCase() === "ACCEPTED";
+  return (
+    String(status ?? "")
+      .trim()
+      .toUpperCase() === "ACCEPTED"
+  );
 }
 
 export default function Settings() {
@@ -162,7 +164,9 @@ export default function Settings() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
-  const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(null);
+  const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(
+    null,
+  );
   const [isInviteDeleteDialogOpen, setIsInviteDeleteDialogOpen] =
     useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -215,7 +219,10 @@ export default function Settings() {
   const avatarPreviewSrc = avatarPreviewUrl || profile?.photoURL || null;
 
   const passwordDirty = Object.values(securityForm).some(Boolean);
-  const sections = useMemo(() => getAllowedSettingsSections(isTeamMember), [isTeamMember]);
+  const sections = useMemo(
+    () => getAllowedSettingsSections(isTeamMember),
+    [isTeamMember],
+  );
   const activeSection: string = useMemo(() => {
     const section = searchParams.get("section");
 
@@ -230,7 +237,10 @@ export default function Settings() {
     const currentSection = searchParams.get("section");
 
     if (!sections.some((section) => section.id === currentSection)) {
-      setSearchParams({ section: sections[0]?.id ?? "profile" }, { replace: true });
+      setSearchParams(
+        { section: sections[0]?.id ?? "profile" },
+        { replace: true },
+      );
     }
   }, [searchParams, sections, setSearchParams]);
 
@@ -400,7 +410,7 @@ export default function Settings() {
     !isAcceptedInviteStatus(invite.status);
 
   const handleSecurityPlaceholder = () => {
-    toast.info("Password and 2FA management UI is ready. Backend actions come next.");
+    toast.info("Password and 2FA management will be implemented soon!");
   };
 
   return (
@@ -454,7 +464,8 @@ export default function Settings() {
                     <DialogHeader className="px-6 pt-6">
                       <DialogTitle>Profile Photo Preview</DialogTitle>
                       <DialogDescription>
-                        Preview your current profile image before saving changes.
+                        Preview your current profile image before saving
+                        changes.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="px-6 pb-6 pt-2">
@@ -478,12 +489,14 @@ export default function Settings() {
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="avatar">Profile Photo</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <Input
-                        id="avatar"
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                        className="sr-only"
-                      onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                    <Input
+                      id="avatar"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="sr-only"
+                      onChange={(e) =>
+                        setAvatarFile(e.target.files?.[0] ?? null)
+                      }
                     />
                     <Button
                       type="button"
@@ -565,51 +578,60 @@ export default function Settings() {
                     Persist your preferred theme across the app.
                   </p>
                 </div>
-                <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
+                <Switch
+                  checked={theme === "dark"}
+                  onCheckedChange={toggleTheme}
+                />
               </div>
 
-                {[
-                  {
-                    key: "notifications",
-                    label: "In-app notifications",
-                    description: "Allow Crevo to show notification updates in the app.",
+              {[
+                {
+                  key: "notifications",
+                  label: "In-app notifications",
+                  description:
+                    "Allow Crevo to show notification updates in the app.",
                 },
                 {
                   key: "taskAssignments",
                   label: "Task assignments",
-                  description: "Get notified when tasks are assigned or updated for you.",
+                  description:
+                    "Get notified when tasks are assigned or updated for you.",
                 },
                 {
                   key: "projectUpdates",
                   label: "Project updates",
-                  description: "Receive project-level status and activity updates.",
+                  description:
+                    "Receive project-level status and activity updates.",
                 },
                 {
                   key: "commentNotifications",
                   label: "Comments",
-                  description: "Get notified about new comments and conversation activity.",
+                  description:
+                    "Get notified about new comments and conversation activity.",
                 },
                 {
                   key: "emailNotifications",
                   label: "Email notifications",
-                  description: "Prepare your account for email delivery once outbound email is enabled.",
+                  description:
+                    "Prepare your account for email delivery once outbound email is enabled.",
                 },
-                  {
-                    key: "compactMode",
-                    label: "Compact mode",
-                    description: "Use denser spacing in supported parts of the app.",
-                  },
-                  ...(canSeeWorkspaceHealth
-                    ? [
-                        {
-                          key: "workspaceHealth",
-                          label: "Workspace health in sidebar",
-                          description:
-                            "Show the workspace health pulse card in the sidebar when you want a quick delivery snapshot.",
-                        },
-                      ]
-                    : []),
-                ].map((item) => (
+                {
+                  key: "compactMode",
+                  label: "Compact mode",
+                  description:
+                    "Use denser spacing in supported parts of the app.",
+                },
+                ...(canSeeWorkspaceHealth
+                  ? [
+                      {
+                        key: "workspaceHealth",
+                        label: "Workspace health in sidebar",
+                        description:
+                          "Show the workspace health pulse card in the sidebar when you want a quick delivery snapshot.",
+                      },
+                    ]
+                  : []),
+              ].map((item) => (
                 <div
                   key={item.key}
                   className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3"
@@ -626,27 +648,29 @@ export default function Settings() {
                               className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
                             >
                               <HelpCircle className="h-3.5 w-3.5" />
-                                <span className="sr-only">
-                                  {item.key === "workspaceHealth"
-                                    ? "What workspace health in sidebar means"
-                                    : "What compact mode means"}
-                                </span>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-[260px] text-left leading-relaxed">
-                              {item.key === "workspaceHealth"
-                                ? "Use this to show or hide the sidebar workspace health pulse card. Turning it off keeps the sidebar quieter without affecting the underlying health calculation."
-                                : "Compact mode reduces spacing in supported areas of the app so you can fit more content on screen without changing the core layout."}
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
+                              <span className="sr-only">
+                                {item.key === "workspaceHealth"
+                                  ? "What workspace health in sidebar means"
+                                  : "What compact mode means"}
+                              </span>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+                            {item.key === "workspaceHealth"
+                              ? "Use this to show or hide the sidebar workspace health pulse card. Turning it off keeps the sidebar quieter without affecting the underlying health calculation."
+                              : "Compact mode reduces spacing in supported areas of the app so you can fit more content on screen without changing the core layout."}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
                   <Switch
-                    checked={Boolean(preferences[item.key as keyof typeof preferences])}
+                    checked={Boolean(
+                      preferences[item.key as keyof typeof preferences],
+                    )}
                     onCheckedChange={(checked) =>
                       setPreferences((prev) => ({
                         ...prev,
@@ -821,7 +845,10 @@ export default function Settings() {
                           </TableCell>
                           {!isTeamMember && (
                             <TableCell>
-                              <Badge variant="outline" className="text-emerald-600">
+                              <Badge
+                                variant="outline"
+                                className="text-emerald-600"
+                              >
                                 {member.status}
                               </Badge>
                             </TableCell>
@@ -887,7 +914,8 @@ export default function Settings() {
                       Invite Management
                     </CardTitle>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Send invites, track status, and cancel pending access requests.
+                      Send invites, track status, and cancel pending access
+                      requests.
                     </p>
                   </div>
                   <Dialog
@@ -904,7 +932,8 @@ export default function Settings() {
                       <DialogHeader>
                         <DialogTitle>Invite a teammate</DialogTitle>
                         <DialogDescription>
-                          Bring someone into this workspace and set the right role from the start.
+                          Bring someone into this workspace and set the right
+                          role from the start.
                         </DialogDescription>
                       </DialogHeader>
                       <InviteForm
@@ -917,9 +946,9 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-                  Pending and historical invites for this workspace are managed below.
-                  Use invite roles carefully because accepted invites affect workspace access
-                  immediately.
+                  Pending and historical invites for this workspace are managed
+                  below. Use invite roles carefully because accepted invites
+                  affect workspace access immediately.
                 </div>
               </CardContent>
             </Card>
@@ -953,8 +982,8 @@ export default function Settings() {
                       </EmptyMedia>
                       <EmptyTitle>No invites sent yet</EmptyTitle>
                       <EmptyDescription>
-                        New invites will appear here with their current status and
-                        expiration date.
+                        New invites will appear here with their current status
+                        and expiration date.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -980,7 +1009,9 @@ export default function Settings() {
                             <TableCell>
                               <Badge variant="outline">{invite.status}</Badge>
                             </TableCell>
-                            <TableCell>{formatRelativeTimestamp(invite.expires_at)}</TableCell>
+                            <TableCell>
+                              {formatRelativeTimestamp(invite.expires_at)}
+                            </TableCell>
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -991,7 +1022,9 @@ export default function Settings() {
                                 <DropdownMenuContent align="end">
                                   {canCopyInviteLink(invite) && (
                                     <DropdownMenuItem
-                                      onClick={() => handleCopyInviteLink(invite.id)}
+                                      onClick={() =>
+                                        handleCopyInviteLink(invite.id)
+                                      }
                                     >
                                       <Copy className="mr-2 h-4 w-4" />
                                       Copy invite link
@@ -999,7 +1032,9 @@ export default function Settings() {
                                   )}
                                   {canResendInvite(invite) && (
                                     <DropdownMenuItem
-                                      onClick={() => handleResendInvite(invite.id)}
+                                      onClick={() =>
+                                        handleResendInvite(invite.id)
+                                      }
                                     >
                                       <RefreshCw className="mr-2 h-4 w-4" />
                                       Resend invite
@@ -1043,7 +1078,9 @@ export default function Settings() {
               </DialogDescription>
             </DialogHeader>
             <TeamMemberForm
-              member={teamMembers.find((member: any) => member.id === editingUserId)}
+              member={teamMembers.find(
+                (member: any) => member.id === editingUserId,
+              )}
               canAssignSuperAdmin={isSuperAdmin}
               canEditAccess={isSuperAdmin}
               onSave={async (data) => {
@@ -1067,8 +1104,8 @@ export default function Settings() {
               <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to remove{" "}
-                <strong>{memberToDelete?.name}</strong> from this workspace?
-                {" "}If this person is your last active super admin, you'll need to
+                <strong>{memberToDelete?.name}</strong> from this workspace? If
+                this person is your last active super admin, you'll need to
                 promote another super admin first.
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -1105,13 +1142,12 @@ export default function Settings() {
               <AlertDialogTitle>Delete invite?</AlertDialogTitle>
               <AlertDialogDescription>
                 <strong>{inviteToDelete?.email ?? "This invite"}</strong> will
-                stop working right away, and the current link will no longer be usable.
+                stop working right away, and the current link will no longer be
+                usable.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>
-                Cancel
-              </AlertDialogCancel>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-red-600 hover:bg-red-700"
                 onClick={async () => {
