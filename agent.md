@@ -2026,3 +2026,31 @@ Assumptions currently in use:
   - risks and follow-ups:
     - My Tasks project folders are derived from current task data, so there is no rename/reorder for folders yet
     - archive still requires completed status server-side to match the original Phase 3 rule
+- Phase 4 notes system improvements:
+  - notes folder system:
+    - Notes now group automatically by linked project in the Notepad list
+    - notes without a linked project appear under an `Others` folder
+    - folders are collapsible and show a compact note count
+    - this uses the existing `projectId` relationship on notes, so no database migration was needed
+  - share notes in chat:
+    - active notes can now be shared from the editor toolbar or note row action menu
+    - the share flow loads available direct/group conversations and sends a chat message with a safe note snapshot in metadata
+    - Chat now renders shared-note messages as compact cards instead of plain robotic text
+    - clicking a shared-note card opens a modal with the note content and `Save to notes` / `Cancel`
+    - saving creates a personal note copy for the viewer
+  - files touched:
+    - `client/src/lib/shared-notes.ts`
+    - `client/src/pages/Notepad.tsx`
+    - `client/src/pages/Chat.tsx`
+  - verification:
+    - `client`: `npm run build`
+    - targeted lint: `npx eslint src/pages/Chat.tsx src/pages/Notepad.tsx src/lib/shared-notes.ts`
+    - full lint was also attempted, but the repo still has pre-existing lint debt across unrelated files
+    - Playwright MCP/manual browser pass:
+      - verified Notepad groups an unlinked note under `Others`
+      - opened a note and verified the share dialog loads conversations
+      - shared the note to the General chat; backend logged `POST /api/chat/conversations/.../messages` as `201`
+  - risks and follow-ups:
+    - final chat rendering/save-modal verification was blocked by local backend/database instability after the successful send
+    - observed backend errors were Prisma `P2028`, `connection failure during authentication`, and transient Supabase/notification fetch failures
+    - once the local DB connection is stable, rerun a browser pass on the shared note card and `Save to notes` modal

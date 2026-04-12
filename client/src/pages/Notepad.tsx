@@ -11,19 +11,25 @@ import {
   ArrowLeft,
   Archive,
   Check,
+  ChevronDown,
   Clock3,
   FilePlus2,
   FileText,
+  FolderOpen,
   Loader2,
   MoreHorizontal,
   Pin,
   PinOff,
   Search,
+  Share2,
   Tag,
 } from "lucide-react";
 import type { Note, NoteSummary } from "@/Types/types";
+import { chatAPI, type ChatConversation } from "@/api/chat.api";
+import { useAuthContext } from "@/context/AuthContext";
 import { useNoteContext } from "@/context/NoteContext";
 import { useProjectContext } from "@/context/ProjectContext";
+import { useUser } from "@/context/UserContext";
 import {
   Empty,
   EmptyDescription,
@@ -58,6 +64,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -73,11 +87,22 @@ import {
   normalizeNoteTitleClient,
   sanitizeNoteHtmlClient,
 } from "@/lib/notes";
+import { getConversationDisplayName } from "@/lib/chat";
+import { buildSharedNoteMetadata } from "@/lib/shared-notes";
 import { formatRelativeTimestamp, formatShortDate } from "@/lib/datetime";
+import { cn } from "@/lib/utils";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+type NoteFolder = {
+  id: string;
+  title: string;
+  notes: NoteSummary[];
+  projectId: string | null;
+};
 const TEMP_NOTE_PREFIX = "temp-note:";
 const isTempNoteId = (id?: string | null) => Boolean(id?.startsWith(TEMP_NOTE_PREFIX));
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 function useIsMobileScreen() {
   const [isMobile, setIsMobile] = useState(false);
@@ -95,6 +120,8 @@ function useIsMobileScreen() {
 }
 
 export default function Notepad() {
+  const { idToken } = useAuthContext();
+  const { profile } = useUser();
   const {
     notes,
     currentNote,
@@ -128,6 +155,12 @@ export default function Notepad() {
   const [isCreating, setIsCreating] = useState(false);
   const [isActionBusy, setIsActionBusy] = useState(false);
   const [mobileNoteOpen, setMobileNoteOpen] = useState(false);
+  const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
+  const [shareTargetNote, setShareTargetNote] = useState<Note | null>(null);
+  const [shareConversations, setShareConversations] = useState<ChatConversation[]>([]);
+  const [selectedShareConversationId, setSelectedShareConversationId] = useState("");
+  const [shareConversationsLoading, setShareConversationsLoading] = useState(false);
+  const [shareSending, setShareSending] = useState(false);
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const loadedNoteIdRef = useRef<string | null>(null);
@@ -156,6 +189,41 @@ export default function Notepad() {
       buildNoteSearchText(note).includes(query),
     );
   }, [deferredSearchTerm, notes]);
+
+  const projectTitleById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project.title])),
+    [projects],
+  );
+
+  const noteFolders = useMemo<NoteFolder[]>(() => {
+    const folders = new Map<string, NoteFolder>();
+
+    filteredNotes.forEach((note) => {
+      const folderId = note.projectId ?? "others";
+      const existingFolder = folders.get(folderId);
+      const title = note.projectId
+        ? projectTitleById.get(note.projectId) ?? "Unknown project"
+        : "Others";
+
+      if (existingFolder) {
+        existingFolder.notes.push(note);
+        return;
+      }
+
+      folders.set(folderId, {
+        id: folderId,
+        title,
+        projectId: note.projectId,
+        notes: [note],
+      });
+    });
+
+    return Array.from(folders.values()).sort((a, b) => {
+      if (a.id === "others") return 1;
+      if (b.id === "others") return -1;
+      return a.title.localeCompare(b.title);
+    });
+  }, [filteredNotes, projectTitleById]);
 
   const editorTags = useMemo(
     () =>
@@ -216,8 +284,72 @@ export default function Notepad() {
   }, [filteredNotes]);
 
   useEffect(() => {
+    setExpandedFolderIds((previous) => {
+      const availableIds = noteFolders.map((folder) => folder.id);
+      const availableSet = new Set(availableIds);
+      const retainedIds = previous.filter((id) => availableSet.has(id));
+      const nextIds = [
+        ...retainedIds,
+        ...availableIds.filter((id) => !retainedIds.includes(id)),
+      ];
+
+      if (
+        nextIds.length === previous.length &&
+        nextIds.every((id, index) => id === previous[index])
+      ) {
+        return previous;
+      }
+
+      return nextIds;
+    });
+  }, [noteFolders]);
+
+  useEffect(() => {
     fetchNotes({ archived: showArchived });
   }, [fetchNotes, showArchived]);
+
+  useEffect(() => {
+    if (!shareTargetNote || !idToken) {
+      if (!shareTargetNote) {
+        setShareConversations([]);
+        setSelectedShareConversationId("");
+      }
+      return;
+    }
+
+    let cancelled = false;
+    setShareConversationsLoading(true);
+
+    chatAPI
+      .listConversations(idToken)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+
+        const conversations = response.conversations ?? [];
+        setShareConversations(conversations);
+        setSelectedShareConversationId((previous) =>
+          previous && conversations.some((conversation) => conversation.id === previous)
+            ? previous
+            : conversations[0]?.id ?? "",
+        );
+      })
+      .catch((shareError: unknown) => {
+        if (!cancelled) {
+          toast.error(getErrorMessage(shareError, "Failed to load conversations"));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setShareConversationsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [idToken, shareTargetNote]);
 
   useEffect(() => {
     if (!currentNote || loadedNoteIdRef.current === currentNote.id) {
@@ -328,9 +460,9 @@ export default function Notepad() {
         if (currentNoteRef.current?.id === updatedNote.id) {
           setSaveState("saved");
         }
-      } catch (saveError: any) {
+      } catch (saveError: unknown) {
         setSaveState("error");
-        toast.error(saveError.message || "Failed to save note");
+        toast.error(getErrorMessage(saveError, "Failed to save note"));
       } finally {
         savePromiseRef.current = null;
 
@@ -393,8 +525,8 @@ export default function Notepad() {
       });
       loadedNoteIdRef.current = null;
       setMobileNoteOpen(true);
-    } catch (createError: any) {
-      toast.error(createError.message || "Failed to create note");
+    } catch (createError: unknown) {
+      toast.error(getErrorMessage(createError, "Failed to create note"));
     } finally {
       setIsCreating(false);
     }
@@ -419,8 +551,8 @@ export default function Notepad() {
         await openNote(updated.id);
       }
       toast.success(currentNote.pinned ? "Note unpinned" : "Note pinned");
-    } catch (pinError: any) {
-      toast.error(pinError.message || "Failed to update note");
+    } catch (pinError: unknown) {
+      toast.error(getErrorMessage(pinError, "Failed to update note"));
     } finally {
       setIsActionBusy(false);
     }
@@ -438,8 +570,8 @@ export default function Notepad() {
       setArchiveTarget(null);
       loadedNoteIdRef.current = null;
       setMobileNoteOpen(false);
-    } catch (archiveError: any) {
-      toast.error(archiveError.message || "Failed to archive note");
+    } catch (archiveError: unknown) {
+      toast.error(getErrorMessage(archiveError, "Failed to archive note"));
     } finally {
       setIsActionBusy(false);
     }
@@ -457,8 +589,8 @@ export default function Notepad() {
       setDeleteTarget(null);
       loadedNoteIdRef.current = null;
       setMobileNoteOpen(false);
-    } catch (deleteError: any) {
-      toast.error(deleteError.message || "Failed to delete note");
+    } catch (deleteError: unknown) {
+      toast.error(getErrorMessage(deleteError, "Failed to delete note"));
     } finally {
       setIsActionBusy(false);
     }
@@ -474,12 +606,68 @@ export default function Notepad() {
         await openNote(restored.id);
         setMobileNoteOpen(true);
       }
-    } catch (restoreError: any) {
-      toast.error(restoreError.message || "Failed to restore note");
+    } catch (restoreError: unknown) {
+      toast.error(getErrorMessage(restoreError, "Failed to restore note"));
     } finally {
       setIsActionBusy(false);
     }
   };
+
+  const toggleNoteFolder = useCallback((folderId: string) => {
+    setExpandedFolderIds((previous) =>
+      previous.includes(folderId)
+        ? previous.filter((id) => id !== folderId)
+        : [...previous, folderId],
+    );
+  }, []);
+
+  const handleOpenShareDialog = useCallback(
+    async (note: NoteSummary | Note) => {
+      try {
+        await flushPendingSave();
+
+        const noteWithContent =
+          "contentHtml" in note ? note : await openNote(note.id);
+
+        if (!noteWithContent) {
+          toast.error("Could not open this note for sharing");
+          return;
+        }
+
+        setShareTargetNote(noteWithContent);
+        setMobileNoteOpen(true);
+      } catch (shareError: unknown) {
+        toast.error(getErrorMessage(shareError, "Failed to prepare note for sharing"));
+      }
+    },
+    [flushPendingSave, openNote],
+  );
+
+  const handleShareNote = useCallback(async () => {
+    if (!shareTargetNote || !selectedShareConversationId || !idToken) {
+      return;
+    }
+
+    try {
+      setShareSending(true);
+      const metadata = buildSharedNoteMetadata(shareTargetNote);
+      await chatAPI.sendMessage(
+        selectedShareConversationId,
+        {
+          body: `Shared note: ${shareTargetNote.title}`,
+          metadata,
+        },
+        idToken,
+      );
+      toast.success("Note shared to chat");
+      setShareTargetNote(null);
+      setSelectedShareConversationId("");
+    } catch (shareError: unknown) {
+      toast.error(getErrorMessage(shareError, "Failed to share note"));
+    } finally {
+      setShareSending(false);
+    }
+  }, [idToken, selectedShareConversationId, shareTargetNote]);
 
   const isSelected = useCallback(
     (noteId: string) => selectedNoteIds.includes(noteId),
@@ -527,12 +715,176 @@ export default function Notepad() {
           : "Selected notes deleted",
       );
       cancelBulkMode();
-    } catch (bulkError: any) {
-      toast.error(bulkError.message || "Failed to update selected notes");
+    } catch (bulkError: unknown) {
+      toast.error(getErrorMessage(bulkError, "Failed to update selected notes"));
     } finally {
       setIsActionBusy(false);
     }
   }, [archiveNote, bulkMode, cancelBulkMode, deleteNote, flushPendingSave, restoreNote, selectedNoteIds]);
+
+  const renderNoteCard = (note: NoteSummary) => {
+    const isActive = currentNote?.id === note.id;
+
+    return (
+      <div
+        key={note.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => void handleSelectNote(note)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            void handleSelectNote(note);
+          }
+        }}
+        className={`rounded-xl border px-3 py-3 transition ${
+          isActive
+            ? "border-primary bg-primary/5"
+            : "border-border bg-card hover:bg-muted/50"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 text-left">
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center gap-2">
+                {note.pinned && <Pin className="h-3.5 w-3.5 text-amber-500" />}
+                <span className="truncate text-sm font-medium">
+                  {note.title}
+                </span>
+              </div>
+              <p className="line-clamp-2 text-xs text-muted-foreground">
+                {note.plainTextPreview || "Empty note"}
+              </p>
+              <div className="text-[11px] text-muted-foreground">
+                {formatShortDate(note.updatedAt)}
+              </div>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center self-start">
+            {bulkMode ? (
+              <button
+                type="button"
+                className={`flex h-5 w-5 items-center justify-center rounded border transition ${
+                  isSelected(note.id)
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-muted-foreground/30 bg-background"
+                }`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleSelectedNote(note.id);
+                }}
+                aria-label={isSelected(note.id) ? "Unselect note" : "Select note"}
+              >
+                {isSelected(note.id) ? <Check className="h-3.5 w-3.5" /> : null}
+              </button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 rounded-md"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Note actions</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void handleSelectNote(note);
+                    }}
+                  >
+                    Open note
+                  </DropdownMenuItem>
+                  {!showArchived && (
+                    <DropdownMenuItem
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleOpenShareDialog(note);
+                      }}
+                    >
+                      Share to chat
+                    </DropdownMenuItem>
+                  )}
+                  {showArchived ? (
+                    <>
+                      <DropdownMenuItem
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleRestore(note.id);
+                        }}
+                      >
+                        Restore note
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDeleteTarget(note);
+                        }}
+                      >
+                        Delete note
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setArchiveTarget(note);
+                        }}
+                      >
+                        Archive note
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDeleteTarget(note);
+                        }}
+                      >
+                        Delete note
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {note.tags.slice(0, 3).map((tag) => (
+            <Badge key={tag} variant="secondary" className="text-[11px]">
+              {tag}
+            </Badge>
+          ))}
+          {note.tags.length > 3 ? (
+            <span className="text-[11px] text-muted-foreground">
+              +{note.tags.length - 3} more tags
+            </span>
+          ) : null}
+          {showArchived ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-7 rounded-md px-2 text-xs"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleRestore(note.id);
+              }}
+            >
+              Restore
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
 
   const listEmptyState = showArchived ? (
     <Empty className="border-none px-4 py-14">
@@ -709,160 +1061,32 @@ export default function Notepad() {
           ) : filteredNotes.length === 0 ? (
             listEmptyState
           ) : (
-            <div className="space-y-2">
-              {filteredNotes.map((note) => {
-                const isActive = currentNote?.id === note.id;
+            <div className="space-y-3">
+              {noteFolders.map((folder) => {
+                const isExpanded = expandedFolderIds.includes(folder.id);
+
                 return (
-                  <div
-                    key={note.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => void handleSelectNote(note)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        void handleSelectNote(note);
-                      }
-                    }}
-                    className={`rounded-xl border px-3 py-3 transition ${
-                      isActive
-                        ? "border-primary bg-primary/5"
-                        : "border-border bg-card hover:bg-muted/50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1 text-left">
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2">
-                            {note.pinned && <Pin className="h-3.5 w-3.5 text-amber-500" />}
-                            <span className="truncate text-sm font-medium">
-                              {note.title}
-                            </span>
-                          </div>
-                          <p className="line-clamp-2 text-xs text-muted-foreground">
-                            {note.plainTextPreview || "Empty note"}
-                          </p>
-                          <div className="text-[11px] text-muted-foreground">
-                            {formatShortDate(note.updatedAt)}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center self-start">
-                        {bulkMode ? (
-                          <button
-                            type="button"
-                            className={`flex h-5 w-5 items-center justify-center rounded border transition ${
-                              isSelected(note.id)
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-muted-foreground/30 bg-background"
-                            }`}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggleSelectedNote(note.id);
-                            }}
-                            aria-label={
-                              isSelected(note.id) ? "Unselect note" : "Select note"
-                            }
-                          >
-                            {isSelected(note.id) ? (
-                              <Check className="h-3.5 w-3.5" />
-                            ) : null}
-                          </button>
-                        ) : (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 rounded-md"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Note actions</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleSelectNote(note);
-                                }}
-                              >
-                                Open note
-                              </DropdownMenuItem>
-                              {showArchived ? (
-                                <>
-                                  <DropdownMenuItem
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      void handleRestore(note.id);
-                                    }}
-                                  >
-                                    Restore note
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setDeleteTarget(note);
-                                    }}
-                                  >
-                                    Delete note
-                                  </DropdownMenuItem>
-                                </>
-                              ) : (
-                                <>
-                                  <DropdownMenuItem
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setArchiveTarget(note);
-                                    }}
-                                  >
-                                    Archive note
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setDeleteTarget(note);
-                                    }}
-                                  >
-                                    Delete note
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                  <div key={folder.id} className="space-y-2">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-muted-foreground transition hover:bg-muted/45 hover:text-foreground"
+                      onClick={() => toggleNoteFolder(folder.id)}
+                    >
+                      <ChevronDown
+                        className={cn(
+                          "h-3.5 w-3.5 transition-transform",
+                          !isExpanded && "-rotate-90",
                         )}
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {note.tags.slice(0, 3).map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-[11px]">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {note.tags.length > 3 ? (
-                        <span className="text-[11px] text-muted-foreground">
-                          +{note.tags.length - 3} more tags
-                        </span>
-                      ) : null}
-                      {showArchived ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="ml-auto h-7 rounded-md px-2 text-xs"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleRestore(note.id);
-                          }}
-                        >
-                          Restore
-                        </Button>
-                      ) : null}
-                    </div>
+                      />
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      <span className="min-w-0 flex-1 truncate">{folder.title}</span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[11px]">
+                        {folder.notes.length}
+                      </span>
+                    </button>
+                    {isExpanded ? (
+                      <div className="space-y-2">{folder.notes.map(renderNoteCard)}</div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -951,6 +1175,20 @@ export default function Notepad() {
                     <TooltipContent>
                       {currentNote.pinned ? "Unpin note" : "Pin note"}
                     </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => void handleOpenShareDialog(currentNote)}
+                        disabled={isActionBusy || showArchived}
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Share note to chat</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1054,6 +1292,100 @@ export default function Notepad() {
         )}
       </Card>
       )}
+
+      <Dialog
+        open={Boolean(shareTargetNote)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShareTargetNote(null);
+            setSelectedShareConversationId("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Share note to chat</DialogTitle>
+            <DialogDescription>
+              Send a readable snapshot of this note into any direct or group conversation.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-muted/25 p-3">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg border bg-background p-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {shareTargetNote?.title ?? "Untitled note"}
+                  </p>
+                  <p className="line-clamp-2 text-xs text-muted-foreground">
+                    {shareTargetNote?.plainTextPreview || "No preview yet"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="share-note-conversation">Conversation</Label>
+              <Select
+                value={selectedShareConversationId}
+                onValueChange={setSelectedShareConversationId}
+                disabled={shareConversationsLoading || !shareConversations.length}
+              >
+                <SelectTrigger id="share-note-conversation">
+                  <SelectValue
+                    placeholder={
+                      shareConversationsLoading
+                        ? "Loading conversations..."
+                        : "Choose a conversation"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {shareConversations.map((conversation) => (
+                    <SelectItem key={conversation.id} value={conversation.id}>
+                      {getConversationDisplayName(conversation, profile?.id)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!shareConversationsLoading && !shareConversations.length ? (
+                <p className="text-xs text-muted-foreground">
+                  Start a chat first, then return here to share this note.
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShareTargetNote(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleShareNote()}
+              disabled={
+                shareSending ||
+                shareConversationsLoading ||
+                !selectedShareConversationId
+              }
+            >
+              {shareSending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="mr-2 h-4 w-4" />
+              )}
+              Share note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={Boolean(archiveTarget)}

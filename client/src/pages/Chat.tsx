@@ -8,6 +8,7 @@ import {
   Check,
   Crown,
   Flag,
+  FileText,
   Hash,
   HelpCircle,
   Loader2,
@@ -21,6 +22,7 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Save,
   Trash2,
   UserPlus,
   Users,
@@ -33,6 +35,7 @@ import type { TeamMember } from "@/Types/types";
 import { chatSections, type ChatSection } from "@/config/chat-nav";
 import { useChatContext } from "@/context/ChatContext";
 import { useAuthContext } from "@/context/AuthContext";
+import { useNoteContext } from "@/context/NoteContext";
 import { useUser } from "@/context/UserContext";
 import {
   getConversationAvatar,
@@ -40,6 +43,10 @@ import {
   getConversationSection,
 } from "@/lib/chat";
 import { formatRelativeTimestamp, formatShortTime } from "@/lib/datetime";
+import {
+  isSharedNoteMetadata,
+  type SharedNoteMessageMetadata,
+} from "@/lib/shared-notes";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -117,6 +124,8 @@ const MESSAGE_TAGS = Object.keys(MESSAGE_TAG_CONFIG) as Array<
 type MessageTag = (typeof MESSAGE_TAGS)[number];
 const CHAT_EDIT_WINDOW_MINUTES = 15;
 const CHAT_EDIT_BUTTON_HIDE_BUFFER_SECONDS = 30;
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 function useIsMobileScreen() {
   const [isMobile, setIsMobile] = useState(false);
@@ -440,6 +449,7 @@ function MessageBubble({
   onEdit,
   onDelete,
   onToggleTag,
+  onOpenSharedNote,
   onPreviewProfile,
 }: {
   message: ChatMessage;
@@ -450,6 +460,7 @@ function MessageBubble({
   onEdit: (message: ChatMessage) => void;
   onDelete: (message: ChatMessage) => void;
   onToggleTag: (message: ChatMessage, tag: MessageTag) => void;
+  onOpenSharedNote: (note: SharedNoteMessageMetadata) => void;
   onPreviewProfile: (message: ChatMessage) => void;
 }) {
   const canDelete = isCurrentUser || canDeleteModeration;
@@ -467,6 +478,9 @@ function MessageBubble({
     !message.id.startsWith("optimistic-") &&
     showActionMenu &&
     (canTagMessage || canShowEditButton || canDelete);
+  const sharedNote = isSharedNoteMetadata(message.metadata)
+    ? message.metadata
+    : null;
 
   if (message.message_type === "system") {
     return (
@@ -606,7 +620,32 @@ function MessageBubble({
               <div className="truncate">{message.reply_to.body}</div>
             </div>
           )}
-          {message.body}
+          {sharedNote && !message.is_deleted ? (
+            <button
+              type="button"
+              className="block w-full rounded-xl border bg-background/70 p-3 text-left transition hover:border-primary/40 hover:bg-background"
+              onClick={() => onOpenSharedNote(sharedNote)}
+            >
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg border bg-muted/50 p-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Shared note
+                  </div>
+                  <div className="truncate text-sm font-semibold">
+                    {sharedNote.title}
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {sharedNote.plainTextPreview || message.body}
+                  </p>
+                </div>
+              </div>
+            </button>
+          ) : (
+            message.body
+          )}
         </div>
         {!!message.tags.length && (
           <div
@@ -680,6 +719,7 @@ export default function Chat() {
     typingUserIds,
     presenceByUserId,
   } = useChatContext();
+  const { createNote } = useNoteContext();
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [mobileConversationOpen, setMobileConversationOpen] = useState(false);
@@ -704,6 +744,9 @@ export default function Chat() {
     null,
   );
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
+  const [sharedNotePreview, setSharedNotePreview] =
+    useState<SharedNoteMessageMetadata | null>(null);
+  const [isSavingSharedNote, setIsSavingSharedNote] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [directMemberSearch, setDirectMemberSearch] = useState("");
   const [groupMemberSearch, setGroupMemberSearch] = useState("");
@@ -770,6 +813,7 @@ export default function Chat() {
       isDeleteConversationOpen ||
       Boolean(editingMessage) ||
       Boolean(deleteTarget) ||
+      Boolean(sharedNotePreview) ||
       Boolean(profilePreviewMember);
 
     if (!hasOpenDialog) {
@@ -790,6 +834,7 @@ export default function Chat() {
     isManageMembersOpen,
     isRenameOpen,
     profilePreviewMember,
+    sharedNotePreview,
   ]);
 
   useEffect(() => {
@@ -915,8 +960,10 @@ export default function Chat() {
     filteredChats[0] ??
     null;
 
-  const currentMembers =
-    conversationDetails?.members ?? currentChat?.members ?? [];
+  const currentMembers = useMemo(
+    () => conversationDetails?.members ?? currentChat?.members ?? [],
+    [conversationDetails?.members, currentChat?.members],
+  );
   const directConversationMember =
     currentChat?.type === "direct"
       ? (currentMembers.find((member) => member.user_id !== profile?.id) ??
@@ -1107,7 +1154,7 @@ export default function Chat() {
       await sendMessage(outgoingMessage, {
         tags: outgoingTags.length ? outgoingTags : undefined,
       });
-    } catch (chatError: any) {
+    } catch (chatError: unknown) {
       setNewMessage(outgoingMessage);
       if (currentChat?.id) {
         setSelectedTagsByConversation((prev) => ({
@@ -1115,7 +1162,29 @@ export default function Chat() {
           [currentChat.id]: outgoingTags,
         }));
       }
-      toast.error(chatError.message || "Failed to send message");
+      toast.error(getErrorMessage(chatError, "Failed to send message"));
+    }
+  };
+
+  const handleSaveSharedNote = async () => {
+    if (!sharedNotePreview) {
+      return;
+    }
+
+    try {
+      setIsSavingSharedNote(true);
+      await createNote({
+        title: sharedNotePreview.title,
+        contentHtml: sharedNotePreview.contentHtml,
+        projectId: sharedNotePreview.projectId ?? null,
+        tags: sharedNotePreview.tags ?? [],
+      });
+      toast.success("Note saved to your notes");
+      setSharedNotePreview(null);
+    } catch (noteError: unknown) {
+      toast.error(getErrorMessage(noteError, "Failed to save note"));
+    } finally {
+      setIsSavingSharedNote(false);
     }
   };
 
@@ -1135,9 +1204,9 @@ export default function Chat() {
       if (isMobile) {
         setMobileConversationOpen(true);
       }
-    } catch (chatError: any) {
+    } catch (chatError: unknown) {
       setIsCreateDirectOpen(true);
-      toast.error(chatError.message || "Failed to start direct chat");
+      toast.error(getErrorMessage(chatError, "Failed to start direct chat"));
     }
   };
 
@@ -1156,9 +1225,9 @@ export default function Chat() {
       if (isMobile) {
         setMobileConversationOpen(true);
       }
-    } catch (chatError: any) {
+    } catch (chatError: unknown) {
       setIsManageMembersOpen(true);
-      toast.error(chatError.message || "Failed to start direct chat");
+      toast.error(getErrorMessage(chatError, "Failed to start direct chat"));
     }
   };
 
@@ -1197,9 +1266,9 @@ export default function Chat() {
       if (isMobile) {
         setMobileConversationOpen(true);
       }
-    } catch (chatError: any) {
+    } catch (chatError: unknown) {
       setIsCreateGroupOpen(true);
-      toast.error(chatError.message || "Failed to create group");
+      toast.error(getErrorMessage(chatError, "Failed to create group"));
     }
   };
 
@@ -1213,9 +1282,9 @@ export default function Chat() {
       setIsRenameOpen(false);
       await renameConversation(renameValue.trim());
       toast.success("Group name updated");
-    } catch (chatError: any) {
+    } catch (chatError: unknown) {
       setIsRenameOpen(true);
-      toast.error(chatError.message || "Failed to rename group");
+      toast.error(getErrorMessage(chatError, "Failed to rename group"));
     }
   };
 
@@ -1241,9 +1310,9 @@ export default function Chat() {
       });
       setSelectedAddMembers([]);
       toast.success("Members added");
-    } catch (chatError: any) {
+    } catch (chatError: unknown) {
       setIsManageMembersOpen(true);
-      toast.error(chatError.message || "Failed to add members");
+      toast.error(getErrorMessage(chatError, "Failed to add members"));
     }
   };
 
@@ -1251,8 +1320,8 @@ export default function Chat() {
     try {
       await removeConversationMember(member.user_id);
       toast.success(`${member.name} removed from group`);
-    } catch (chatError: any) {
-      toast.error(chatError.message || "Failed to remove member");
+    } catch (chatError: unknown) {
+      toast.error(getErrorMessage(chatError, "Failed to remove member"));
     }
   };
 
@@ -1276,9 +1345,9 @@ export default function Chat() {
       if (isMobile) {
         setMobileConversationOpen(false);
       }
-    } catch (chatError: any) {
+    } catch (chatError: unknown) {
       setIsDeleteConversationOpen(true);
-      toast.error(chatError.message || "Failed to delete conversation");
+      toast.error(getErrorMessage(chatError, "Failed to delete conversation"));
     }
   };
 
@@ -1288,8 +1357,8 @@ export default function Chat() {
       toast.success(
         !notificationsMuted ? "Notifications muted" : "Notifications enabled",
       );
-    } catch (chatError: any) {
-      toast.error(chatError.message || "Failed to update preferences");
+    } catch (chatError: unknown) {
+      toast.error(getErrorMessage(chatError, "Failed to update preferences"));
     }
   };
 
@@ -1303,9 +1372,9 @@ export default function Chat() {
       setEditingMessage(null);
       await editMessage(editingMessage.id, editValue.trim());
       toast.success("Message updated");
-    } catch (chatError: any) {
+    } catch (chatError: unknown) {
       setEditingMessage(editingMessage);
-      toast.error(chatError.message || "Failed to edit message");
+      toast.error(getErrorMessage(chatError, "Failed to edit message"));
     }
   };
 
@@ -1318,9 +1387,9 @@ export default function Chat() {
       setDeleteTarget(null);
       await deleteMessage(deleteTarget.id);
       toast.success("Message deleted");
-    } catch (chatError: any) {
+    } catch (chatError: unknown) {
       setDeleteTarget(deleteTarget);
-      toast.error(chatError.message || "Failed to delete message");
+      toast.error(getErrorMessage(chatError, "Failed to delete message"));
     }
   };
 
@@ -1368,8 +1437,8 @@ export default function Chat() {
           ? `${getMessageTagConfig(tag).label} added`
           : `${getMessageTagConfig(tag).label} removed`,
       );
-    } catch (chatError: any) {
-      toast.error(chatError.message || "Failed to update message tag");
+    } catch (chatError: unknown) {
+      toast.error(getErrorMessage(chatError, "Failed to update message tag"));
     }
   };
 
@@ -2147,6 +2216,7 @@ export default function Chat() {
                                 onToggleTag={(target, tag) => {
                                   void handleUpdateMessageTag(target, tag);
                                 }}
+                                onOpenSharedNote={setSharedNotePreview}
                                 onPreviewProfile={(target) =>
                                   setProfilePreviewMember({
                                     name: target.sender.name,
@@ -2881,6 +2951,58 @@ export default function Chat() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(sharedNotePreview)}
+        onOpenChange={(open) => !open && setSharedNotePreview(null)}
+      >
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="border-b px-5 pb-4 pt-5">
+            <DialogTitle className="flex min-w-0 items-center gap-2">
+              <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">
+                {sharedNotePreview?.title ?? "Shared note"}
+              </span>
+            </DialogTitle>
+            <DialogDescription>
+              Review the shared note, then save a copy to your notes if it is useful.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{
+                __html:
+                  sharedNotePreview?.contentHtml ||
+                  "<p>This shared note has no content yet.</p>",
+              }}
+            />
+          </div>
+
+          <DialogFooter className="border-t px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSharedNotePreview(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleSaveSharedNote()}
+              disabled={isSavingSharedNote}
+            >
+              {isSavingSharedNote ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Save to notes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
