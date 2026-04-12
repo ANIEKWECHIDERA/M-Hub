@@ -25,6 +25,8 @@ interface TasksListProps {
   onOpenTask: (task: TaskWithAssigneesDTO) => void;
   onToggleStatus: (taskId: string, done: boolean) => void;
   onReorder?: (orderedTaskIds: string[]) => void;
+  subtaskProgressByTaskId?: Record<string, { completed: number; total: number }>;
+  onArchiveTask?: (task: TaskWithAssigneesDTO) => void;
 }
 
 interface SortableTaskRowProps {
@@ -32,6 +34,8 @@ interface SortableTaskRowProps {
   onOpenTask: (task: TaskWithAssigneesDTO) => void;
   onToggleStatus: (taskId: string, done: boolean) => void;
   suppressOpenUntilRef: React.MutableRefObject<number>;
+  subtaskProgress?: { completed: number; total: number };
+  onArchiveTask?: (task: TaskWithAssigneesDTO) => void;
 }
 
 function SortableTaskRow({
@@ -39,6 +43,8 @@ function SortableTaskRow({
   onOpenTask,
   onToggleStatus,
   suppressOpenUntilRef,
+  subtaskProgress,
+  onArchiveTask,
 }: SortableTaskRowProps) {
   const {
     attributes,
@@ -73,6 +79,8 @@ function SortableTaskRow({
         dragHandleListeners={listeners}
         setDragHandleRef={setActivatorNodeRef}
         isDragging={isDragging}
+        subtaskProgress={subtaskProgress}
+        onArchive={onArchiveTask}
       />
     </div>
   );
@@ -83,6 +91,8 @@ export function TasksList({
   onOpenTask,
   onToggleStatus,
   onReorder,
+  subtaskProgressByTaskId = {},
+  onArchiveTask,
 }: TasksListProps) {
   const suppressOpenUntilRef = useRef(0);
   const itemIds = useMemo(() => tasks.map((task) => task.id), [tasks]);
@@ -144,6 +154,8 @@ export function TasksList({
               onOpenTask={onOpenTask}
               onToggleStatus={onToggleStatus}
               suppressOpenUntilRef={suppressOpenUntilRef}
+              subtaskProgress={subtaskProgressByTaskId[task.id]}
+              onArchiveTask={onArchiveTask}
             />
           ))}
         </div>

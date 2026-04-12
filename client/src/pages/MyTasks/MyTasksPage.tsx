@@ -9,13 +9,26 @@ import { MyTasksStats } from "./components/TasksStats";
 import { TasksList } from "./components/TasksList";
 import { TaskDetailsSheet } from "./components/TaskDetailsSheet";
 import { MyTasksToolbar } from "./components/MyTasksToolbar";
-import { ClipboardList, ListTodo, Sparkles } from "lucide-react";
+import {
+  Archive,
+  ChevronDown,
+  ClipboardList,
+  FolderOpen,
+  ListTodo,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 import { MyTasksSkeleton } from "@/components/MyTasksSkeleton";
 import { MyTasksHeader } from "./components/MyTaskHeader";
 import { useAuthContext } from "@/context/AuthContext";
 import { useRetentionSnapshot } from "@/hooks/useRetentionSnapshot";
 import { DailyFocusCard } from "@/components/retention/RetentionPanels";
 import { Button } from "@/components/ui/button";
+import { useSubTasksContext } from "@/context/SubTasksContext";
+import { tasksAPI } from "@/api/tasks.api";
+import { toast } from "sonner";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 type ViewMode = "all" | "today" | "overdue" | "upcoming";
 type FocusSection = "tasks" | "daily-focus";
@@ -24,9 +37,10 @@ export function MyTasksPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   /* ---------------- Context ---------------- */
-  const { authStatus } = useAuthContext();
-  const { tasks, loading, error, refetch, updateTaskOptimistic } =
+  const { authStatus, idToken } = useAuthContext();
+  const { tasks, loading, error, refetch, updateTaskOptimistic, archiveTask } =
     useMyTasksContext();
+  const { subtasks } = useSubTasksContext();
   const { snapshot, loading: retentionLoading, error: retentionError } =
     useRetentionSnapshot();
 
@@ -42,6 +56,12 @@ export function MyTasksPage() {
   const orderStorageKey = `crevo:my-task-order:${workspaceKey}`;
   const [taskOrder, setTaskOrder] = useState<string[]>([]);
   const [hydratedOrderKey, setHydratedOrderKey] = useState<string | null>(null);
+  const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [showArchivedTasks, setShowArchivedTasks] = useState(false);
+  const [archivedTasks, setArchivedTasks] = useState<TaskWithAssigneesDTO[]>([]);
+  const [archivedTasksLoading, setArchivedTasksLoading] = useState(false);
 
   useEffect(() => {
     setSelectedTask(null);
@@ -140,6 +160,73 @@ export function MyTasksPage() {
     });
   }, [taskOrder, tasksForView]);
 
+  const subtaskProgressByTaskId = useMemo(() => {
+    return subtasks.reduce<Record<string, { completed: number; total: number }>>(
+      (acc, subtask) => {
+        acc[subtask.task_id] ??= { completed: 0, total: 0 };
+        acc[subtask.task_id].total += 1;
+        if (subtask.completed) {
+          acc[subtask.task_id].completed += 1;
+        }
+        return acc;
+      },
+      {},
+    );
+  }, [subtasks]);
+
+  const groupedTasksByProject = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        projectId: string;
+        projectTitle: string;
+        tasks: TaskWithAssigneesDTO[];
+      }
+    >();
+
+    orderedTasksForView.forEach((task) => {
+      const projectId = task.project?.id ?? task.projectId ?? "no-project";
+      const projectTitle = task.project?.title ?? "No project";
+      const existing = groups.get(projectId);
+
+      if (existing) {
+        existing.tasks.push(task);
+      } else {
+        groups.set(projectId, {
+          projectId,
+          projectTitle,
+          tasks: [task],
+        });
+      }
+    });
+
+    return Array.from(groups.values());
+  }, [orderedTasksForView]);
+
+  useEffect(() => {
+    if (groupedTasksByProject.length === 0) return;
+
+    setExpandedProjectIds((previous) => {
+      const next = new Set(previous);
+      groupedTasksByProject.forEach((group) => next.add(group.projectId));
+      return next;
+    });
+  }, [groupedTasksByProject]);
+
+  useEffect(() => {
+    if (!showArchivedTasks || !idToken) return;
+
+    setArchivedTasksLoading(true);
+    tasksAPI
+      .getMyTasks(idToken, { archived: true })
+      .then(setArchivedTasks)
+      .catch((error) => {
+        console.error("Failed to load archived personal tasks:", error);
+        toast.error("Couldn't load archived tasks");
+      })
+      .finally(() => setArchivedTasksLoading(false));
+  }, [idToken, showArchivedTasks]);
+
   /* ---------------- Handlers ---------------- */
 
   const handleOpenTask = (task: TaskWithAssigneesDTO) => {
@@ -196,11 +283,10 @@ export function MyTasksPage() {
         return previous;
       }
 
-      const visibleTaskIds = tasksForView.map((task) => task.id);
+      const visibleTaskIds = nextVisibleOrder;
       const visibleTaskIdSet = new Set(visibleTaskIds);
 
       if (
-        nextVisibleOrder.length !== visibleTaskIds.length ||
         nextVisibleOrder.some((taskId) => !visibleTaskIdSet.has(taskId))
       ) {
         return previous;
@@ -225,6 +311,45 @@ export function MyTasksPage() {
       }
 
       window.localStorage.setItem(orderStorageKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleArchiveTask = async (task: TaskWithAssigneesDTO) => {
+    try {
+      await archiveTask(task.id);
+      setArchivedTasks((previous) => [task, ...previous]);
+      toast.success("Task archived");
+    } catch (error) {
+      console.error("Failed to archive personal task:", error);
+      toast.error("Only completed tasks can be archived");
+    }
+  };
+
+  const handleRestoreTask = async (task: TaskWithAssigneesDTO) => {
+    if (!idToken) return;
+
+    try {
+      const restoredTask = await tasksAPI.restore(task.id, idToken);
+      setArchivedTasks((previous) =>
+        previous.filter((item) => item.id !== task.id),
+      );
+      await refetch();
+      toast.success(`Restored "${restoredTask.title}"`);
+    } catch (error) {
+      console.error("Failed to restore personal task:", error);
+      toast.error("Couldn't restore that task");
+    }
+  };
+
+  const toggleProjectFolder = (projectId: string) => {
+    setExpandedProjectIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
       return next;
     });
   };
@@ -284,6 +409,17 @@ export function MyTasksPage() {
         >
           Daily Focus
         </Button>
+        {activeSection === "tasks" && (
+          <Button
+            type="button"
+            variant={showArchivedTasks ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowArchivedTasks((value) => !value)}
+          >
+            <Archive className="mr-2 h-4 w-4" />
+            {showArchivedTasks ? "Hide Archive" : "Archive"}
+          </Button>
+        )}
       </div>
       {activeSection === "daily-focus" && (
         <div className="grid grid-cols-1 gap-4">
@@ -328,7 +464,7 @@ export function MyTasksPage() {
       )}
 
       {/* Tasks */}
-      {activeSection === "tasks" && tasks.length === 0 ? (
+      {activeSection === "tasks" && tasks.length === 0 && !showArchivedTasks ? (
         // First-time user (no assigned tasks at all)
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <ClipboardList className="h-10 w-10 text-muted-foreground mb-4" />
@@ -337,7 +473,7 @@ export function MyTasksPage() {
             When someone assigns you a task, it will appear here.
           </p>
         </div>
-      ) : activeSection === "tasks" && tasksForView.length === 0 ? (
+      ) : activeSection === "tasks" && tasksForView.length === 0 && !showArchivedTasks ? (
         // Filters or view mode returned no results
         <div className="border rounded-lg p-12 text-center bg-muted/20">
           {filters.hasActiveFilters ? (
@@ -361,12 +497,112 @@ export function MyTasksPage() {
           )}
         </div>
       ) : activeSection === "tasks" ? (
-        <TasksList
-          tasks={orderedTasksForView}
-          onOpenTask={handleOpenTask}
-          onToggleStatus={handleToggleTaskStatus}
-          onReorder={handleReorderTasks}
-        />
+        <div className="space-y-3">
+          {groupedTasksByProject.map((group) => {
+            const isExpanded = expandedProjectIds.has(group.projectId);
+            const completedTasks = group.tasks.filter(
+              (task) => task.status === "Done",
+            ).length;
+
+            return (
+              <Card
+                key={group.projectId}
+                className="overflow-hidden rounded-xl border-border/70"
+              >
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                  onClick={() => toggleProjectFolder(group.projectId)}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold sm:text-base">
+                        {group.projectTitle}
+                      </p>
+                      <p className="text-xs text-muted-foreground sm:text-sm">
+                        {group.tasks.length}{" "}
+                        {group.tasks.length === 1 ? "task" : "tasks"} ·{" "}
+                        {completedTasks}/{group.tasks.length} complete
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                {isExpanded && (
+                  <CardContent className="border-t px-3 pb-3 pt-2 sm:px-4">
+                    <TasksList
+                      tasks={group.tasks}
+                      onOpenTask={handleOpenTask}
+                      onToggleStatus={handleToggleTaskStatus}
+                      onReorder={handleReorderTasks}
+                      subtaskProgressByTaskId={subtaskProgressByTaskId}
+                      onArchiveTask={handleArchiveTask}
+                    />
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+
+          {showArchivedTasks && (
+            <Card className="border-dashed bg-muted/20">
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Archived personal tasks
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Hidden from your active list, but still retrievable.
+                    </p>
+                  </div>
+                  <Badge variant="outline">{archivedTasks.length}</Badge>
+                </div>
+                {archivedTasksLoading ? (
+                  <MyTasksSkeleton tasks={2} />
+                ) : archivedTasks.length === 0 ? (
+                  <p className="py-6 text-sm text-muted-foreground">
+                    Nothing archived yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {archivedTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border bg-background/60 p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {task.title}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {task.project?.title ?? "No project"}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRestoreTask(task)}
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Restore
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       ) : null}
 
       {/* Details */}

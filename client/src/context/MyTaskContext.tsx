@@ -5,7 +5,11 @@ import { tasksAPI } from "@/api/tasks.api";
 import { useAuthContext } from "./AuthContext";
 import { useTaskContext } from "./TaskContext";
 import { useTeamContext } from "./TeamMemberContext";
-import { subscribeToTaskSync, type TaskSyncPayload } from "@/lib/task-sync";
+import {
+  dispatchTaskSync,
+  subscribeToTaskSync,
+  type TaskSyncPayload,
+} from "@/lib/task-sync";
 
 const MyTasksContext = createContext<MyTasksContextType | null>(null);
 export const useMyTasksContext = () => {
@@ -93,6 +97,24 @@ export const MyTasksProvider = ({
     }
   };
 
+  const archiveTask = async (taskId: string) => {
+    if (!idToken) {
+      setError("Authentication required");
+      throw new Error("No auth token");
+    }
+
+    const previousTasks = tasks;
+    setTasks((prev) => prev.filter((task) => task.id !== taskId));
+
+    try {
+      await tasksAPI.archive(taskId, idToken);
+      dispatchTaskSync({ type: "delete", taskId });
+    } catch (error) {
+      setTasks(previousTasks);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     if (!idToken || authStatus?.onboardingState !== "ACTIVE") {
       setTasks([]);
@@ -168,6 +190,7 @@ export const MyTasksProvider = ({
         error,
         refetch: fetchMyTasks,
         updateTaskOptimistic,
+        archiveTask,
       }}
     >
       {children}
