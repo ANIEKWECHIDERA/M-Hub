@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -256,7 +256,7 @@ export default function Settings() {
     }
   }, [searchParams, sections, setSearchParams]);
 
-  const loadInvites = async () => {
+  const loadInvites = useCallback(async () => {
     if (
       isTeamMember ||
       activeSection !== "invites" ||
@@ -275,7 +275,7 @@ export default function Settings() {
     } finally {
       setInvitesLoading(false);
     }
-  };
+  }, [activeSection, authStatus?.onboardingState, idToken, isTeamMember]);
 
   useEffect(() => {
     if (isTeamMember) {
@@ -285,9 +285,9 @@ export default function Settings() {
     }
 
     loadInvites();
-  }, [activeSection, authStatus?.companyId, idToken, isTeamMember]);
+  }, [authStatus?.companyId, isTeamMember, loadInvites]);
 
-  const loadReceivedInvites = async () => {
+  const loadReceivedInvites = useCallback(async () => {
     if (
       activeSection !== "notifications" ||
       !idToken ||
@@ -307,7 +307,7 @@ export default function Settings() {
     } finally {
       setReceivedInvitesLoading(false);
     }
-  };
+  }, [activeSection, authStatus?.onboardingState, idToken]);
 
   useEffect(() => {
     if (activeSection !== "notifications") {
@@ -315,7 +315,7 @@ export default function Settings() {
     }
 
     void loadReceivedInvites();
-  }, [activeSection, authStatus?.companyId, idToken]);
+  }, [activeSection, authStatus?.companyId, loadReceivedInvites]);
 
   if (loading) {
     return (

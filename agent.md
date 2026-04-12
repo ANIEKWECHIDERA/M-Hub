@@ -2088,11 +2088,40 @@ Assumptions currently in use:
       - confirmed dashboard, projects, My Tasks, Notepad, chat, and settings load without console errors
   - risks and follow-ups:
     - targeted lint still reports two existing hook dependency warnings in Settings around invite loader callbacks
-    - Vite still reports the existing large bundle chunk warning
 - Phase 5 final stability pass:
   - completed browser smoke coverage for the primary app surfaces after Phase 4 refinements
   - no new critical runtime errors were observed in the tested flows
   - PostHog produced transient aborted beacon requests during navigation, but later analytics requests succeeded
   - known remaining follow-ups:
-    - continue reducing bundle size with route-level code splitting
     - decide whether to refactor Settings invite loaders into stable callbacks to remove the remaining hook warnings
+- Bundle size pass:
+  - changed the app router to lazy-load major route pages with a shared `PageLoader`
+  - split vendor output in Vite into focused chunks for React/router, Firebase, Supabase, PostHog, Framer Motion, Radix UI, Lucide icons, and feature-heavy libraries
+  - removed the previous `Some chunks are larger than 500 kB` build warning without raising the warning threshold
+  - biggest raw JS chunks after the pass are now below 250 KB, with the main app entry around 188 KB
+  - files touched:
+    - `client/src/App.tsx`
+    - `client/vite.config.ts`
+  - verification:
+    - `client`: `npm run build`
+    - `server`: `npm run build`
+    - targeted lint: `npx eslint src/App.tsx`
+    - Playwright MCP/manual browser pass:
+      - loaded Dashboard and Settings after code splitting
+      - waited on both pages and checked browser console
+      - no `Maximum update depth exceeded` error appeared
+  - risks and follow-ups:
+    - one transient `/api/user` request was aborted during fast route navigation in dev, then retried successfully
+    - if we want an even faster first load later, move heavy global providers such as chat/tasks/notes closer to the routes that need them
+- Settings hook cleanup:
+  - stabilized `loadInvites` and `loadReceivedInvites` with `useCallback`
+  - removed the two remaining Settings hook dependency lint warnings without changing invite loading behavior
+  - files touched:
+    - `client/src/pages/Settings.tsx`
+  - verification:
+    - `client`: `npx eslint src/pages/Settings.tsx`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - loaded Settings > Notifications and waited for effects to settle
+      - opened Settings invite-related navigation and waited again
+      - no browser console warnings or `Maximum update depth exceeded` errors appeared

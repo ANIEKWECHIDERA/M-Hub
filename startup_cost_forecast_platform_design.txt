@@ -1,0 +1,517 @@
+Startup Cost Forecast Platform
+Universal design document
+Date: 2026-03-29
+
+Purpose
+Design a standalone platform that helps startup founders estimate, simulate, and understand cloud and software costs for any app, not just Crevo.
+
+This product should help answer:
+- how expensive could my app become?
+- what is driving my cost today?
+- what happens if users grow 2x, 5x, or 10x?
+- which provider or feature is the biggest cost risk?
+- when will I need to upgrade my infrastructure?
+
+
+1. Product concept
+
+Working concept
+A cost intelligence and forecasting platform for startups.
+
+It connects to an app’s backend, data sources, and infrastructure usage signals, then turns those into:
+- cost estimates
+- growth scenarios
+- cost-driver analysis
+- optimization suggestions
+- billing risk alerts
+
+This should work for:
+- SaaS products
+- marketplaces
+- AI tools
+- social apps
+- internal tools
+- B2B platforms
+- consumer apps
+
+
+2. Core value proposition
+
+For founders, engineering leads, and ops teams:
+- understand cloud cost before it becomes a problem
+- forecast cost against growth
+- estimate cost per user and per feature
+- avoid surprises from infrastructure, storage, analytics, and AI bills
+
+
+3. Key product idea
+
+This is not just a “billing dashboard.”
+
+It is a forecasting and simulation system that combines:
+- actual usage metrics
+- estimated infrastructure consumption
+- vendor pricing rules
+- growth and scenario simulation
+
+
+4. Who this is for
+
+Primary users
+- solo founders
+- startup CTOs
+- indie hackers
+- product engineers
+- startup finance / ops leads
+
+Secondary users
+- agencies building SaaS for clients
+- startup advisors
+- dev tools consultants
+
+
+5. Supported app types
+
+It should work with:
+- any backend framework
+- any frontend framework
+- monoliths
+- microservices
+- serverless systems
+- realtime apps
+- AI products
+
+Examples
+- a Next.js SaaS
+- a Laravel app
+- a Node/Express API
+- a Django backend
+- a Supabase product
+- a Firebase product
+- a Render / Railway / Fly / Vercel / AWS app
+
+
+6. Product modules
+
+Module 1: usage collector
+- collects app usage metrics
+- can ingest from:
+  - SDK
+  - API
+  - log imports
+  - CSV/manual input
+  - cloud provider integrations
+
+Module 2: pricing engine
+- stores pricing rules for providers
+- translates usage into estimated cost
+
+Module 3: scenario simulator
+- simulates future usage and infrastructure cost
+
+Module 4: dashboard and reporting
+- shows current and projected cost
+
+Module 5: recommendations engine
+- suggests likely cost optimizations
+
+
+7. Integration model
+
+The product should be flexible.
+
+Support multiple integration modes:
+
+Mode A: manual mode
+- founder enters app stats manually
+- fastest onboarding
+- no engineering work required
+
+Mode B: SDK mode
+- lightweight SDK reports usage counters
+- good for web apps and APIs
+
+Mode C: backend API mode
+- customer backend sends daily usage rollups
+- best for accuracy and control
+
+Mode D: provider integration mode
+- connect to providers directly where possible
+- pull usage from billing or usage APIs
+
+Mode E: hybrid mode
+- combine SDK + provider data + manual assumptions
+
+
+8. Universal metrics model
+
+The platform must not assume a single app structure.
+
+Use generic usage categories:
+
+Traffic
+- requests
+- bandwidth
+- pageviews
+- API calls
+
+Compute
+- server runtime hours
+- job runs
+- worker time
+- function invocations
+
+Data
+- database reads
+- database writes
+- database size
+- cache usage
+
+Storage
+- uploaded bytes
+- stored files
+- storage GB
+- egress GB
+
+Realtime
+- websocket connections
+- concurrent connections
+- messages sent
+- events processed
+
+Communications
+- emails sent
+- SMS sent
+- push notifications
+
+Observability
+- error events
+- analytics events
+- traces
+- logs
+
+AI
+- tokens used
+- model calls
+- vector storage
+- embeddings usage
+
+Business metrics
+- monthly active users
+- daily active users
+- workspaces
+- teams
+- paying customers
+
+
+9. Universal provider model
+
+Table: providers
+- id
+- provider_name
+- provider_category
+- active
+
+Examples
+- AWS
+- GCP
+- Azure
+- Render
+- Railway
+- Fly
+- Vercel
+- Netlify
+- Supabase
+- Firebase
+- Cloudinary
+- Resend
+- SendGrid
+- PostHog
+- Sentry
+- OpenAI
+- Anthropic
+
+Table: provider_price_rules
+- id
+- provider_id
+- metric_key
+- pricing_model
+- included_units
+- unit_price
+- unit_name
+- billing_frequency
+- notes
+- active
+
+Pricing models
+- flat monthly
+- per unit
+- tiered
+- threshold based
+- blended
+
+
+10. Data model
+
+Core tables
+
+projects
+- id
+- owner_id
+- name
+- app_type
+- environment
+- created_at
+
+usage_daily_rollups
+- id
+- project_id
+- date
+- metric_key
+- metric_value
+- unit_name
+- source
+- created_at
+
+forecast_scenarios
+- id
+- project_id
+- name
+- monthly_active_users
+- usage_multiplier
+- growth_rate
+- assumptions_json
+- created_at
+
+forecast_results
+- id
+- scenario_id
+- provider_name
+- feature_area
+- estimated_monthly_cost
+- estimated_cost_per_user
+- estimated_cost_per_customer
+- result_json
+- created_at
+
+recommendations
+- id
+- project_id
+- type
+- severity
+- title
+- description
+- estimated_savings
+- created_at
+
+
+11. Forecast engine
+
+Responsibilities
+- normalize usage
+- apply pricing rules
+- calculate monthly estimates
+- produce ranges:
+  - low
+  - expected
+  - high
+
+Example outputs
+- estimated monthly infra cost
+- cost per MAU
+- cost per paying customer
+- top cost driver
+- breakeven threshold
+
+Core forecast functions
+- estimate_current_cost(project_id)
+- estimate_scenario_cost(project_id, scenario)
+- estimate_provider_breakdown(project_id)
+- estimate_feature_breakdown(project_id)
+- estimate_cost_per_user(project_id)
+- estimate_growth_curve(project_id)
+
+
+12. Scenario simulator
+
+Inputs
+- active users
+- requests per user
+- file uploads per user
+- realtime usage multiplier
+- analytics event multiplier
+- AI usage multiplier
+- email volume multiplier
+
+Scenarios
+- bootstrap mode
+- early traction
+- growth spike
+- enterprise-heavy usage
+- AI-heavy usage
+- media-heavy usage
+
+Outputs
+- monthly cost estimate
+- provider breakdown
+- key cost risks
+- likely first infrastructure bottleneck
+
+
+13. Dashboard design
+
+Main views
+
+Overview
+- this month estimate
+- cost per user
+- cost trend
+- top cost driver
+
+Provider breakdown
+- Render / AWS / Supabase / etc.
+
+Feature breakdown
+- chat
+- uploads
+- analytics
+- notifications
+- AI
+
+Scenario planner
+- sliders and assumptions
+
+Alerts
+- “You may exceed free tier in 18 days”
+- “Analytics cost is growing faster than user growth”
+- “Storage is now the biggest cost driver”
+
+Recommendations
+- “Move image transformations off hot path”
+- “Reduce analytics event volume”
+- “Batch notification writes”
+- “Add cache to cut DB reads”
+
+
+14. Recommendation engine
+
+This is one of the strongest founder-facing features.
+
+It should generate suggestions like:
+- reduce event volume
+- lower unnecessary polling
+- compress uploads
+- cache repeated queries
+- reduce noisy logs
+- downgrade overprovisioned compute
+- defer non-critical background jobs
+- archive cold storage data
+
+These recommendations should be based on:
+- usage mix
+- provider thresholds
+- cost anomalies
+
+
+15. Best MVP
+
+Version 1
+- manual + API input
+- provider pricing config
+- current monthly estimate
+- scenario simulator
+- provider breakdown
+- simple recommendations
+
+Why this MVP is best
+- useful quickly
+- works for many startups
+- does not require deep provider integration on day one
+
+
+16. Best monetization options
+
+Possible pricing
+- free tier
+  - one project
+  - limited scenarios
+
+- starter
+  - multiple projects
+  - CSV export
+  - saved scenarios
+
+- growth
+  - provider integrations
+  - recommendations
+  - alerting
+
+- agency / advisor
+  - multiple client projects
+  - portfolio dashboard
+
+
+17. Best positioning
+
+This should be positioned as:
+- “cost planning for startups”
+- “forecast your cloud bill before it surprises you”
+- “see what your app will cost as you grow”
+
+Not as:
+- accounting software
+- generic billing dashboard
+- enterprise FinOps tool
+
+
+18. Why this is valuable
+
+Founders often know:
+- revenue goals
+- user growth goals
+
+But they do not know:
+- what their architecture will cost at scale
+- which feature becomes expensive first
+- when they should optimize
+
+This product fills that gap.
+
+
+19. Suggested product direction
+
+Best first version should be platform-first and generic.
+
+Do not make it:
+- tied to Crevo tables
+- tied to one backend framework
+- tied to one cloud provider
+
+Make it:
+- integration-driven
+- metrics-based
+- provider-agnostic
+- startup-friendly
+
+
+20. Future expansion
+
+Later expansions
+- direct cloud provider connectors
+- SaaS billing connectors
+- AI provider connectors
+- benchmark data across startup categories
+- “what should my pricing be?” suggestions
+- gross margin forecasting
+- investor-friendly reporting
+
+
+21. Final conclusion
+
+Yes, this should be built as a standalone platform, not a Crevo-only internal tool.
+
+Best vision:
+- a startup cost intelligence platform
+- one that helps founders estimate, simulate, and understand software cost before it becomes painful
+
+That makes it much more broadly useful, and potentially its own product.
