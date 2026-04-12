@@ -2054,3 +2054,45 @@ Assumptions currently in use:
     - final chat rendering/save-modal verification was blocked by local backend/database instability after the successful send
     - observed backend errors were Prisma `P2028`, `connection failure during authentication`, and transient Supabase/notification fetch failures
     - once the local DB connection is stable, rerun a browser pass on the shared note card and `Save to notes` modal
+- Phase 4 refinement pass:
+  - shared notes:
+    - the note sender/owner no longer sees `Save to notes` on their own shared-note card
+    - saving another user's shared note now suppresses the generic `Note created` toast and only shows `Note saved`
+    - shared-note chat bubbles no longer expose the `Edit message` action in the ellipsis menu
+    - owner-facing shared-note modal copy now explains that the note is already theirs
+  - in-app invites:
+    - users with existing accounts now receive workspace invite notifications in-app when invited by email
+    - Settings > Notifications now includes a `Workspace invites` panel for received invites
+    - pending received invites can be accepted or declined from inside the app
+    - accepted/declined invite edge cases are handled idempotently so email and in-app flows do not double-fire acceptance side effects
+    - invite notifications route users to Settings > Notifications
+  - files touched:
+    - `client/src/Types/types.ts`
+    - `client/src/api/invite.api.ts`
+    - `client/src/context/NoteContext.tsx`
+    - `client/src/lib/notifications.ts`
+    - `client/src/pages/Chat.tsx`
+    - `client/src/pages/Settings.tsx`
+    - `server/src/controllers/invite.controller.ts`
+    - `server/src/routes/invite.routes.ts`
+    - `server/src/services/invite.service.ts`
+    - `server/src/services/notification.service.ts`
+  - verification:
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - targeted lint: `npx eslint src/pages/Chat.tsx src/pages/Settings.tsx src/api/invite.api.ts src/lib/notifications.ts`
+    - Playwright MCP/manual browser pass:
+      - confirmed Settings > Notifications loads the new Workspace invites panel
+      - confirmed `/api/invites/received` returns `200`
+      - confirmed shared-note owner modal hides `Save to notes`
+      - confirmed dashboard, projects, My Tasks, Notepad, chat, and settings load without console errors
+  - risks and follow-ups:
+    - targeted lint still reports two existing hook dependency warnings in Settings around invite loader callbacks
+    - Vite still reports the existing large bundle chunk warning
+- Phase 5 final stability pass:
+  - completed browser smoke coverage for the primary app surfaces after Phase 4 refinements
+  - no new critical runtime errors were observed in the tested flows
+  - PostHog produced transient aborted beacon requests during navigation, but later analytics requests succeeded
+  - known remaining follow-ups:
+    - continue reducing bundle size with route-level code splitting
+    - decide whether to refactor Settings invite loaders into stable callbacks to remove the remaining hook warnings

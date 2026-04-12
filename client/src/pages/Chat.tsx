@@ -127,6 +127,11 @@ const CHAT_EDIT_BUTTON_HIDE_BUFFER_SECONDS = 30;
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
 
+type SharedNotePreviewState = {
+  note: SharedNoteMessageMetadata;
+  canSave: boolean;
+};
+
 function useIsMobileScreen() {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -460,10 +465,13 @@ function MessageBubble({
   onEdit: (message: ChatMessage) => void;
   onDelete: (message: ChatMessage) => void;
   onToggleTag: (message: ChatMessage, tag: MessageTag) => void;
-  onOpenSharedNote: (note: SharedNoteMessageMetadata) => void;
+  onOpenSharedNote: (note: SharedNoteMessageMetadata, canSave: boolean) => void;
   onPreviewProfile: (message: ChatMessage) => void;
 }) {
   const canDelete = isCurrentUser || canDeleteModeration;
+  const sharedNote = isSharedNoteMetadata(message.metadata)
+    ? message.metadata
+    : null;
   const messageAgeMs = Date.now() - new Date(message.created_at).getTime();
   const editWindowMs =
     (CHAT_EDIT_WINDOW_MINUTES * 60 - CHAT_EDIT_BUTTON_HIDE_BUFFER_SECONDS) *
@@ -471,6 +479,7 @@ function MessageBubble({
   const canShowEditButton =
     isCurrentUser &&
     !message.is_deleted &&
+    !sharedNote &&
     !message.id.startsWith("optimistic-") &&
     messageAgeMs < editWindowMs;
   const canShowActionMenu =
@@ -478,10 +487,6 @@ function MessageBubble({
     !message.id.startsWith("optimistic-") &&
     showActionMenu &&
     (canTagMessage || canShowEditButton || canDelete);
-  const sharedNote = isSharedNoteMetadata(message.metadata)
-    ? message.metadata
-    : null;
-
   if (message.message_type === "system") {
     return (
       <div className="flex flex-col items-center gap-1.5 py-1">
@@ -624,7 +629,7 @@ function MessageBubble({
             <button
               type="button"
               className="block w-full rounded-xl border bg-background/70 p-3 text-left transition hover:border-primary/40 hover:bg-background"
-              onClick={() => onOpenSharedNote(sharedNote)}
+              onClick={() => onOpenSharedNote(sharedNote, !isCurrentUser)}
             >
               <div className="flex items-start gap-3">
                 <div className="rounded-lg border bg-muted/50 p-2">
@@ -745,7 +750,7 @@ export default function Chat() {
   );
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [sharedNotePreview, setSharedNotePreview] =
-    useState<SharedNoteMessageMetadata | null>(null);
+    useState<SharedNotePreviewState | null>(null);
   const [isSavingSharedNote, setIsSavingSharedNote] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [directMemberSearch, setDirectMemberSearch] = useState("");
@@ -1174,12 +1179,12 @@ export default function Chat() {
     try {
       setIsSavingSharedNote(true);
       await createNote({
-        title: sharedNotePreview.title,
-        contentHtml: sharedNotePreview.contentHtml,
-        projectId: sharedNotePreview.projectId ?? null,
-        tags: sharedNotePreview.tags ?? [],
-      });
-      toast.success("Note saved to your notes");
+        title: sharedNotePreview.note.title,
+        contentHtml: sharedNotePreview.note.contentHtml,
+        projectId: sharedNotePreview.note.projectId ?? null,
+        tags: sharedNotePreview.note.tags ?? [],
+      }, { suppressToast: true });
+      toast.success("Note saved");
       setSharedNotePreview(null);
     } catch (noteError: unknown) {
       toast.error(getErrorMessage(noteError, "Failed to save note"));
@@ -2216,7 +2221,9 @@ export default function Chat() {
                                 onToggleTag={(target, tag) => {
                                   void handleUpdateMessageTag(target, tag);
                                 }}
-                                onOpenSharedNote={setSharedNotePreview}
+                                onOpenSharedNote={(note, canSave) =>
+                                  setSharedNotePreview({ note, canSave })
+                                }
                                 onPreviewProfile={(target) =>
                                   setProfilePreviewMember({
                                     name: target.sender.name,
@@ -2963,11 +2970,13 @@ export default function Chat() {
             <DialogTitle className="flex min-w-0 items-center gap-2">
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="truncate">
-                {sharedNotePreview?.title ?? "Shared note"}
+                {sharedNotePreview?.note.title ?? "Shared note"}
               </span>
             </DialogTitle>
             <DialogDescription>
-              Review the shared note, then save a copy to your notes if it is useful.
+              {sharedNotePreview?.canSave
+                ? "Review the shared note, then save a copy to your notes if it is useful."
+                : "This note is already yours, so there is no need to save another copy."}
             </DialogDescription>
           </DialogHeader>
 
@@ -2976,7 +2985,7 @@ export default function Chat() {
               className="prose prose-sm max-w-none dark:prose-invert"
               dangerouslySetInnerHTML={{
                 __html:
-                  sharedNotePreview?.contentHtml ||
+                  sharedNotePreview?.note.contentHtml ||
                   "<p>This shared note has no content yet.</p>",
               }}
             />
@@ -2990,18 +2999,20 @@ export default function Chat() {
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              onClick={() => void handleSaveSharedNote()}
-              disabled={isSavingSharedNote}
-            >
-              {isSavingSharedNote ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Save to notes
-            </Button>
+            {sharedNotePreview?.canSave ? (
+              <Button
+                type="button"
+                onClick={() => void handleSaveSharedNote()}
+                disabled={isSavingSharedNote}
+              >
+                {isSavingSharedNote ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save to notes
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>

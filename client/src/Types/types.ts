@@ -693,7 +693,10 @@ export interface NoteContextType {
   fetchNotes: (options?: { archived?: boolean; q?: string }) => Promise<void>;
   openNote: (id: string) => Promise<Note | null>;
   clearCurrentNote: () => void;
-  createNote: (payload?: CreateNoteInput) => Promise<Note>;
+  createNote: (
+    payload?: CreateNoteInput,
+    options?: { suppressToast?: boolean },
+  ) => Promise<Note>;
   updateNote: (id: string, data: UpdateNoteInput) => Promise<Note>;
   archiveNote: (id: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;

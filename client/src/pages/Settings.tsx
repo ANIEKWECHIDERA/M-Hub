@@ -15,6 +15,7 @@ import {
   Trash2,
   Upload,
   User,
+  UserPlus,
   Users,
 } from "lucide-react";
 
@@ -79,6 +80,7 @@ import { useSettingsContext } from "@/context/SettingsContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useUploadStatus } from "@/context/UploadStatusContext";
 import { useUser } from "@/context/UserContext";
+import type { TeamMember } from "@/Types/types";
 import { prepareImageUpload } from "@/lib/image-upload";
 import { formatRelativeTimestamp } from "@/lib/datetime";
 
@@ -130,6 +132,10 @@ function isAcceptedInviteStatus(status: string | null | undefined) {
   );
 }
 
+function getSettingsErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export default function Settings() {
   const {
     teamMembers,
@@ -144,7 +150,7 @@ export default function Settings() {
     error,
   } = useTeamContext();
   const { profile, updateProfile } = useUser();
-  const { idToken, authStatus } = useAuthContext();
+  const { idToken, authStatus, refreshStatus } = useAuthContext();
   const {
     theme,
     toggleTheme,
@@ -159,11 +165,17 @@ export default function Settings() {
   const canSeeWorkspaceHealth =
     authStatus?.access === "admin" || authStatus?.access === "superAdmin";
   const [searchParams, setSearchParams] = useSearchParams();
+  const typedTeamMembers = teamMembers as TeamMember[];
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
+  const [receivedInvites, setReceivedInvites] = useState<InviteRecord[]>([]);
+  const [receivedInvitesLoading, setReceivedInvitesLoading] = useState(false);
+  const [receivedInviteActionId, setReceivedInviteActionId] = useState<
+    string | null
+  >(null);
   const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(
     null,
   );
@@ -258,8 +270,8 @@ export default function Settings() {
     try {
       const response = await inviteAPI.list(idToken);
       setInvites(response.invites);
-    } catch (inviteError: any) {
-      toast.error(inviteError.message || "Failed to load invites");
+    } catch (inviteError: unknown) {
+      toast.error(getSettingsErrorMessage(inviteError, "Failed to load invites"));
     } finally {
       setInvitesLoading(false);
     }
@@ -274,6 +286,36 @@ export default function Settings() {
 
     loadInvites();
   }, [activeSection, authStatus?.companyId, idToken, isTeamMember]);
+
+  const loadReceivedInvites = async () => {
+    if (
+      activeSection !== "notifications" ||
+      !idToken ||
+      authStatus?.onboardingState !== "ACTIVE"
+    ) {
+      return;
+    }
+
+    setReceivedInvitesLoading(true);
+    try {
+      const response = await inviteAPI.listReceived(idToken);
+      setReceivedInvites(response.invites);
+    } catch (inviteError: unknown) {
+      toast.error(
+        getSettingsErrorMessage(inviteError, "Failed to load workspace invites"),
+      );
+    } finally {
+      setReceivedInvitesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection !== "notifications") {
+      return;
+    }
+
+    void loadReceivedInvites();
+  }, [activeSection, authStatus?.companyId, idToken]);
 
   if (loading) {
     return (
@@ -326,12 +368,12 @@ export default function Settings() {
       finishUpload({ success: true, message: "Profile updated successfully" });
       setAvatarFile(null);
       toast.success("Profile updated");
-    } catch (profileError: any) {
+    } catch (profileError: unknown) {
       finishUpload({
         success: false,
-        message: profileError.message || "Profile update failed",
+        message: getSettingsErrorMessage(profileError, "Profile update failed"),
       });
-      toast.error(profileError.message || "Something went wrong.");
+      toast.error(getSettingsErrorMessage(profileError, "Something went wrong."));
     }
   };
 
@@ -342,8 +384,8 @@ export default function Settings() {
   }) => {
     await inviteMember(data);
     setIsUserDialogOpen(false);
-    void loadInvites().catch((error: any) => {
-      toast.error(error?.message || "Failed to refresh invites");
+    void loadInvites().catch((error: unknown) => {
+      toast.error(getSettingsErrorMessage(error, "Failed to refresh invites"));
     });
   };
 
@@ -408,6 +450,43 @@ export default function Settings() {
 
   const canResendInvite = (invite: InviteRecord) =>
     !isAcceptedInviteStatus(invite.status);
+
+  const handleAcceptReceivedInvite = async (invite: InviteRecord) => {
+    if (!idToken) return;
+
+    setReceivedInviteActionId(invite.id);
+    try {
+      const result = await inviteAPI.acceptReceived(invite.id, idToken);
+      toast.success(
+        result.alreadyAccepted
+          ? "Invite already accepted"
+          : "Invite accepted. Your workspace access is ready.",
+      );
+      await refreshStatus();
+      await loadReceivedInvites();
+    } catch (inviteError: unknown) {
+      toast.error(getSettingsErrorMessage(inviteError, "Failed to accept invite"));
+    } finally {
+      setReceivedInviteActionId(null);
+    }
+  };
+
+  const handleDeclineReceivedInvite = async (invite: InviteRecord) => {
+    if (!idToken) return;
+
+    setReceivedInviteActionId(invite.id);
+    try {
+      const result = await inviteAPI.declineReceived(invite.id, idToken);
+      toast.success(
+        result.alreadyDeclined ? "Invite already declined" : "Invite declined",
+      );
+      await loadReceivedInvites();
+    } catch (inviteError: unknown) {
+      toast.error(getSettingsErrorMessage(inviteError, "Failed to decline invite"));
+    } finally {
+      setReceivedInviteActionId(null);
+    }
+  };
 
   const handleSecurityPlaceholder = () => {
     toast.info("Password and 2FA management will be implemented soon!");
@@ -562,6 +641,102 @@ export default function Settings() {
         )}
 
         {activeSection === "notifications" && (
+          <>
+          <Card className="app-surface">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5" />
+                Workspace invites
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Invites sent to your account appear here, so you can accept or
+                decline them without digging through email.
+              </p>
+
+              {receivedInvitesLoading ? (
+                <div className="space-y-3 rounded-xl border p-4">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <Skeleton key={index} className="h-14 w-full" />
+                  ))}
+                </div>
+              ) : receivedInvites.length === 0 ? (
+                <Empty className="border-dashed py-8">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Mail className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>No workspace invites</EmptyTitle>
+                    <EmptyDescription>
+                      New invites for this account will show up here.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <div className="space-y-3">
+                  {receivedInvites.map((invite) => {
+                    const normalizedStatus = String(invite.status)
+                      .trim()
+                      .toUpperCase();
+                    const isPending = normalizedStatus === "PENDING";
+                    const isBusy = receivedInviteActionId === invite.id;
+
+                    return (
+                      <div
+                        key={invite.id}
+                        className="flex flex-col gap-3 rounded-xl border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-medium">
+                              {invite.company_name ?? "Workspace invite"}
+                            </p>
+                            <Badge variant={isPending ? "default" : "outline"}>
+                              {invite.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {invite.role} access, sent{" "}
+                            {formatRelativeTimestamp(invite.created_at)}
+                          </p>
+                        </div>
+
+                        {isPending ? (
+                          <div className="flex shrink-0 gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isBusy}
+                              onClick={() => handleDeclineReceivedInvite(invite)}
+                            >
+                              Decline
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={isBusy}
+                              onClick={() => handleAcceptReceivedInvite(invite)}
+                            >
+                              {isBusy ? (
+                                <Loader className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Accept"
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="shrink-0 text-sm text-muted-foreground">
+                            No action needed
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -693,6 +868,7 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+          </>
         )}
 
         {activeSection === "security" && (
@@ -794,7 +970,7 @@ export default function Settings() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {teamMembers.length === 0 ? (
+              {typedTeamMembers.length === 0 ? (
                 <Empty className="border-dashed py-10">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
@@ -822,12 +998,12 @@ export default function Settings() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {teamMembers.map((member: any) => (
+                      {typedTeamMembers.map((member) => (
                         <TableRow key={member.id}>
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="h-9 w-9">
-                                <AvatarImage src={member.avatar} />
+                                <AvatarImage src={member.avatar ?? undefined} />
                                 <AvatarFallback>
                                   {member.name
                                     ?.split(" ")
@@ -1083,8 +1259,8 @@ export default function Settings() {
               </DialogDescription>
             </DialogHeader>
             <TeamMemberForm
-              member={teamMembers.find(
-                (member: any) => member.id === editingUserId,
+              member={typedTeamMembers.find(
+                (member) => member.id === editingUserId,
               )}
               canAssignSuperAdmin={isSuperAdmin}
               canEditAccess={isSuperAdmin}

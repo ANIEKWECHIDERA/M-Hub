@@ -82,6 +82,26 @@ export const InviteService = {
 
     const companyId = membership.company_id;
 
+    const { data: company, error: companyError } = await supabaseAdmin
+      .from("companies")
+      .select("name")
+      .eq("id", companyId)
+      .maybeSingle();
+
+    if (companyError) {
+      throw new Error("Failed to load workspace");
+    }
+
+    const { data: recipientUser, error: recipientLookupError } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (recipientLookupError) {
+      throw new Error("Failed to check invited user");
+    }
+
     const { data: existingMember, error: memberError } = await supabaseAdmin
       .from("team_members")
       .select("id")
@@ -132,7 +152,14 @@ export const InviteService = {
         throw new Error("Failed to refresh invite");
       }
 
-      return { invite: updatedInvite, token };
+      return {
+        invite: {
+          ...updatedInvite,
+          company_name: company?.name ?? "this workspace",
+          recipient_user_id: recipientUser?.id ?? null,
+        },
+        token,
+      };
     }
 
     const { data: invite, error: inviteError } = await supabaseAdmin
@@ -154,7 +181,14 @@ export const InviteService = {
       throw new Error("Failed to create invite");
     }
 
-    return { invite, token };
+    return {
+      invite: {
+        ...invite,
+        company_name: company?.name ?? "this workspace",
+        recipient_user_id: recipientUser?.id ?? null,
+      },
+      token,
+    };
   },
 
   async acceptInvite(token: string, userId: string) {
@@ -198,10 +232,6 @@ export const InviteService = {
         throw new Error("Invalid invite");
       }
 
-      if (invite.status !== "PENDING") {
-        throw new Error("Invite is not valid");
-      }
-
       if (new Date(invite.expires_at) < new Date()) {
         throw new Error("Invite has expired");
       }
@@ -221,6 +251,23 @@ export const InviteService = {
 
       if (String(user.email).toLowerCase() !== String(invite.email).toLowerCase()) {
         throw new Error("Email mismatch");
+      }
+
+      if (invite.status === "ACCEPTED") {
+        return {
+          companyId: invite.company_id,
+          role: invite.role,
+          joinedAt: invite.accepted_at ?? new Date().toISOString(),
+          alreadyAccepted: true,
+        };
+      }
+
+      if (invite.status === "DECLINED") {
+        throw new Error("This invite has already been declined");
+      }
+
+      if (invite.status !== "PENDING") {
+        throw new Error("Invite is not valid");
       }
 
       const memberships = await tx.$queryRaw<Array<Record<string, any>>>`
@@ -378,7 +425,19 @@ export const InviteService = {
       throw new Error("Failed to load invite");
     }
 
-    if (!invite || invite.status !== "PENDING") {
+    if (!invite) {
+      throw new Error("Invite is not valid");
+    }
+
+    if (invite.status === "DECLINED") {
+      return { success: true, alreadyDeclined: true };
+    }
+
+    if (invite.status === "ACCEPTED") {
+      throw new Error("This invite has already been accepted");
+    }
+
+    if (invite.status !== "PENDING") {
       throw new Error("Invite is not valid");
     }
 
@@ -394,7 +453,239 @@ export const InviteService = {
       throw new Error("Failed to decline invite");
     }
 
-    return { success: true };
+    return { success: true, alreadyDeclined: false };
+  },
+
+  async getReceivedInvites(userId: string) {
+    const { data: user, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (userError || !user?.email) {
+      throw new Error("Failed to load user email");
+    }
+
+    const { data: invites, error } = await supabaseAdmin
+      .from("company_invite")
+      .select(
+        "id, company_id, email, status, accepted_at, created_by, role, access, expires_at, created_at",
+      )
+      .eq("email", String(user.email).trim().toLowerCase())
+      .in("status", ["PENDING", "ACCEPTED", "DECLINED"])
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw new Error("Failed to fetch received invites");
+    }
+
+    const companyIds = Array.from(
+      new Set((invites ?? []).map((invite) => invite.company_id).filter(Boolean)),
+    );
+
+    const companyNames = new Map<string, string>();
+
+    if (companyIds.length > 0) {
+      const { data: companies, error: companyError } = await supabaseAdmin
+        .from("companies")
+        .select("id, name")
+        .in("id", companyIds);
+
+      if (companyError) {
+        throw new Error("Failed to load invite workspaces");
+      }
+
+      for (const company of companies ?? []) {
+        companyNames.set(company.id, company.name);
+      }
+    }
+
+    return (invites ?? []).map((invite) => ({
+      ...invite,
+      company_name: companyNames.get(invite.company_id) ?? "Workspace",
+    }));
+  },
+
+  async acceptReceivedInvite(inviteId: string, userId: string) {
+    logger.info("InviteService.acceptReceivedInvite:start", { inviteId, userId });
+
+    const { data: userRecord, error: userLookupError } = await supabaseAdmin
+      .from("users")
+      .select("id, email, firebase_uid, has_company")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (userLookupError || !userRecord) {
+      throw new Error("User not found");
+    }
+
+    if (!userRecord.has_company) {
+      await CompanyService.ensurePersonalWorkspace({
+        id: userRecord.id,
+        email: userRecord.email,
+        firebase_uid: userRecord.firebase_uid,
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const invites = await tx.$queryRaw<Array<Record<string, any>>>`
+        SELECT *
+        FROM company_invite
+        WHERE id = ${inviteId}::uuid
+        LIMIT 1
+        FOR UPDATE`;
+
+      const invite = invites[0];
+
+      if (!invite) {
+        throw new Error("Invite not found");
+      }
+
+      if (String(userRecord.email).toLowerCase() !== String(invite.email).toLowerCase()) {
+        throw new Error("Email mismatch");
+      }
+
+      if (invite.status === "ACCEPTED") {
+        return {
+          companyId: invite.company_id,
+          role: invite.role,
+          joinedAt: invite.accepted_at ?? new Date().toISOString(),
+          alreadyAccepted: true,
+        };
+      }
+
+      if (invite.status === "DECLINED") {
+        throw new Error("This invite has already been declined");
+      }
+
+      if (invite.status !== "PENDING") {
+        throw new Error("Invite is not valid");
+      }
+
+      if (new Date(invite.expires_at) < new Date()) {
+        throw new Error("Invite has expired");
+      }
+
+      const memberships = await tx.$queryRaw<Array<Record<string, any>>>`
+        SELECT id, user_id
+        FROM team_members
+        WHERE company_id = ${invite.company_id}::uuid
+          AND email = ${invite.email}
+        LIMIT 1
+        FOR UPDATE`;
+
+      const existingMembership = memberships[0];
+
+      if (existingMembership?.user_id && existingMembership.user_id !== userId) {
+        throw new Error("This invite is already linked to another user");
+      }
+
+      if (existingMembership) {
+        await tx.$executeRaw`
+          UPDATE team_members
+          SET user_id = ${userId}::uuid,
+              role = ${invite.role},
+              access = ${invite.access},
+              status = ${"active"},
+              updated_at = NOW()
+          WHERE id = ${existingMembership.id}::uuid`;
+      } else {
+        await tx.$executeRaw`
+          INSERT INTO team_members (user_id, company_id, email, role, access, status)
+          VALUES (
+            ${userId}::uuid,
+            ${invite.company_id}::uuid,
+            ${invite.email},
+            ${invite.role},
+            ${invite.access},
+            ${"active"}
+          )`;
+      }
+
+      await tx.$executeRaw`
+        UPDATE company_invite
+        SET status = ${"ACCEPTED"},
+            accepted_at = NOW(),
+            updated_at = NOW()
+        WHERE id = ${invite.id}::uuid`;
+
+      await tx.$executeRaw`
+        UPDATE users
+        SET has_company = ${true},
+            company_id = COALESCE(company_id, ${invite.company_id}::uuid),
+            updated_at = NOW()
+        WHERE id = ${userId}::uuid`;
+
+      return {
+        companyId: invite.company_id,
+        role: invite.role,
+        joinedAt: new Date().toISOString(),
+        alreadyAccepted: false,
+      };
+    });
+
+    RequestCacheService.invalidateUserContext({ userId });
+    await ChatService.ensureGeneralConversation(result.companyId);
+
+    logger.info("InviteService.acceptReceivedInvite:success", result);
+    return result;
+  },
+
+  async declineReceivedInvite(inviteId: string, userId: string) {
+    const { data: user, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (userError || !user?.email) {
+      throw new Error("Failed to load user email");
+    }
+
+    const { data: invite, error: lookupError } = await supabaseAdmin
+      .from("company_invite")
+      .select("id, email, status")
+      .eq("id", inviteId)
+      .maybeSingle();
+
+    if (lookupError) {
+      throw new Error("Failed to load invite");
+    }
+
+    if (!invite) {
+      throw new Error("Invite not found");
+    }
+
+    if (String(user.email).toLowerCase() !== String(invite.email).toLowerCase()) {
+      throw new Error("Email mismatch");
+    }
+
+    if (invite.status === "DECLINED") {
+      return { success: true, alreadyDeclined: true };
+    }
+
+    if (invite.status === "ACCEPTED") {
+      throw new Error("This invite has already been accepted");
+    }
+
+    if (invite.status !== "PENDING") {
+      throw new Error("Invite is not valid");
+    }
+
+    const { error } = await supabaseAdmin
+      .from("company_invite")
+      .update({
+        status: "DECLINED",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", invite.id);
+
+    if (error) {
+      throw new Error("Failed to decline invite");
+    }
+
+    return { success: true, alreadyDeclined: false };
   },
 
   async getInvites(userId: string) {

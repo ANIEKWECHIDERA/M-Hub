@@ -584,6 +584,21 @@ export const NotificationService = {
     );
   },
 
+  async createInviteReceivedNotification(params: {
+    companyId: string;
+    inviteId: string;
+    recipientUserId: string;
+    workspaceName: string;
+  }) {
+    return this.create({
+      user_id: params.recipientUserId,
+      company_id: params.companyId,
+      type: `invite_received:${params.companyId}:${params.inviteId}`,
+      title: "Workspace invite",
+      message: `You have been invited to join ${params.workspaceName}.`,
+    });
+  },
+
   async getStreamUser(firebaseUid: string) {
     return getUserRecordByFirebaseUid(firebaseUid);
   },
