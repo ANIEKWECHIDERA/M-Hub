@@ -41,6 +41,7 @@ type WorkspaceContextValue = {
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWorkspaceContext() {
   const context = useContext(WorkspaceContext);
 
@@ -59,6 +60,8 @@ export function WorkspaceProvider({
   const { idToken, authStatus } = useAuthContext();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+  const workspacesRef = useRef<Workspace[]>([]);
+  const listLoadedRef = useRef(false);
   const listPromiseRef = useRef<Promise<Workspace[]> | null>(null);
   const managerCacheRef = useRef<Map<string, WorkspaceManagerSnapshot>>(
     new Map(),
@@ -75,6 +78,8 @@ export function WorkspaceProvider({
 
   const clearWorkspaceState = useCallback(() => {
     setWorkspaces([]);
+    workspacesRef.current = [];
+    listLoadedRef.current = false;
     setLoadingWorkspaces(false);
     listPromiseRef.current = null;
     managerCacheRef.current.clear();
@@ -92,8 +97,8 @@ export function WorkspaceProvider({
         return [];
       }
 
-      if (!force && workspaces.length > 0) {
-        return workspaces;
+      if (!force && listLoadedRef.current) {
+        return workspacesRef.current;
       }
 
       if (!force && listPromiseRef.current) {
@@ -105,6 +110,8 @@ export function WorkspaceProvider({
       const request = workspaceAPI
         .list(idToken)
         .then((response) => {
+          workspacesRef.current = response.workspaces;
+          listLoadedRef.current = true;
           setWorkspaces(response.workspaces);
           return response.workspaces;
         })
@@ -120,7 +127,6 @@ export function WorkspaceProvider({
       authStatus?.onboardingState,
       clearWorkspaceState,
       idToken,
-      workspaces,
     ],
   );
 
@@ -241,8 +247,8 @@ export function WorkspaceProvider({
   const applyWorkspaceUpdate = useCallback((company: Company) => {
     const logoUrl = company.logoUrl ?? null;
 
-    setWorkspaces((current) =>
-      current.map((workspace) =>
+    setWorkspaces((current) => {
+      const nextWorkspaces = current.map((workspace) =>
         workspace.companyId === company.id
           ? {
               ...workspace,
@@ -250,8 +256,10 @@ export function WorkspaceProvider({
               logoUrl,
             }
           : workspace,
-      ),
-    );
+      );
+      workspacesRef.current = nextWorkspaces;
+      return nextWorkspaces;
+    });
 
     const cachedSnapshot = managerCacheRef.current.get(company.id);
     if (cachedSnapshot) {

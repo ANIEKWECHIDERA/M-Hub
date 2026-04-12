@@ -45,10 +45,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import type {
-  TaskWithAssigneesDTO,
-  TeamMemberSummary,
-} from "@/Types/types";
+import type { TaskWithAssigneesDTO, TeamMemberSummary } from "@/Types/types";
 import { useCommentContext } from "@/context/CommentContext";
 import { Input } from "@/components/ui/input";
 import {
@@ -135,10 +132,7 @@ export function ProjectDetail() {
   const [archivedTasksLoading, setArchivedTasksLoading] = useState(false);
 
   const filteredTasks = useMemo(
-    () =>
-      tasks.filter(
-        (task) => task.projectId === id && !task.archivedAt,
-      ),
+    () => tasks.filter((task) => task.projectId === id && !task.archivedAt),
     [tasks, id],
   );
   const projectSnapshot = currentProject ?? project ?? null;
@@ -287,7 +281,9 @@ export function ProjectDetail() {
             <div className="min-w-0 flex-1">
               <p
                 className={`truncate text-sm font-semibold ${
-                  isDone ? "text-muted-foreground line-through" : "text-foreground"
+                  isDone
+                    ? "text-muted-foreground line-through"
+                    : "text-foreground"
                 }`}
               >
                 {task.title}
@@ -317,7 +313,9 @@ export function ProjectDetail() {
           {assignees}
         </TableCell>
         <TableCell className="text-muted-foreground">
-          {task.due_date ? new Date(task.due_date).toLocaleDateString() : "No date"}
+          {task.due_date
+            ? new Date(task.due_date).toLocaleDateString()
+            : "No date"}
         </TableCell>
         <TableCell>
           <Badge variant="outline">{task.status}</Badge>
@@ -599,7 +597,7 @@ export function ProjectDetail() {
                       when the board needs breathing room.
                     </p>
                   </div>
-                  <div className="flex flex-col gap-2 sm:items-end">
+                  <div className="flex gap-2 sm:items-end">
                     <Button
                       type="button"
                       variant="outline"
@@ -617,7 +615,10 @@ export function ProjectDetail() {
                     >
                       <DialogTrigger asChild>
                         {filteredTasks.length !== 0 && (
-                          <Button onClick={() => setEditingTask(null)}>
+                          <Button
+                            type="button"
+                            onClick={() => setEditingTask(null)}
+                          >
                             <Plus className="mr-2 h-4 w-4" />
                             Add Task
                           </Button>
@@ -685,7 +686,9 @@ export function ProjectDetail() {
                             <TableHead>Assigned To</TableHead>
                             <TableHead>Due Date</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
+                            <TableHead className="text-right">
+                              Actions
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -708,7 +711,9 @@ export function ProjectDetail() {
                               when needed.
                             </p>
                           </div>
-                          <Badge variant="outline">{archivedTasks.length}</Badge>
+                          <Badge variant="outline">
+                            {archivedTasks.length}
+                          </Badge>
                         </div>
                         {archivedTasksLoading ? (
                           <TaskListSkeleton />

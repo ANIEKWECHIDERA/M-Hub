@@ -182,9 +182,9 @@ export const UserService = {
         ${now}::timestamp,
         ${now}::timestamp
       )
-      ON CONFLICT (firebase_uid)
+      ON CONFLICT (email)
       DO UPDATE SET
-        email = EXCLUDED.email,
+        firebase_uid = EXCLUDED.firebase_uid,
         first_name = EXCLUDED.first_name,
         last_name = EXCLUDED.last_name,
         display_name = EXCLUDED.display_name,

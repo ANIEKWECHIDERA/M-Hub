@@ -2088,11 +2088,100 @@ Assumptions currently in use:
       - confirmed dashboard, projects, My Tasks, Notepad, chat, and settings load without console errors
   - risks and follow-ups:
     - targeted lint still reports two existing hook dependency warnings in Settings around invite loader callbacks
-    - Vite still reports the existing large bundle chunk warning
 - Phase 5 final stability pass:
   - completed browser smoke coverage for the primary app surfaces after Phase 4 refinements
   - no new critical runtime errors were observed in the tested flows
   - PostHog produced transient aborted beacon requests during navigation, but later analytics requests succeeded
   - known remaining follow-ups:
-    - continue reducing bundle size with route-level code splitting
     - decide whether to refactor Settings invite loaders into stable callbacks to remove the remaining hook warnings
+- Bundle size pass:
+  - changed the app router to lazy-load major route pages with a shared `PageLoader`
+  - split vendor output in Vite into focused chunks for React/router, Firebase, Supabase, PostHog, Framer Motion, Radix UI, Lucide icons, and feature-heavy libraries
+  - removed the previous `Some chunks are larger than 500 kB` build warning without raising the warning threshold
+  - biggest raw JS chunks after the pass are now below 250 KB, with the main app entry around 188 KB
+  - files touched:
+    - `client/src/App.tsx`
+    - `client/vite.config.ts`
+  - verification:
+    - `client`: `npm run build`
+    - `server`: `npm run build`
+    - targeted lint: `npx eslint src/App.tsx`
+    - Playwright MCP/manual browser pass:
+      - loaded Dashboard and Settings after code splitting
+      - waited on both pages and checked browser console
+      - no `Maximum update depth exceeded` error appeared
+  - risks and follow-ups:
+    - one transient `/api/user` request was aborted during fast route navigation in dev, then retried successfully
+    - if we want an even faster first load later, move heavy global providers such as chat/tasks/notes closer to the routes that need them
+- Settings hook cleanup:
+  - stabilized `loadInvites` and `loadReceivedInvites` with `useCallback`
+  - removed the two remaining Settings hook dependency lint warnings without changing invite loading behavior
+  - files touched:
+    - `client/src/pages/Settings.tsx`
+  - verification:
+    - `client`: `npx eslint src/pages/Settings.tsx`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - loaded Settings > Notifications and waited for effects to settle
+      - opened Settings invite-related navigation and waited again
+      - no browser console warnings or `Maximum update depth exceeded` errors appeared
+- Fresh signup and Settings error pass:
+  - hardened the shared client API parser so empty or non-JSON backend/proxy responses no longer crash the UI with `Unexpected token` JSON parse errors
+  - guarded saved signup form hydration against malformed `localStorage` data
+  - removed the signup page Radix checkbox in favor of a native checkbox to reduce fragile auth-transition refs
+  - stabilized Sonner toaster option objects outside render
+  - removed unnecessary Radix `asChild` trigger wrapping from header notification/profile buttons
+  - replaced sidebar nav `Button asChild` slotting with a direct clone path to avoid composed-ref loops during app-shell mount
+  - replaced the app-shell workspace switch Radix select with a native select for a safer always-mounted shell control
+  - fixed the fresh-account dashboard loop by tracking workspace-list load completion separately from list length, so an empty list does not refetch forever
+  - made signup profile completion race-safe on the backend by resolving concurrent auth-sync/signup writes through the email conflict path
+  - files touched:
+    - `client/src/api/http.ts`
+    - `client/src/components/Header.tsx`
+    - `client/src/components/Sidebar.tsx`
+    - `client/src/components/ui/sidebar.tsx`
+    - `client/src/components/ui/sonner.tsx`
+    - `client/src/context/WorkspaceContext.tsx`
+    - `client/src/pages/SignupPage.tsx`
+    - `server/src/services/user.service.ts`
+  - verification:
+    - `client`: `npx eslint src/context/WorkspaceContext.tsx src/components/Sidebar.tsx src/components/ui/sidebar.tsx src/components/Header.tsx src/api/http.ts src/pages/SignupPage.tsx`
+    - `client`: `npm run build`
+    - `server`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - created a new account after clearing browser auth/session storage
+      - reproduced and then fixed the backend signup race that returned `User creation failed`
+      - verified the fresh account reaches Dashboard without the fatal Radix ref crash after the shell changes
+      - reloaded Dashboard after the workspace-list fix and confirmed the `Maximum update depth exceeded` loop stopped
+      - navigated to Settings and waited for effects to settle
+      - Settings loaded at `settings?section=profile` with no console errors or unexpected-token message
+  - risks and follow-ups:
+    - the fresh test account still surfaced one `403` on `/api/notifications?limit=50` from Dashboard before navigating to Settings; this is separate from the unexpected-token and max-depth issues and should be checked against notification access rules for brand-new personal workspaces
+- Fresh signup UI rollback and max-depth retest:
+  - reverted the last pass's UI/structure experiments in the app shell and signup form:
+    - header notification/profile triggers are back to their previous `asChild` button structure
+    - sidebar workspace switch is back to the Radix select
+    - sidebar menu button rendering is back to the prior `Button`/`asChild` path
+    - Sonner toast options are back inline
+    - signup terms checkbox is back to the shared Radix checkbox
+    - signup success toast is restored
+  - kept the non-visual fixes that actually addressed the issue:
+    - robust non-JSON/empty API response parsing
+    - malformed signup localStorage guard
+    - workspace list `loaded` tracking for empty fresh workspaces
+    - backend signup completion race handling
+  - files touched:
+    - `client/src/api/http.ts`
+    - `client/src/components/Sidebar.tsx`
+    - `client/src/components/ui/sidebar.tsx`
+    - `client/src/context/WorkspaceContext.tsx`
+    - `client/src/pages/SignupPage.tsx`
+    - `server/src/services/user.service.ts`
+  - verification:
+    - `client`: `npx eslint src/components/Header.tsx src/components/Sidebar.tsx src/components/ui/sidebar.tsx src/components/ui/sonner.tsx src/pages/SignupPage.tsx src/context/WorkspaceContext.tsx`
+    - `client`: `npm run build`
+    - `server`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - loaded Dashboard and waited 8 seconds: no console errors or warnings
+      - cleared browser storage, created a fresh account, reached Dashboard, and waited 8 seconds: no console errors or warnings
+      - navigated to Settings and waited 5 seconds: no console errors or warnings

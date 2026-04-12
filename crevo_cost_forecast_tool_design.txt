@@ -1,0 +1,525 @@
+Crevo Cost Forecast Tool
+Design document
+Date: 2026-03-29
+
+Purpose
+Design an internal tool that plugs into the Crevo backend and helps estimate:
+- cloud usage
+- likely monthly cost
+- cost per user
+- cost per workspace
+- growth-based cost scenarios
+- which features drive cost the most
+
+This tool is intended for planning, pricing, and infrastructure decision-making.
+It is not meant to be exact billing reconciliation software.
+
+
+1. Core goal
+
+Give the Crevo team a way to answer questions like:
+- How much will Crevo likely cost at 100, 1,000, or 10,000 active users?
+- What is driving cost the most right now?
+- If chat usage doubles, what happens to infrastructure cost?
+- If file uploads grow quickly, does Cloudinary or storage become the bottleneck?
+- At what point does the current setup stop being cheap?
+
+
+2. Current Crevo stack this tool should model
+
+Application and infrastructure
+- Render
+  - backend hosting
+- Supabase
+  - Postgres database
+  - realtime
+  - storage if used
+- Firebase
+  - auth
+- Cloudinary
+  - asset uploads and delivery
+- Resend
+  - email delivery
+- Sentry
+  - error monitoring
+- PostHog
+  - product analytics
+
+Optional future additions
+- websocket infrastructure if chat fully migrates away from Supabase Realtime
+- queue workers
+- AI usage costs
+- CDN or edge caching
+
+
+3. What the tool should do
+
+Main capabilities
+- track usage units from the real backend
+- translate usage into cost estimates using provider pricing rules
+- simulate future growth scenarios
+- show monthly forecast ranges
+- show cost per feature area
+- identify the most expensive usage patterns
+
+Output examples
+- estimated monthly infrastructure cost
+- estimated cost per active workspace
+- estimated cost per monthly active user
+- cost split by provider
+- cost split by feature area
+- optimistic / expected / high-growth scenarios
+
+
+4. MVP scope
+
+Version 1 should be rule-based and simple.
+
+MVP should include:
+- daily usage collection
+- provider price configuration
+- monthly cost estimator
+- scenario simulator
+- internal dashboard
+
+Do not try to build:
+- perfect billing reconciliation
+- per-request exact infra accounting
+- vendor API sync for billing on day one
+
+
+5. Architecture
+
+High-level flow
+
+1. Backend records usage events and counters
+2. Daily rollup job aggregates usage
+3. Forecast service applies provider pricing formulas
+4. Dashboard shows:
+   - current usage
+   - estimated monthly cost
+   - scenario simulations
+   - top cost drivers
+
+Suggested architecture layers
+
+Layer 1: instrumentation
+- middleware and event counters
+
+Layer 2: storage
+- usage rollup tables
+- pricing config tables
+- forecast scenario tables
+
+Layer 3: forecast engine
+- converts usage metrics into provider cost estimates
+
+Layer 4: admin UI
+- internal dashboard for finance / ops / founder use
+
+
+6. Backend data to capture
+
+Request-level data
+- total API requests
+- requests per endpoint
+- average duration per endpoint
+- error count per endpoint
+
+Chat data
+- messages sent
+- direct conversation count
+- group conversation count
+- typing events
+- realtime connected users
+- average concurrent chat sessions
+
+Task and project data
+- projects created
+- tasks created
+- task updates
+- comments created
+- dashboard load count
+
+Notification data
+- notifications created
+- notifications delivered
+- notification stream connections
+
+Asset and media data
+- files uploaded
+- upload count by type
+- asset bytes uploaded
+- asset bytes delivered if available
+
+Email data
+- transactional emails sent
+- invite emails sent
+- waitlist emails sent
+- acknowledgement emails sent
+
+Storage and database signals
+- estimated database reads
+- estimated database writes
+- table growth trends
+- storage consumption
+- egress estimates if available
+
+Auth data
+- signups
+- logins
+- active sessions
+
+Analytics data
+- PostHog events volume
+- Sentry event volume
+
+
+7. Suggested usage metrics model
+
+Create a daily rollup table.
+
+Table: usage_daily_rollups
+- id
+- date
+- environment
+- requests_total
+- requests_auth
+- requests_chat
+- requests_projects
+- requests_tasks
+- requests_notifications
+- requests_assets
+- request_duration_ms_total
+- request_errors_total
+- chat_messages_sent
+- chat_direct_conversations_created
+- chat_group_conversations_created
+- chat_typing_events
+- chat_stream_connections
+- notification_stream_connections
+- notifications_created
+- emails_sent
+- invites_sent
+- uploads_count
+- uploads_bytes
+- storage_bytes_estimate
+- posthog_events_estimate
+- sentry_events_estimate
+- monthly_active_users_estimate
+- monthly_active_workspaces_estimate
+- created_at
+- updated_at
+
+Optional future table
+usage_daily_endpoint_rollups
+- date
+- endpoint
+- method
+- requests
+- avg_duration_ms
+- errors
+
+
+8. Suggested provider pricing model
+
+Table: provider_price_rules
+- id
+- provider_name
+- environment
+- metric_key
+- unit_name
+- included_units
+- unit_price
+- pricing_model
+- notes
+- active
+
+Examples
+
+Render
+- metric_key: render_backend_instance_month
+- pricing_model: flat
+
+- metric_key: render_bandwidth_gb
+- pricing_model: per_unit
+
+Supabase
+- metric_key: supabase_database_size_gb
+- metric_key: supabase_egress_gb
+- metric_key: supabase_realtime_peak_connections
+- metric_key: supabase_storage_gb
+
+Cloudinary
+- metric_key: cloudinary_storage_gb
+- metric_key: cloudinary_bandwidth_gb
+- metric_key: cloudinary_transformations
+
+Resend
+- metric_key: resend_emails_sent
+
+Sentry
+- metric_key: sentry_events
+
+PostHog
+- metric_key: posthog_events
+
+
+9. Forecast engine design
+
+Forecast service responsibilities
+- read usage rollups
+- normalize to monthly estimates
+- apply pricing rules
+- produce cost summaries
+
+Core functions
+- estimateCurrentMonthCost()
+- estimateCostForScenario()
+- estimateCostPerUser()
+- estimateCostPerWorkspace()
+- estimateProviderBreakdown()
+- estimateFeatureBreakdown()
+
+Feature breakdown categories
+- chat
+- projects
+- tasks
+- notifications
+- assets
+- email
+- analytics
+- auth
+
+Scenario inputs
+- expected monthly active users
+- expected active workspaces
+- average chat messages per active user
+- average uploads per workspace
+- average emails per workspace
+- storage growth per month
+- notification volume multiplier
+
+Scenario outputs
+- provider cost breakdown
+- total estimated monthly cost
+- high/medium/low estimate
+- cost per MAU
+- cost per workspace
+
+
+10. Forecast formulas for MVP
+
+Use simple formulas first.
+
+Examples
+
+Requests
+- monthly_requests = average_daily_requests * 30
+
+Chat
+- monthly_chat_messages = average_daily_chat_messages * 30
+- estimated_chat_pressure = monthly_chat_messages + typing_events_weight
+
+Uploads
+- monthly_upload_gb = average_daily_upload_bytes * 30 / 1024^3
+
+Emails
+- monthly_emails = average_daily_emails * 30
+
+PostHog
+- monthly_events = daily_posthog_events * 30
+
+Sentry
+- monthly_sentry_events = daily_sentry_events * 30
+
+Cost
+- if flat plan:
+  cost = flat monthly cost
+
+- if per-unit:
+  billable_units = max(0, usage - included_units)
+  cost = billable_units * unit_price
+
+- if thresholded:
+  pick matching tier and compute
+
+
+11. Internal admin dashboard design
+
+Location
+- internal admin-only route
+- recommended path: /ops/costs or /admin/cost-forecast
+
+Main sections
+
+Section 1: current snapshot
+- estimated this month
+- monthly active users
+- active workspaces
+- cost per MAU
+- cost per workspace
+
+Section 2: provider breakdown
+- Render
+- Supabase
+- Cloudinary
+- Resend
+- Sentry
+- PostHog
+
+Section 3: cost drivers
+- chat
+- uploads
+- emails
+- notifications
+- analytics
+
+Section 4: scenario planner
+- users slider
+- workspaces slider
+- chat volume multiplier
+- upload volume multiplier
+- email volume multiplier
+
+Section 5: warnings
+- “Realtime cost grows fast if concurrent chat increases”
+- “Uploads are becoming the largest cost driver”
+- “Analytics volume may cross pricing threshold soon”
+
+
+12. Security model
+
+This tool should be admin-only.
+
+Recommended access rules
+- superAdmin only
+- internal feature flag only
+- no exposure to normal workspace members
+
+Security requirements
+- do not expose provider secrets in the client
+- pricing config updates must be server-validated
+- no raw billing credentials in the frontend
+
+
+13. How to integrate with the current backend
+
+Instrumentation points
+
+Request middleware
+- add a metrics middleware in Express
+- count request totals
+- count route usage
+- track average duration
+
+Service-level counters
+- chat.service.ts
+  - message send count
+  - group/direct create count
+- notification services
+  - notifications created
+  - stream connections
+- asset.service.ts
+  - upload count
+  - bytes uploaded
+- email.service.ts
+  - email count by type
+
+Daily aggregation job
+- run once per day
+- write into usage_daily_rollups
+
+Suggested implementation order
+1. request metrics middleware
+2. event counters in major services
+3. daily rollup persistence
+4. forecast service
+5. admin UI
+
+
+14. Recommended MVP rollout plan
+
+Phase 1
+- build usage_daily_rollups
+- instrument requests, chat, email, uploads
+- store daily counts
+
+Phase 2
+- build provider_price_rules
+- build forecast formulas
+- return monthly estimate API
+
+Phase 3
+- build admin UI
+- add scenario planner
+- show provider and feature breakdowns
+
+Phase 4
+- refine assumptions with real history
+- improve accuracy
+- add historical charts
+
+
+15. Benefits
+
+Business benefits
+- helps forecast infrastructure spend early
+- helps decide pricing
+- helps identify expensive features before they become a problem
+- reduces surprise bills
+
+Product benefits
+- shows which usage patterns are worth optimizing
+- helps prioritize engineering work
+- supports growth planning
+
+
+16. Tradeoffs
+
+What this tool will do well
+- directional cost forecasting
+- scenario planning
+- identifying top cost drivers
+
+What it will not do perfectly
+- exact vendor invoice matching
+- precise infra micro-cost accounting
+- perfect prediction under big architecture changes
+
+
+17. Recommended MVP conclusion
+
+Yes, this tool is worth building.
+
+Best first version:
+- backend usage instrumentation
+- daily rollup table
+- provider pricing config
+- admin-only forecast dashboard
+- scenario simulator
+
+That version will already be valuable for planning and pricing.
+
+
+18. Suggested future upgrades
+
+Later improvements
+- vendor billing API sync
+- usage anomaly alerts
+- threshold warnings
+- profitability per workspace or customer segment
+- AI cost simulation
+- websocket cost simulation
+- storage growth trend projections
+
+
+19. Final product principle
+
+This tool should help answer:
+- how much are we spending?
+- what is making it expensive?
+- what happens if usage grows?
+- where should we optimize first?
+
+It should be simple enough to trust and practical enough to use regularly.

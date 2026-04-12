@@ -1213,9 +1213,13 @@ export function Sidebar() {
           : "/dashboard",
       );
       toast.success("Workspace switched");
-    } catch (error: any) {
+    } catch (error: unknown) {
       finishWorkspaceSwitch();
-      toast.error(error.message || "Failed to switch workspace");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to switch workspace",
+      );
     }
   };
 
