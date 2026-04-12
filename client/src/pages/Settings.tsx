@@ -15,6 +15,7 @@ import {
   Trash2,
   Upload,
   User,
+  UserPlus,
   Users,
 } from "lucide-react";
 
@@ -73,14 +74,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  getAllowedSettingsSections,
-} from "@/config/settings-nav";
+import { getAllowedSettingsSections } from "@/config/settings-nav";
 import { useAuthContext } from "@/context/AuthContext";
 import { useSettingsContext } from "@/context/SettingsContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useUploadStatus } from "@/context/UploadStatusContext";
 import { useUser } from "@/context/UserContext";
+import type { TeamMember } from "@/Types/types";
 import { prepareImageUpload } from "@/lib/image-upload";
 import { formatRelativeTimestamp } from "@/lib/datetime";
 
@@ -125,7 +125,15 @@ async function copyTextToClipboard(value: string) {
 }
 
 function isAcceptedInviteStatus(status: string | null | undefined) {
-  return String(status ?? "").trim().toUpperCase() === "ACCEPTED";
+  return (
+    String(status ?? "")
+      .trim()
+      .toUpperCase() === "ACCEPTED"
+  );
+}
+
+function getSettingsErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 export default function Settings() {
@@ -142,7 +150,7 @@ export default function Settings() {
     error,
   } = useTeamContext();
   const { profile, updateProfile } = useUser();
-  const { idToken, authStatus } = useAuthContext();
+  const { idToken, authStatus, refreshStatus } = useAuthContext();
   const {
     theme,
     toggleTheme,
@@ -157,12 +165,20 @@ export default function Settings() {
   const canSeeWorkspaceHealth =
     authStatus?.access === "admin" || authStatus?.access === "superAdmin";
   const [searchParams, setSearchParams] = useSearchParams();
+  const typedTeamMembers = teamMembers as TeamMember[];
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
-  const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(null);
+  const [receivedInvites, setReceivedInvites] = useState<InviteRecord[]>([]);
+  const [receivedInvitesLoading, setReceivedInvitesLoading] = useState(false);
+  const [receivedInviteActionId, setReceivedInviteActionId] = useState<
+    string | null
+  >(null);
+  const [inviteToDelete, setInviteToDelete] = useState<InviteRecord | null>(
+    null,
+  );
   const [isInviteDeleteDialogOpen, setIsInviteDeleteDialogOpen] =
     useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -215,7 +231,10 @@ export default function Settings() {
   const avatarPreviewSrc = avatarPreviewUrl || profile?.photoURL || null;
 
   const passwordDirty = Object.values(securityForm).some(Boolean);
-  const sections = useMemo(() => getAllowedSettingsSections(isTeamMember), [isTeamMember]);
+  const sections = useMemo(
+    () => getAllowedSettingsSections(isTeamMember),
+    [isTeamMember],
+  );
   const activeSection: string = useMemo(() => {
     const section = searchParams.get("section");
 
@@ -230,7 +249,10 @@ export default function Settings() {
     const currentSection = searchParams.get("section");
 
     if (!sections.some((section) => section.id === currentSection)) {
-      setSearchParams({ section: sections[0]?.id ?? "profile" }, { replace: true });
+      setSearchParams(
+        { section: sections[0]?.id ?? "profile" },
+        { replace: true },
+      );
     }
   }, [searchParams, sections, setSearchParams]);
 
@@ -248,8 +270,8 @@ export default function Settings() {
     try {
       const response = await inviteAPI.list(idToken);
       setInvites(response.invites);
-    } catch (inviteError: any) {
-      toast.error(inviteError.message || "Failed to load invites");
+    } catch (inviteError: unknown) {
+      toast.error(getSettingsErrorMessage(inviteError, "Failed to load invites"));
     } finally {
       setInvitesLoading(false);
     }
@@ -264,6 +286,36 @@ export default function Settings() {
 
     loadInvites();
   }, [activeSection, authStatus?.companyId, idToken, isTeamMember]);
+
+  const loadReceivedInvites = async () => {
+    if (
+      activeSection !== "notifications" ||
+      !idToken ||
+      authStatus?.onboardingState !== "ACTIVE"
+    ) {
+      return;
+    }
+
+    setReceivedInvitesLoading(true);
+    try {
+      const response = await inviteAPI.listReceived(idToken);
+      setReceivedInvites(response.invites);
+    } catch (inviteError: unknown) {
+      toast.error(
+        getSettingsErrorMessage(inviteError, "Failed to load workspace invites"),
+      );
+    } finally {
+      setReceivedInvitesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection !== "notifications") {
+      return;
+    }
+
+    void loadReceivedInvites();
+  }, [activeSection, authStatus?.companyId, idToken]);
 
   if (loading) {
     return (
@@ -316,12 +368,12 @@ export default function Settings() {
       finishUpload({ success: true, message: "Profile updated successfully" });
       setAvatarFile(null);
       toast.success("Profile updated");
-    } catch (profileError: any) {
+    } catch (profileError: unknown) {
       finishUpload({
         success: false,
-        message: profileError.message || "Profile update failed",
+        message: getSettingsErrorMessage(profileError, "Profile update failed"),
       });
-      toast.error(profileError.message || "Something went wrong.");
+      toast.error(getSettingsErrorMessage(profileError, "Something went wrong."));
     }
   };
 
@@ -332,8 +384,8 @@ export default function Settings() {
   }) => {
     await inviteMember(data);
     setIsUserDialogOpen(false);
-    void loadInvites().catch((error: any) => {
-      toast.error(error?.message || "Failed to refresh invites");
+    void loadInvites().catch((error: unknown) => {
+      toast.error(getSettingsErrorMessage(error, "Failed to refresh invites"));
     });
   };
 
@@ -399,8 +451,45 @@ export default function Settings() {
   const canResendInvite = (invite: InviteRecord) =>
     !isAcceptedInviteStatus(invite.status);
 
+  const handleAcceptReceivedInvite = async (invite: InviteRecord) => {
+    if (!idToken) return;
+
+    setReceivedInviteActionId(invite.id);
+    try {
+      const result = await inviteAPI.acceptReceived(invite.id, idToken);
+      toast.success(
+        result.alreadyAccepted
+          ? "Invite already accepted"
+          : "Invite accepted. Your workspace access is ready.",
+      );
+      await refreshStatus();
+      await loadReceivedInvites();
+    } catch (inviteError: unknown) {
+      toast.error(getSettingsErrorMessage(inviteError, "Failed to accept invite"));
+    } finally {
+      setReceivedInviteActionId(null);
+    }
+  };
+
+  const handleDeclineReceivedInvite = async (invite: InviteRecord) => {
+    if (!idToken) return;
+
+    setReceivedInviteActionId(invite.id);
+    try {
+      const result = await inviteAPI.declineReceived(invite.id, idToken);
+      toast.success(
+        result.alreadyDeclined ? "Invite already declined" : "Invite declined",
+      );
+      await loadReceivedInvites();
+    } catch (inviteError: unknown) {
+      toast.error(getSettingsErrorMessage(inviteError, "Failed to decline invite"));
+    } finally {
+      setReceivedInviteActionId(null);
+    }
+  };
+
   const handleSecurityPlaceholder = () => {
-    toast.info("Password and 2FA management UI is ready. Backend actions come next.");
+    toast.info("Password and 2FA management will be implemented soon!");
   };
 
   return (
@@ -454,7 +543,8 @@ export default function Settings() {
                     <DialogHeader className="px-6 pt-6">
                       <DialogTitle>Profile Photo Preview</DialogTitle>
                       <DialogDescription>
-                        Preview your current profile image before saving changes.
+                        Preview your current profile image before saving
+                        changes.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="px-6 pb-6 pt-2">
@@ -478,12 +568,14 @@ export default function Settings() {
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="avatar">Profile Photo</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <Input
-                        id="avatar"
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                        className="sr-only"
-                      onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                    <Input
+                      id="avatar"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="sr-only"
+                      onChange={(e) =>
+                        setAvatarFile(e.target.files?.[0] ?? null)
+                      }
                     />
                     <Button
                       type="button"
@@ -497,8 +589,7 @@ export default function Settings() {
                     </Button>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Optional. Images are optimized before upload to make profile
-                    updates faster and more reliable.
+                    Add a face to your name. We'll handle the rest.
                   </p>
                 </div>
               </div>
@@ -550,6 +641,102 @@ export default function Settings() {
         )}
 
         {activeSection === "notifications" && (
+          <>
+          <Card className="app-surface">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5" />
+                Workspace invites
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Invites sent to your account appear here, so you can accept or
+                decline them without digging through email.
+              </p>
+
+              {receivedInvitesLoading ? (
+                <div className="space-y-3 rounded-xl border p-4">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <Skeleton key={index} className="h-14 w-full" />
+                  ))}
+                </div>
+              ) : receivedInvites.length === 0 ? (
+                <Empty className="border-dashed py-8">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Mail className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>No workspace invites</EmptyTitle>
+                    <EmptyDescription>
+                      New invites for this account will show up here.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <div className="space-y-3">
+                  {receivedInvites.map((invite) => {
+                    const normalizedStatus = String(invite.status)
+                      .trim()
+                      .toUpperCase();
+                    const isPending = normalizedStatus === "PENDING";
+                    const isBusy = receivedInviteActionId === invite.id;
+
+                    return (
+                      <div
+                        key={invite.id}
+                        className="flex flex-col gap-3 rounded-xl border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-medium">
+                              {invite.company_name ?? "Workspace invite"}
+                            </p>
+                            <Badge variant={isPending ? "default" : "outline"}>
+                              {invite.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {invite.role} access, sent{" "}
+                            {formatRelativeTimestamp(invite.created_at)}
+                          </p>
+                        </div>
+
+                        {isPending ? (
+                          <div className="flex shrink-0 gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isBusy}
+                              onClick={() => handleDeclineReceivedInvite(invite)}
+                            >
+                              Decline
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={isBusy}
+                              onClick={() => handleAcceptReceivedInvite(invite)}
+                            >
+                              {isBusy ? (
+                                <Loader className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Accept"
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="shrink-0 text-sm text-muted-foreground">
+                            No action needed
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="app-surface">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -565,51 +752,66 @@ export default function Settings() {
                     Persist your preferred theme across the app.
                   </p>
                 </div>
-                <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
+                <Switch
+                  checked={theme === "dark"}
+                  onCheckedChange={toggleTheme}
+                />
               </div>
 
-                {[
-                  {
-                    key: "notifications",
-                    label: "In-app notifications",
-                    description: "Allow Crevo to show notification updates in the app.",
+              {[
+                {
+                  key: "notifications",
+                  label: "In-app notifications",
+                  description:
+                    "Allow Crevo to show notification updates in the app.",
                 },
                 {
                   key: "taskAssignments",
                   label: "Task assignments",
-                  description: "Get notified when tasks are assigned or updated for you.",
+                  description:
+                    "Get notified when tasks are assigned or updated for you.",
                 },
                 {
                   key: "projectUpdates",
                   label: "Project updates",
-                  description: "Receive project-level status and activity updates.",
+                  description:
+                    "Receive project-level status and activity updates.",
                 },
                 {
                   key: "commentNotifications",
                   label: "Comments",
-                  description: "Get notified about new comments and conversation activity.",
+                  description:
+                    "Get notified about new comments and conversation activity.",
                 },
                 {
                   key: "emailNotifications",
                   label: "Email notifications",
-                  description: "Prepare your account for email delivery once outbound email is enabled.",
+                  description:
+                    "Allow important workspace updates to reach your inbox.",
                 },
-                  {
-                    key: "compactMode",
-                    label: "Compact mode",
-                    description: "Use denser spacing in supported parts of the app.",
-                  },
-                  ...(canSeeWorkspaceHealth
-                    ? [
-                        {
-                          key: "workspaceHealth",
-                          label: "Workspace health in sidebar",
-                          description:
-                            "Show the workspace health pulse card in the sidebar when you want a quick delivery snapshot.",
-                        },
-                      ]
-                    : []),
-                ].map((item) => (
+                {
+                  key: "dailyFocusEmail",
+                  label: "Receive Daily Focus Email",
+                  description:
+                    "Get a morning brief with daily tasks and key decisions from your workspace.",
+                },
+                {
+                  key: "compactMode",
+                  label: "Compact mode",
+                  description:
+                    "Use denser spacing in supported parts of the app.",
+                },
+                ...(canSeeWorkspaceHealth
+                  ? [
+                      {
+                        key: "workspaceHealth",
+                        label: "Workspace health in sidebar",
+                        description:
+                          "Show the workspace health pulse card in the sidebar when you want a quick delivery snapshot.",
+                      },
+                    ]
+                  : []),
+              ].map((item) => (
                 <div
                   key={item.key}
                   className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3"
@@ -626,27 +828,29 @@ export default function Settings() {
                               className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
                             >
                               <HelpCircle className="h-3.5 w-3.5" />
-                                <span className="sr-only">
-                                  {item.key === "workspaceHealth"
-                                    ? "What workspace health in sidebar means"
-                                    : "What compact mode means"}
-                                </span>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-[260px] text-left leading-relaxed">
-                              {item.key === "workspaceHealth"
-                                ? "Use this to show or hide the sidebar workspace health pulse card. Turning it off keeps the sidebar quieter without affecting the underlying health calculation."
-                                : "Compact mode reduces spacing in supported areas of the app so you can fit more content on screen without changing the core layout."}
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
+                              <span className="sr-only">
+                                {item.key === "workspaceHealth"
+                                  ? "What workspace health in sidebar means"
+                                  : "What compact mode means"}
+                              </span>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+                            {item.key === "workspaceHealth"
+                              ? "Use this to show or hide the sidebar workspace health pulse card. Turning it off keeps the sidebar quieter without affecting the underlying health calculation."
+                              : "Compact mode reduces spacing in supported areas of the app so you can fit more content on screen without changing the core layout."}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
                   <Switch
-                    checked={Boolean(preferences[item.key as keyof typeof preferences])}
+                    checked={Boolean(
+                      preferences[item.key as keyof typeof preferences],
+                    )}
                     onCheckedChange={(checked) =>
                       setPreferences((prev) => ({
                         ...prev,
@@ -664,6 +868,7 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+          </>
         )}
 
         {activeSection === "security" && (
@@ -765,7 +970,7 @@ export default function Settings() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {teamMembers.length === 0 ? (
+              {typedTeamMembers.length === 0 ? (
                 <Empty className="border-dashed py-10">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
@@ -793,12 +998,12 @@ export default function Settings() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {teamMembers.map((member: any) => (
+                      {typedTeamMembers.map((member) => (
                         <TableRow key={member.id}>
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="h-9 w-9">
-                                <AvatarImage src={member.avatar} />
+                                <AvatarImage src={member.avatar ?? undefined} />
                                 <AvatarFallback>
                                   {member.name
                                     ?.split(" ")
@@ -821,7 +1026,10 @@ export default function Settings() {
                           </TableCell>
                           {!isTeamMember && (
                             <TableCell>
-                              <Badge variant="outline" className="text-emerald-600">
+                              <Badge
+                                variant="outline"
+                                className="text-emerald-600"
+                              >
                                 {member.status}
                               </Badge>
                             </TableCell>
@@ -887,7 +1095,8 @@ export default function Settings() {
                       Invite Management
                     </CardTitle>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Send invites, track status, and cancel pending access requests.
+                      Send invites, track status, and cancel pending access
+                      requests.
                     </p>
                   </div>
                   <Dialog
@@ -904,7 +1113,8 @@ export default function Settings() {
                       <DialogHeader>
                         <DialogTitle>Invite a teammate</DialogTitle>
                         <DialogDescription>
-                          Bring someone into this workspace and set the right role from the start.
+                          Bring someone into this workspace and set the right
+                          role from the start.
                         </DialogDescription>
                       </DialogHeader>
                       <InviteForm
@@ -917,9 +1127,9 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-                  Pending and historical invites for this workspace are managed below.
-                  Use invite roles carefully because accepted invites affect workspace access
-                  immediately.
+                  Pending and historical invites for this workspace are managed
+                  below. Use invite roles carefully because accepted invites
+                  affect workspace access immediately.
                 </div>
               </CardContent>
             </Card>
@@ -953,8 +1163,8 @@ export default function Settings() {
                       </EmptyMedia>
                       <EmptyTitle>No invites sent yet</EmptyTitle>
                       <EmptyDescription>
-                        New invites will appear here with their current status and
-                        expiration date.
+                        New invites will appear here with their current status
+                        and expiration date.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -980,7 +1190,9 @@ export default function Settings() {
                             <TableCell>
                               <Badge variant="outline">{invite.status}</Badge>
                             </TableCell>
-                            <TableCell>{formatRelativeTimestamp(invite.expires_at)}</TableCell>
+                            <TableCell>
+                              {formatRelativeTimestamp(invite.expires_at)}
+                            </TableCell>
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -991,7 +1203,9 @@ export default function Settings() {
                                 <DropdownMenuContent align="end">
                                   {canCopyInviteLink(invite) && (
                                     <DropdownMenuItem
-                                      onClick={() => handleCopyInviteLink(invite.id)}
+                                      onClick={() =>
+                                        handleCopyInviteLink(invite.id)
+                                      }
                                     >
                                       <Copy className="mr-2 h-4 w-4" />
                                       Copy invite link
@@ -999,7 +1213,9 @@ export default function Settings() {
                                   )}
                                   {canResendInvite(invite) && (
                                     <DropdownMenuItem
-                                      onClick={() => handleResendInvite(invite.id)}
+                                      onClick={() =>
+                                        handleResendInvite(invite.id)
+                                      }
                                     >
                                       <RefreshCw className="mr-2 h-4 w-4" />
                                       Resend invite
@@ -1043,7 +1259,9 @@ export default function Settings() {
               </DialogDescription>
             </DialogHeader>
             <TeamMemberForm
-              member={teamMembers.find((member: any) => member.id === editingUserId)}
+              member={typedTeamMembers.find(
+                (member) => member.id === editingUserId,
+              )}
               canAssignSuperAdmin={isSuperAdmin}
               canEditAccess={isSuperAdmin}
               onSave={async (data) => {
@@ -1067,8 +1285,8 @@ export default function Settings() {
               <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to remove{" "}
-                <strong>{memberToDelete?.name}</strong> from this workspace?
-                {" "}If this person is your last active super admin, you'll need to
+                <strong>{memberToDelete?.name}</strong> from this workspace? If
+                this person is your last active super admin, you'll need to
                 promote another super admin first.
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -1105,13 +1323,12 @@ export default function Settings() {
               <AlertDialogTitle>Delete invite?</AlertDialogTitle>
               <AlertDialogDescription>
                 <strong>{inviteToDelete?.email ?? "This invite"}</strong> will
-                stop working right away, and the current link will no longer be usable.
+                stop working right away, and the current link will no longer be
+                usable.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>
-                Cancel
-              </AlertDialogCancel>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-red-600 hover:bg-red-700"
                 onClick={async () => {

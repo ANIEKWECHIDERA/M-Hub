@@ -194,12 +194,12 @@ model tasks {
   status      String    @default("To-Do")
   priority    String    @default("medium")
   due_date    DateTime? @map("due_date")
+  archived_at DateTime? @map("archived_at")
   created_at  DateTime  @default(now()) @map("created_at")
   updated_at  DateTime  @default(now())  @updatedAt @map("updated_at")
 
   company     companies   @relation("company_tasks", fields: [company_id], references: [id], onDelete: Cascade)
   project     projects    @relation("project_tasks", fields: [project_id], references: [id], onDelete: Cascade)
-
   assignees           users[]                   @relation("task_assignees")
   team_member_assignees task_team_member_assignees[] @relation("task_team_member_assignees")
   subtasks            subtasks[]                @relation("task_subtasks")

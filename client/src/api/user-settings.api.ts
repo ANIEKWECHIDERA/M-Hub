@@ -10,6 +10,7 @@ export type UserSettingsRecord = {
   task_assignment_notifications: boolean;
   project_update_notifications: boolean;
   comment_notifications: boolean;
+  daily_focus_email_enabled: boolean;
   compact_mode: boolean;
   created_at: string;
   updated_at: string;
@@ -25,6 +26,7 @@ export type UpdateUserSettingsInput = Partial<
     | "task_assignment_notifications"
     | "project_update_notifications"
     | "comment_notifications"
+    | "daily_focus_email_enabled"
     | "compact_mode"
   >
 >;

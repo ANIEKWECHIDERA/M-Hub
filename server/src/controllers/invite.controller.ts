@@ -40,6 +40,21 @@ export const InviteController = {
         email,
       });
 
+      if (invite.recipient_user_id) {
+        void NotificationService.createInviteReceivedNotification({
+          companyId: invite.company_id,
+          inviteId: invite.id,
+          recipientUserId: invite.recipient_user_id,
+          workspaceName: invite.company_name,
+        }).catch((error: any) => {
+          logger.error("InviteController.sendInvite: invite notification failed", {
+            inviteId: invite.id,
+            email,
+            error: error.message,
+          });
+        });
+      }
+
       void EmailNotificationService.sendWorkspaceInviteEmail({
         companyId: invite.company_id,
         inviterUserId: userId,
@@ -87,27 +102,32 @@ export const InviteController = {
     try {
       const result = await InviteService.acceptInvite(token, userId);
 
-      await NotificationService.createInviteAcceptedNotifications({
-        companyId: result.companyId,
-        acceptedUserId: userId,
-        acceptedEmail: req.user?.email ?? "A user",
-      });
-      void EmailNotificationService.sendInviteAcceptedEmails({
-        companyId: result.companyId,
-        acceptedUserId: userId,
-        role: result.role,
-        joinedAt: result.joinedAt,
-      }).catch((error: any) => {
-        logger.error("InviteController.acceptInvite: invite accepted email failed", {
+      if (!result.alreadyAccepted) {
+        await NotificationService.createInviteAcceptedNotifications({
           companyId: result.companyId,
-          userId,
-          error: error.message,
+          acceptedUserId: userId,
+          acceptedEmail: req.user?.email ?? "A user",
         });
-      });
+        void EmailNotificationService.sendInviteAcceptedEmails({
+          companyId: result.companyId,
+          acceptedUserId: userId,
+          role: result.role,
+          joinedAt: result.joinedAt,
+        }).catch((error: any) => {
+          logger.error("InviteController.acceptInvite: invite accepted email failed", {
+            companyId: result.companyId,
+            userId,
+            error: error.message,
+          });
+        });
+      }
 
       return res.status(200).json({
-        message: "Invite accepted successfully",
+        message: result.alreadyAccepted
+          ? "Invite already accepted"
+          : "Invite accepted successfully",
         companyId: result.companyId,
+        alreadyAccepted: Boolean(result.alreadyAccepted),
       });
     } catch (error: any) {
       logger.error("InviteController.acceptInvite: error", {
@@ -168,6 +188,121 @@ export const InviteController = {
         error: "Failed to fetch invites",
         details: error.message,
       });
+    }
+  },
+
+  async getReceivedInvites(req: Request, res: Response) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const invites = await InviteService.getReceivedInvites(userId);
+
+      return res.status(200).json({
+        invites,
+      });
+    } catch (error: any) {
+      logger.error("InviteController.getReceivedInvites: error", {
+        error: error.message,
+        userId,
+      });
+
+      return res.status(500).json({
+        error: "Failed to fetch received invites",
+        details: error.message,
+      });
+    }
+  },
+
+  async acceptReceivedInvite(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const { inviteId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!inviteId) {
+      return res.status(400).json({ error: "Invite ID is required" });
+    }
+
+    try {
+      const result = await InviteService.acceptReceivedInvite(inviteId, userId);
+
+      if (!result.alreadyAccepted) {
+        await NotificationService.createInviteAcceptedNotifications({
+          companyId: result.companyId,
+          acceptedUserId: userId,
+          acceptedEmail: req.user?.email ?? "A user",
+        });
+
+        void EmailNotificationService.sendInviteAcceptedEmails({
+          companyId: result.companyId,
+          acceptedUserId: userId,
+          role: result.role,
+          joinedAt: result.joinedAt,
+        }).catch((error: any) => {
+          logger.error(
+            "InviteController.acceptReceivedInvite: invite accepted email failed",
+            {
+              companyId: result.companyId,
+              userId,
+              error: error.message,
+            },
+          );
+        });
+      }
+
+      return res.status(200).json({
+        message: result.alreadyAccepted
+          ? "Invite already accepted"
+          : "Invite accepted successfully",
+        companyId: result.companyId,
+        alreadyAccepted: Boolean(result.alreadyAccepted),
+      });
+    } catch (error: any) {
+      logger.error("InviteController.acceptReceivedInvite: error", {
+        error: error.message,
+        userId,
+        inviteId,
+      });
+
+      return res.status(400).json({ error: error.message });
+    }
+  },
+
+  async declineReceivedInvite(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const { inviteId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!inviteId) {
+      return res.status(400).json({ error: "Invite ID is required" });
+    }
+
+    try {
+      const result = await InviteService.declineReceivedInvite(inviteId, userId);
+
+      return res.status(200).json({
+        message: result.alreadyDeclined
+          ? "Invite already declined"
+          : "Invite declined successfully",
+        alreadyDeclined: Boolean(result.alreadyDeclined),
+      });
+    } catch (error: any) {
+      logger.error("InviteController.declineReceivedInvite: error", {
+        error: error.message,
+        userId,
+        inviteId,
+      });
+
+      return res.status(400).json({ error: error.message });
     }
   },
 

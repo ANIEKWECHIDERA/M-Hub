@@ -29,6 +29,36 @@ router.post(
 router.post("/invite/decline", inviteLimiter, InviteController.declineInvite);
 
 router.get(
+  "/invites/received",
+  verifyFirebaseToken,
+  profileSync,
+  inviteLimiter,
+  requireAppUser,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  InviteController.getReceivedInvites,
+);
+
+router.post(
+  "/invite/:inviteId/accept",
+  verifyFirebaseToken,
+  profileSync,
+  inviteLimiter,
+  requireAppUser,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  InviteController.acceptReceivedInvite,
+);
+
+router.post(
+  "/invite/:inviteId/decline",
+  verifyFirebaseToken,
+  profileSync,
+  inviteLimiter,
+  requireAppUser,
+  authorize(["admin", "superAdmin", "team_member", "member"]),
+  InviteController.declineReceivedInvite,
+);
+
+router.get(
   "/invites",
   verifyFirebaseToken,
   profileSync,

@@ -7,6 +7,7 @@ import { sentry } from "./observability/sentry";
 import { testFirebaseConnection } from "./config/firebaseAdmin";
 import { testDbConnection } from "./lib/prisma";
 import { chatWebSocketService } from "./services/chatWebSocket.service";
+import { ScheduledNotificationService } from "./services/scheduledNotification.service";
 
 const PORT = process.env.PORT || 5000;
 
@@ -23,6 +24,7 @@ const startServer = async () => {
     // Start a shared HTTP server so chat can migrate from SSE to WebSockets safely.
     const server = createServer(app);
     chatWebSocketService.initialize(server);
+    ScheduledNotificationService.start();
 
     server.listen(PORT, () => {
       logger.info(`[INFO] Server running on port ${PORT}`);

@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   AlertCircle,
+  Archive,
   Calendar,
   ChevronRight,
   FolderOpen,
   GripVertical,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DraggableAttributes } from "@dnd-kit/core";
@@ -15,6 +17,12 @@ import type { DraggableAttributes } from "@dnd-kit/core";
 import type { TaskWithAssigneesDTO, TaskStatus } from "@/Types/types";
 import { statusConfig } from "@/config/status.config";
 import { priorityConfig } from "@/config/priority.config";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type DragHandleListeners = Record<string, Function | undefined>;
 
@@ -26,6 +34,11 @@ interface TaskCardProps {
   dragHandleListeners?: DragHandleListeners;
   setDragHandleRef?: (element: HTMLElement | null) => void;
   isDragging?: boolean;
+  subtaskProgress?: {
+    completed: number;
+    total: number;
+  };
+  onArchive?: (task: TaskWithAssigneesDTO) => void;
 }
 
 export function TaskCard({
@@ -36,6 +49,8 @@ export function TaskCard({
   dragHandleListeners,
   setDragHandleRef,
   isDragging = false,
+  subtaskProgress,
+  onArchive,
 }: TaskCardProps) {
   const normalizedStatus = (task.status === "Done" ||
   task.status === "In Progress" ||
@@ -159,6 +174,21 @@ export function TaskCard({
                 <span>{statusMeta.label}</span>
               </div>
 
+              {subtaskProgress && subtaskProgress.total > 0 && (
+                <>
+                  <Separator
+                    orientation="vertical"
+                    className="hidden h-4 sm:block"
+                  />
+                  <div className="flex items-center gap-1">
+                    <span>Subtasks</span>
+                    <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                      {subtaskProgress.completed}/{subtaskProgress.total}
+                    </Badge>
+                  </div>
+                </>
+              )}
+
               <Separator
                 orientation="vertical"
                 className="hidden h-4 sm:block"
@@ -192,6 +222,34 @@ export function TaskCard({
           <ChevronRight
             className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 sm:h-5 sm:w-5"
           />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={(event) => event.stopPropagation()}
+                aria-label={`Open actions for ${task.title}`}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <DropdownMenuItem
+                disabled={!isDone}
+                onClick={() => {
+                  if (isDone) {
+                    onArchive?.(task);
+                  }
+                }}
+              >
+                <Archive className="mr-2 h-4 w-4" />
+                Archive
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardContent>
     </Card>

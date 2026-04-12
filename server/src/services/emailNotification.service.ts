@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../config/supabaseClient";
 import { emailConfig } from "../config/email";
 import { EmailService } from "./email.service";
+import type { DailyFocusItem } from "./retention.service";
 
 type InternalPreferenceKey =
   | "task_assignment_notifications"
@@ -503,6 +504,97 @@ ${params.taskUrl}`,
   };
 }
 
+function makeTaskDueReminderEmail(params: {
+  recipientName: string;
+  taskName: string;
+  projectName: string;
+  clientName: string;
+  dueDate: string;
+  milestoneLabel: string;
+  taskUrl: string;
+}) {
+  const subject = `${params.taskName} is ${params.milestoneLabel}`;
+
+  return {
+    subject,
+    html: renderEmailShell({
+      preheader: `Task "${params.taskName}" is ${params.milestoneLabel}.`,
+      bodyHtml: `
+        <h1 style="margin:0 0 12px;font-size:28px;line-height:1.15;color:#111111;">A task needs attention</h1>
+        <p style="margin:0 0 18px;font-size:16px;line-height:1.7;color:#374151;">Hi ${escapeHtml(params.recipientName || "there")}, task <strong>${escapeHtml(params.taskName)}</strong> is ${escapeHtml(params.milestoneLabel)}. Please take action to avoid delays.</p>
+        <div style="border:1px solid #eee7db;border-radius:16px;padding:16px;background:#fbfaf7;">
+          <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Project</p>
+          <p style="margin:0 0 14px;font-size:16px;font-weight:700;color:#111827;">${escapeHtml(params.projectName)}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Client</p>
+          <p style="margin:0 0 14px;font-size:15px;color:#111827;">${escapeHtml(params.clientName)}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Due date</p>
+          <p style="margin:0;font-size:15px;color:#111827;">${escapeHtml(params.dueDate)}</p>
+        </div>
+        ${renderPrimaryButton("Review task ->", params.taskUrl)}
+        <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#6b7280;">You can manage task and email preferences from notification settings.</p>
+      `,
+    }),
+    text: `Hi ${params.recipientName || "there"}, task "${params.taskName}" is ${params.milestoneLabel}. Project: ${params.projectName}. Client: ${params.clientName}. Due date: ${params.dueDate}. Review it: ${params.taskUrl}`,
+  };
+}
+
+function makeDailyFocusEmail(params: {
+  recipientName: string;
+  focusDate: string;
+  items: DailyFocusItem[];
+  dailyFocusUrl: string;
+}) {
+  const taskItems = params.items.filter((item) => item.kind === "task");
+  const decisionItems = params.items.filter((item) => item.kind !== "task");
+  const renderItem = (item: DailyFocusItem) => `
+    <li style="margin:0 0 12px;padding:14px;border:1px solid #eee7db;border-radius:14px;background:#fbfaf7;">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;">${escapeHtml(item.statusLabel)}</div>
+      <div style="margin-top:4px;font-size:15px;font-weight:700;color:#111827;">${escapeHtml(item.title)}</div>
+      ${item.description ? `<div style="margin-top:6px;font-size:14px;line-height:1.6;color:#4b5563;">${escapeHtml(truncate(stripHtml(item.description), 160))}</div>` : ""}
+      ${item.project ? `<div style="margin-top:8px;font-size:13px;color:#6b7280;">Project: ${escapeHtml(item.project.title)}</div>` : ""}
+      ${item.conversation ? `<div style="margin-top:8px;font-size:13px;color:#6b7280;">Chat: ${escapeHtml(item.conversation.name)}</div>` : ""}
+    </li>`;
+
+  return {
+    subject: `Your Daily Focus for ${params.focusDate}`,
+    html: renderEmailShell({
+      preheader: "Today's tasks and key decisions in Crevo.",
+      bodyHtml: `
+        <h1 style="margin:0 0 12px;font-size:28px;line-height:1.15;color:#111111;">Your Daily Focus</h1>
+        <p style="margin:0 0 18px;font-size:16px;line-height:1.7;color:#374151;">Hi ${escapeHtml(params.recipientName || "there")}, here is what needs your attention today.</p>
+        <h2 style="margin:24px 0 12px;font-size:16px;color:#111827;">Tasks for the day</h2>
+        ${
+          taskItems.length
+            ? `<ul style="list-style:none;margin:0;padding:0;">${taskItems.map(renderItem).join("")}</ul>`
+            : `<p style="margin:0;color:#6b7280;">No urgent tasks are due today or soon.</p>`
+        }
+        <h2 style="margin:24px 0 12px;font-size:16px;color:#111827;">Key decisions and signals</h2>
+        ${
+          decisionItems.length
+            ? `<ul style="list-style:none;margin:0;padding:0;">${decisionItems.map(renderItem).join("")}</ul>`
+            : `<p style="margin:0;color:#6b7280;">No key decisions, blockers, or action items were captured recently.</p>`
+        }
+        ${renderPrimaryButton("Open Daily Focus ->", params.dailyFocusUrl)}
+      `,
+    }),
+    text: [
+      `Hi ${params.recipientName || "there"}, here is your Daily Focus for ${params.focusDate}.`,
+      "",
+      "Tasks:",
+      ...(taskItems.length
+        ? taskItems.map((item) => `- ${item.statusLabel}: ${item.title}`)
+        : ["- No urgent tasks are due today or soon."]),
+      "",
+      "Key decisions and signals:",
+      ...(decisionItems.length
+        ? decisionItems.map((item) => `- ${item.statusLabel}: ${item.description || item.title}`)
+        : ["- No key decisions, blockers, or action items were captured recently."]),
+      "",
+      `Open Daily Focus: ${params.dailyFocusUrl}`,
+    ].join("\n"),
+  };
+}
+
 function makeCommentEmail(params: {
   recipientName: string;
   commenterName: string;
@@ -868,5 +960,55 @@ export const EmailNotificationService = {
         });
       }),
     );
+  },
+
+  async sendTaskDueReminderEmail(params: {
+    recipientEmail: string;
+    recipientName: string;
+    taskName: string;
+    projectName: string;
+    clientName: string;
+    dueDate: string | null;
+    milestone: "due_in_2_days" | "due_today";
+  }) {
+    const milestoneLabel =
+      params.milestone === "due_today" ? "due today" : "due in 2 days";
+    const email = makeTaskDueReminderEmail({
+      recipientName: params.recipientName,
+      taskName: params.taskName,
+      projectName: params.projectName,
+      clientName: params.clientName,
+      dueDate: formatAbsoluteDate(params.dueDate),
+      milestoneLabel,
+      taskUrl: `${emailConfig.baseUrl}/mytasks`,
+    });
+
+    return EmailService.send({
+      to: params.recipientEmail,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  },
+
+  async sendDailyFocusEmail(params: {
+    recipientEmail: string;
+    recipientName: string;
+    focusDate: string;
+    items: DailyFocusItem[];
+  }) {
+    const email = makeDailyFocusEmail({
+      recipientName: params.recipientName,
+      focusDate: params.focusDate,
+      items: params.items,
+      dailyFocusUrl: `${emailConfig.baseUrl}/mytasks?view=daily-focus`,
+    });
+
+    return EmailService.send({
+      to: params.recipientEmail,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
   },
 };

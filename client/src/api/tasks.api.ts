@@ -7,9 +7,14 @@ export const tasksAPI = {
    * @param projectId - The project ID to filter tasks by
    * @param idToken - The authentication token for the user
    */
-  getAllByProject(projectId: string, idToken: string) {
+  getAllByProject(
+    projectId: string,
+    idToken: string,
+    options?: { archived?: boolean },
+  ) {
+    const query = options?.archived ? "?archived=true" : "";
     return apiFetch<TaskWithAssigneesDTO[]>(
-      `/api/projects/${projectId}/tasks`,
+      `/api/projects/${projectId}/tasks${query}`,
       undefined,
       idToken,
     );
@@ -79,10 +84,27 @@ export const tasksAPI = {
     );
   },
 
+  archive(id: string, idToken: string) {
+    return apiFetch<TaskWithAssigneesDTO>(
+      `/api/task/${id}/archive`,
+      { method: "PATCH" },
+      idToken,
+    );
+  },
+
+  restore(id: string, idToken: string) {
+    return apiFetch<TaskWithAssigneesDTO>(
+      `/api/task/${id}/restore`,
+      { method: "PATCH" },
+      idToken,
+    );
+  },
+
   ///////// MY TASKS /////////
-  getMyTasks(idToken: string) {
+  getMyTasks(idToken: string, options?: { archived?: boolean }) {
+    const query = options?.archived ? "?archived=true" : "";
     return apiFetch<TaskWithAssigneesDTO[]>(
-      `/api/my-tasks`,
+      `/api/my-tasks${query}`,
       undefined,
       idToken,
     );

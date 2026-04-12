@@ -18,6 +18,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   taskAssignments: true,
   projectUpdates: true,
   commentNotifications: true,
+  dailyFocusEmail: false,
   compactMode: false,
   workspaceHealth: false,
 };
@@ -102,6 +103,7 @@ export const useSettings = () => {
           taskAssignments: settings.task_assignment_notifications,
           projectUpdates: settings.project_update_notifications,
           commentNotifications: settings.comment_notifications,
+          dailyFocusEmail: settings.daily_focus_email_enabled,
           compactMode: settings.compact_mode,
           workspaceHealth:
             storedWorkspaceHealth === null
@@ -191,6 +193,7 @@ export const useSettings = () => {
           task_assignment_notifications: nextPreferences.taskAssignments,
           project_update_notifications: nextPreferences.projectUpdates,
           comment_notifications: nextPreferences.commentNotifications,
+          daily_focus_email_enabled: nextPreferences.dailyFocusEmail,
           compact_mode: nextPreferences.compactMode,
         });
       }

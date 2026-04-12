@@ -96,6 +96,7 @@ export function NoteEditor({
       }
 
       event.preventDefault();
+      event.stopImmediatePropagation();
       const sanitizedHtml = sanitizeNoteHtmlClient(html);
       const range = quill.getSelection(true);
       const index = range?.index ?? quill.getLength();
@@ -104,13 +105,13 @@ export function NoteEditor({
 
     quill.on("text-change", handleTextChange);
     quill.root.addEventListener("blur", handleBlur);
-    quill.root.addEventListener("paste", handlePaste);
+    quill.root.addEventListener("paste", handlePaste, true);
     quillRef.current = quill;
 
     return () => {
       quill.off("text-change", handleTextChange);
       quill.root.removeEventListener("blur", handleBlur);
-      quill.root.removeEventListener("paste", handlePaste);
+      quill.root.removeEventListener("paste", handlePaste, true);
       quillRef.current = null;
     };
   }, [modules, placeholder]);

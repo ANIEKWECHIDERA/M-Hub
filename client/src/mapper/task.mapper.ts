@@ -10,6 +10,7 @@ export const normalizeTask = (task: any): TaskWithAssigneesDTO => ({
   priority: task.priority,
   progress: task.progress ?? 0,
   due_date: task.dueDate ?? task.due_date ?? "",
+  archivedAt: task.archivedAt ?? task.archived_at ?? null,
   createdAt: task.createdAt,
   updatedAt: task.updatedAt,
   team_members:

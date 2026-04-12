@@ -35,6 +35,9 @@ const extractPreview = (contentHtml?: string) =>
     .trim()
     .slice(0, 180);
 
+const getNoteErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export const useNoteContext = () => {
   const context = useContext(NoteContext);
   if (!context) {
@@ -197,8 +200,8 @@ export const NoteContextProvider = ({
               });
           }
         }
-      } catch (noteError: any) {
-        setError(noteError.message || "Failed to fetch notes");
+      } catch (noteError: unknown) {
+        setError(getNoteErrorMessage(noteError, "Failed to fetch notes"));
       } finally {
         setLoading(false);
       }
@@ -244,8 +247,8 @@ export const NoteContextProvider = ({
         setError(null);
         setCurrentNote(note);
         return note;
-      } catch (noteError: any) {
-        setError(noteError.message || "Failed to open note");
+      } catch (noteError: unknown) {
+        setError(getNoteErrorMessage(noteError, "Failed to open note"));
         return null;
       } finally {
         setCurrentNoteLoading(false);
@@ -259,7 +262,10 @@ export const NoteContextProvider = ({
   }, []);
 
   const createNote = useCallback(
-    async (payload?: CreateNoteInput) => {
+    async (
+      payload?: CreateNoteInput,
+      options?: { suppressToast?: boolean },
+    ) => {
       if (!idToken) {
         throw new Error("You must be signed in to create notes");
       }
@@ -305,8 +311,10 @@ export const NoteContextProvider = ({
           setNotes((previous) => previous.filter((item) => item.id !== tempId));
           replaceSummary(note);
           setCurrentNote((previous) => (previous?.id === tempId ? note : previous));
-          toast.success("Note created");
-        } catch (createError: any) {
+          if (!options?.suppressToast) {
+            toast.success("Note created");
+          }
+        } catch (createError: unknown) {
           delete detailCacheRef.current[tempId];
           setNotes((previous) => {
             const next = previous.filter((note) => note.id !== tempId);
@@ -314,8 +322,8 @@ export const NoteContextProvider = ({
             return next;
           });
           setCurrentNote((previous) => (previous?.id === tempId ? null : previous));
-          setError(createError.message || "Failed to create note");
-          toast.error(createError.message || "Failed to create note");
+          setError(getNoteErrorMessage(createError, "Failed to create note"));
+          toast.error(getNoteErrorMessage(createError, "Failed to create note"));
         }
       })();
 

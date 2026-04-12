@@ -11,6 +11,7 @@ export type InviteRecord = {
   access: string;
   expires_at: string;
   created_at: string;
+  company_name?: string | null;
 };
 
 export const inviteAPI = {
@@ -32,13 +33,37 @@ export const inviteAPI = {
     return apiFetch<{ invites: InviteRecord[] }>("/api/invites", undefined, idToken);
   },
 
+  listReceived(idToken: string) {
+    return apiFetch<{ invites: InviteRecord[] }>(
+      "/api/invites/received",
+      undefined,
+      idToken,
+    );
+  },
+
   accept(token: string, idToken: string) {
-    return apiFetch<{ message: string; companyId: string }>(
+    return apiFetch<{
+      message: string;
+      companyId: string;
+      alreadyAccepted?: boolean;
+    }>(
       "/api/invite/accept",
       {
         method: "POST",
         body: JSON.stringify({ token }),
       },
+      idToken,
+    );
+  },
+
+  acceptReceived(inviteId: string, idToken: string) {
+    return apiFetch<{
+      message: string;
+      companyId: string;
+      alreadyAccepted?: boolean;
+    }>(
+      `/api/invite/${inviteId}/accept`,
+      { method: "POST" },
       idToken,
     );
   },
@@ -51,6 +76,14 @@ export const inviteAPI = {
         body: JSON.stringify({ token }),
       },
       "",
+    );
+  },
+
+  declineReceived(inviteId: string, idToken: string) {
+    return apiFetch<{ message: string; alreadyDeclined?: boolean }>(
+      `/api/invite/${inviteId}/decline`,
+      { method: "POST" },
+      idToken,
     );
   },
 

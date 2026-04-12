@@ -20,6 +20,7 @@ export function getNotificationRoute(notification: NotificationRecord) {
   switch (baseType) {
     case "task_assigned":
     case "task_status":
+    case "task_due":
       return "/mytasks";
     case "task_comment":
       return parts[2] ? `/projectdetails/${parts[2]}` : "/mytasks";
@@ -29,6 +30,8 @@ export function getNotificationRoute(notification: NotificationRecord) {
       return parts[1] ? `/projectdetails/${parts[1]}` : "/projects";
     case "invite_accepted":
       return "/settings?section=team";
+    case "invite_received":
+      return "/settings?section=notifications";
     default:
       return "/projects";
   }
@@ -38,6 +41,7 @@ export function getNotificationIcon(type: string): LucideIcon {
   switch (getNotificationBaseType(type)) {
     case "task_assigned":
     case "task_status":
+    case "task_due":
       return Briefcase;
     case "task_comment":
     case "project_comment":
@@ -45,6 +49,7 @@ export function getNotificationIcon(type: string): LucideIcon {
     case "asset_uploaded":
       return Paperclip;
     case "invite_accepted":
+    case "invite_received":
       return UserPlus;
     default:
       return Bell;

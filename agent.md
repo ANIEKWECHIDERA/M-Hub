@@ -1841,3 +1841,258 @@ Assumptions currently in use:
   - PostHog is now the app analytics path for the main client when `VITE_POSTHOG_KEY` is present
   - the app tracks SPA pageviews manually on route changes, identifies authenticated users, groups them by company, and resets analytics state on logout
   - Firebase Analytics initialization was removed from the main client to avoid running two browser analytics systems at once
+- Phase 1 critical bug-fix pass:
+  - project detail overview scrolling:
+    - removed the project detail page-level scroll trap by letting the app shell's main scroll container own overview scrolling
+    - the overview tab no longer creates an inner `overflow-y-auto` region, which reduces MacBook trackpad scroll traps and double-scroll behavior
+  - notes editor paste behavior:
+    - the Quill paste sanitizer now runs in the capture phase and stops the native paste event before Quill's internal listener can also process the same formatted paste
+    - formatted HTML paste still keeps allowed formatting, but inserts exactly once
+  - deleted chat messages:
+    - deleted messages no longer render the message action trigger at all
+    - this removes the ellipsis/action menu for deleted messages in the shared `MessageBubble` path used by group and direct chat
+  - projects list:
+    - removed the redundant eye icon action from the project table
+    - clicking or keyboard-opening the project row now navigates to the project detail page and sets the current project
+    - edit/delete buttons stop event propagation so they do not accidentally open the project row
+  - files touched:
+    - `client/src/pages/projectDetail/ProjectDetail.tsx`
+    - `client/src/components/notes/NoteEditor.tsx`
+    - `client/src/pages/Chat.tsx`
+    - `client/src/pages/Projects.tsx`
+  - verification:
+    - `client`: `npx tsc -b`
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright browser pass created a throwaway account/workspace and verified project row navigation, project overview wheel scrolling, formatted/plain note paste, chat message delete, and no deleted-message action trigger on hover
+  - observed follow-up:
+    - the first throwaway signup briefly exposed a dashboard `Maximum update depth exceeded` crash before a direct navigation recovered into the workspace; it did not reproduce after the workspace shell loaded, but it should stay on the follow-up radar if new users report blank dashboard behavior again
+- Phase 2 notifications pass:
+  - blocking dashboard crash:
+    - PostHog session recording and autocapture are now disabled in the app client
+    - explicit route pageviews, user identify, and company grouping remain active
+    - this removes the recorder script path that was contributing to dashboard instability and noisy blocked-client console retries
+  - task due reminders:
+    - added `task_due_notification_log` to dedupe scheduled reminders by task, user, and milestone
+    - added server scheduler logic for:
+      - due today
+      - due in 2 days
+    - due reminders create in-app notifications and send the existing branded email path when the user's notification settings allow it
+    - reminder copy now uses the urgent-but-professional tone: `Please take action to avoid delays.`
+  - daily focus email preference:
+    - added `daily_focus_email_enabled` to user settings
+    - added the Settings toggle `Receive Daily Focus Email`
+    - the server scheduler can send one Daily Focus email per user per focus date when the preference and email notifications are enabled
+    - Daily Focus email content is sourced from the existing retention/daily-focus service so it can include today's tasks and key decisions
+  - frontend notification routing:
+    - task due notifications now route users to `/mytasks`
+    - task due notifications use the existing task/work icon language
+  - files touched:
+    - `client/src/Types/types.ts`
+    - `client/src/api/user-settings.api.ts`
+    - `client/src/hooks/useSettings.ts`
+    - `client/src/lib/notifications.ts`
+    - `client/src/lib/posthog.ts`
+    - `client/src/pages/Settings.tsx`
+    - `server/prisma/migrations/20260411224500_add_scheduled_notification_preferences/migration.sql`
+    - `server/src/index.ts`
+    - `server/src/services/emailNotification.service.ts`
+    - `server/src/services/scheduledNotification.service.ts`
+    - `server/src/services/userSettings.service.ts`
+    - `server/src/types/userSettings.types.ts`
+  - verification:
+    - applied migration with `npx prisma migrate deploy`
+    - `client`: `npx tsc -b`
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - dashboard loads without the previous `Maximum update depth exceeded` crash
+      - Settings > Notifications shows `Receive Daily Focus Email`
+      - the Daily Focus preference persists through the user settings API
+      - browser console showed no warnings/errors during the final dashboard/settings pass
+    - scheduler simulation:
+      - created one temporary due-today assigned task
+      - ran `ScheduledNotificationService.runOnce`
+      - verified one in-app `task_due:due_today:<taskId>` notification was created
+      - cleaned up the temporary task, assignment, notification, and notification log afterwards
+  - risks and follow-ups:
+    - the scheduler currently runs inside the API process; before multi-instance deployment, move it to an external cron/worker or add a distributed lock
+    - the scheduler hour uses the server process timezone; per-user timezone support would make Daily Focus emails feel more personal
+    - the local verification sent through the configured SMTP path even when the Resend key was blank, so future scheduler simulations should use a mailer mock flag before running against real accounts
+    - no checked-in Playwright test suite exists for the client, so browser verification for this phase was done through Playwright MCP/manual flows
+- Phase 3 task system improvements:
+  - task folders:
+    - added a `task_folders` table and nullable `tasks.folder_id`
+    - existing tasks remain safe because missing folders fall back to an `Unfiled` section
+    - project task views now support creating folders and expanding/collapsing folder groups
+    - the task form now includes a folder selector so tasks can be moved between folders without a separate heavy workflow
+  - archive completed tasks:
+    - added nullable `tasks.archived_at`
+    - active project task queries hide archived tasks by default
+    - the project task tab now has an archive panel where completed tasks can be reviewed and restored
+    - only completed tasks can be archived server-side
+    - archive/restore events dispatch local task sync so My Tasks does not keep stale archived tasks in view
+  - subtask improvements:
+    - the existing progress badge and progress bar now pair with a sort toggle
+    - users can switch subtasks between oldest-first and newest-first ordering inside the task details sheet
+  - files touched:
+    - `client/src/Types/types.ts`
+    - `client/src/api/tasks.api.ts`
+    - `client/src/components/TaskForm.tsx`
+    - `client/src/context/TaskContext.tsx`
+    - `client/src/mapper/task.mapper.ts`
+    - `client/src/pages/MyTasks/components/SubtasksSection.tsx`
+    - `client/src/pages/projectDetail/ProjectDetail.tsx`
+    - `server/prisma/schema.prisma`
+    - `server/prisma/migrations/20260412003000_add_task_folders_and_archive/migration.sql`
+    - `server/src/controllers/task.controller.ts`
+    - `server/src/dbSelect/myTasks.select.ts`
+    - `server/src/dtos/task.dto.ts`
+    - `server/src/mapper/task.mapper.ts`
+    - `server/src/routes/task.route.ts`
+    - `server/src/services/task.service.ts`
+    - `server/src/services/taskFolder.service.ts`
+  - verification:
+    - applied migration with `npx prisma migrate deploy`
+    - `client`: `npx tsc -b`
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - created a folder in the project task tab
+      - created a task and filed it into that folder
+      - marked the task complete
+      - archived the completed task
+      - opened the archive panel and restored the task
+      - temporarily assigned the task to the current member to verify My Tasks details
+      - added two subtasks and verified the `0/2` progress count plus oldest/newest sort toggle
+      - cleaned up the temporary task, assignment, subtasks, notifications, logs, and folder after verification
+      - final project task tab sanity pass showed no warnings/errors in the browser console
+  - risks and follow-ups:
+    - folder management is intentionally minimal in this pass; rename, delete, and drag-to-folder can come later
+    - archive/restore currently lives in the project task tab; a dedicated archive screen may be better once usage grows
+    - project progress counts still include archived completed tasks until project stats are recalculated around archive visibility rules
+- Phase 3 correction pass:
+  - corrected the folder model after clarification:
+    - project task folders were removed from the project detail task tab
+    - the accidental persisted `task_folders` table and `tasks.folder_id` column were removed with a cleanup migration
+    - My Tasks now creates automatic project folders from each assigned task's project
+    - if a teammate has assigned work across multiple projects, My Tasks shows one collapsible folder per project
+  - personal archive behavior:
+    - team members can archive and restore their own assigned completed tasks
+    - My Tasks exposes an Archive panel for personal archived tasks
+    - team members still cannot delete tasks from My Tasks
+  - project task archive behavior:
+    - the project detail task tab stays flat again
+    - each project task row now uses an ellipsis menu for actions
+    - admin/project task actions include edit, archive for completed tasks, and delete
+  - subtask visibility:
+    - My Tasks cards now show subtask progress when subtasks exist, for example `1/2`
+    - the existing subtask details panel keeps the oldest/newest sort toggle and progress updates
+  - files touched:
+    - `client/src/Types/types.ts`
+    - `client/src/api/tasks.api.ts`
+    - `client/src/components/TaskForm.tsx`
+    - `client/src/context/MyTaskContext.tsx`
+    - `client/src/context/TaskContext.tsx`
+    - `client/src/mapper/task.mapper.ts`
+    - `client/src/pages/MyTasks/MyTasksPage.tsx`
+    - `client/src/pages/MyTasks/components/TaskCard.tsx`
+    - `client/src/pages/MyTasks/components/TasksList.tsx`
+    - `client/src/pages/projectDetail/ProjectDetail.tsx`
+    - `server/prisma/schema.prisma`
+    - `server/prisma/migrations/20260412013000_remove_project_task_folders/migration.sql`
+    - `server/src/controllers/task.controller.ts`
+    - `server/src/dbSelect/myTasks.select.ts`
+    - `server/src/dtos/task.dto.ts`
+    - `server/src/mapper/task.mapper.ts`
+    - `server/src/routes/task.route.ts`
+    - `server/src/services/task.service.ts`
+  - verification:
+    - applied cleanup migration with `npx prisma migrate deploy`
+    - `client`: `npx tsc -b`
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - seeded temporary assigned tasks across two projects
+      - verified My Tasks showed two project folders automatically
+      - verified subtask progress appeared on the task card
+      - archived a completed personal task
+      - verified it disappeared from active My Tasks
+      - opened Archive and verified the archived task appeared after reload
+      - restored the task and verified it returned to active My Tasks
+      - verified Project Detail task tab no longer shows project folders
+      - verified Project Detail task actions are under an ellipsis menu
+      - cleaned temporary tasks, subtasks, assignments, notifications, logs, and the temporary project after testing
+  - risks and follow-ups:
+    - My Tasks project folders are derived from current task data, so there is no rename/reorder for folders yet
+    - archive still requires completed status server-side to match the original Phase 3 rule
+- Phase 4 notes system improvements:
+  - notes folder system:
+    - Notes now group automatically by linked project in the Notepad list
+    - notes without a linked project appear under an `Others` folder
+    - folders are collapsible and show a compact note count
+    - this uses the existing `projectId` relationship on notes, so no database migration was needed
+  - share notes in chat:
+    - active notes can now be shared from the editor toolbar or note row action menu
+    - the share flow loads available direct/group conversations and sends a chat message with a safe note snapshot in metadata
+    - Chat now renders shared-note messages as compact cards instead of plain robotic text
+    - clicking a shared-note card opens a modal with the note content and `Save to notes` / `Cancel`
+    - saving creates a personal note copy for the viewer
+  - files touched:
+    - `client/src/lib/shared-notes.ts`
+    - `client/src/pages/Notepad.tsx`
+    - `client/src/pages/Chat.tsx`
+  - verification:
+    - `client`: `npm run build`
+    - targeted lint: `npx eslint src/pages/Chat.tsx src/pages/Notepad.tsx src/lib/shared-notes.ts`
+    - full lint was also attempted, but the repo still has pre-existing lint debt across unrelated files
+    - Playwright MCP/manual browser pass:
+      - verified Notepad groups an unlinked note under `Others`
+      - opened a note and verified the share dialog loads conversations
+      - shared the note to the General chat; backend logged `POST /api/chat/conversations/.../messages` as `201`
+  - risks and follow-ups:
+    - final chat rendering/save-modal verification was blocked by local backend/database instability after the successful send
+    - observed backend errors were Prisma `P2028`, `connection failure during authentication`, and transient Supabase/notification fetch failures
+    - once the local DB connection is stable, rerun a browser pass on the shared note card and `Save to notes` modal
+- Phase 4 refinement pass:
+  - shared notes:
+    - the note sender/owner no longer sees `Save to notes` on their own shared-note card
+    - saving another user's shared note now suppresses the generic `Note created` toast and only shows `Note saved`
+    - shared-note chat bubbles no longer expose the `Edit message` action in the ellipsis menu
+    - owner-facing shared-note modal copy now explains that the note is already theirs
+  - in-app invites:
+    - users with existing accounts now receive workspace invite notifications in-app when invited by email
+    - Settings > Notifications now includes a `Workspace invites` panel for received invites
+    - pending received invites can be accepted or declined from inside the app
+    - accepted/declined invite edge cases are handled idempotently so email and in-app flows do not double-fire acceptance side effects
+    - invite notifications route users to Settings > Notifications
+  - files touched:
+    - `client/src/Types/types.ts`
+    - `client/src/api/invite.api.ts`
+    - `client/src/context/NoteContext.tsx`
+    - `client/src/lib/notifications.ts`
+    - `client/src/pages/Chat.tsx`
+    - `client/src/pages/Settings.tsx`
+    - `server/src/controllers/invite.controller.ts`
+    - `server/src/routes/invite.routes.ts`
+    - `server/src/services/invite.service.ts`
+    - `server/src/services/notification.service.ts`
+  - verification:
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - targeted lint: `npx eslint src/pages/Chat.tsx src/pages/Settings.tsx src/api/invite.api.ts src/lib/notifications.ts`
+    - Playwright MCP/manual browser pass:
+      - confirmed Settings > Notifications loads the new Workspace invites panel
+      - confirmed `/api/invites/received` returns `200`
+      - confirmed shared-note owner modal hides `Save to notes`
+      - confirmed dashboard, projects, My Tasks, Notepad, chat, and settings load without console errors
+  - risks and follow-ups:
+    - targeted lint still reports two existing hook dependency warnings in Settings around invite loader callbacks
+    - Vite still reports the existing large bundle chunk warning
+- Phase 5 final stability pass:
+  - completed browser smoke coverage for the primary app surfaces after Phase 4 refinements
+  - no new critical runtime errors were observed in the tested flows
+  - PostHog produced transient aborted beacon requests during navigation, but later analytics requests succeeded
+  - known remaining follow-ups:
+    - continue reducing bundle size with route-level code splitting
+    - decide whether to refactor Settings invite loaders into stable callbacks to remove the remaining hook warnings

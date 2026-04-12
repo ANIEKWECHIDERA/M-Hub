@@ -9,6 +9,7 @@ export function mapTaskBase(task: any) {
     priority: task.priority,
     progress: task.progress,
     due_date: task.due_date,
+    archivedAt: task.archived_at ?? null,
     createdAt: task.created_at,
     updatedAt: task.updated_at,
   };

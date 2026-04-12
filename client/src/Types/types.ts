@@ -358,6 +358,7 @@ export interface TaskWithAssigneesDTO {
   priority: TaskPriority;
   progress: number;
   due_date?: string;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
   team_members?: TeamMemberSummary[]; // For frontend display
@@ -462,6 +463,7 @@ export interface MyTasksContextType {
     taskId: string,
     updates: Partial<TaskWithAssigneesDTO>,
   ) => Promise<void>;
+  archiveTask: (taskId: string) => Promise<void>;
 }
 
 export interface MyTaskCardProps {
@@ -625,6 +627,7 @@ export interface Preferences {
   taskAssignments: boolean;
   projectUpdates: boolean;
   commentNotifications: boolean;
+  dailyFocusEmail: boolean;
   compactMode: boolean;
   workspaceHealth: boolean;
 }
@@ -690,7 +693,10 @@ export interface NoteContextType {
   fetchNotes: (options?: { archived?: boolean; q?: string }) => Promise<void>;
   openNote: (id: string) => Promise<Note | null>;
   clearCurrentNote: () => void;
-  createNote: (payload?: CreateNoteInput) => Promise<Note>;
+  createNote: (
+    payload?: CreateNoteInput,
+    options?: { suppressToast?: boolean },
+  ) => Promise<Note>;
   updateNote: (id: string, data: UpdateNoteInput) => Promise<Note>;
   archiveNote: (id: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;

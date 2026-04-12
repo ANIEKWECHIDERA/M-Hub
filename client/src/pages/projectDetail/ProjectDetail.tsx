@@ -23,8 +23,10 @@ import {
   Trash2,
   Edit,
   Loader,
-  ChevronDown,
   SlidersHorizontal,
+  Archive,
+  RotateCcw,
+  MoreHorizontal,
 } from "lucide-react";
 import { useParams, Link as RouterLink } from "react-router-dom";
 import { CommentsSystem } from "@/components/CommentsSystem";
@@ -43,7 +45,10 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import type { TaskWithAssigneesDTO, TeamMemberSummary } from "@/Types/types";
+import type {
+  TaskWithAssigneesDTO,
+  TeamMemberSummary,
+} from "@/Types/types";
 import { useCommentContext } from "@/context/CommentContext";
 import { Input } from "@/components/ui/input";
 import {
@@ -66,10 +71,19 @@ import { TaskListSkeleton } from "@/components/TaskListSkeleton";
 import { useMyTasksContext } from "@/context/MyTaskContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
 import { useAuthContext } from "@/context/AuthContext";
+import { tasksAPI } from "@/api/tasks.api";
+import { toast } from "sonner";
+import { dispatchTaskSync } from "@/lib/task-sync";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function ProjectDetail() {
   const { id } = useParams();
-  const { authStatus } = useAuthContext();
+  const { authStatus, idToken } = useAuthContext();
   const { projects, loading, error, currentProject, setCurrentProject } =
     useProjectContext();
   const project = projects.find((project) => project.id === id);
@@ -114,9 +128,17 @@ export function ProjectDetail() {
     null,
   );
   const [showCompactOverview, setShowCompactOverview] = useState(false);
+  const [showArchivedTasks, setShowArchivedTasks] = useState(false);
+  const [archivedTasks, setArchivedTasks] = useState<TaskWithAssigneesDTO[]>(
+    [],
+  );
+  const [archivedTasksLoading, setArchivedTasksLoading] = useState(false);
 
   const filteredTasks = useMemo(
-    () => tasks.filter((task) => task.projectId === id),
+    () =>
+      tasks.filter(
+        (task) => task.projectId === id && !task.archivedAt,
+      ),
     [tasks, id],
   );
   const projectSnapshot = currentProject ?? project ?? null;
@@ -143,6 +165,50 @@ export function ProjectDetail() {
       fetchFilesByProject(project.id);
     }
   }, [project?.id, fetchFilesByProject]);
+
+  useEffect(() => {
+    if (!showArchivedTasks || !project?.id || !idToken) return;
+
+    setArchivedTasksLoading(true);
+    tasksAPI
+      .getAllByProject(project.id, idToken, { archived: true })
+      .then((data) => setArchivedTasks(data))
+      .catch((error) => {
+        console.error("Failed to load archived tasks:", error);
+        toast.error("Couldn't load archived tasks");
+      })
+      .finally(() => setArchivedTasksLoading(false));
+  }, [idToken, project?.id, showArchivedTasks]);
+
+  const handleArchiveTask = async (task: TaskWithAssigneesDTO) => {
+    if (!idToken) return;
+
+    try {
+      const archivedTask = await tasksAPI.archive(task.id, idToken);
+      setTasks((prev) => prev.filter((item) => item.id !== task.id));
+      setArchivedTasks((prev) => [archivedTask, ...prev]);
+      dispatchTaskSync({ type: "delete", taskId: task.id });
+      toast.success("Task archived");
+    } catch (error) {
+      console.error("Failed to archive task:", error);
+      toast.error("Only completed tasks can be archived");
+    }
+  };
+
+  const handleRestoreTask = async (task: TaskWithAssigneesDTO) => {
+    if (!idToken) return;
+
+    try {
+      const restoredTask = await tasksAPI.restore(task.id, idToken);
+      setArchivedTasks((prev) => prev.filter((item) => item.id !== task.id));
+      setTasks((prev) => [restoredTask, ...prev]);
+      dispatchTaskSync({ type: "upsert", task: restoredTask });
+      toast.success("Task restored");
+    } catch (error) {
+      console.error("Failed to restore task:", error);
+      toast.error("Couldn't restore that task");
+    }
+  };
 
   const handleSaveTask = async (data: Partial<TaskWithAssigneesDTO>) => {
     let updatedTask;
@@ -189,6 +255,137 @@ export function ProjectDetail() {
     }
   };
 
+  const renderTaskRow = (
+    task: TaskWithAssigneesDTO,
+    mode: "active" | "archived" = "active",
+  ) => {
+    const isDone = task.status === "Done";
+    const assignees =
+      task.team_members && task.team_members.length > 0
+        ? task.team_members.map((m) => m.name).join(", ")
+        : "Unassigned";
+
+    return (
+      <TableRow
+        key={task.id}
+        className="cursor-pointer"
+        onClick={() => setSelectedTask(task)}
+      >
+        <TableCell>
+          <div className="flex items-start gap-3">
+            {mode === "active" && (
+              <Checkbox
+                checked={isDone}
+                onCheckedChange={async (checked) => {
+                  await updateTask(task.id, {
+                    status: checked ? "Done" : "To-Do",
+                  });
+                }}
+                onClick={(event) => event.stopPropagation()}
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <p
+                className={`truncate text-sm font-semibold ${
+                  isDone ? "text-muted-foreground line-through" : "text-foreground"
+                }`}
+              >
+                {task.title}
+              </p>
+              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                {task.description || "No description"}
+              </p>
+            </div>
+          </div>
+        </TableCell>
+        <TableCell>
+          <Badge
+            variant="outline"
+            className={
+              task.priority === "high"
+                ? "text-red-600"
+                : task.priority === "medium"
+                  ? "text-yellow-600"
+                  : "text-green-600"
+            }
+          >
+            {task.priority?.[0]?.toUpperCase()}
+            {task.priority?.slice(1)}
+          </Badge>
+        </TableCell>
+        <TableCell className="max-w-[16rem] truncate text-muted-foreground">
+          {assignees}
+        </TableCell>
+        <TableCell className="text-muted-foreground">
+          {task.due_date ? new Date(task.due_date).toLocaleDateString() : "No date"}
+        </TableCell>
+        <TableCell>
+          <Badge variant="outline">{task.status}</Badge>
+        </TableCell>
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-1">
+            {mode === "active" ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label={`Open actions for ${task.title}`}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditingTask(task);
+                      setIsTaskDialogOpen(true);
+                    }}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  {isDone && (
+                    <DropdownMenuItem onClick={() => handleArchiveTask(task)}>
+                      <Archive className="mr-2 h-4 w-4" />
+                      Archive
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    className="text-red-600"
+                    onClick={() => {
+                      setTaskToDelete(task);
+                      setIsDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleRestoreTask(task);
+                }}
+                aria-label={`Restore task ${task.title}`}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,7 +407,7 @@ export function ProjectDetail() {
   // console.log("current Project data:", currentProject);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
+    <div className="flex min-h-full flex-col gap-6">
       <div className="space-y-4">
         <Breadcrumb>
           <BreadcrumbList>
@@ -267,11 +464,6 @@ export function ProjectDetail() {
               >
                 <SlidersHorizontal className="mr-2 h-4 w-4" />
                 {showCompactOverview ? "Hide overview" : "Show overview"}
-                <ChevronDown
-                  className={`ml-2 h-4 w-4 transition-transform ${
-                    showCompactOverview ? "rotate-180" : ""
-                  }`}
-                />
               </Button>
             </div>
           </div>
@@ -336,10 +528,7 @@ export function ProjectDetail() {
           <TabsTrigger value="comments">Comments</TabsTrigger>
         </TabsList>
 
-        <TabsContent
-          className="mt-4 min-h-full flex-1 overflow-y-auto pb-24"
-          value="overview"
-        >
+        <TabsContent className="mt-4 min-h-0 pb-24" value="overview">
           <Card className="app-surface">
             <CardHeader className="border-b pb-4">
               <CardTitle className="text-xl">Project Overview</CardTitle>
@@ -405,54 +594,68 @@ export function ProjectDetail() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <CardTitle className="text-xl">Project Tasks</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Keep project work moving. Completed tasks can be archived
+                      when the board needs breathing room.
+                    </p>
                   </div>
-                  <Dialog
-                    open={isTaskDialogOpen}
-                    onOpenChange={(open) => {
-                      setIsTaskDialogOpen(open);
-                      if (!open) setEditingTask(null);
-                    }}
-                  >
-                    <DialogTrigger asChild>
-                      {filteredTasks.length !== 0 && (
-                        <Button onClick={() => setEditingTask(null)}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Task
-                        </Button>
-                      )}
-                    </DialogTrigger>
+                  <div className="flex flex-col gap-2 sm:items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowArchivedTasks((value) => !value)}
+                    >
+                      <Archive className="mr-2 h-4 w-4" />
+                      {showArchivedTasks ? "Hide Archive" : "Archive"}
+                    </Button>
+                    <Dialog
+                      open={isTaskDialogOpen}
+                      onOpenChange={(open) => {
+                        setIsTaskDialogOpen(open);
+                        if (!open) setEditingTask(null);
+                      }}
+                    >
+                      <DialogTrigger asChild>
+                        {filteredTasks.length !== 0 && (
+                          <Button onClick={() => setEditingTask(null)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Task
+                          </Button>
+                        )}
+                      </DialogTrigger>
 
-                    <DialogContent className="sm:max-w-[500px]">
-                      <DialogHeader>
-                        <DialogTitle>
-                          {editingTask ? "Edit task" : "Add task details"}
-                        </DialogTitle>
-                        <DialogDescription>
-                          {editingTask
-                            ? "Tighten the details, update the owner, or shift the timeline."
-                            : "Use the full task form when you need more than a quick title."}
-                        </DialogDescription>
-                      </DialogHeader>
-                      <TaskForm
-                        key={editingTask?.id ?? "new"}
-                        defaultValues={editingTask ?? undefined}
-                        onSave={async (data) => {
-                          setIsTaskDialogOpen(false);
-                          setEditingTask(null);
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                          <DialogTitle>
+                            {editingTask ? "Edit task" : "Add task details"}
+                          </DialogTitle>
+                          <DialogDescription>
+                            {editingTask
+                              ? "Tighten the details, update the owner, or shift the timeline."
+                              : "Use the full task form when you need more than a quick title."}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <TaskForm
+                          key={editingTask?.id ?? "new"}
+                          defaultValues={editingTask ?? undefined}
+                          onSave={async (data) => {
+                            setIsTaskDialogOpen(false);
+                            setEditingTask(null);
 
-                          try {
-                            await handleSaveTask(data);
-                          } catch (error) {
-                            console.error("Failed to save task:", error);
-                          }
-                        }}
-                        onCancel={() => {
-                          setIsTaskDialogOpen(false);
-                          setEditingTask(null);
-                        }}
-                      />
-                    </DialogContent>
-                  </Dialog>
+                            try {
+                              await handleSaveTask(data);
+                            } catch (error) {
+                              console.error("Failed to save task:", error);
+                            }
+                          }}
+                          onCancel={() => {
+                            setIsTaskDialogOpen(false);
+                            setEditingTask(null);
+                          }}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
               </CardHeader>
 
@@ -461,7 +664,7 @@ export function ProjectDetail() {
                   <div className="overflow-y-auto">
                     <TaskListSkeleton />
                   </div>
-                ) : filteredTasks.length === 0 ? (
+                ) : filteredTasks.length === 0 && !showArchivedTasks ? (
                   <div className="flex min-h-[24rem] flex-col items-center justify-center text-center space-y-4">
                     <p className="text-muted-foreground">
                       No tasks yet for this project.
@@ -472,119 +675,58 @@ export function ProjectDetail() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="overflow-y-auto pr-1 sm:max-h-[32rem]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[34%]">Task</TableHead>
-                          <TableHead>Priority</TableHead>
-                          <TableHead>Assigned To</TableHead>
-                          <TableHead>Due Date</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredTasks.map((task) => {
-                          const isDone = task.status === "Done";
-                          const assignees =
-                            task.team_members && task.team_members.length > 0
-                              ? task.team_members.map((m) => m.name).join(", ")
-                              : "Unassigned";
+                  <div className="space-y-4 overflow-y-auto pr-1 sm:max-h-[32rem]">
+                    {filteredTasks.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[34%]">Task</TableHead>
+                            <TableHead>Priority</TableHead>
+                            <TableHead>Assigned To</TableHead>
+                            <TableHead>Due Date</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredTasks.map((task) =>
+                            renderTaskRow(task, "active"),
+                          )}
+                        </TableBody>
+                      </Table>
+                    )}
 
-                          return (
-                            <TableRow
-                              key={task.id}
-                              className="cursor-pointer"
-                              onClick={() => setSelectedTask(task)}
-                            >
-                              <TableCell>
-                                <div className="flex items-start gap-3">
-                                  <Checkbox
-                                    checked={isDone}
-                                    onCheckedChange={async (checked) => {
-                                      await updateTask(task.id, {
-                                        status: checked ? "Done" : "To-Do",
-                                      });
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <p
-                                      className={`truncate text-sm font-semibold ${
-                                        isDone
-                                          ? "text-muted-foreground line-through"
-                                          : "text-foreground"
-                                      }`}
-                                    >
-                                      {task.title}
-                                    </p>
-                                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                                      {task.description || "No description"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    task.priority === "high"
-                                      ? "text-red-600"
-                                      : task.priority === "medium"
-                                        ? "text-yellow-600"
-                                        : "text-green-600"
-                                  }
-                                >
-                                  {task.priority?.[0]?.toUpperCase()}
-                                  {task.priority?.slice(1)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="max-w-[16rem] truncate text-muted-foreground">
-                                {assignees}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {task.due_date
-                                  ? new Date(task.due_date).toLocaleDateString()
-                                  : "No date"}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">{task.status}</Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingTask(task);
-                                      setIsTaskDialogOpen(true);
-                                    }}
-                                    aria-label={`Edit task ${task.title}`}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-red-500 hover:text-red-700"
-                                    aria-label={`Delete task ${task.title}`}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setTaskToDelete(task);
-                                      setIsDeleteDialogOpen(true);
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                    {showArchivedTasks && (
+                      <div className="rounded-lg border border-dashed bg-muted/20 p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Archived completed tasks
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Hidden from the main task list, ready to restore
+                              when needed.
+                            </p>
+                          </div>
+                          <Badge variant="outline">{archivedTasks.length}</Badge>
+                        </div>
+                        {archivedTasksLoading ? (
+                          <TaskListSkeleton />
+                        ) : archivedTasks.length === 0 ? (
+                          <p className="py-4 text-sm text-muted-foreground">
+                            Nothing archived yet.
+                          </p>
+                        ) : (
+                          <Table>
+                            <TableBody>
+                              {archivedTasks.map((task) =>
+                                renderTaskRow(task, "archived"),
+                              )}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>

@@ -16,7 +16,8 @@ export function initPostHog() {
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
     capture_pageview: false,
-    autocapture: true,
+    autocapture: false,
+    disable_session_recording: true,
     persistence: "localStorage+cookie",
     person_profiles: "identified_only",
     loaded(instance) {
