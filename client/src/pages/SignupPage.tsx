@@ -34,6 +34,9 @@ import { CrevoMark } from "@/components/CrevoMark";
 import type { AuthStatus } from "@/Types/types";
 import { MotionSurface } from "@/components/ui/motion-surface";
 
+const getSignupErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export default function SignUpPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -179,7 +182,7 @@ export default function SignUpPage() {
                 data.error || data.message,
               );
             }
-          } catch (deleteErr: any) {
+          } catch (deleteErr: unknown) {
             console.error(
               "Failed to delete Firebase user via backend:",
               deleteErr,
@@ -221,9 +224,12 @@ export default function SignUpPage() {
             : "/dashboard",
         { replace: true },
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(
-        err.message || "Failed to complete signup. Please try again.",
+        getSignupErrorMessage(
+          err,
+          "Failed to complete signup. Please try again.",
+        ),
         { id: "profile-create" },
       );
 
@@ -240,7 +246,11 @@ export default function SignUpPage() {
   useEffect(() => {
     const savedData = localStorage.getItem("signUpFormData");
     if (savedData) {
-      setFormData(JSON.parse(savedData));
+      try {
+        setFormData(JSON.parse(savedData));
+      } catch {
+        localStorage.removeItem("signUpFormData");
+      }
     }
   }, []);
 

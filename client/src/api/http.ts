@@ -18,6 +18,21 @@ export class ApiError extends Error {
 
 let lastMembershipToastAt = 0;
 
+function parseResponseBody(raw: string) {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {
+      message: raw,
+      parseError: true,
+    };
+  }
+}
+
 function notifyMembershipChange(message: string) {
   const now = Date.now();
   if (now - lastMembershipToastAt < 5000) {
@@ -67,7 +82,7 @@ export async function apiFetch<T>(
   }
 
   const raw = await res.text();
-  const data = raw ? JSON.parse(raw) : null;
+  const data = parseResponseBody(raw);
 
   if (!res.ok) {
     const fallbackMessage =
@@ -75,7 +90,9 @@ export async function apiFetch<T>(
         ? "Your session or workspace membership may have changed. Refresh the app and sign in again."
         : res.status === 403
           ? "Your workspace access may have changed. Refresh the app to load your latest permissions."
-          : data?.error || data?.message || `Request failed (${res.status})`;
+          : data?.error ||
+            data?.message ||
+            `Request failed (${res.status})`;
 
     if (res.status === 401 || res.status === 403) {
       notifyMembershipChange(fallbackMessage);
