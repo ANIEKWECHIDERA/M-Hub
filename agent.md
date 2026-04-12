@@ -1920,3 +1920,109 @@ Assumptions currently in use:
     - the scheduler hour uses the server process timezone; per-user timezone support would make Daily Focus emails feel more personal
     - the local verification sent through the configured SMTP path even when the Resend key was blank, so future scheduler simulations should use a mailer mock flag before running against real accounts
     - no checked-in Playwright test suite exists for the client, so browser verification for this phase was done through Playwright MCP/manual flows
+- Phase 3 task system improvements:
+  - task folders:
+    - added a `task_folders` table and nullable `tasks.folder_id`
+    - existing tasks remain safe because missing folders fall back to an `Unfiled` section
+    - project task views now support creating folders and expanding/collapsing folder groups
+    - the task form now includes a folder selector so tasks can be moved between folders without a separate heavy workflow
+  - archive completed tasks:
+    - added nullable `tasks.archived_at`
+    - active project task queries hide archived tasks by default
+    - the project task tab now has an archive panel where completed tasks can be reviewed and restored
+    - only completed tasks can be archived server-side
+    - archive/restore events dispatch local task sync so My Tasks does not keep stale archived tasks in view
+  - subtask improvements:
+    - the existing progress badge and progress bar now pair with a sort toggle
+    - users can switch subtasks between oldest-first and newest-first ordering inside the task details sheet
+  - files touched:
+    - `client/src/Types/types.ts`
+    - `client/src/api/tasks.api.ts`
+    - `client/src/components/TaskForm.tsx`
+    - `client/src/context/TaskContext.tsx`
+    - `client/src/mapper/task.mapper.ts`
+    - `client/src/pages/MyTasks/components/SubtasksSection.tsx`
+    - `client/src/pages/projectDetail/ProjectDetail.tsx`
+    - `server/prisma/schema.prisma`
+    - `server/prisma/migrations/20260412003000_add_task_folders_and_archive/migration.sql`
+    - `server/src/controllers/task.controller.ts`
+    - `server/src/dbSelect/myTasks.select.ts`
+    - `server/src/dtos/task.dto.ts`
+    - `server/src/mapper/task.mapper.ts`
+    - `server/src/routes/task.route.ts`
+    - `server/src/services/task.service.ts`
+    - `server/src/services/taskFolder.service.ts`
+  - verification:
+    - applied migration with `npx prisma migrate deploy`
+    - `client`: `npx tsc -b`
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - created a folder in the project task tab
+      - created a task and filed it into that folder
+      - marked the task complete
+      - archived the completed task
+      - opened the archive panel and restored the task
+      - temporarily assigned the task to the current member to verify My Tasks details
+      - added two subtasks and verified the `0/2` progress count plus oldest/newest sort toggle
+      - cleaned up the temporary task, assignment, subtasks, notifications, logs, and folder after verification
+      - final project task tab sanity pass showed no warnings/errors in the browser console
+  - risks and follow-ups:
+    - folder management is intentionally minimal in this pass; rename, delete, and drag-to-folder can come later
+    - archive/restore currently lives in the project task tab; a dedicated archive screen may be better once usage grows
+    - project progress counts still include archived completed tasks until project stats are recalculated around archive visibility rules
+- Phase 3 correction pass:
+  - corrected the folder model after clarification:
+    - project task folders were removed from the project detail task tab
+    - the accidental persisted `task_folders` table and `tasks.folder_id` column were removed with a cleanup migration
+    - My Tasks now creates automatic project folders from each assigned task's project
+    - if a teammate has assigned work across multiple projects, My Tasks shows one collapsible folder per project
+  - personal archive behavior:
+    - team members can archive and restore their own assigned completed tasks
+    - My Tasks exposes an Archive panel for personal archived tasks
+    - team members still cannot delete tasks from My Tasks
+  - project task archive behavior:
+    - the project detail task tab stays flat again
+    - each project task row now uses an ellipsis menu for actions
+    - admin/project task actions include edit, archive for completed tasks, and delete
+  - subtask visibility:
+    - My Tasks cards now show subtask progress when subtasks exist, for example `1/2`
+    - the existing subtask details panel keeps the oldest/newest sort toggle and progress updates
+  - files touched:
+    - `client/src/Types/types.ts`
+    - `client/src/api/tasks.api.ts`
+    - `client/src/components/TaskForm.tsx`
+    - `client/src/context/MyTaskContext.tsx`
+    - `client/src/context/TaskContext.tsx`
+    - `client/src/mapper/task.mapper.ts`
+    - `client/src/pages/MyTasks/MyTasksPage.tsx`
+    - `client/src/pages/MyTasks/components/TaskCard.tsx`
+    - `client/src/pages/MyTasks/components/TasksList.tsx`
+    - `client/src/pages/projectDetail/ProjectDetail.tsx`
+    - `server/prisma/schema.prisma`
+    - `server/prisma/migrations/20260412013000_remove_project_task_folders/migration.sql`
+    - `server/src/controllers/task.controller.ts`
+    - `server/src/dbSelect/myTasks.select.ts`
+    - `server/src/dtos/task.dto.ts`
+    - `server/src/mapper/task.mapper.ts`
+    - `server/src/routes/task.route.ts`
+    - `server/src/services/task.service.ts`
+  - verification:
+    - applied cleanup migration with `npx prisma migrate deploy`
+    - `client`: `npx tsc -b`
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - seeded temporary assigned tasks across two projects
+      - verified My Tasks showed two project folders automatically
+      - verified subtask progress appeared on the task card
+      - archived a completed personal task
+      - verified it disappeared from active My Tasks
+      - opened Archive and verified the archived task appeared after reload
+      - restored the task and verified it returned to active My Tasks
+      - verified Project Detail task tab no longer shows project folders
+      - verified Project Detail task actions are under an ellipsis menu
+      - cleaned temporary tasks, subtasks, assignments, notifications, logs, and the temporary project after testing
+  - risks and follow-ups:
+    - My Tasks project folders are derived from current task data, so there is no rename/reorder for folders yet
+    - archive still requires completed status server-side to match the original Phase 3 rule

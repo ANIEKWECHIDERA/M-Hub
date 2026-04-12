@@ -4,7 +4,6 @@ export interface TaskWithAssigneesDTO {
   id: string;
   companyId: string;
   projectId: string;
-
   title: string;
   description?: string;
 
@@ -13,6 +12,7 @@ export interface TaskWithAssigneesDTO {
   progress: number;
 
   dueDate?: string;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 

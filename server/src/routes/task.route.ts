@@ -47,6 +47,22 @@ router.patch(
   TaskController.updateTask,
 );
 
+router.patch(
+  "/task/:taskId/archive",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member"]),
+  resolveTeamMember,
+  TaskController.archiveTask,
+);
+
+router.patch(
+  "/task/:taskId/restore",
+  ...protectedRoute,
+  authorize(["admin", "superAdmin", "team_member"]),
+  resolveTeamMember,
+  TaskController.restoreTask,
+);
+
 // DELETE (admins only)
 router.delete(
   "/task/:taskId",

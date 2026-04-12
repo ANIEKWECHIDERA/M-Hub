@@ -19,13 +19,20 @@ export const TaskService = {
   async findAllEnrichedByProject(
     companyId: string,
     projectId: string,
+    options: { archived?: boolean } = {},
   ): Promise<TaskWithAssigneesDTO[]> {
-    const { data: tasks, error: taskError } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("tasks")
       .select("*")
       .eq("company_id", companyId)
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
+
+    query = options.archived
+      ? query.not("archived_at", "is", null)
+      : query.is("archived_at", null);
+
+    const { data: tasks, error: taskError } = await query;
 
     if (taskError) throw taskError;
     if (!tasks?.length) return [];
@@ -251,6 +258,7 @@ export const TaskService = {
     status?: string;
     priority: string;
     due_date?: string;
+    archived_at?: string | null;
     team_member_ids?: string[];
   }): Promise<TaskWithAssigneesDTO> {
     logger.info("TaskService.create", {
@@ -366,6 +374,7 @@ export const TaskService = {
       priority: string;
       due_date: string;
       progress: number;
+      archived_at: string | null;
       team_member_ids: string[];
     }>,
   ): Promise<TaskWithAssigneesDTO | null> {
@@ -505,6 +514,7 @@ export const TaskService = {
   async getAssignedTasks(
     userId: string,
     companyId: string,
+    options: { archived?: boolean } = {},
   ): Promise<MyTaskResponseDTO[]> {
     logger.info("Services: Fetching tasks for user", {
       userId,
@@ -540,13 +550,22 @@ export const TaskService = {
         throw error;
       }
 
-      return (assignments ?? []).map((assignment: any) => ({
+      return (assignments ?? [])
+        .filter((assignment: any) =>
+          options.archived
+            ? Boolean(assignment.task?.archived_at)
+            : !assignment.task?.archived_at,
+        )
+        .map((assignment: any) => ({
         id: assignment.task.id,
+        companyId,
+        projectId: assignment.task.project.id,
         title: assignment.task.title,
         description: assignment.task.description,
         status: assignment.task.status,
         priority: assignment.task.priority,
         due_date: assignment.task.due_date,
+        archivedAt: assignment.task.archived_at ?? null,
         project: {
           id: assignment.task.project.id,
           title: assignment.task.project.title,

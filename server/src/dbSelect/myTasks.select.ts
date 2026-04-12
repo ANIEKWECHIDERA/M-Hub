@@ -6,6 +6,7 @@ export const MY_TASKS_SELECT = `
           status,
           priority,
           due_date,
+          archived_at,
           project:projects (
             id,
             title,

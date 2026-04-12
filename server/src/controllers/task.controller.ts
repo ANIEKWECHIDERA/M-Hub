@@ -13,6 +13,7 @@ export const TaskController = {
       const tasks = await TaskService.findAllEnrichedByProject(
         companyId,
         projectId,
+        { archived: req.query.archived === "true" },
       );
       // Return empty array if no tasks
       return res.json(tasks || []);
@@ -195,6 +196,76 @@ export const TaskController = {
     }
   },
 
+  async archiveTask(req: any, res: Response) {
+    const { taskId } = req.params;
+    const companyId = req.user.company_id;
+
+    try {
+      const previousTask = await TaskService.findByIdEnriched(taskId, companyId);
+      if (!previousTask) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      if (previousTask.status !== "Done") {
+        return res
+          .status(400)
+          .json({ error: "Only completed tasks can be archived" });
+      }
+
+      if (
+        req.user.access === "team_member" &&
+        !previousTask.assignees?.some(
+          (assignee: any) => assignee.id === req.user.team_member_id,
+        )
+      ) {
+        return res.status(403).json({ error: "Task is not assigned to you" });
+      }
+
+      const updatedTask = await TaskService.update(taskId, companyId, {
+        archived_at: new Date().toISOString(),
+      });
+
+      return res.json(updatedTask);
+    } catch (error) {
+      logger.error("TaskController: archiveTask failed", { error });
+      return res.status(500).json({ error: "Failed to archive task" });
+    }
+  },
+
+  async restoreTask(req: any, res: Response) {
+    const { taskId } = req.params;
+    const companyId = req.user.company_id;
+
+    try {
+      const previousTask = await TaskService.findByIdEnriched(taskId, companyId);
+      if (!previousTask) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      if (
+        req.user.access === "team_member" &&
+        !previousTask.assignees?.some(
+          (assignee: any) => assignee.id === req.user.team_member_id,
+        )
+      ) {
+        return res.status(403).json({ error: "Task is not assigned to you" });
+      }
+
+      const updatedTask = await TaskService.update(taskId, companyId, {
+        archived_at: null,
+      });
+
+      if (!updatedTask) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      return res.json(updatedTask);
+    } catch (error) {
+      logger.error("TaskController: restoreTask failed", { error });
+      return res.status(500).json({ error: "Failed to restore task" });
+    }
+  },
+
   ///////// MY TASKS /////////
 
   async getMyTasks(req: any, res: Response) {
@@ -204,7 +275,9 @@ export const TaskController = {
     const userId = req.user.user_id;
 
     try {
-      const myTasks = await TaskService.getAssignedTasks(userId, companyId);
+      const myTasks = await TaskService.getAssignedTasks(userId, companyId, {
+        archived: req.query.archived === "true",
+      });
       logger.info("fetched my tasks:", myTasks);
 
       return res.status(200).json(myTasks);

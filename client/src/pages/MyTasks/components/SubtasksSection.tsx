@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ListTodo, Plus, Edit, Trash2 } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, ListTodo, Plus, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { useSubTasksContext } from "@/context/SubTasksContext";
@@ -30,10 +30,19 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
   const [newSubtask, setNewSubtask] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const subtasks = useMemo<Subtask[]>(() => {
-    return allSubtasks.filter((subtask) => subtask.task_id === taskId);
-  }, [allSubtasks, taskId]);
+    return allSubtasks
+      .filter((subtask) => subtask.task_id === taskId)
+      .sort((left, right) => {
+        const leftTime = new Date(left.created_at).getTime();
+        const rightTime = new Date(right.created_at).getTime();
+        return sortDirection === "asc"
+          ? leftTime - rightTime
+          : rightTime - leftTime;
+      });
+  }, [allSubtasks, sortDirection, taskId]);
 
   const completedCount = subtasks.filter((subtask) => subtask.completed).length;
   const progress =
@@ -95,6 +104,22 @@ export function SubtasksSection({ taskId }: SubtasksSectionProps) {
               </Badge>
             )}
           </CardTitle>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setSortDirection((value) => (value === "asc" ? "desc" : "asc"))
+            }
+            disabled={subtasks.length < 2}
+          >
+            {sortDirection === "asc" ? (
+              <ArrowUpAZ className="mr-2 h-4 w-4" />
+            ) : (
+              <ArrowDownAZ className="mr-2 h-4 w-4" />
+            )}
+            {sortDirection === "asc" ? "Oldest" : "Newest"}
+          </Button>
         </div>
       </CardHeader>
 

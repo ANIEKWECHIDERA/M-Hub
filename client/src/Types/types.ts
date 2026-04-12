@@ -358,6 +358,7 @@ export interface TaskWithAssigneesDTO {
   priority: TaskPriority;
   progress: number;
   due_date?: string;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
   team_members?: TeamMemberSummary[]; // For frontend display
@@ -462,6 +463,7 @@ export interface MyTasksContextType {
     taskId: string,
     updates: Partial<TaskWithAssigneesDTO>,
   ) => Promise<void>;
+  archiveTask: (taskId: string) => Promise<void>;
 }
 
 export interface MyTaskCardProps {
