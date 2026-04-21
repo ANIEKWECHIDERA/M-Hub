@@ -6,6 +6,9 @@ import { RequestCacheService } from "./requestCache.service";
 import { TeamMemberHttpError } from "./teamMemberErrors";
 import { CompanyService } from "./company.service";
 
+const userIdentityLockKey = (email: string) =>
+  `user:${email.trim().toLowerCase()}`;
+
 export const UserService = {
   async findByFirebaseUid(firebaseUid: string) {
     const { data, error } = await supabaseAdmin
@@ -32,42 +35,52 @@ export const UserService = {
   async createFromAuth(dto: CreateUserFromAuthDTO) {
     logger.info("createFromAuth: Starting to sync user", dto);
 
+    const email = dto.email?.trim();
+    if (!email) {
+      throw new Error("Email is required to sync an authenticated user");
+    }
+
     const now = new Date().toISOString();
 
     try {
-      // A single upsert keeps auth sync idempotent when several requests hit
-      // the backend immediately after Firebase signs a user in.
-      const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
-        INSERT INTO users (
-          firebase_uid,
-          email,
-          display_name,
-          photo_url,
-          terms_accepted,
-          terms_accepted_at,
-          last_login,
-          created_at,
-          updated_at
-        )
-        VALUES (
-          ${dto.firebase_uid},
-          ${dto.email},
-          ${dto.display_name ?? null},
-          ${dto.photo_url ?? null},
-          ${false},
-          ${null},
-          ${now}::timestamp,
-          ${now}::timestamp,
-          ${now}::timestamp
-        )
-        ON CONFLICT (firebase_uid)
-        DO UPDATE SET
-          email = EXCLUDED.email,
-          display_name = COALESCE(users.display_name, EXCLUDED.display_name),
-          photo_url = COALESCE(users.photo_url, EXCLUDED.photo_url),
-          last_login = EXCLUDED.last_login,
-          updated_at = EXCLUDED.updated_at
-        RETURNING *`;
+      // Signup can trigger auth sync and profile completion in parallel.
+      // Locking by email keeps those first-login upserts from racing each other.
+      const rows = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`
+          SELECT pg_advisory_xact_lock(hashtext(${userIdentityLockKey(email)})::bigint)`;
+
+        return tx.$queryRaw<Array<Record<string, any>>>`
+          INSERT INTO users (
+            firebase_uid,
+            email,
+            display_name,
+            photo_url,
+            terms_accepted,
+            terms_accepted_at,
+            last_login,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            ${dto.firebase_uid},
+            ${email},
+            ${dto.display_name ?? null},
+            ${dto.photo_url ?? null},
+            ${false},
+            ${null},
+            ${now}::timestamp,
+            ${now}::timestamp,
+            ${now}::timestamp
+          )
+          ON CONFLICT (email)
+          DO UPDATE SET
+            firebase_uid = EXCLUDED.firebase_uid,
+            display_name = COALESCE(users.display_name, EXCLUDED.display_name),
+            photo_url = COALESCE(users.photo_url, EXCLUDED.photo_url),
+            last_login = EXCLUDED.last_login,
+            updated_at = EXCLUDED.updated_at
+          RETURNING *`;
+      });
 
       const data = rows[0];
 
@@ -155,45 +168,50 @@ export const UserService = {
 
     const now = new Date().toISOString();
 
-    const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
-      INSERT INTO users (
-        firebase_uid,
-        email,
-        first_name,
-        last_name,
-        display_name,
-        profile_complete,
-        terms_accepted,
-        terms_accepted_at,
-        last_login,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        ${userData.firebase_uid},
-        ${userData.email},
-        ${userData.first_name},
-        ${userData.last_name},
-        ${userData.display_name},
-        ${true},
-        ${userData.terms_accepted},
-        ${userData.terms_accepted_at.toISOString()}::timestamp,
-        ${now}::timestamp,
-        ${now}::timestamp,
-        ${now}::timestamp
-      )
-      ON CONFLICT (email)
-      DO UPDATE SET
-        firebase_uid = EXCLUDED.firebase_uid,
-        first_name = EXCLUDED.first_name,
-        last_name = EXCLUDED.last_name,
-        display_name = EXCLUDED.display_name,
-        profile_complete = EXCLUDED.profile_complete,
-        terms_accepted = EXCLUDED.terms_accepted,
-        terms_accepted_at = EXCLUDED.terms_accepted_at,
-        last_login = EXCLUDED.last_login,
-        updated_at = EXCLUDED.updated_at
-      RETURNING *`;
+    const rows = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(hashtext(${userIdentityLockKey(userData.email)})::bigint)`;
+
+      return tx.$queryRaw<Array<Record<string, any>>>`
+        INSERT INTO users (
+          firebase_uid,
+          email,
+          first_name,
+          last_name,
+          display_name,
+          profile_complete,
+          terms_accepted,
+          terms_accepted_at,
+          last_login,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${userData.firebase_uid},
+          ${userData.email},
+          ${userData.first_name},
+          ${userData.last_name},
+          ${userData.display_name},
+          ${true},
+          ${userData.terms_accepted},
+          ${userData.terms_accepted_at.toISOString()}::timestamp,
+          ${now}::timestamp,
+          ${now}::timestamp,
+          ${now}::timestamp
+        )
+        ON CONFLICT (email)
+        DO UPDATE SET
+          firebase_uid = EXCLUDED.firebase_uid,
+          first_name = EXCLUDED.first_name,
+          last_name = EXCLUDED.last_name,
+          display_name = EXCLUDED.display_name,
+          profile_complete = EXCLUDED.profile_complete,
+          terms_accepted = EXCLUDED.terms_accepted,
+          terms_accepted_at = EXCLUDED.terms_accepted_at,
+          last_login = EXCLUDED.last_login,
+          updated_at = EXCLUDED.updated_at
+        RETURNING *`;
+    });
 
     const user = rows[0];
 

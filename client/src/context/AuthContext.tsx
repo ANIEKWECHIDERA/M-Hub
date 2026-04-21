@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import {
   auth,
@@ -39,8 +40,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [workspaceSwitchCompanyId, setWorkspaceSwitchCompanyId] = useState<
     string | null
   >(null);
+  const signupInProgressRef = useRef(false);
 
-  const clearError = () => setError(null);
+  const clearError = useCallback(() => setError(null), []);
 
   const isAppReady =
     !!currentUser && !!authStatus && authStatus.onboardingState === "ACTIVE";
@@ -65,6 +67,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const token = await user.getIdToken();
       setIdToken(token);
       setCurrentUser(user);
+
+      if (signupInProgressRef.current) {
+        return;
+      }
 
       const status = await authAPI.getStatus(token);
       setAuthStatus(status);
@@ -126,6 +132,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       clearError();
       setAuthLoading(true);
+      signupInProgressRef.current = true;
 
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -168,6 +175,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setError(message);
       return { user: null, error: message, uidToDeleteOnError: uidToDelete };
     } finally {
+      signupInProgressRef.current = false;
       setAuthLoading(false);
     }
   };

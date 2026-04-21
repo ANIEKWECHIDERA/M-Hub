@@ -68,6 +68,25 @@ export default function SignUpPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const inviteFlow = new URLSearchParams(location.search).get("invite") === "1";
 
+  const clearSignupFeedback = (field?: keyof typeof formData) => {
+    clearError();
+    if (!field) {
+      setErrors({});
+      return;
+    }
+
+    setErrors((current) => {
+      if (!current[field] && !current.general) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[field];
+      delete next.general;
+      return next;
+    });
+  };
+
   const waitForReadyOnboardingState = async () => {
     let latestStatus: AuthStatus | null = null;
 
@@ -238,6 +257,7 @@ export default function SignUpPage() {
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
+    clearSignupFeedback(field as keyof typeof formData);
     const updatedData = { ...formData, [field]: value };
     setFormData(updatedData);
     localStorage.setItem("signUpFormData", JSON.stringify(updatedData));
@@ -417,12 +437,9 @@ export default function SignUpPage() {
                         value={formData.firstName}
                         onChange={(e) => {
                           const value = e.target.value;
-                          setFormData({
-                            ...formData,
-                            firstName: value,
-                          });
                           handleInputChange("firstName", value);
                         }}
+                        onFocus={() => clearSignupFeedback("firstName")}
                         className={`field-with-icon h-10 sm:h-11 ${
                           errors.firstName
                             ? "border-red-500 focus-visible:ring-red-500"
@@ -445,12 +462,9 @@ export default function SignUpPage() {
                       value={formData.lastName}
                       onChange={(e) => {
                         const value = e.target.value;
-                        setFormData({
-                          ...formData,
-                          lastName: value,
-                        });
                         handleInputChange("lastName", value);
                       }}
+                      onFocus={() => clearSignupFeedback("lastName")}
                       className={`h-10 sm:h-11 ${
                         errors.lastName
                           ? "border-red-500 focus-visible:ring-red-500"
@@ -475,12 +489,9 @@ export default function SignUpPage() {
                       value={formData.email}
                       onChange={(e) => {
                         const value = e.target.value;
-                        setFormData({
-                          ...formData,
-                          email: value,
-                        });
                         handleInputChange("email", value);
                       }}
+                      onFocus={() => clearSignupFeedback("email")}
                       className={`field-with-icon h-10 sm:h-11 ${
                         errors.email
                           ? "border-red-500 focus-visible:ring-red-500"
@@ -522,12 +533,9 @@ export default function SignUpPage() {
                       value={formData.password}
                       onChange={(e) => {
                         const value = e.target.value;
-                        setFormData({
-                          ...formData,
-                          password: value,
-                        });
                         handleInputChange("password", value);
                       }}
+                      onFocus={() => clearSignupFeedback("password")}
                       className={`field-with-icon h-10 pr-10 sm:h-11 ${
                         errors.password
                           ? "border-red-500 focus-visible:ring-red-500"
@@ -565,12 +573,9 @@ export default function SignUpPage() {
                       value={formData.confirmPassword}
                       onChange={(e) => {
                         const value = e.target.value;
-                        setFormData({
-                          ...formData,
-                          confirmPassword: value,
-                        });
                         handleInputChange("confirmPassword", value);
                       }}
+                      onFocus={() => clearSignupFeedback("confirmPassword")}
                       className={`field-with-icon h-10 pr-10 sm:h-11 ${
                         errors.confirmPassword
                           ? "border-red-500 focus-visible:ring-red-500"
@@ -606,10 +611,7 @@ export default function SignUpPage() {
                     id="terms"
                     checked={formData.agreeToTerms}
                     onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        agreeToTerms: checked as boolean,
-                      })
+                      handleInputChange("agreeToTerms", checked as boolean)
                     }
                     disabled={authLoading}
                     className="mt-0.5"

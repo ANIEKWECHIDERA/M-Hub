@@ -42,6 +42,25 @@ export default function LoginPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const inviteFlow = new URLSearchParams(location.search).get("invite") === "1";
 
+  const clearFormFeedback = (field?: keyof typeof formData) => {
+    clearError();
+    if (!field) {
+      setErrors({});
+      return;
+    }
+
+    setErrors((current) => {
+      if (!current[field] && !current.general) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[field];
+      delete next.general;
+      return next;
+    });
+  };
+
   // Redirect if already logged in
   useEffect(() => {
     const pendingInviteToken = inviteFlow
@@ -272,9 +291,11 @@ export default function LoginPage() {
                         type="email"
                         placeholder="Enter your email"
                         value={formData.email}
-                        onChange={(e) =>
-                          setFormData({ ...formData, email: e.target.value })
-                        }
+                        onChange={(e) => {
+                          clearFormFeedback("email");
+                          setFormData({ ...formData, email: e.target.value });
+                        }}
+                        onFocus={() => clearFormFeedback("email")}
                         className={`field-with-icon h-10 sm:h-11 ${
                           errors.email
                             ? "border-red-500 focus-visible:ring-red-500"
@@ -297,9 +318,14 @@ export default function LoginPage() {
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
                         value={formData.password}
-                        onChange={(e) =>
-                          setFormData({ ...formData, password: e.target.value })
-                        }
+                        onChange={(e) => {
+                          clearFormFeedback("password");
+                          setFormData({
+                            ...formData,
+                            password: e.target.value,
+                          });
+                        }}
+                        onFocus={() => clearFormFeedback("password")}
                         className={`field-with-icon h-10 pr-10 sm:h-11 ${
                           errors.password
                             ? "border-red-500 focus-visible:ring-red-500"
@@ -331,12 +357,13 @@ export default function LoginPage() {
                       <Checkbox
                         id="remember"
                         checked={formData.rememberMe}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked) => {
+                          clearFormFeedback("rememberMe");
                           setFormData({
                             ...formData,
                             rememberMe: checked as boolean,
-                          })
-                        }
+                          });
+                        }}
                         disabled={authLoading}
                       />
                       <Label
