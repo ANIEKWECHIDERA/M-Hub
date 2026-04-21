@@ -1,6 +1,6 @@
 import type React from "react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowDown,
@@ -22,6 +22,7 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Share2,
   Save,
   Trash2,
   UserPlus,
@@ -689,6 +690,7 @@ function MessageBubble({
 }
 
 export default function Chat() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { authStatus } = useAuthContext();
   const { profile } = useUser();
@@ -2015,7 +2017,8 @@ export default function Chat() {
                   </div>
                   {chatPanelMode === "summary" && (
                     <div className="mt-2.5 space-y-2">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap gap-2">
                         <Button
                           type="button"
                           size="sm"
@@ -2046,6 +2049,21 @@ export default function Chat() {
                             </button>
                           );
                         })}
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 rounded-full px-3 text-[11px] sm:text-xs"
+                          onClick={() =>
+                            navigate(
+                              `/share-artifacts?type=decision-timeline&conversationId=${currentChat.id}`,
+                            )
+                          }
+                        >
+                          <Share2 className="mr-2 h-3.5 w-3.5" />
+                          Share timeline
+                        </Button>
                       </div>
                     </div>
                   )}

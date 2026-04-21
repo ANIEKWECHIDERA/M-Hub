@@ -15,7 +15,7 @@ export const authorize =
       return res.status(403).json({
         error: "You are not authorized to perform this action.",
         code: "FORBIDDEN_ACTION",
-        requiredAccess: access,
+        requiredAccess: access.join(", "),
       });
     }
 

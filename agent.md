@@ -2185,3 +2185,428 @@ Assumptions currently in use:
       - loaded Dashboard and waited 8 seconds: no console errors or warnings
       - cleared browser storage, created a fresh account, reached Dashboard, and waited 8 seconds: no console errors or warnings
       - navigated to Settings and waited 5 seconds: no console errors or warnings
+- Shareable artifacts Phase 1 - discovery and contract:
+  - goal:
+    - define the safest MVP data contract for polished share cards before adding endpoints or UI
+  - data audit:
+    - Decision Timeline can be powered by existing `chat_messages`, `chat_conversations`, `chat_conversation_members`, `chat_message_tags`, `team_members`, and `users`
+    - the existing decision source already scopes by `company_id`, active conversation membership, group chat type, non-deleted messages, and important tags
+    - usable decision tags for v1 are `decision`, `action-item`, and `blocker`
+    - no real approval-state model was found, so approval state should be omitted or returned as `null` in v1
+    - Workspace Snapshot can reuse existing retention/workspace-health data from tasks, projects, chat blocker/decision tags, and manager workload summaries
+    - completed task counts, overdue task counts, active project counts, blocker signals, completion rate, and health status are already available from backend queries
+  - backend contract design:
+    - `GET /api/share/decision-timeline?from=ISO&to=ISO&conversationId?&limit?`
+    - response shape:
+      - `artifactType: "decision-timeline"`
+      - `workspace: { id, name, logoUrl }`
+      - `range: { from, to, label }`
+      - `summary: { decisions, actionItems, blockers, contributors }`
+      - `items: [{ id, messageId, conversationId, conversationName, decisionText, primaryTag, tags, contributor, createdAt, approvalState }]`
+      - `generatedAt`
+    - `GET /api/share/workspace-snapshot?from=ISO&to=ISO`
+    - response shape:
+      - `artifactType: "workspace-snapshot"`
+      - `workspace: { id, name, logoUrl }`
+      - `range: { from, to, label }`
+      - `metrics: { completedTasks, overdueTasks, decisionsMade, blockersRaised, activeProjects, completionRate }`
+      - `health: { score, status, tone, summary, breakdown }`
+      - `highlights: string[]`
+      - `generatedAt`
+  - UI data contract design:
+    - both cards should receive UI-ready payloads and avoid client-side N+1 lookups
+    - Decision Timeline preview should render workspace name, range, 5-12 curated decision items, contributor identity, source conversation, tag badge, and timestamp
+    - Workspace Snapshot preview should render workspace name, range, 4-6 metrics, health tone, concise summary copy, and subtle Crevo branding
+    - export components should consume the same payload used by preview so the image output matches what users see
+  - MVP field selection:
+    - Decision Timeline v1 includes decision text, primary tag, all important tags, contributor, source conversation, timestamp, and workspace/range metadata
+    - Workspace Snapshot v1 includes completed tasks, overdue tasks, decisions made, blockers raised, active projects, completion rate, health score/status, and a one-line status summary
+    - approval state and action-item owner links are future fields because the current schema does not expose them as stable product concepts
+  - access and scoping decisions:
+    - all share-artifact endpoints must use the existing Firebase token, profile sync, `requireAppUser`, and role authorization middleware
+    - all queries must scope to `req.user.company_id`
+    - Decision Timeline should additionally require active membership in any conversation used as a source
+    - Workspace Snapshot should initially be admin/superAdmin-visible because it exposes workspace-wide performance signals
+    - default range should be the last 7 days, with a max range of 90 days to keep payloads fast and focused
+  - files touched:
+    - `agent.md`
+  - tests run:
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - launched the app at `http://127.0.0.1:5173/dashboard`
+      - unauthenticated session redirected to `/login` as expected
+      - waited 8 seconds and checked browser console
+  - regressions checked:
+    - no browser console errors or warnings appeared during the dashboard/login stability check
+    - no `Maximum update depth exceeded` error appeared
+    - no application source files were changed during discovery
+  - risks and follow-ups:
+    - Phase 2 should avoid duplicating the retention query logic by extracting reusable service methods where practical
+    - empty workspaces and workspaces with no tagged decisions should return valid empty artifact payloads, not errors
+    - export/share UX should not expose private data through public links in the MVP; image export is safer than public hosted artifact links for v1
+- Shareable artifacts Phase 2 - backend data services:
+  - what changed:
+    - added authenticated backend services and endpoints for the first two shareable artifact types
+    - added `GET /api/share/decision-timeline`
+    - added `GET /api/share/workspace-snapshot`
+    - decision timeline returns curated tagged group-chat outcomes for a selected date range
+    - workspace snapshot returns compact period metrics and a health summary for admins/super admins
+  - why:
+    - gives the future preview/export UI clean, UI-ready payloads without making the frontend assemble data from multiple noisy endpoints
+    - keeps share artifacts grounded in real workspace data instead of screenshots or mocked marketing content
+  - access and scoping:
+    - both routes use Firebase token verification, profile sync, `requireAppUser`, and role authorization
+    - all service queries scope to `req.user.company_id`
+    - decision timeline also requires active `chat_conversation_members` membership for the requesting user
+    - workspace snapshot is admin/superAdmin-only at both route and controller level
+    - date ranges default to the last 7 days and are capped at 90 days
+  - files touched:
+    - `server/src/app.ts`
+    - `server/src/controllers/shareArtifact.controller.ts`
+    - `server/src/controllers/__tests__/shareArtifact.controller.test.ts`
+    - `server/src/routes/shareArtifact.routes.ts`
+    - `server/src/services/shareArtifact.service.ts`
+    - `server/src/services/__tests__/shareArtifact.service.test.ts`
+  - tests run:
+    - `server`: `npx jest src/services/__tests__/shareArtifact.service.test.ts src/controllers/__tests__/shareArtifact.controller.test.ts --runInBand`
+    - `server`: `npm run build`
+    - `client`: `npm run build`
+    - Playwright MCP/manual browser pass:
+      - loaded `http://127.0.0.1:5173/dashboard`
+      - unauthenticated session redirected to `/login` as expected
+      - waited 8 seconds and checked browser console
+  - regressions checked:
+    - no browser console errors or warnings appeared during the app load check
+    - no `Maximum update depth exceeded` error appeared
+    - no client source files were changed in this phase
+  - follow-ups and risks:
+    - Phase 3 should add frontend API wrappers/types before building previews
+    - workspace health in the share snapshot currently uses task and blocker signals only; workload/capacity signals can be reintroduced later if the card needs deeper operational nuance
+    - public hosted share links are intentionally not implemented yet; v1 should prefer authenticated preview plus image export to avoid accidental data exposure
+- Shareable artifacts Phase 3 - UI preview experience:
+  - what changed:
+    - added frontend share-artifact TypeScript contracts for Decision Timeline and Workspace Snapshot payloads
+    - added `shareArtifactAPI` client wrapper for the Phase 2 backend endpoints
+    - added a dedicated authenticated preview route at `/share-artifacts`
+    - added polished preview cards for:
+      - Decision Timeline Share Card
+      - Workspace Snapshot Share Card
+    - added preview controls for artifact type and range presets
+    - added loading skeleton, empty states, error state, and admin-only restricted state for workspace snapshots
+    - kept the route out of primary navigation until Phase 5 decides final entry points
+  - why:
+    - lets us evaluate the share-card experience without cluttering core dashboard/chat/workspace screens too early
+    - keeps preview and future export using the same shaped data payload
+    - gives the feature a controlled, share-worthy visual direction before export mechanics are added
+  - files touched:
+    - `client/src/App.tsx`
+    - `client/src/Types/types.ts`
+    - `client/src/api/shareArtifact.api.ts`
+    - `client/src/components/share/ShareArtifactCards.tsx`
+    - `client/src/pages/ShareArtifacts.tsx`
+    - `agent.md`
+  - tests run:
+    - `client`: `npx eslint src/pages/ShareArtifacts.tsx src/components/share/ShareArtifactCards.tsx src/api/shareArtifact.api.ts src/App.tsx`
+    - `client`: `npm run build`
+    - `server`: `npm run build`
+    - `server`: `npx jest src/services/__tests__/shareArtifact.service.test.ts src/controllers/__tests__/shareArtifact.controller.test.ts --runInBand`
+    - Playwright MCP/manual browser pass:
+      - opened `/share-artifacts`
+      - verified Decision Timeline empty state renders
+      - switched to Workspace Snapshot and verified the preview renders for a superAdmin workspace
+      - switched range preset from 7 days to 14 days
+      - switched back to Decision Timeline
+      - checked mobile viewport at 390px wide
+      - captured desktop and mobile screenshots for visual inspection
+  - regressions checked:
+    - no browser console errors or warnings appeared
+    - no `Maximum update depth exceeded` error appeared
+    - no core sidebar/dashboard navigation changes were made
+  - follow-ups and risks:
+    - Phase 4 should implement PNG/download/copy flows against these preview card components
+    - Phase 5 should add calm entry points in Decision Feed/Chat and Workspace Manager/Health rather than adding a loud primary nav item
+    - the current Decision Timeline empty state depends on teams consistently tagging chat decisions; stronger prompts or tag nudges may improve adoption later
+- Shareable artifacts Phase 4 - export/share system:
+  - what changed:
+    - added `html-to-image` for client-side DOM-to-PNG rendering
+    - added an export toolbar to `/share-artifacts`
+    - added Download PNG support for exportable share cards
+    - added Copy image support using `ClipboardItem` when available
+    - added Share support using the Web Share API when available, with caption-copy fallback
+    - disabled export controls when no exportable artifact is ready, such as an empty Decision Timeline
+    - kept toolbar/buttons outside the captured node so exported images contain only the polished artifact
+  - why:
+    - gives users a real share artifact instead of a dashboard screenshot
+    - keeps the export path client-side for MVP speed and avoids public hosted links/data leakage in v1
+    - prepares the same preview card components for later entry points in Phase 5
+  - files touched:
+    - `client/package.json`
+    - `client/package-lock.json`
+    - `client/src/pages/ShareArtifacts.tsx`
+    - `agent.md`
+  - tests run:
+    - `client`: `npx eslint src/pages/ShareArtifacts.tsx src/components/share/ShareArtifactCards.tsx src/api/shareArtifact.api.ts src/App.tsx`
+    - `client`: `npm run build`
+    - `server`: `npm run build`
+    - `server`: `npx jest src/services/__tests__/shareArtifact.service.test.ts src/controllers/__tests__/shareArtifact.controller.test.ts --runInBand`
+    - Playwright MCP/manual browser pass:
+      - opened `/share-artifacts`
+      - verified empty Decision Timeline disables export controls
+      - switched to Workspace Snapshot
+      - clicked Download PNG and confirmed `crevo-my-workspace-workspace-snapshot.png` downloaded
+      - clicked Copy image
+      - clicked Share
+      - checked mobile viewport and export-toolbar layout
+  - regressions checked:
+    - no browser console warnings/errors appeared in the clean export pass
+    - no `Maximum update depth exceeded` error appeared
+    - export output excludes sidebar/header/export toolbar
+  - follow-ups and risks:
+    - image copy depends on browser clipboard support and user permissions; unsupported browsers fall back to caption copy
+    - Web Share with files is browser/device dependent; unsupported environments fall back to caption copy
+    - `npm install html-to-image` reported existing audit findings in the client dependency tree; handle with a separate safe audit pass rather than mixing security remediation into this feature phase
+- Shareable artifacts Phase 5 - entry points and UX integration:
+  - what changed:
+    - added query-aware artifact selection on `/share-artifacts` so links can open directly to Decision Timeline or Workspace Snapshot
+    - added optional `conversationId` query support for Decision Timeline previews
+    - added a calm `Share timeline` secondary action inside group chat Decision Feed
+    - added `Share snapshot` from Workspace Manager Team Workload
+    - added `Share snapshot` inside the Sidebar Workspace Health overflow menu when Workspace Health is enabled
+    - refreshed stale helper copy now that image export is already implemented
+    - fixed existing Workspace Manager hook/lint issues around invite/workspace loader error handling while touching that screen
+  - why:
+    - makes share artifacts discoverable from the places users already think about decisions and workspace performance
+    - avoids adding another primary navigation item or making core screens noisier
+    - keeps snapshot entry points admin-oriented while Decision Timeline remains tied to the group conversation context
+  - files touched:
+    - `client/src/components/Sidebar.tsx`
+    - `client/src/components/share/ShareArtifactCards.tsx`
+    - `client/src/pages/Chat.tsx`
+    - `client/src/pages/ShareArtifacts.tsx`
+    - `client/src/pages/WorkspaceManager.tsx`
+    - `agent.md`
+  - tests run:
+    - `client`: `npx eslint src/pages/ShareArtifacts.tsx src/components/share/ShareArtifactCards.tsx src/pages/Chat.tsx src/pages/WorkspaceManager.tsx src/components/Sidebar.tsx src/App.tsx`
+    - `client`: `npm run build`
+    - `server`: `npm run build`
+    - `server`: `npx jest src/services/__tests__/shareArtifact.service.test.ts src/controllers/__tests__/shareArtifact.controller.test.ts --runInBand`
+    - Playwright MCP/manual browser pass:
+      - opened `/share-artifacts?type=workspace-snapshot` and verified Workspace Snapshot renders
+      - opened Chat group Decision Feed and clicked `Share timeline`
+      - verified navigation to `/share-artifacts?type=decision-timeline&conversationId=...`
+      - opened Workspace Manager Team Workload and clicked `Share snapshot`
+      - enabled Sidebar Workspace Health and clicked its overflow `Share snapshot`
+      - checked browser console after the final pass
+  - regressions checked:
+    - no browser console warnings or errors appeared in the clean final pass
+    - no `Maximum update depth exceeded` error appeared
+    - core chat, sidebar, workspace manager, and share artifact route navigation remained functional
+    - generated `server/dist` output was removed after build checks
+  - follow-ups and risks:
+    - Workspace Health is off by default, so its sidebar share entry appears only after the user enables that feature
+    - Phase 6 should focus on aesthetic polish of the cards now that entry points are stable
+    - Phase 7 should include full role-based visibility checks with a non-admin account for Workspace Snapshot restrictions
+- Shareable artifacts Phase 6 - Gen Z / aesthetic polish pass:
+  - what changed:
+    - refined the shared card shell to feel more like a polished artifact and less like an app panel
+    - reduced card corner radius for a cleaner, more premium SaaS direction
+    - softened borders/outlines and added controlled top-light accents instead of bright chrome
+    - added subtle grid, glow, and line treatments to improve export-card depth without visual noise
+    - added `Outcome card` and `Momentum card` micro-labels to clarify artifact purpose
+    - tightened mobile padding and metric-card spacing for small phone layouts
+    - improved Workspace Snapshot health block with status-aware accent line and quieter concentric detail
+    - improved Decision Timeline stat cards and timeline rows with subtler contributor chips and better hierarchy
+    - refined the `/share-artifacts` header/control surfaces to match the cleaner card language
+  - why:
+    - Phase 6 is about making the artifacts feel desirable to share, not just technically exportable
+    - the cards now communicate curated outcomes with stronger hierarchy, cleaner composition, and controlled Volt accents
+    - mobile export previews hold together better with less cramped spacing and fewer oversized rounded surfaces
+  - files touched:
+    - `client/src/components/share/ShareArtifactCards.tsx`
+    - `client/src/pages/ShareArtifacts.tsx`
+    - `agent.md`
+  - tests run:
+    - `client`: `npx eslint src/pages/ShareArtifacts.tsx src/components/share/ShareArtifactCards.tsx`
+    - `client`: `npm run build`
+    - `server`: `npm run build`
+    - `server`: `npx jest src/services/__tests__/shareArtifact.service.test.ts src/controllers/__tests__/shareArtifact.controller.test.ts --runInBand`
+    - Playwright MCP/manual browser pass:
+      - opened `/share-artifacts?type=workspace-snapshot` on desktop width
+      - captured `phase6-workspace-snapshot-desktop.png`
+      - checked mobile viewport at 390px wide
+      - captured `phase6-workspace-snapshot-mobile.png`
+      - scrolled the mobile inner container to inspect the snapshot card body and footer
+      - captured `phase6-workspace-snapshot-mobile-card.png`
+      - captured `phase6-workspace-snapshot-mobile-footer.png`
+      - opened `/share-artifacts?type=decision-timeline` and verified the empty state remained stable
+      - clicked Download PNG and confirmed `crevo-my-workspace-workspace-snapshot.png` still exports
+      - checked browser console after the pass
+  - regressions checked:
+    - no browser console warnings or errors appeared in the clean final pass
+    - no `Maximum update depth exceeded` error appeared
+    - PNG export still works after visual changes
+    - mobile preview scrolls inside the existing app content container and exposes the full share card footer
+    - generated `server/dist` output was removed after build checks
+  - follow-ups and risks:
+    - Decision Timeline visual richness depends on teams having real tagged decision data; current test workspace only showed the empty state
+    - Phase 7 should run the broader regression and role-visibility checks before considering the feature complete
+- Shareable artifacts Phase 7 - regression and reliability pass:
+  - what changed:
+    - no product code changes were needed in this phase
+    - ran a focused reliability sweep across the share artifact route, export flow, entry points, and adjacent product routes
+    - removed generated `server/dist` output after build verification
+  - why:
+    - Phase 7 is intended to prove the new share artifact system is stable before documentation/finalization
+    - this pass checks that the feature is reachable, exportable, scoped through the backend API, and not causing route or console regressions
+  - files touched:
+    - `agent.md`
+  - tests run:
+    - `client`: `npm run build`
+    - `client`: `npx eslint src/pages/ShareArtifacts.tsx src/components/share/ShareArtifactCards.tsx src/api/shareArtifact.api.ts src/App.tsx src/pages/Chat.tsx src/pages/WorkspaceManager.tsx src/components/Sidebar.tsx`
+    - `server`: `npm run build`
+    - `server`: `npx jest src/services/__tests__/shareArtifact.service.test.ts src/controllers/__tests__/shareArtifact.controller.test.ts --runInBand`
+    - Playwright MCP/manual browser pass:
+      - opened `/share-artifacts?type=workspace-snapshot`
+      - verified Workspace Snapshot renders with the current workspace data
+      - switched range to 14 days and verified the rendered period updated
+      - switched to Decision Timeline and verified the empty state rendered
+      - switched back to Workspace Snapshot and downloaded `crevo-my-workspace-workspace-snapshot.png`
+      - opened Chat group Decision Feed and verified `Share timeline` routes to `/share-artifacts?type=decision-timeline&conversationId=...`
+      - opened Workspace Manager Team Workload and verified `Share snapshot` routes to `/share-artifacts?type=workspace-snapshot`
+      - opened Sidebar Workspace Health menu and verified `Share snapshot` routes to `/share-artifacts?type=workspace-snapshot`
+      - swept `/dashboard`, `/chat?section=projects`, `/workspace-manager?section=team`, `/projects`, and `/share-artifacts?type=workspace-snapshot`
+      - reset the browser page and checked fresh console output after loading the share route
+      - inspected performance resource entries and confirmed the share route calls `/api/share/workspace-snapshot`
+  - regressions checked:
+    - no fresh browser console warnings or errors appeared
+    - no `Maximum update depth exceeded` error appeared
+    - PNG export still works
+    - share artifact entry points still route correctly
+    - surrounding routes still load without visible navigation breakage
+    - workspace snapshot data was fetched through the workspace-scoped backend endpoint
+  - role visibility notes:
+    - active browser session was a superAdmin workspace account, so Workspace Snapshot UI rendered as expected
+    - backend controller/service tests cover role and scoping behavior for the protected share endpoints
+    - a future QA pass can add a dedicated non-admin browser fixture to assert the restricted Workspace Snapshot state end-to-end
+  - follow-ups and risks:
+    - current Decision Timeline test workspace has no tagged decisions, so the real populated timeline visual still needs validation in a workspace with tagged decision data
+    - Phase 8 should document feature purpose, endpoints, UI placement, export behavior, role visibility, and future expansion ideas
+- Shareable artifacts Phase 8 - documentation:
+  - feature purpose:
+    - give Crevo a shareable artifact layer that turns meaningful workspace outcomes into polished cards users can post, send, or keep
+    - avoid raw dashboard screenshots; the system packages decisions, momentum, and workspace pressure into curated summaries
+    - first version supports two artifact types:
+      - Decision Timeline Share Card
+      - Workspace Snapshot Share Card
+  - artifact types implemented:
+    - Decision Timeline:
+      - summarizes tagged group-chat outcomes over a selected time range
+      - uses decision-oriented chat tags such as `decision`, `action-item`, and `blocker`
+      - includes workspace metadata, conversation/source context, decision text, contributor, timestamp, primary tag, and summary counts
+      - supports optional `conversationId` filtering from Chat Decision Feed entry points
+    - Workspace Snapshot:
+      - summarizes workspace delivery momentum over a selected time range
+      - includes completed tasks, overdue tasks, decisions made, blockers raised, active projects, completion rate, health score/status, highlights, and generated timestamp
+      - intentionally admin/superAdmin-only because it exposes workspace-wide performance signals
+  - backend endpoints/services:
+    - `GET /api/share/decision-timeline?from=ISO&to=ISO&conversationId?&limit?`
+      - route file: `server/src/routes/shareArtifact.routes.ts`
+      - controller: `server/src/controllers/shareArtifact.controller.ts`
+      - service: `server/src/services/shareArtifact.service.ts`
+      - auth chain: `verifyFirebaseToken`, `profileSync`, `requireAppUser`, `authorize(["admin", "superAdmin", "team_member", "member"])`
+      - service additionally scopes by `companyId` and active conversation membership
+    - `GET /api/share/workspace-snapshot?from=ISO&to=ISO`
+      - route file: `server/src/routes/shareArtifact.routes.ts`
+      - controller: `server/src/controllers/shareArtifact.controller.ts`
+      - service: `server/src/services/shareArtifact.service.ts`
+      - auth chain: `verifyFirebaseToken`, `profileSync`, `requireAppUser`, `authorize(["admin", "superAdmin"])`
+      - controller also returns `403` if `req.user.access` is not `admin` or `superAdmin`
+    - both endpoint ranges default through frontend presets and are constrained by backend validation so payloads stay focused
+  - frontend contracts and API client:
+    - type contracts live in `client/src/Types/types.ts`
+    - API wrapper lives in `client/src/api/shareArtifact.api.ts`
+    - preview route lives at `/share-artifacts`
+    - preview page lives in `client/src/pages/ShareArtifacts.tsx`
+    - card components live in `client/src/components/share/ShareArtifactCards.tsx`
+  - share/export implementation:
+    - export uses `html-to-image` `toBlob` against the rendered card node
+    - export output intentionally excludes the app shell, sidebar, toolbar, and surrounding controls
+    - supported actions:
+      - Download PNG
+      - Copy image using `ClipboardItem` where available
+      - Native share using Web Share API where available
+      - caption-copy fallback for unsupported browser/device environments
+    - PNG filenames use the pattern `crevo-{workspace}-{artifact-type}.png`
+    - export is disabled when no useful artifact exists, such as an empty Decision Timeline
+  - UI placement decisions:
+    - no primary navigation item was added to avoid product clutter
+    - Decision Timeline entry point:
+      - Chat group Decision Feed has `Share timeline`
+      - link includes `type=decision-timeline` and the active `conversationId`
+    - Workspace Snapshot entry points:
+      - Workspace Manager Team Workload has `Share snapshot`
+      - Sidebar Workspace Health overflow menu has `Share snapshot` when Workspace Health is enabled
+    - direct route:
+      - `/share-artifacts?type=decision-timeline`
+      - `/share-artifacts?type=decision-timeline&conversationId=...`
+      - `/share-artifacts?type=workspace-snapshot`
+  - role visibility rules:
+    - Decision Timeline is available to active workspace users who are authorized by the backend route and, when scoped to a conversation, are active conversation members
+    - Workspace Snapshot is restricted to admins and super admins in both frontend UI and backend route/controller logic
+    - non-admin users should see the restricted state in the frontend if they reach the snapshot route
+    - backend tests cover route/controller scoping; future browser QA should add a dedicated non-admin fixture for end-to-end visibility testing
+  - visual/design rules captured:
+    - cards should feel curated, not like dashboard screenshots
+    - use controlled Volt accents, quiet borders, premium spacing, and dark export-card surfaces
+    - keep microcopy confident and outcome-focused
+    - avoid noisy gradients, overdecorated effects, or childish visual language
+    - mobile cards must keep full content readable with tighter padding and stable scroll behavior
+  - testing completed across phases:
+    - server TypeScript builds
+    - client TypeScript/Vite builds
+    - targeted frontend ESLint for share-related files
+    - backend Jest tests for share artifact service/controller behavior
+    - Playwright/manual browser checks for:
+      - preview rendering
+      - range switching
+      - artifact switching
+      - empty state
+      - restricted/snapshot state by active role context
+      - PNG download
+      - copy/share flow where browser support allows
+      - mobile and desktop card rendering
+      - Chat Decision Feed entry point
+      - Workspace Manager entry point
+      - Sidebar Workspace Health entry point
+      - fresh console checks for warnings/errors
+      - no `Maximum update depth exceeded`
+  - known limitations:
+    - current test workspace did not include tagged decisions, so populated Decision Timeline visual QA still needs a real tagged-data workspace
+    - Workspace Snapshot health currently emphasizes task pressure, blockers, decisions, and project count; richer workload/capacity nuance can be added later
+    - image copy and native share depend on browser/device support and permissions
+    - no public hosted share-link system exists yet; v1 intentionally favors authenticated preview plus image export to reduce data-leak risk
+    - non-admin restricted-state browser QA should be automated with a fixture account in a future pass
+  - future expansion ideas:
+    - weekly `This week in Crevo` cards
+    - project completion cards
+    - approval milestone cards
+    - client-facing share cards with redacted/internal-safe data
+    - AI-written captions for social/email sharing
+    - social presets for LinkedIn, X, WhatsApp, and Slack
+    - custom card themes or aesthetic modes
+    - hosted expiring share links with audit logs and revocation
+    - scheduled recap generation for teams and agencies
+  - files touched:
+    - `agent.md`
+  - tests run:
+    - `client`: `npx eslint src/pages/ShareArtifacts.tsx src/components/share/ShareArtifactCards.tsx src/api/shareArtifact.api.ts src/App.tsx src/pages/Chat.tsx src/pages/WorkspaceManager.tsx src/components/Sidebar.tsx`
+    - `server`: `npx tsc --noEmit`
+    - `server`: `npx jest src/services/__tests__/shareArtifact.service.test.ts src/controllers/__tests__/shareArtifact.controller.test.ts --runInBand`
+  - regressions checked:
+    - no product source files changed in Phase 8
+    - documentation only; no browser UI pass required because no UI/runtime behavior changed
+    - server no-emit typecheck avoids generating `server/dist`
+  - final status:
+    - Phases 1-8 are complete for the MVP shareable artifact system
+    - next meaningful work should be either populated-data QA for Decision Timeline or future expansion, not more MVP infrastructure
