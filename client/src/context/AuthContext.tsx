@@ -152,6 +152,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error("Failed to create user profile");
       }
 
+      setCurrentUser(userCredential.user);
+      const status = await authAPI.getStatus(token);
+      setAuthStatus(status);
+
       return {
         user: userCredential.user,
         error: null,
