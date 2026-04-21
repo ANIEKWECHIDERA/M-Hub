@@ -1,8 +1,11 @@
 import posthog from "posthog-js";
 
 const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY?.trim();
+const configuredPostHogHost = import.meta.env.VITE_POSTHOG_HOST?.trim();
 const POSTHOG_HOST =
-  import.meta.env.VITE_POSTHOG_HOST?.trim() || "https://us.i.posthog.com";
+  configuredPostHogHost && !configuredPostHogHost.includes("posthog.com")
+    ? configuredPostHogHost
+    : "/ingest";
 
 let initialized = false;
 
