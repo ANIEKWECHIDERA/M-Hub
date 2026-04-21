@@ -20,6 +20,7 @@ const Notepad = lazy(() => import("./pages/Notepad"));
 const Tools = lazy(() => import("./pages/Tools"));
 const Settings = lazy(() => import("./pages/Settings"));
 const WorkspaceManager = lazy(() => import("./pages/WorkspaceManager"));
+const ShareArtifacts = lazy(() => import("./pages/ShareArtifacts"));
 const ProjectDetailWrapper = lazy(
   () => import("./pages/projectDetail/ProjectDetailWrapper"),
 );
@@ -205,6 +206,7 @@ function AppWithAuth() {
                 </AdminOnlyRoute>
               }
             />
+            <Route path="share-artifacts" element={<ShareArtifacts />} />
             <Route path="mytasks" element={<MyTasksPage />} />
             <Route path="projectdetails/:id" element={<ProjectDetailWrapper />} />
           </Route>

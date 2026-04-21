@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { TeamMemberController } from "../controllers/teamMember.controller";
-import authenticate from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
 import { profileSync } from "../middleware/profileSync.middleware";

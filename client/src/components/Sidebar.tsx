@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   CircleDot,
   HelpCircle,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/context/AuthContext";
@@ -1091,6 +1092,15 @@ function SidebarPanel({
                     <DropdownMenuItem asChild>
                       <Link to="/projects" onClick={handleNavClick}>
                         Review workspace projects
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/share-artifacts?type=workspace-snapshot"
+                        onClick={handleNavClick}
+                      >
+                        <Share2 className="mr-2 h-4 w-4" />
+                        Share snapshot
                       </Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

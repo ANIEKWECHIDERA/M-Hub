@@ -227,6 +227,74 @@ export type DashboardRetentionSnapshot = {
   workspaceHealth: WorkspaceHealthScore | null;
 };
 
+export type ChatMessageTag =
+  | "decision"
+  | "action-item"
+  | "blocker"
+  | "update"
+  | "question"
+  | "follow-up";
+
+export type ShareArtifactWorkspace = {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+};
+
+export type DecisionTimelineArtifact = {
+  artifactType: "decision-timeline";
+  workspace: ShareArtifactWorkspace;
+  range: {
+    from: string;
+    to: string;
+    label: string;
+  };
+  summary: {
+    decisions: number;
+    actionItems: number;
+    blockers: number;
+    contributors: number;
+  };
+  items: Array<{
+    id: string;
+    messageId: string;
+    conversationId: string;
+    conversationName: string;
+    decisionText: string;
+    primaryTag: ChatMessageTag;
+    tags: ChatMessageTag[];
+    contributor: {
+      id: string | null;
+      name: string;
+      avatar: string | null;
+    };
+    createdAt: string;
+    approvalState: null;
+  }>;
+  generatedAt: string;
+};
+
+export type WorkspaceSnapshotArtifact = {
+  artifactType: "workspace-snapshot";
+  workspace: ShareArtifactWorkspace;
+  range: {
+    from: string;
+    to: string;
+    label: string;
+  };
+  metrics: {
+    completedTasks: number;
+    overdueTasks: number;
+    decisionsMade: number;
+    blockersRaised: number;
+    activeProjects: number;
+    completionRate: number;
+  };
+  health: WorkspaceHealthScore;
+  highlights: string[];
+  generatedAt: string;
+};
+
 //////////////// TeamContextTypes ////////////////
 export interface TeamMember {
   id: string;

@@ -61,6 +61,7 @@ import {
   Upload,
   Users,
   AlertCircle,
+  Share2,
 } from "lucide-react";
 import { useAuthContext } from "@/context/AuthContext";
 import { useTeamContext } from "@/context/TeamMemberContext";
@@ -136,6 +137,10 @@ const roleLabels = {
 
 const compactBadgeClass =
   "inline-flex h-6 min-w-[6.5rem] items-center justify-center rounded-full px-2 text-[10px] font-medium sm:text-xs";
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 function OverflowTooltip({
   label,
@@ -418,8 +423,8 @@ export default function WorkspaceManager() {
     try {
       const response = await inviteAPI.list(idToken);
       setInvites(response.invites);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load invites");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to load invites"));
     } finally {
       setInvitesLoading(false);
     }
@@ -430,9 +435,11 @@ export default function WorkspaceManager() {
 
     setLoading(!peekManagerSnapshot(authStatus?.companyId));
     loadWorkspaceManager()
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         if (!cancelled) {
-          toast.error(error.message || "Failed to load workspace manager");
+          toast.error(
+            getErrorMessage(error, "Failed to load workspace manager"),
+          );
         }
       })
       .finally(() => {
@@ -444,7 +451,7 @@ export default function WorkspaceManager() {
     return () => {
       cancelled = true;
     };
-  }, [authStatus?.companyId, getManagerSnapshot, peekManagerSnapshot]);
+  }, [authStatus?.companyId, loadWorkspaceManager, peekManagerSnapshot]);
 
   useEffect(() => {
     setDeleteConfirmation("");
@@ -542,8 +549,8 @@ export default function WorkspaceManager() {
   }) => {
     await inviteMember(payload);
     setIsInviteDialogOpen(false);
-    void loadInvites().catch((error: any) => {
-      toast.error(error?.message || "Failed to refresh invites");
+    void loadInvites().catch((error: unknown) => {
+      toast.error(getErrorMessage(error, "Failed to refresh invites"));
     });
   };
 
@@ -634,8 +641,8 @@ export default function WorkspaceManager() {
 
       setLogoFile(null);
       toast.success("Workspace updated");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update workspace");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update workspace"));
     } finally {
       setSaving(false);
     }
@@ -659,8 +666,8 @@ export default function WorkspaceManager() {
       await refreshWorkspaces({ force: true });
       toast.success("Workspace deleted");
       navigate("/dashboard", { replace: true });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete workspace");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete workspace"));
     } finally {
       setDeleting(false);
     }
@@ -939,7 +946,21 @@ export default function WorkspaceManager() {
 
           <Card className="app-surface">
             <CardHeader>
-              <CardTitle>Team Workload</CardTitle>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle>Team Workload</CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() =>
+                    navigate("/share-artifacts?type=workspace-snapshot")
+                  }
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share snapshot
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto rounded-xl border">
