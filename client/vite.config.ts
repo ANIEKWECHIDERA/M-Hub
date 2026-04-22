@@ -7,10 +7,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/ingest": {
+      "/api/events": {
         target: "https://us.i.posthog.com",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/ingest/, ""),
+        rewrite: (path) => path.replace(/^\/api\/events/, ""),
       },
     },
   },
@@ -45,7 +45,7 @@ export default defineConfig({
           }
 
           if (id.includes("/posthog-js/")) {
-            return "vendor-analytics";
+            return "vendor-insights";
           }
 
           if (id.includes("/framer-motion/") || id.includes("/motion-dom/")) {
