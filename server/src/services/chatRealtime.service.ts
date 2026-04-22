@@ -1,6 +1,9 @@
 import { EventEmitter } from "events";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "../config/supabaseClient";
+import {
+  supabaseAdmin,
+  supabaseServiceRoleKey,
+} from "../config/supabaseClient";
 import { prisma } from "../lib/prisma";
 import { ChatMessageListItem, ChatRealtimeEvent } from "../types/chat.types";
 import { logger } from "../utils/logger";
@@ -104,7 +107,7 @@ class ChatRealtimeService {
 
     const presenceClient = createClient(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_KEY!,
+      supabaseServiceRoleKey,
     );
     const channel = presenceClient.channel(`chat-presence:${companyId}`, {
       config: {
