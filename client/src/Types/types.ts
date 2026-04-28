@@ -787,6 +787,7 @@ export interface AuthContextType {
     user: User | null;
     error: string | null;
     uidToDeleteOnError: string | null;
+    cleanupTokenOnError: string | null;
   }>;
   signIn: (
     email: string,

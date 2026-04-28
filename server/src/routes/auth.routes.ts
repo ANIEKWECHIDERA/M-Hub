@@ -31,6 +31,11 @@ router.post(
   AuthController.logout,
 );
 
-router.post("/deleteFirebaseUserId", AuthController.deleteFirebaseUser);
+router.post(
+  "/deleteFirebaseUserId",
+  authLimiter,
+  verifyFirebaseToken,
+  AuthController.deleteFirebaseUser,
+);
 
 export default router;

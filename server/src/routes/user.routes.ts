@@ -4,7 +4,7 @@ import { withAuth } from "../utils/withAuth";
 import { createUserLimiter } from "../middleware/rateLimiter";
 import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
 import { profileSync } from "../middleware/profileSync.middleware";
-import { upload } from "../middleware/upload";
+import { avatarUpload } from "../middleware/upload";
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.patch(
   "/user",
   verifyFirebaseToken,
   profileSync,
-  upload.single("avatar"),
+  avatarUpload.single("avatar"),
   withAuth(UserController.updateUser),
 );
 router.delete(

@@ -29,6 +29,7 @@ import shareArtifactRoutes from "./routes/shareArtifact.routes";
 import { chatRealtimeService } from "./services/chatRealtime.service";
 import { requestContext } from "./middleware/requestContext.middleware";
 import { captureRequestException, isSentryEnabled, sentry } from "./observability/sentry";
+import { AppHttpError, sendPublicError } from "./utils/httpErrors";
 
 const app = express();
 chatRealtimeService.initialize();
@@ -136,13 +137,32 @@ app.use(
 
     // Multer errors
     if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(413).json({
-        error: "File too large (max 20MB)",
+      return sendPublicError(req, res, {
+        status: 413,
+        error: "File too large",
+        code: "FILE_TOO_LARGE",
+        details: {
+          maxSizeMb: 20,
+        },
       });
     }
 
-    return res.status(err.status || 500).json({
-      error: err.message || "Internal server error",
+    if (err instanceof AppHttpError) {
+      return sendPublicError(req, res, {
+        status: err.status,
+        error: err.expose ? err.message : "Something went wrong",
+        code: err.code,
+        details: err.expose ? err.details : undefined,
+      });
+    }
+
+    return sendPublicError(req, res, {
+      status: err.status || 500,
+      error:
+        err.status && err.status < 500
+          ? err.message || "Request failed"
+          : "Something went wrong",
+      code: err.code || "INTERNAL_SERVER_ERROR",
     });
   },
 );

@@ -5,27 +5,9 @@ import { authorize } from "../middleware/authorize";
 import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
 import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
-import multer from "multer";
+import { workspaceLogoUpload } from "../middleware/upload";
 
 const router = Router();
-const allowedWorkspaceLogoMimeTypes = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/svg+xml",
-]);
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  fileFilter: (_req, file, callback) => {
-    if (!allowedWorkspaceLogoMimeTypes.has(file.mimetype)) {
-      callback(new Error("Only JPG, PNG, WebP, or SVG workspace logos are allowed."));
-      return;
-    }
-
-    callback(null, true);
-  },
-});
 
 router.get(
   "/company",
@@ -40,7 +22,7 @@ router.post(
   "/company",
   verifyFirebaseToken,
   profileSync,
-  upload.single("logo"),
+  workspaceLogoUpload.single("logo"),
   CompanyController.createCompany,
 );
 
@@ -50,7 +32,7 @@ router.patch(
   profileSync,
   requireAppUser,
   authorize(["superAdmin"]),
-  upload.single("logo"),
+  workspaceLogoUpload.single("logo"),
   CompanyController.updateCompany,
 );
 

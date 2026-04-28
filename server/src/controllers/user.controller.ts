@@ -5,6 +5,7 @@ import { logger } from "../utils/logger";
 import { AuthenticatedRequest } from "../types/authenticatedRequest";
 import { CreateUserDTO, UpdateUserDTO } from "../dtos/user.dto";
 import { isTeamMemberHttpError } from "../services/teamMemberErrors";
+import { sendPublicError } from "../utils/httpErrors";
 
 export const UserController = {
   async getUser(req: AuthenticatedRequest, res: Response) {
@@ -12,7 +13,11 @@ export const UserController = {
 
     const user = await UserService.findByFirebaseUid(firebaseUid);
     if (!user) {
-      return res.status(404).json({ error: "Profile not found" });
+      return sendPublicError(req, res, {
+        status: 404,
+        error: "Profile not found",
+        code: "PROFILE_NOT_FOUND",
+      });
     }
 
     return res.json({ profile: user });
@@ -40,9 +45,11 @@ export const UserController = {
 
     const parsed = UpdateUserDTO.safeParse(normalizedBody);
     if (!parsed.success) {
-      return res.status(400).json({
+      return sendPublicError(req, res, {
+        status: 400,
         error: "Invalid update payload",
-        issues: parsed.error.flatten(),
+        code: "USER_UPDATE_INVALID",
+        details: parsed.error.flatten(),
       });
     }
 
@@ -58,8 +65,10 @@ export const UserController = {
       updates.terms_accepted === true || !!req.user.terms_accepted;
 
     if (updates.profile_complete && !hasAcceptedTerms) {
-      return res.status(400).json({
+      return sendPublicError(req, res, {
+        status: 400,
         error: "Terms must be accepted before completing profile",
+        code: "TERMS_REQUIRED",
       });
     }
 
@@ -97,7 +106,8 @@ export const UserController = {
       return res.json({ success: true });
     } catch (error) {
       if (isTeamMemberHttpError(error)) {
-        return res.status(error.statusCode).json({
+        return sendPublicError(req, res, {
+          status: error.statusCode,
           error: error.message,
           code: error.code,
         });
@@ -109,14 +119,20 @@ export const UserController = {
 
   async createUser(req: AuthenticatedRequest, res: Response) {
     if (!req.user?.uid) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return sendPublicError(req, res, {
+        status: 401,
+        error: "Unauthorized",
+        code: "AUTH_REQUIRED",
+      });
     }
 
     const parsed = CreateUserDTO.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({
+      return sendPublicError(req, res, {
+        status: 400,
         error: "Invalid request data",
-        issues: parsed.error.flatten(),
+        code: "USER_CREATE_INVALID",
+        details: parsed.error.flatten(),
       });
     }
 
@@ -126,15 +142,21 @@ export const UserController = {
     const email = req.user.email ?? parsed.data.email;
 
     if (!email) {
-      return res.status(400).json({ error: "Email is required" });
+      return sendPublicError(req, res, {
+        status: 400,
+        error: "Email is required",
+        code: "EMAIL_REQUIRED",
+      });
     }
 
     try {
       const existingByEmail = await UserService.findByEmail(email);
 
       if (existingByEmail && existingByEmail.firebase_uid !== firebase_uid) {
-        return res.status(409).json({
+        return sendPublicError(req, res, {
+          status: 409,
           error: "A user with this email already exists",
+          code: "USER_EMAIL_EXISTS",
         });
       }
 
@@ -163,9 +185,11 @@ export const UserController = {
         error: error.message,
       });
 
-      return res
-        .status(500)
-        .json({ error: "User creation failed", details: error.message });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "User creation failed",
+        code: "USER_CREATE_FAILED",
+      });
     }
   },
 };

@@ -159,6 +159,7 @@ export default function SignUpPage() {
         user,
         error,
         uidToDeleteOnError: errorUidToDelete,
+        cleanupTokenOnError,
       } = await signUp(
         formData.email,
         formData.password,
@@ -170,7 +171,7 @@ export default function SignUpPage() {
 
       if (error || !user) {
         console.log("User signed failed:", errorUidToDelete);
-        if (errorUidToDelete) {
+        if (errorUidToDelete && cleanupTokenOnError) {
           console.log(`firebase User: ${errorUidToDelete} needs deletion`);
           try {
             console.log(
@@ -185,6 +186,7 @@ export default function SignUpPage() {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
+                  Authorization: `Bearer ${cleanupTokenOnError}`,
                 },
                 body: JSON.stringify({ uid: errorUidToDelete }), // Pass the Firebase UID to the backend
               },

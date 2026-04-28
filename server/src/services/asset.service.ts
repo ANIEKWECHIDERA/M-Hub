@@ -5,12 +5,43 @@ import { CreateAssetDTO } from "../types/asset.types";
 import { logger } from "../utils/logger";
 import streamifier from "streamifier";
 import { v4 as uuidv4 } from "uuid";
+import { AppHttpError } from "../utils/httpErrors";
+
+const SAFE_ASSET_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
 
 export const AssetService = {
   async uploadToCloudinary(
     file: Express.Multer.File,
     companyId: string
   ): Promise<UploadApiResponse> {
+    if (!SAFE_ASSET_MIME_TYPES.has(file.mimetype)) {
+      throw new AppHttpError(
+        400,
+        "UPLOAD_TYPE_NOT_ALLOWED",
+        "This asset type is not allowed.",
+        {
+          details: {
+            fileName: file.originalname,
+            mimeType: file.mimetype,
+          },
+        },
+      );
+    }
+
     logger.info("Asset.uploadToCloudinary:start", {
       companyId,
       filename: file.originalname,

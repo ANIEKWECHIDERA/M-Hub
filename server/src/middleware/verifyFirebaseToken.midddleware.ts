@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import admin from "../config/firebaseAdmin";
 import { RequestCacheService } from "../services/requestCache.service";
 import { logger } from "../utils/logger";
+import { sendPublicError } from "../utils/httpErrors";
 
 export async function verifyFirebaseToken(
   req: Request,
@@ -16,7 +17,11 @@ export async function verifyFirebaseToken(
       method: req.method,
     });
 
-    return res.status(401).json({ error: "verifyFirebaseToken: Unauthorized" });
+    return sendPublicError(req, res, {
+      status: 401,
+      error: "Unauthorized",
+      code: "AUTH_HEADER_MISSING",
+    });
   }
 
   const token = authHeader.replace("Bearer ", "");
@@ -47,6 +52,10 @@ export async function verifyFirebaseToken(
       path: req.path,
     });
 
-    return res.status(401).json({ error: "Invalid or expired token" });
+    return sendPublicError(req, res, {
+      status: 401,
+      error: "Invalid or expired token",
+      code: "AUTH_TOKEN_INVALID",
+    });
   }
 }

@@ -2,6 +2,13 @@ import { UploadApiResponse } from "cloudinary";
 import streamifier from "streamifier";
 import cloudinary from "../config/cloudinary";
 import { logger } from "../utils/logger";
+import { AppHttpError } from "../utils/httpErrors";
+
+const SAFE_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 function sanitizeFolderSegment(value: string) {
   return value.trim().replace(/[^a-zA-Z0-9-_]/g, "_");
@@ -13,6 +20,20 @@ export const MediaService = {
     folder: string,
     publicId?: string,
   ): Promise<UploadApiResponse> {
+    if (!SAFE_IMAGE_MIME_TYPES.has(file.mimetype)) {
+      throw new AppHttpError(
+        400,
+        "UPLOAD_TYPE_NOT_ALLOWED",
+        "Only JPG, PNG, and WebP images are allowed.",
+        {
+          details: {
+            fileName: file.originalname,
+            mimeType: file.mimetype,
+          },
+        },
+      );
+    }
+
     logger.info("MediaService.uploadImage:start", {
       filename: file.originalname,
       folder,

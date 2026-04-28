@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { CompanyService } from "../services/company.service";
 import { MediaService } from "../services/media.service";
 import { logger } from "../utils/logger";
+import { sendPublicError } from "../utils/httpErrors";
 
 export const CompanyController = {
   async getCompany(req: any, res: Response) {
@@ -12,13 +13,21 @@ export const CompanyController = {
       const company = await CompanyService.findById(companyId);
 
       if (!company) {
-        return res.status(404).json({ error: "Company not found" });
+        return sendPublicError(req, res, {
+          status: 404,
+          error: "Company not found",
+          code: "COMPANY_NOT_FOUND",
+        });
       }
 
       return res.json(company);
     } catch (error) {
       logger.error("getCompany failed", { error });
-      return res.status(500).json({ error: "Failed to fetch company" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Failed to fetch company",
+        code: "COMPANY_FETCH_FAILED",
+      });
     }
   },
 
@@ -35,7 +44,11 @@ export const CompanyController = {
       });
 
       if (!req.user) {
-        return res.status(401).json({ error: "Unauthorized" });
+        return sendPublicError(req, res, {
+          status: 401,
+          error: "Unauthorized",
+          code: "AUTH_REQUIRED",
+        });
       }
 
       const payload = {
@@ -58,9 +71,10 @@ export const CompanyController = {
       logger.error("CompanyController.createCompany failed", {
         error: error instanceof Error ? error.message : error,
       });
-      return res.status(500).json({
+      return sendPublicError(req, res, {
+        status: 500,
         error: "Failed to create company",
-        details: error instanceof Error ? error.message : error,
+        code: "COMPANY_CREATE_FAILED",
       });
     }
   },
@@ -85,7 +99,11 @@ export const CompanyController = {
       const company = await CompanyService.update(companyId, payload);
 
       if (!company) {
-        return res.status(404).json({ error: "Company not found" });
+        return sendPublicError(req, res, {
+          status: 404,
+          error: "Company not found",
+          code: "COMPANY_NOT_FOUND",
+        });
       }
 
       return res.json(company);
@@ -93,7 +111,11 @@ export const CompanyController = {
       logger.error("updateCompany failed", {
         error: error instanceof Error ? error.message : error,
       });
-      return res.status(500).json({ error: "Failed to update company" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Failed to update company",
+        code: "COMPANY_UPDATE_FAILED",
+      });
     }
   },
 
@@ -106,9 +128,17 @@ export const CompanyController = {
     } catch (error) {
       logger.error("deleteCompany failed", { error });
       if (error instanceof Error && error.message === "Company not found") {
-        return res.status(404).json({ error: "Company not found" });
+        return sendPublicError(req, res, {
+          status: 404,
+          error: "Company not found",
+          code: "COMPANY_NOT_FOUND",
+        });
       }
-      return res.status(500).json({ error: "Failed to delete company" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Failed to delete company",
+        code: "COMPANY_DELETE_FAILED",
+      });
     }
   },
 };

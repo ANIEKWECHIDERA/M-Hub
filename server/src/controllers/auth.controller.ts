@@ -4,6 +4,7 @@ import admin, { revokeUserTokens } from "../config/firebaseAdmin";
 import { SyncUserDTO, DeleteFirebaseUserDTO } from "../types/auth.types";
 import { logger } from "../utils/logger";
 import { TeamMemberService } from "../services/teamMember.service";
+import { sendPublicError } from "../utils/httpErrors";
 
 export const AuthController = {
   /**
@@ -18,7 +19,11 @@ export const AuthController = {
       logger.warn("syncUser: Firebase UID is missing in request", {
         path: req.path,
       });
-      return res.status(401).json({ error: "Unauthorized" });
+      return sendPublicError(req, res, {
+        status: 401,
+        error: "Unauthorized",
+        code: "AUTH_REQUIRED",
+      });
     }
 
     const payload: SyncUserDTO = req.body;
@@ -80,7 +85,11 @@ export const AuthController = {
         error: error.message,
         stack: error.stack,
       });
-      return res.status(500).json({ error: "Failed to sync user" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Failed to sync user",
+        code: "AUTH_SYNC_FAILED",
+      });
     }
   },
 
@@ -100,7 +109,11 @@ export const AuthController = {
         path: req.path,
         userId: req.user?.id ?? req.user?.user_id ?? null,
       });
-      return res.status(401).json({ error: "Unauthorized" });
+      return sendPublicError(req, res, {
+        status: 401,
+        error: "Unauthorized",
+        code: "AUTH_REQUIRED",
+      });
     }
 
     try {
@@ -136,12 +149,18 @@ export const AuthController = {
         logger.warn("checkProfileComplete: User not found in Supabase", {
           firebaseUid,
         });
-        return res.status(404).json({ error: "User not found" });
+        return sendPublicError(req, res, {
+          status: 404,
+          error: "User not found",
+          code: "USER_NOT_FOUND",
+        });
       }
 
-      return res
-        .status(500)
-        .json({ error: "Failed to check onboarding state" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Failed to check onboarding state",
+        code: "AUTH_STATUS_FAILED",
+      });
     }
   },
 
@@ -153,7 +172,11 @@ export const AuthController = {
     const firebaseUid = req.user?.uid;
 
     if (!firebaseUid) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return sendPublicError(req, res, {
+        status: 401,
+        error: "Unauthorized",
+        code: "AUTH_REQUIRED",
+      });
     }
 
     try {
@@ -169,7 +192,11 @@ export const AuthController = {
         firebaseUid,
         error,
       });
-      return res.status(500).json({ error: "Logout failed" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Logout failed",
+        code: "LOGOUT_FAILED",
+      });
     }
   },
 
@@ -179,35 +206,66 @@ export const AuthController = {
    */
   async deleteFirebaseUser(req: Request, res: Response) {
     const payload: DeleteFirebaseUserDTO = req.body;
+    const authenticatedUid = req.user?.uid;
 
     if (!payload.uid) {
-      return res.status(400).json({ error: "UID is required" });
+      return sendPublicError(req, res, {
+        status: 400,
+        error: "UID is required",
+        code: "UID_REQUIRED",
+      });
+    }
+
+    if (!authenticatedUid) {
+      return sendPublicError(req, res, {
+        status: 401,
+        error: "Unauthorized",
+        code: "AUTH_REQUIRED",
+      });
+    }
+
+    if (payload.uid !== authenticatedUid) {
+      logger.warn("AuthController.deleteFirebaseUser denied uid mismatch", {
+        authenticatedUid,
+        requestedUid: payload.uid,
+      });
+
+      return sendPublicError(req, res, {
+        status: 403,
+        error:
+          "You can only remove the orphaned account tied to your current sign-up session.",
+        code: "UID_MISMATCH",
+      });
     }
 
     try {
       logger.warn("AuthController.deleteFirebaseUser", {
         uid: payload.uid,
+        authenticatedUid,
       });
 
       await admin.auth().deleteUser(payload.uid);
 
       logger.info("Firebase user deleted", { uid: payload.uid });
 
-      return (
-        res.status(200).json({
-          message: "User deleted successfully",
-        }),
-        logger.info("AuthController.deleteFirebaseUser completed", {
-          uid: payload.uid,
-        })
-      );
+      logger.info("AuthController.deleteFirebaseUser completed", {
+        uid: payload.uid,
+      });
+
+      return res.status(200).json({
+        message: "User deleted successfully",
+      });
     } catch (error: any) {
       logger.error("AuthController.deleteFirebaseUser failed", {
         uid: payload.uid,
         error,
       });
 
-      return res.status(500).json({ error: "Failed to delete user" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Failed to delete user",
+        code: "FIREBASE_DELETE_FAILED",
+      });
     }
   },
 };

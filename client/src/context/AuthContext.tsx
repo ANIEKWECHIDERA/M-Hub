@@ -128,6 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     termsAccepted: boolean,
   ) => {
     let uidToDelete: string | null = null;
+    let cleanupTokenOnError: string | null = null;
 
     try {
       clearError();
@@ -141,6 +142,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       );
 
       const token = await fetchToken(userCredential.user);
+      cleanupTokenOnError = token;
       uidToDelete = userCredential.user.uid;
 
       const res = await authAPI.createProfile(
@@ -160,6 +162,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user: userCredential.user,
         error: null,
         uidToDeleteOnError: null,
+        cleanupTokenOnError: null,
       };
     } catch (err: any) {
       let message = err.message;
@@ -177,7 +180,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       setError(message);
-      return { user: null, error: message, uidToDeleteOnError: uidToDelete };
+      return {
+        user: null,
+        error: message,
+        uidToDeleteOnError: uidToDelete,
+        cleanupTokenOnError,
+      };
     } finally {
       signupInProgressRef.current = false;
       setAuthLoading(false);

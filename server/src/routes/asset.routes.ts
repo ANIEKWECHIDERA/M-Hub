@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { AssetController } from "../controllers/asset.controller";
 import { authorize } from "../middleware/authorize";
-import { upload } from "../middleware/upload";
+import { assetUpload } from "../middleware/upload";
 import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.midddleware";
 import { profileSync } from "../middleware/profileSync.middleware";
 import { requireAppUser } from "../middleware/requireAppUser.middleware";
@@ -13,7 +13,7 @@ router.post(
   "/assets/upload",
   ...protectedRoute,
   authorize(["admin", "superAdmin", "team_member"]),
-  upload.array("files", 5),
+  assetUpload.array("files", 5),
   AssetController.upload,
 );
 

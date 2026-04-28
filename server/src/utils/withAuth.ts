@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { AuthenticatedRequest } from "../types/authenticatedRequest";
 import { AppUser } from "../types/types";
+import { sendPublicError } from "./httpErrors";
 
 declare global {
   namespace Express {
@@ -17,7 +18,11 @@ export function withAuth(
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return sendPublicError(req, res, {
+        status: 401,
+        error: "Unauthorized",
+        code: "AUTH_REQUIRED",
+      });
     }
 
     return handler(req as AuthenticatedRequest, res).catch(next);

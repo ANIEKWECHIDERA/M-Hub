@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AssetService } from "../services/asset.service";
 import { NotificationService } from "../services/notification.service";
 import { logger } from "../utils/logger";
+import { sendPublicError } from "../utils/httpErrors";
 
 export const AssetController = {
   async upload(req: any, res: Response) {
@@ -18,7 +19,11 @@ export const AssetController = {
     });
 
     if (!files || files.length === 0) {
-      return res.status(400).json({ error: "At least one file is required" });
+      return sendPublicError(req, res, {
+        status: 400,
+        error: "At least one file is required",
+        code: "FILES_REQUIRED",
+      });
     }
 
     try {
@@ -68,7 +73,11 @@ export const AssetController = {
       return res.status(201).json(assets);
     } catch (error) {
       logger.error("Asset.upload:error", { companyId, error });
-      return res.status(500).json({ error: "Asset upload failed" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Asset upload failed",
+        code: "ASSET_UPLOAD_FAILED",
+      });
     }
   },
 
@@ -80,7 +89,11 @@ export const AssetController = {
       return res.json(assets);
     } catch (error) {
       logger.error("Asset.getAll:error", { companyId, error });
-      return res.status(500).json({ error: "Failed to fetch assets" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Failed to fetch assets",
+        code: "ASSET_LIST_FAILED",
+      });
     }
   },
 
@@ -91,13 +104,21 @@ export const AssetController = {
     try {
       const asset = await AssetService.findById(id, companyId);
       if (!asset) {
-        return res.status(404).json({ error: "Asset not found" });
+        return sendPublicError(req, res, {
+          status: 404,
+          error: "Asset not found",
+          code: "ASSET_NOT_FOUND",
+        });
       }
 
       return res.json(asset);
     } catch (error) {
       logger.error("Asset.getById:error", { id, companyId, error });
-      return res.status(500).json({ error: "Failed to fetch asset" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Failed to fetch asset",
+        code: "ASSET_FETCH_FAILED",
+      });
     }
   },
 
@@ -124,8 +145,10 @@ export const AssetController = {
         error,
       });
 
-      return res.status(500).json({
+      return sendPublicError(req, res, {
+        status: 500,
         error: "Failed to fetch project assets",
+        code: "PROJECT_ASSET_FETCH_FAILED",
       });
     }
   },
@@ -139,7 +162,11 @@ export const AssetController = {
       return res.json({ success: true });
     } catch (error) {
       logger.error("Asset.delete:error", { id, companyId, error });
-      return res.status(500).json({ error: "Failed to delete asset" });
+      return sendPublicError(req, res, {
+        status: 500,
+        error: "Failed to delete asset",
+        code: "ASSET_DELETE_FAILED",
+      });
     }
   },
 };
